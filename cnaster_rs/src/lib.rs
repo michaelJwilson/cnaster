@@ -133,21 +133,24 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_triangular_lattice_positions() {
-        let nx = 4;
-        let ny = 3;
-
+    fn test_triangular_lattice_positions_large() {
+        // 4992 = 52 * 96
+        let nx = 52;
+        let ny = 96;
         let z = 2.5;
-        
+
         let positions = get_triangular_lattice(nx, ny, z);
 
-        // The new function returns shape (nx * ny, 3)
+        println!("Positions: {:?}", positions);
+
+        // The function returns shape (nx * ny, 3)
         assert_eq!(positions.shape(), &[nx * ny, 3]);
+        assert_eq!(positions.shape(), &[4992, 3]);
 
-        for i in 0..(nx * ny) {
-            assert!((positions[[i, 2]] - z).abs() < 1e-12);
-        }
+        // Check all z values
+        assert!(positions.column(2).iter().all(|&zi| (zi - z).abs() < 1e-12));
 
+        // Spot check a few positions
         // (0,0)
         assert!((positions[[0, 0]] - 0.0).abs() < 1e-12);
         assert!((positions[[0, 1]] - 0.0).abs() < 1e-12);

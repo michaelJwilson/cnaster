@@ -126,6 +126,33 @@ pub fn get_triangular_lattice(nx: usize, ny: usize, x0: Vec<f64>, z: f64) -> Arr
     positions
 }
 
+#[pyfunction]
+#[pyo3(name = "get_triangular_lattice")]
+fn py_get_triangular_lattice(
+    nx: usize,
+    ny: usize,
+    z: f64,
+    x0: Option<(f64, f64)>,
+) -> PyResult<Array2<f64>> {
+    let x0 = x0.unwrap_or((0.0, 0.0));
+    let positions = get_triangular_lattice(
+        nx,
+        ny,
+        vec![x0.0, x0.1],
+        z,
+    );
+
+    Ok(positions)
+}
+
+#[pymodule]
+#[pyo3(name = "core")]
+fn core(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
+    m.add_function(wrap_pyfunction!(py_get_triangular_lattice, m)?)?;
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

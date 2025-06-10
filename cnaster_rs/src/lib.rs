@@ -147,8 +147,8 @@ fn py_get_triangular_lattice<'py>(
 }
 
 #[pymodule]
-#[pyo3(name = "core")]
-fn core(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
+#[pyo3(name = "cnaster_rs")]
+fn cnaster_rs(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_get_triangular_lattice, m)?)?;
 
     Ok(())

@@ -1,0 +1,3 @@
+uv pip install jupyter ipykernel
+
+python -m ipykernel install --user --name cnaster --display-name "Python (cnaster)"

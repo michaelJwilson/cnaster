@@ -1,6 +1,7 @@
 use pyo3::prelude::*;
 use std::collections::HashMap;
 use ndarray::{Array1, Array2, Array3};
+use numpy::{IntoPyArray, PyArray2};
 use rand::Rng;
 
 /*
@@ -128,12 +129,13 @@ pub fn get_triangular_lattice(nx: usize, ny: usize, x0: Vec<f64>, z: f64) -> Arr
 
 #[pyfunction]
 #[pyo3(name = "get_triangular_lattice")]
-fn py_get_triangular_lattice(
+fn py_get_triangular_lattice<'py>(
+    py: Python<'py>,
     nx: usize,
     ny: usize,
     z: f64,
     x0: Option<(f64, f64)>,
-) -> PyResult<Array2<f64>> {
+) -> PyResult<&'py PyArray2<f64>> {
     let x0 = x0.unwrap_or((0.0, 0.0));
     let positions = get_triangular_lattice(
         nx,
@@ -141,8 +143,7 @@ fn py_get_triangular_lattice(
         vec![x0.0, x0.1],
         z,
     );
-
-    Ok(positions)
+    Ok(positions.into_pyarray(py))
 }
 
 #[pymodule]
@@ -159,9 +160,10 @@ mod tests {
 
     #[test]
     fn test_triangular_lattice_positions_large() {
-        // 4992 = 52 * 96
         let nx = 52;
         let ny = 96;
+
+        assert_eq!(nx, ny);
 
         let x0 = vec![0.0, 0.0];
         let z = 2.5;
@@ -170,24 +172,19 @@ mod tests {
 
         println!("Positions: {:?}", positions);
 
-        // The function returns shape (nx * ny, 3)
         assert_eq!(positions.shape(), &[nx * ny, 3]);
         assert_eq!(positions.shape(), &[4992, 3]);
 
-        // Check all z values
         assert!(positions.column(2).iter().all(|&zi| (zi - z).abs() < 1e-12));
 
-        // Spot check a few positions
-        // (0,0)
         assert!((positions[[0, 0]] - 0.0).abs() < 1e-12);
         assert!((positions[[0, 1]] - 0.0).abs() < 1e-12);
 
-        // (1,0)
         assert!((positions[[1, 0]] - 1.0).abs() < 1e-12);
         assert!((positions[[1, 1]] - 0.0).abs() < 1e-12);
 
-        // (0,1)
         let idx = 1 * nx + 0;
+        
         assert!((positions[[idx, 0]] - 0.5).abs() < 1e-12);
         assert!((positions[[idx, 1]] - ((3.0_f64).sqrt() / 2.0)).abs() < 1e-12);
     }

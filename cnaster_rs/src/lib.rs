@@ -129,7 +129,6 @@ pub fn get_triangular_lattice(nx: usize, ny: usize, z: f64) -> Array3<f64> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ndarray::{Array2, Array3};
 
     #[test]
     fn test_triangular_lattice_positions() {

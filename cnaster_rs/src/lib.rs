@@ -101,7 +101,7 @@ impl<W: Clone> Graph<W> {
 }
 */
 
-pub fn get_triangular_lattice(nx: usize, ny: usize, z: f64) -> Array2<f64> {
+pub fn get_triangular_lattice(nx: usize, ny: usize, x0: Vec[f64], z: f64) -> Array2<f64> {
     //  NB  triangular lattice may be indexed as 2D with two additional edges.
     //      Positions are sheared at 60 degrees to create the triangular structure.
     let mut positions = Array2::<f64>::zeros((nx * ny, 3));
@@ -111,8 +111,6 @@ pub fn get_triangular_lattice(nx: usize, ny: usize, z: f64) -> Array2<f64> {
 
     //  NB  a2 is sheared at 30 degrees clockwise from square lattice.
     let a2 = vec![0.5, (3.0_f64).sqrt() / 2.0]; // 60 degrees shear
-
-    let x0 = vec![0.0, 0.0];
 
     for i in 0..ny {
         for j in 0..nx {

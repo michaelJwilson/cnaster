@@ -101,13 +101,15 @@ impl<W: Clone> Graph<W> {
 }
 */
 
-pub fn get_triangular_lattice(nx: usize, ny: usize, z: f64) -> Array3<f64> {
+pub fn get_triangular_lattice(nx: usize, ny: usize, z: f64) -> Array2<f64> {
     //  NB  triangular lattice may be indexed as 2D with two additional edges.
     //      Positions are sheared at 60 degrees to create the triangular structure.
-    let mut positions = Array3::<f64>::zeros((nx * ny, 3, 1));
+    let mut positions = Array2::<f64>::zeros((nx * ny, 3));
 
     //  NB  Bravais lattice vectors for triangular lattice:
     let a1 = vec![1.0, 0.0];
+
+    //  NB  a2 is sheared at 30 degrees clockwise from square lattice.
     let a2 = vec![0.5, (3.0_f64).sqrt() / 2.0]; // 60 degrees shear
 
     let x0 = vec![0.0, 0.0];
@@ -117,9 +119,9 @@ pub fn get_triangular_lattice(nx: usize, ny: usize, z: f64) -> Array3<f64> {
             let x = x0[0] + (j as f64) * a1[0] + (i as f64) * a2[0];
             let y = x0[1] + (j as f64) * a1[1] + (i as f64) * a2[1];
 
-            positions[[i * nx + j, 0, 0]] = x;
-            positions[[i * nx + j, 1, 0]] = y;
-            positions[[i * nx + j, 2, 0]] = z;
+            positions[[i * nx + j, 0]] = x;
+            positions[[i * nx + j, 1]] = y;
+            positions[[i * nx + j, 2]] = z;
         }
     }
 
@@ -134,27 +136,29 @@ mod tests {
     fn test_triangular_lattice_positions() {
         let nx = 4;
         let ny = 3;
+
         let z = 2.5;
+        
         let positions = get_triangular_lattice(nx, ny, z);
 
-        // Check shape
-        assert_eq!(positions.shape(), &[nx * ny, 3, 1]);
+        // The new function returns shape (nx * ny, 3)
+        assert_eq!(positions.shape(), &[nx * ny, 3]);
 
-        // Check z values
         for i in 0..(nx * ny) {
-            assert!((positions[[i, 2, 0]] - z).abs() < 1e-12);
+            assert!((positions[[i, 2]] - z).abs() < 1e-12);
         }
 
-        // Check some known positions
         // (0,0)
-        assert!((positions[[0, 0, 0]] - 0.0).abs() < 1e-12);
-        assert!((positions[[0, 1, 0]] - 0.0).abs() < 1e-12);
+        assert!((positions[[0, 0]] - 0.0).abs() < 1e-12);
+        assert!((positions[[0, 1]] - 0.0).abs() < 1e-12);
+
         // (1,0)
-        assert!((positions[[1, 0, 0]] - 1.0).abs() < 1e-12);
-        assert!((positions[[1, 1, 0]] - 0.0).abs() < 1e-12);
+        assert!((positions[[1, 0]] - 1.0).abs() < 1e-12);
+        assert!((positions[[1, 1]] - 0.0).abs() < 1e-12);
+
         // (0,1)
         let idx = 1 * nx + 0;
-        assert!((positions[[idx, 0, 0]] - 0.5).abs() < 1e-12);
-        assert!((positions[[idx, 1, 0]] - ((3.0_f64).sqrt() / 2.0)).abs() < 1e-12);
+        assert!((positions[[idx, 0]] - 0.5).abs() < 1e-12);
+        assert!((positions[[idx, 1]] - ((3.0_f64).sqrt() / 2.0)).abs() < 1e-12);
     }
 }

@@ -312,7 +312,7 @@ impl pyCnaster_Graph {
         self.inner.mean_cov.clone()
     }
 
-    pub fn randomize_labels(&mut self) {
+    pub fn reset_node_labels(&mut self) {
         self.inner.reset_node_labels();
     }
 

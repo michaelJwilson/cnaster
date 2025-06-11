@@ -1,4 +1,3 @@
-use std::fmt;
 use itertools::iproduct;
 use ndarray::{Array1, Array2, Array3};
 use numpy::{IntoPyArray, PyArray1, PyArray2, ToPyArray};
@@ -6,12 +5,12 @@ use pyo3::prelude::*;
 use rand::Rng;
 use std::collections::HashMap;
 use std::collections::HashSet;
-
+use std::fmt;
 
 pub struct Cnaster_Graph {
     // NB input on initialization
     pub positions: Array2<f64>, // shape: (num_nodes, 3)
-    pub coverage: Array2<f64>, // shape: (num_nodes, 2)
+    pub coverage: Array2<f64>,  // shape: (num_nodes, 2)
 
     // NB assigned by method
     pub labels: Array1<i32>,
@@ -65,11 +64,11 @@ impl Cnaster_Graph {
         let mut rng = rand::thread_rng();
 
         let labels = Array1::from(
-        (0..num_nodes)
-            .map(|_| rng.gen_range(0..=max_label as i32))
-            .collect::<Vec<i32>>()
+            (0..num_nodes)
+                .map(|_| rng.gen_range(0..=max_label as i32))
+                .collect::<Vec<i32>>(),
         );
-        
+
         Cnaster_Graph {
             positions,
             coverage,
@@ -118,7 +117,7 @@ impl Cnaster_Graph {
     pub fn neighbors(&self, node: &usize) -> Option<&Vec<(usize, f64)>> {
         self.adjacency_list.get(node)
     }
-    
+
     /// Potts cost: sum over edges of J * (label_i != label_j) * weight_ij
     /// plus sum over nodes of H[node, label_i]
     pub fn potts_energy(&self, J: f64, H: Option<&Array2<f64>>) -> f64 {
@@ -162,7 +161,44 @@ impl Cnaster_Graph {
         }
 
         energy
-    }   
+    }
+
+    pub fn metropolis_hastings_sweep(&mut self, J: f64, H: Option<&Array2<f64>>, beta: f64) -> f64 {
+        let mut rng = rand::thread_rng();
+        let mut total_energy = self.potts_energy(J, H);
+
+        for node in 0..self.num_nodes {
+            let current_label = self.labels[node];
+            let mut proposed_label = current_label;
+
+            while proposed_label == current_label {
+                proposed_label = rng.gen_range(0..=self.max_label as i32);
+            }
+
+            let mut delta_energy = 0.0;
+
+            if let Some(H) = H {
+                delta_energy =
+                    H[[node, current_label as usize]] - H[[node, proposed_label as usize]];
+            }
+
+            for (neighbor, weight) in self.adjacency_list.get(&node).unwrap() {
+                if self.labels[*neighbor] == current_label {
+                    delta_energy += J * weight;
+                } else if self.labels[*neighbor] == proposed_label {
+                    delta_energy -= J * weight;
+                }
+            }
+
+            if delta_energy < 0.0 || rng.gen::<f64>() < (-delta_energy * beta).exp() {
+                self.labels[node] = proposed_label;
+
+                total_energy += delta_energy;
+            }
+        }
+
+        total_energy
+    }
 }
 
 #[pyclass]
@@ -181,6 +217,15 @@ impl pyCnaster_Graph {
         let inner = Cnaster_Graph::new(positions, coverage, max_label);
 
         pyCnaster_Graph { inner }
+    }
+
+    pub fn __repr__(&self) -> String {
+        let num_edges: usize = self.inner.adjacency_list.values().map(|v| v.len()).sum();
+
+        format!(
+            "CnasterGraph(num_nodes={}, num_edges={}, max_label={}, mean_coverage={:?})",
+            self.inner.num_nodes, num_edges, self.inner.max_label, self.inner.mean_cov
+        )
     }
 
     #[getter]
@@ -230,7 +275,7 @@ impl pyCnaster_Graph {
     ) {
         let binding = edges.readonly();
         let edges = binding.as_array();
-        
+
         let edges_vec: Vec<(usize, usize)> = edges
             .rows()
             .into_iter()
@@ -263,13 +308,21 @@ impl pyCnaster_Graph {
         self.inner.potts_energy(J, h_ref)
     }
 
-    pub fn __repr__(&self) -> String {
-        let num_edges: usize = self.inner.adjacency_list.values().map(|v| v.len()).sum();
+    pub fn metropolis_hastings_sweep(
+        &mut self,
+        J: f64,
+        H: Option<&PyArray2<f64>>,
+        beta: f64,
+    ) -> f64 {
+        let mut h_owned = None;
+        let h_ref = if let Some(H) = H {
+            h_owned = Some(H.readonly().as_array().to_owned());
+            h_owned.as_ref()
+        } else {
+            None
+        };
         
-        format!(
-            "CnasterGraph(num_nodes={}, num_edges={}, max_label={}, mean_coverage={:?})",
-            self.inner.num_nodes, num_edges, self.inner.max_label, self.inner.mean_cov
-        )
+        self.inner.metropolis_hastings_sweep(J, h_ref, beta)
     }
 }
 
@@ -298,10 +351,7 @@ pub fn get_triangular_lattice(nx: usize, ny: usize, x0: Vec<f64>, z: f64) -> Arr
     positions
 }
 
-pub fn get_triangular_lattice_edges(
-    nx: usize,
-    ny: usize,
-) -> Vec<(usize, usize)> {
+pub fn get_triangular_lattice_edges(nx: usize, ny: usize) -> Vec<(usize, usize)> {
     let mut edges = Vec::new();
 
     for y in 0..ny {

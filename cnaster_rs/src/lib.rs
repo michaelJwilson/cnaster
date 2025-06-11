@@ -121,7 +121,7 @@ impl Cnaster_Graph {
     
     /// Potts cost: sum over edges of J * (label_i != label_j) * weight_ij
     /// plus sum over nodes of H[node, label_i]
-    pub fn potts_cost(&self, J: f64, H: Option<&Array2<f64>>) -> f64 {
+    pub fn potts_energy(&self, J: f64, H: Option<&Array2<f64>>) -> f64 {
         if let Some(H) = H {
             assert_eq!(
                 H.nrows(),
@@ -136,7 +136,7 @@ impl Cnaster_Graph {
             );
         }
 
-        let mut cost = 0.0;
+        let mut energy = 0.0;
         let mut seen = std::collections::HashSet::new();
 
         for (node, neighbors) in &self.adjacency_list {
@@ -148,7 +148,7 @@ impl Cnaster_Graph {
                 }
                 let label_j = self.labels[*neighbor];
                 if label_i != label_j {
-                    cost += J * *weight;
+                    energy += J * *weight;
                 }
                 seen.insert((*node, *neighbor));
             }
@@ -156,10 +156,12 @@ impl Cnaster_Graph {
         if let Some(H) = H {
             for node in 0..self.num_nodes {
                 let label_idx = self.labels[node] as usize;
-                cost += H[[node, label_idx]];
+
+                energy -= H[[node, label_idx]];
             }
         }
-        cost
+
+        energy
     }   
 }
 
@@ -248,7 +250,7 @@ impl pyCnaster_Graph {
         self.inner.neighbors(&node).cloned()
     }
 
-    pub fn potts_cost(&self, J: f64, H: Option<&PyArray2<f64>>) -> f64 {
+    pub fn potts_energy(&self, J: f64, H: Option<&PyArray2<f64>>) -> f64 {
         let mut h_owned = None;
 
         let h_ref = if let Some(H) = H {
@@ -258,7 +260,7 @@ impl pyCnaster_Graph {
             None
         };
 
-        self.inner.potts_cost(J, h_ref)
+        self.inner.potts_energy(J, h_ref)
     }
 
     pub fn __repr__(&self) -> String {

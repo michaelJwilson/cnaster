@@ -108,12 +108,14 @@ impl Cnaster_Graph {
     
     /// Potts cost: sum over edges of J * (label_i != label_j) * weight_ij
     /// plus sum over nodes of H[node, label_i]
-    pub fn potts_cost(&self, J: f64, H: &Array2<f64>) -> f64 {
-        assert_eq!(
-            H.nrows(),
-            self.num_nodes,
-            "H must have shape [num_nodes, num_unique_labels]"
-        );
+    pub fn potts_cost(&self, J: f64, H: Option<&Array2<f64>>) -> f64 {
+        if let Some(H) = H {
+            assert_eq!(
+                H.nrows(),
+                self.num_nodes,
+                "H must have shape [num_nodes, num_unique_labels]"
+            );
+        }
 
         let mut cost = 0.0;
         let mut seen = std::collections::HashSet::new();
@@ -132,13 +134,14 @@ impl Cnaster_Graph {
                 seen.insert((*node, *neighbor));
             }
         }
-        for node in 0..self.num_nodes {
-            let label_idx = self.labels[node] as usize;
-            cost += H[[node, label_idx]];
+        if let Some(H) = H {
+            for node in 0..self.num_nodes {
+                let label_idx = self.labels[node] as usize;
+                cost += H[[node, label_idx]];
+            }
         }
-
         cost
-    }    
+    }   
 }
 
 #[pyclass]
@@ -186,10 +189,17 @@ impl pyCnaster_Graph {
         self.inner.neighbors(&node).cloned()
     }
 
-    pub fn potts_cost(&self, J: f64, H: &PyArray2<f64>) -> f64 {
-        let H = H.readonly().as_array().to_owned();
+    pub fn potts_cost(&self, J: f64, H: Option<&PyArray2<f64>>) -> f64 {
+        let mut h_owned = None;
 
-        self.inner.potts_cost(J, &H)
+        let h_ref = if let Some(H) = H {
+            h_owned = Some(H.readonly().as_array().to_owned());
+            h_owned.as_ref()
+        } else {
+            None
+        };
+
+        self.inner.potts_cost(J, h_ref)
     }
 
     pub fn __repr__(&self) -> String {

@@ -1,7 +1,7 @@
 use std::fmt;
 use itertools::iproduct;
 use ndarray::{Array1, Array2, Array3};
-use numpy::{IntoPyArray, PyArray1, PyArray2};
+use numpy::{IntoPyArray, PyArray1, PyArray2, ToPyArray};
 use pyo3::prelude::*;
 use rand::Rng;
 use std::collections::HashMap;
@@ -59,7 +59,13 @@ impl Cnaster_Graph {
             .collect();
 
         // NB initialized to -1
-        let labels = -1 * Array1::<i32>::ones(num_nodes);
+        let mut rng = rand::thread_rng();
+
+        let labels = Array1::from(
+        (0..num_nodes)
+            .map(|_| rng.gen_range(0..=max_label as i32))
+            .collect::<Vec<i32>>()
+        );
         
         Cnaster_Graph {
             positions,
@@ -112,13 +118,13 @@ impl Cnaster_Graph {
             assert_eq!(
                 H.nrows(),
                 self.num_nodes,
-                "H must have shape [num_nodes, max_label]"
+                "H must have shape [num_nodes, 1 + max_label]"
             );
 
             assert_eq!(
                 H.ncols(),
-                self.max_label,
-                "H must have shape [num_nodes, max_label]"
+                1 + self.max_label,
+                "H must have shape [num_nodes, 1 + max_label]"
             );
         }
 
@@ -165,6 +171,41 @@ impl pyCnaster_Graph {
         let inner = Cnaster_Graph::new(positions, coverage, max_label);
 
         pyCnaster_Graph { inner }
+    }
+
+    #[getter]
+    pub fn positions<'py>(&self, py: Python<'py>) -> &'py PyArray2<f64> {
+        self.inner.positions.view().to_pyarray(py)
+    }
+
+    #[getter]
+    pub fn coverage<'py>(&self, py: Python<'py>) -> &'py PyArray2<f64> {
+        self.inner.coverage.view().to_pyarray(py)
+    }
+
+    #[getter]
+    pub fn labels<'py>(&self, py: Python<'py>) -> &'py PyArray1<i32> {
+        self.inner.labels.view().to_pyarray(py)
+    }
+
+    #[getter]
+    pub fn adjacency_list(&self) -> HashMap<usize, Vec<(usize, f64)>> {
+        self.inner.adjacency_list.clone()
+    }
+
+    #[getter]
+    pub fn num_nodes(&self) -> usize {
+        self.inner.num_nodes
+    }
+
+    #[getter]
+    pub fn max_label(&self) -> usize {
+        self.inner.max_label
+    }
+
+    #[getter]
+    pub fn mean_cov(&self) -> Vec<f64> {
+        self.inner.mean_cov.clone()
     }
 
     pub fn update_adjacency_list(

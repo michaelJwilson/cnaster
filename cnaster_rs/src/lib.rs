@@ -163,7 +163,7 @@ impl Cnaster_Graph {
         energy
     }
 
-    pub fn metropolis_hastings_sweep(&mut self, J: f64, H: Option<&Array2<f64>>, beta: f64) -> f64 {
+    pub fn metropolis_hastings_sweep(&mut self, J: f64, beta: f64, H: Option<&Array2<f64>>) -> f64 {
         let mut rng = rand::thread_rng();
         let mut total_energy = self.potts_energy(J, H);
 
@@ -311,8 +311,8 @@ impl pyCnaster_Graph {
     pub fn metropolis_hastings_sweep(
         &mut self,
         J: f64,
-        H: Option<&PyArray2<f64>>,
         beta: f64,
+        H: Option<&PyArray2<f64>>,
     ) -> f64 {
         let mut h_owned = None;
         let h_ref = if let Some(H) = H {
@@ -321,8 +321,8 @@ impl pyCnaster_Graph {
         } else {
             None
         };
-        
-        self.inner.metropolis_hastings_sweep(J, h_ref, beta)
+
+        self.inner.metropolis_hastings_sweep(J, beta, h_ref)
     }
 }
 

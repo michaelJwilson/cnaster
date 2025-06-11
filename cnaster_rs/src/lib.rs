@@ -1,6 +1,6 @@
 use itertools::iproduct;
 use ndarray::{Array1, Array2, Array3};
-use numpy::{IntoPyArray, PyArray2};
+use numpy::{IntoPyArray, PyArray2, PyArray1};
 use pyo3::prelude::*;
 use rand::Rng;
 use std::collections::HashMap;
@@ -196,14 +196,14 @@ pub fn nearest_neighbor_edges(
     positions_slices: &Vec<Array2<f64>>,
     n_closest: usize,
     max_distance: Option<f64>,
-) -> Vec<(usize, usize)> {
+) -> (Array2<usize>, Array1<f64>) {
     let nslice = positions_slices.len();
-    
     if nslice == 0 {
-        return Vec::new();
+        return (Array2::<usize>::zeros((0, 2)), Array1::<f64>::zeros(0));
     }
-    
-    let mut edges = Vec::new();
+
+    let mut from_to = Vec::new();
+    let mut weights = Vec::new();
 
     // NB idx by cumulative node number by slice, in slice order. 
     let idx_bases: Vec<usize> = positions_slices
@@ -221,22 +221,18 @@ pub fn nearest_neighbor_edges(
 
         for &dz in &[-1isize, 1] {
             let z_adj = z as isize + dz;
-            
             if z_adj < 0 || z_adj >= nslice as isize {
                 continue;
             }
-            
             let adj_slice = &positions_slices[z_adj as usize];
             let nadj_slice = adj_slice.nrows();
 
             for i in 0..nthis_slice {
                 let pos_i = this_slice.row(i);
 
-                // TODO computationally more efficient than N^2 loop.
                 let mut dists: Vec<(usize, f64)> = (0..nadj_slice)
                     .map(|j| {
                         let pos_j = adj_slice.row(j);
-                        
                         let dist = ((pos_i[0] - pos_j[0]).powi(2)
                             + (pos_i[1] - pos_j[1]).powi(2)
                             + (pos_i[2] - pos_j[2]).powi(2))
@@ -246,19 +242,17 @@ pub fn nearest_neighbor_edges(
                     .collect();
 
                 dists.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
-                
-                // NB take up to n_closest neighbors within max_distance (if provided)
-                let mut count = 0;
 
+                let mut count = 0;
                 for &(j, dist) in dists.iter() {
                     if let Some(max_d) = max_distance {
                         if dist > max_d {
                             continue;
                         }
                     }
-                    edges.push((idx_bases[z] + i, idx_bases[z_adj as usize] + j));
+                    from_to.push([idx_bases[z] + i, idx_bases[z_adj as usize] + j]);
+                    weights.push(dist);
                     count += 1;
-
                     if count >= n_closest {
                         break;
                     }
@@ -266,8 +260,16 @@ pub fn nearest_neighbor_edges(
             }
         }
     }
-    
-    edges
+
+    let num_edges = from_to.len();
+    let from_to_arr = if num_edges > 0 {
+        Array2::from_shape_vec((num_edges, 2), from_to.into_iter().flatten().collect()).unwrap()
+    } else {
+        Array2::<usize>::zeros((0, 2))
+    };
+    let weights_arr = Array1::from(weights);
+
+    (from_to_arr, weights_arr)
 }
 
 #[pyfunction]
@@ -303,6 +305,7 @@ fn py_get_triangular_lattice_edges<'py>(
 
     let num_edges = edges.len();
     let mut edges_arr = Array2::<usize>::zeros((num_edges, 2));
+
     for (i, (from, to)) in edges.iter().enumerate() {
         edges_arr[[i, 0]] = *from;
         edges_arr[[i, 1]] = *to;
@@ -318,23 +321,15 @@ fn py_nearest_neighbor_edges<'py>(
     positions_slices: Vec<&PyArray2<f64>>,
     n_closest: usize,
     max_distance: Option<f64>,
-) -> PyResult<&'py PyArray2<usize>> {
+) -> PyResult<(&'py PyArray2<usize>, &'py PyArray1<f64>)> {
     let positions_vec: Vec<Array2<f64>> = positions_slices
         .iter()
         .map(|arr| arr.readonly().as_array().to_owned())
         .collect();
 
-    let edges = nearest_neighbor_edges(&positions_vec, n_closest, max_distance);
+    let (from_to, weights) = nearest_neighbor_edges(&positions_vec, n_closest, max_distance);
 
-    let num_edges = edges.len();
-    let mut edges_arr = Array2::<usize>::zeros((num_edges, 2));
-    
-    for (i, (from, to)) in edges.iter().enumerate() {
-        edges_arr[[i, 0]] = *from;
-        edges_arr[[i, 1]] = *to;
-    }
-
-    Ok(edges_arr.into_pyarray(py))
+    Ok((from_to.into_pyarray(py), weights.into_pyarray(py)))
 }
 
 #[pymodule]

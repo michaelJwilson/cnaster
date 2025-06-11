@@ -18,7 +18,9 @@ def plot_cnaster_graph(cnaster_graph):
             y = [sites[from_idx, 1], sites[to_idx, 1]]
             z = [sites[from_idx, 2], sites[to_idx, 2]]
 
-            ax.plot(x, y, z, color="black", linewidth=0.5, alpha=0.25 * weight / max_weight)
+            weight = weight if weight == 1. else weight / max_weight
+            
+            ax.plot(x, y, z, color="black", linewidth=0.5, alpha=0.25 * weight)
     
     ax.set_xlabel(r"$x$")
     ax.set_ylabel(r"$y$")

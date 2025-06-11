@@ -19,7 +19,7 @@ pub struct Cnaster_Graph {
 
     // NB derived.
     pub num_nodes: usize,
-    pub num_unique_labels: usize,
+    pub max_label: usize,
     pub mean_cov: Vec<f64>,
 }
 
@@ -28,14 +28,14 @@ impl fmt::Debug for Cnaster_Graph {
         let num_edges: usize = self.adjacency_list.values().map(|v| v.len()).sum();
         write!(
             f,
-            "Cnaster_Graph {{ num_nodes: {}, num_edges: {}, num_unique_labels: {}, mean_coverage: {:?} }}",
-            self.num_nodes, num_edges, self.num_unique_labels, self.mean_cov
+            "Cnaster_Graph {{ num_nodes: {}, num_edges: {}, max_label: {}, mean_coverage: {:?} }}",
+            self.num_nodes, num_edges, self.max_label, self.mean_cov
         )
     }
 }
 
 impl Cnaster_Graph {
-    pub fn new(positions: Array2<f64>, coverage: Array2<f64>) -> Self {
+    pub fn new(positions: Array2<f64>, coverage: Array2<f64>, max_label: usize) -> Self {
         let num_nodes = positions.shape()[0];
 
         assert_eq!(
@@ -60,15 +60,14 @@ impl Cnaster_Graph {
 
         // NB initialized to -1
         let labels = -1 * Array1::<i32>::ones(num_nodes);
-        let num_unique_labels = 1;
-
+        
         Cnaster_Graph {
             positions,
             coverage,
             labels,
             adjacency_list: HashMap::new(),
             num_nodes,
-            num_unique_labels,
+            max_label,
             mean_cov,
         }
     }
@@ -113,7 +112,13 @@ impl Cnaster_Graph {
             assert_eq!(
                 H.nrows(),
                 self.num_nodes,
-                "H must have shape [num_nodes, num_unique_labels]"
+                "H must have shape [num_nodes, max_label]"
+            );
+
+            assert_eq!(
+                H.ncols(),
+                self.max_label,
+                "H must have shape [num_nodes, max_label]"
             );
         }
 
@@ -153,11 +158,11 @@ pub struct pyCnaster_Graph {
 #[pymethods]
 impl pyCnaster_Graph {
     #[new]
-    pub fn new(positions: &PyArray2<f64>, coverage: &PyArray2<f64>) -> Self {
+    pub fn new(positions: &PyArray2<f64>, coverage: &PyArray2<f64>, max_label: usize) -> Self {
         let positions = positions.readonly().as_array().to_owned();
         let coverage = coverage.readonly().as_array().to_owned();
 
-        let inner = Cnaster_Graph::new(positions, coverage);
+        let inner = Cnaster_Graph::new(positions, coverage, max_label);
 
         pyCnaster_Graph { inner }
     }
@@ -206,8 +211,8 @@ impl pyCnaster_Graph {
         let num_edges: usize = self.inner.adjacency_list.values().map(|v| v.len()).sum();
         
         format!(
-            "CnasterGraph(num_nodes={}, num_edges={}, num_unique_labels={}, mean_coverage={:?})",
-            self.inner.num_nodes, num_edges, self.inner.num_unique_labels, self.inner.mean_cov
+            "CnasterGraph(num_nodes={}, num_edges={}, max_label={}, mean_coverage={:?})",
+            self.inner.num_nodes, num_edges, self.inner.max_label, self.inner.mean_cov
         )
     }
 }

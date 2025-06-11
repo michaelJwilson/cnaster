@@ -1,8 +1,9 @@
-use pyo3::prelude::*;
-use std::collections::HashMap;
+use itertools::iproduct;
 use ndarray::{Array1, Array2, Array3};
 use numpy::{IntoPyArray, PyArray2};
+use pyo3::prelude::*;
 use rand::Rng;
+use std::collections::HashMap;
 
 /*
 pub struct Graph<W> {
@@ -127,6 +128,70 @@ pub fn get_triangular_lattice(nx: usize, ny: usize, x0: Vec<f64>, z: f64) -> Arr
     positions
 }
 
+pub fn nearest_neighbor_edges(
+    positions_slices: &Vec<Array2<f64>>,
+    n_closest: usize,
+) -> Vec<(usize, usize)> {
+    let nslice = positions_slices.len();
+    
+    if nslice == 0 {
+        return Vec::new();
+    }
+    
+    let mut edges = Vec::new();
+
+    // NB idx by cumulative node number by slice, in slice order. 
+    let idx_bases: Vec<usize> = positions_slices
+        .iter()
+        .scan(0, |acc, arr| {
+            let base = *acc;
+            *acc += arr.nrows();
+            Some(base)
+        })
+        .collect();
+
+    for z in 0..nslice {
+        let this_slice = &positions_slices[z];
+        let nthis_slice = this_slice.nrows();
+
+        for &dz in &[-1isize, 1] {
+            let z_adj = z as isize + dz;
+            
+            if z_adj < 0 || z_adj >= nslice as isize {
+                continue;
+            }
+            
+            let adj_slice = &positions_slices[z_adj as usize];
+            let nadj_slice = adj_slice.nrows();
+
+            for i in 0..nthis_slice {
+                let pos_i = this_slice.row(i);
+
+                // TODO computationally more efficient than N^2 loop.
+                let mut dists: Vec<(usize, f64)> = (0..nadj_slice)
+                    .map(|j| {
+                        let pos_j = adj_slice.row(j);
+                        
+                        let dist = ((pos_i[0] - pos_j[0]).powi(2)
+                            + (pos_i[1] - pos_j[1]).powi(2)
+                            + (pos_i[2] - pos_j[2]).powi(2))
+                        .sqrt();
+                        (j, dist)
+                    })
+                    .collect();
+
+                dists.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+                
+                for &(j, _) in dists.iter().take(n_closest) {
+                    edges.push((idx_bases[z] + i, idx_bases[z_adj as usize] + j));
+                }
+            }
+        }
+    }
+    
+    edges
+}
+
 #[pyfunction]
 #[pyo3(name = "get_triangular_lattice")]
 fn py_get_triangular_lattice<'py>(
@@ -137,20 +202,41 @@ fn py_get_triangular_lattice<'py>(
     x0: Option<(f64, f64)>,
 ) -> PyResult<&'py PyArray2<f64>> {
     let x0 = x0.unwrap_or((0.0, 0.0));
-    let positions = get_triangular_lattice(
-        nx,
-        ny,
-        vec![x0.0, x0.1],
-        z,
-    );
+    let positions = get_triangular_lattice(nx, ny, vec![x0.0, x0.1], z);
     Ok(positions.into_pyarray(py))
+}
+
+#[pyfunction]
+#[pyo3(name = "nearest_neighbor_edges")]
+fn py_nearest_neighbor_edges<'py>(
+    py: Python<'py>,
+    positions_slices: Vec<&PyArray2<f64>>,
+    n_closest: usize,
+) -> PyResult<&'py PyArray2<usize>> {
+    let positions_vec: Vec<Array2<f64>> = positions_slices
+        .iter()
+        .map(|arr| arr.readonly().as_array().to_owned())
+        .collect();
+
+    let edges = nearest_neighbor_edges(&positions_vec, n_closest);
+
+    let num_edges = edges.len();
+    let mut edges_arr = Array2::<usize>::zeros((num_edges, 2));
+    
+    for (i, (from, to)) in edges.iter().enumerate() {
+        edges_arr[[i, 0]] = *from;
+        edges_arr[[i, 1]] = *to;
+    }
+
+    Ok(edges_arr.into_pyarray(py))
 }
 
 #[pymodule]
 #[pyo3(name = "cnaster_rs")]
 fn cnaster_rs(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_get_triangular_lattice, m)?)?;
-
+    m.add_function(wrap_pyfunction!(py_nearest_neighbor_edges, m)?)?;
+    
     Ok(())
 }
 
@@ -184,7 +270,7 @@ mod tests {
         assert!((positions[[1, 1]] - 0.0).abs() < 1e-12);
 
         let idx = 1 * nx + 0;
-        
+
         assert!((positions[[idx, 0]] - 0.5).abs() < 1e-12);
         assert!((positions[[idx, 1]] - ((3.0_f64).sqrt() / 2.0)).abs() < 1e-12);
     }

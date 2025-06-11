@@ -124,7 +124,7 @@ impl Cnaster_Graph {
 }
 
 #[pyclass]
-#[pyo3(name = "cnaster_graph")]
+#[pyo3(name = "CnasterGraph")]
 pub struct pyCnaster_Graph {
     inner: Cnaster_Graph,
 }

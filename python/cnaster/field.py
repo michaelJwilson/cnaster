@@ -12,13 +12,18 @@ def planar_power_law(positions, k, exponent, scale=2.0):
     return field
 
 
-def planar_power_law_fields(positions, max_label, vec_k, scale=2.0):
-    exponents = np.linspace(0.0, 2.0, 1 + max_label)
-
-    # print(exponents)
+def planar_power_law_fields(
+    positions, max_label, vec_k, scale=2.0, xlower=10.0, ylower=10.0
+):
+    exponents = np.array([0.0, 1.0, 1.25])
 
     fields = np.vstack(
         [planar_power_law(positions, vec_k, exp, scale=scale) for exp in exponents]
     )
+
+    isin = positions[:, 0] > xlower
+    isin &= positions[:, 1] > ylower
+
+    fields[:, ~isin] = 0.0
 
     return fields.T

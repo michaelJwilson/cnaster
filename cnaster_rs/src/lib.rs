@@ -263,11 +263,16 @@ impl Cnaster_Graph {
 
         let mut queue = vec![seed];
 
+        let cumulative_p_add = 1.0;
+
         while let Some(node) = queue.pop() {
             if let Some(neighbors) = self.adjacency_list.get(&node) {
                 for (neighbor, weight) in neighbors {
                     if !in_cluster[*neighbor] && self.labels[*neighbor] == old_label {
-                        let p_add = 1.0 - (-beta * J).exp();
+                        let p_add = 1.0 - (-beta * J * *weight).exp();
+
+                        // TODO log_probs.
+                        cumulative_p_add *= p_add;
 
                         if rng.gen::<f64>() < p_add {
                             in_cluster[*neighbor] = true;

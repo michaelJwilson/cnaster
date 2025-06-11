@@ -1,3 +1,4 @@
+use std::fmt;
 use itertools::iproduct;
 use ndarray::{Array1, Array2, Array3};
 use numpy::{IntoPyArray, PyArray1, PyArray2};
@@ -6,7 +7,7 @@ use rand::Rng;
 use std::collections::HashMap;
 use std::collections::HashSet;
 
-#[derive(Debug)]
+
 pub struct Cnaster_Graph {
     // NB input on initialization
     pub positions: Array2<f64>, // shape: (num_nodes, 3)
@@ -19,6 +20,18 @@ pub struct Cnaster_Graph {
     // NB derived.
     pub num_nodes: usize,
     pub num_unique_labels: usize,
+    pub mean_cov: Vec<f64>,
+}
+
+impl fmt::Debug for Cnaster_Graph {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let num_edges: usize = self.adjacency_list.values().map(|v| v.len()).sum();
+        write!(
+            f,
+            "Cnaster_Graph {{ num_nodes: {}, num_edges: {}, num_unique_labels: {}, mean_coverage: {:?} }}",
+            self.num_nodes, num_edges, self.num_unique_labels, self.mean_cov
+        )
+    }
 }
 
 impl Cnaster_Graph {
@@ -41,6 +54,10 @@ impl Cnaster_Graph {
             "coverage must have 2 columns (for 2 labels)"
         );
 
+        let mean_cov: Vec<f64> = (0..coverage.ncols())
+            .map(|i| coverage.column(i).mean().unwrap_or(0.0))
+            .collect();
+
         // NB initialized to -1
         let labels = -1 * Array1::<i32>::ones(num_nodes);
         let num_unique_labels = 1;
@@ -52,6 +69,7 @@ impl Cnaster_Graph {
             adjacency_list: HashMap::new(),
             num_nodes,
             num_unique_labels,
+            mean_cov,
         }
     }
 
@@ -120,7 +138,7 @@ impl Cnaster_Graph {
         }
 
         cost
-    }
+    }    
 }
 
 #[pyclass]
@@ -172,6 +190,15 @@ impl pyCnaster_Graph {
         let H = H.readonly().as_array().to_owned();
 
         self.inner.potts_cost(J, &H)
+    }
+
+    pub fn __repr__(&self) -> String {
+        let num_edges: usize = self.inner.adjacency_list.values().map(|v| v.len()).sum();
+        
+        format!(
+            "CnasterGraph(num_nodes={}, num_edges={}, num_unique_labels={}, mean_coverage={:?})",
+            self.inner.num_nodes, num_edges, self.inner.num_unique_labels, self.inner.mean_cov
+        )
     }
 }
 

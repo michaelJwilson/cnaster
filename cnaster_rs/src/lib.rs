@@ -2,6 +2,7 @@ use itertools::iproduct;
 use ndarray::{Array1, Array2, Array3};
 use numpy::{IntoPyArray, PyArray1, PyArray2, ToPyArray};
 use pyo3::prelude::*;
+use rand::prelude::SliceRandom;
 use rand::Rng;
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -72,7 +73,7 @@ impl Cnaster_Graph {
             max_edge_weight: 0.0,
             mean_cov,
         };
-        
+
         graph.reset_node_labels();
         graph
     }
@@ -243,6 +244,85 @@ impl Cnaster_Graph {
 
         total_energy
     }
+
+    pub fn wolff_step(&mut self, J: f64, beta: f64, H: Option<&Array2<f64>>) -> f64 {
+        let mut rng = rand::thread_rng();
+
+        let seed = rng.gen_range(0..self.num_nodes);
+        let old_label = self.labels[seed];
+
+        let mut possible_labels: Vec<i32> = (0..=self.max_label as i32).collect();
+        possible_labels.retain(|&l| l != old_label);
+
+        let &new_label = possible_labels.choose(&mut rng).unwrap();
+
+        let mut cluster = vec![seed];
+        let mut in_cluster = vec![false; self.num_nodes];
+
+        in_cluster[seed] = true;
+
+        let mut queue = vec![seed];
+
+        while let Some(node) = queue.pop() {
+            if let Some(neighbors) = self.adjacency_list.get(&node) {
+                for (neighbor, weight) in neighbors {
+                    if !in_cluster[*neighbor] && self.labels[*neighbor] == old_label {
+                        let p_add = 1.0 - (-beta * J).exp();
+
+                        if rng.gen::<f64>() < p_add {
+                            in_cluster[*neighbor] = true;
+                            cluster.push(*neighbor);
+                            queue.push(*neighbor);
+
+                            // NB trick to ensure edge is not sampled twice.
+                            self.labels[node] = new_label;
+                        }
+                    }
+                }
+            }
+        }
+
+        // NB calculate the energy difference between old and new labels
+        //    for spins in the cluster.
+        let mut delta_energy = 0.0;
+
+        for node in cluster {
+            // Pairwise Potts term
+            if let Some(neighbors) = self.adjacency_list.get(&node) {
+                for (neighbor, weight) in neighbors {
+                    if self.labels[*neighbor] == old_label {
+                        delta_energy += J * *weight;
+                    } else if self.labels[*neighbor] == new_label {
+                        delta_energy -= J * *weight;
+                    }
+                }
+            }
+
+            // Field term
+            if let Some(H) = H {
+                delta_energy += H[[node, old_label as usize]];
+                delta_energy -= H[[node, new_label as usize]];
+            }
+        }
+
+        delta_energy
+    }
+
+    pub fn wolff_sweep(
+        &mut self,
+        J: f64,
+        beta: f64,
+        num_steps: usize,
+        H: Option<&Array2<f64>>,
+    ) -> f64 {
+        let mut delta_energy = 0.0;
+
+        for _ in 0..num_steps {
+            delta_energy += self.wolff_step(J, beta, H);
+        }
+
+        delta_energy
+    }
 }
 
 #[pyclass]
@@ -383,6 +463,24 @@ impl pyCnaster_Graph {
         };
 
         self.inner.metropolis_hastings_sweep(J, beta, h_ref)
+    }
+
+    pub fn wolff_sweep(
+        &mut self,
+        J: f64,
+        beta: f64,
+        num_steps: usize,
+        H: Option<&PyArray2<f64>>,
+    ) -> f64 {
+        let mut h_owned = None;
+        let h_ref = if let Some(H) = H {
+            h_owned = Some(H.readonly().as_array().to_owned());
+            h_owned.as_ref()
+        } else {
+            None
+        };
+
+        self.inner.wolff_sweep(J, beta, num_steps, h_ref)
     }
 }
 

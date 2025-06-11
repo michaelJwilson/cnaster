@@ -60,16 +60,9 @@ impl Cnaster_Graph {
             .map(|i| coverage.column(i).mean().unwrap_or(0.0))
             .collect();
 
-        // NB initialized to -1
-        let mut rng = rand::thread_rng();
+        let labels = Array1::<i32>::zeros(num_nodes);
 
-        let labels = Array1::from(
-            (0..num_nodes)
-                .map(|_| rng.gen_range(0..=max_label as i32))
-                .collect::<Vec<i32>>(),
-        );
-
-        Cnaster_Graph {
+        let mut graph = Cnaster_Graph {
             positions,
             coverage,
             labels,
@@ -78,6 +71,17 @@ impl Cnaster_Graph {
             max_label,
             max_edge_weight: 0.0,
             mean_cov,
+        };
+        
+        graph.reset_node_labels();
+        graph
+    }
+
+    pub fn reset_node_labels(&mut self) {
+        let mut rng = rand::thread_rng();
+
+        for label in self.labels.iter_mut() {
+            *label = rng.gen_range(0..=self.max_label as i32);
         }
     }
 
@@ -308,6 +312,10 @@ impl pyCnaster_Graph {
         self.inner.mean_cov.clone()
     }
 
+    pub fn randomize_labels(&mut self) {
+        self.inner.reset_node_labels();
+    }
+
     pub fn update_adjacency_list(
         &mut self,
         edges: &PyArray2<usize>,
@@ -356,7 +364,7 @@ impl pyCnaster_Graph {
         } else {
             None
         };
-        
+
         self.inner.icm_sweep(J, h_ref)
     }
 

@@ -175,6 +175,31 @@ pub fn get_triangular_lattice_edges(
     edges
 }
 
+pub fn get_slices_triangular_lattice_edges(
+    positions_slices: &Vec<Array2<f64>>,
+    nxy_vec: &Vec<(usize, usize)>,
+) -> Vec<(usize, usize)> {
+    let mut edges = Vec::new();
+    
+    let mut idx_bases: Vec<usize> = Vec::with_capacity(positions_slices.len());
+    let mut acc = 0;
+
+    for slice in positions_slices {
+        idx_bases.push(acc);
+        acc += slice.nrows();
+    }
+
+    for ((slice, &(nx, ny)), &idx_base) in positions_slices.iter().zip(nxy_vec).zip(idx_bases.iter()) {
+        let local_edges = get_triangular_lattice_edges(slice, nx, ny);
+        
+        for (from, to) in local_edges {
+            edges.push((idx_base + from, idx_base + to));
+        }
+    }
+
+    edges
+}
+
 pub fn nearest_neighbor_edges(
     positions_slices: &Vec<Array2<f64>>,
     n_closest: usize,
@@ -271,15 +296,26 @@ fn py_get_triangular_lattice<'py>(
 }
 
 #[pyfunction]
-#[pyo3(name = "get_triangular_lattice_edges")]
-fn py_get_triangular_lattice_edges<'py>(
+#[pyo3(name = "get_slices_triangular_lattice_edges")]
+fn py_get_slices_triangular_lattice_edges<'py>(
     py: Python<'py>,
-    positions: &PyArray2<f64>,
-    nx: usize,
-    ny: usize,
+    positions_slices: Vec<&PyArray2<f64>>,
+    nxy_vec: &PyArray2<usize>, // shape: (num_slices, 2)
 ) -> PyResult<&'py PyArray2<usize>> {
-    let positions = positions.readonly().as_array().to_owned();
-    let edges = get_triangular_lattice_edges(&positions, nx, ny);
+    let positions_vec: Vec<Array2<f64>> = positions_slices
+        .iter()
+        .map(|arr| arr.readonly().as_array().to_owned())
+        .collect();
+
+    let nxy_vec: Vec<(usize, usize)> = nxy_vec
+        .readonly()
+        .as_array()
+        .rows()
+        .into_iter()
+        .map(|row| (row[0], row[1]))
+        .collect();
+
+    let edges = get_slices_triangular_lattice_edges(&positions_vec, &nxy_vec);
 
     let num_edges = edges.len();
     let mut edges_arr = Array2::<usize>::zeros((num_edges, 2));
@@ -314,6 +350,7 @@ fn py_nearest_neighbor_edges<'py>(
 #[pyo3(name = "cnaster_rs")]
 fn cnaster_rs(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_get_triangular_lattice, m)?)?;
+    m.add_function(wrap_pyfunction!(py_get_slices_triangular_lattice_edges, m)?)?;
     m.add_function(wrap_pyfunction!(py_nearest_neighbor_edges, m)?)?;
     
     Ok(())

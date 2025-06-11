@@ -163,6 +163,44 @@ impl Cnaster_Graph {
         energy
     }
 
+    pub fn icm_sweep(&mut self, J: f64, H: Option<&Array2<f64>>) -> f64 {
+        for node in 0..self.num_nodes {
+            let current_label = self.labels[node];
+
+            let mut best_label = current_label;
+            let mut best_energy = std::f64::INFINITY;
+
+            for label in 0..=self.max_label as i32 {
+                let mut energy = 0.0;
+
+                // Pairwise Potts term
+                if let Some(neighbors) = self.adjacency_list.get(&node) {
+                    for (neighbor, weight) in neighbors {
+                        if label != self.labels[*neighbor] {
+                            energy += J * *weight;
+                        }
+                    }
+                }
+
+                // Field term
+                if let Some(H) = H {
+                    energy -= H[[node, label as usize]];
+                }
+
+                if energy < best_energy {
+                    best_energy = energy;
+                    best_label = label;
+                }
+            }
+
+            if best_label != current_label {
+                self.labels[node] = best_label;
+            }
+        }
+
+        self.potts_energy(J, H)
+    }
+
     pub fn metropolis_hastings_sweep(&mut self, J: f64, beta: f64, H: Option<&Array2<f64>>) -> f64 {
         let mut rng = rand::thread_rng();
         let mut total_energy = self.potts_energy(J, H);
@@ -182,11 +220,13 @@ impl Cnaster_Graph {
                     H[[node, current_label as usize]] - H[[node, proposed_label as usize]];
             }
 
-            for (neighbor, weight) in self.adjacency_list.get(&node).unwrap() {
-                if self.labels[*neighbor] == current_label {
-                    delta_energy += J * weight;
-                } else if self.labels[*neighbor] == proposed_label {
-                    delta_energy -= J * weight;
+            if let Some(neighbors) = self.adjacency_list.get(&node) {
+                for (neighbor, weight) in neighbors {
+                    if self.labels[*neighbor] == current_label {
+                        delta_energy += J * weight;
+                    } else if self.labels[*neighbor] == proposed_label {
+                        delta_energy -= J * weight;
+                    }
                 }
             }
 
@@ -306,6 +346,18 @@ impl pyCnaster_Graph {
         };
 
         self.inner.potts_energy(J, h_ref)
+    }
+
+    pub fn icm_sweep(&mut self, J: f64, H: Option<&PyArray2<f64>>) -> f64 {
+        let mut h_owned = None;
+        let h_ref = if let Some(H) = H {
+            h_owned = Some(H.readonly().as_array().to_owned());
+            h_owned.as_ref()
+        } else {
+            None
+        };
+        
+        self.inner.icm_sweep(J, h_ref)
     }
 
     pub fn metropolis_hastings_sweep(

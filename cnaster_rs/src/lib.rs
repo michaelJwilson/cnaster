@@ -9,7 +9,7 @@ use std::collections::HashSet;
 #[derive(Debug)]
 pub struct Cnaster_Graph {
     // NB input on initialization
-    pub positions: Array3<f64>, // shape: (num_nodes, 3)
+    pub positions: Array2<f64>, // shape: (num_nodes, 3)
     pub coverage: Array2<f64>, // shape: (num_nodes, 2)
 
     // NB assigned by method
@@ -22,9 +22,7 @@ pub struct Cnaster_Graph {
 }
 
 impl Cnaster_Graph {
-    /// Create a new graph with given positions (shape: [num_nodes, 3]) and coverage (shape: [num_nodes, 2]).
-    /// Initial labels are set according to the coverage array: label = argmax(coverage[i, :])
-    pub fn new(positions: Array3<f64>, coverage: Array2<f64>) -> Self {
+    pub fn new(positions: Array2<f64>, coverage: Array2<f64>) -> Self {
         let num_nodes = positions.shape()[0];
 
         assert_eq!(
@@ -125,6 +123,58 @@ impl Cnaster_Graph {
     }
 }
 
+#[pyclass]
+#[pyo3(name = "cnaster_graph")]
+pub struct pyCnaster_Graph {
+    inner: Cnaster_Graph,
+}
+
+#[pymethods]
+impl pyCnaster_Graph {
+    #[new]
+    pub fn new(positions: &PyArray2<f64>, coverage: &PyArray2<f64>) -> Self {
+        let positions = positions.readonly().as_array().to_owned();
+        let coverage = coverage.readonly().as_array().to_owned();
+
+        let inner = Cnaster_Graph::new(positions, coverage);
+
+        pyCnaster_Graph { inner }
+    }
+
+    pub fn update_adjacency_list(
+        &mut self,
+        edges: &PyArray2<usize>,
+        weights: Option<&PyArray1<f64>>,
+    ) {
+        let binding = edges.readonly();
+        let edges = binding.as_array();
+        
+        let edges_vec: Vec<(usize, usize)> = edges
+            .rows()
+            .into_iter()
+            .map(|row| (row[0], row[1]))
+            .collect();
+
+        let weights_vec = if let Some(weights) = weights {
+            Some(weights.readonly().as_array().to_owned().to_vec())
+        } else {
+            None
+        };
+
+        self.inner.update_adjacency_list(edges_vec, weights_vec);
+    }
+
+    pub fn neighbors(&self, node: usize) -> Option<Vec<(usize, f64)>> {
+        self.inner.neighbors(&node).cloned()
+    }
+
+    pub fn potts_cost(&self, J: f64, H: &PyArray2<f64>) -> f64 {
+        let H = H.readonly().as_array().to_owned();
+
+        self.inner.potts_cost(J, &H)
+    }
+}
+
 pub fn get_triangular_lattice(nx: usize, ny: usize, x0: Vec<f64>, z: f64) -> Array2<f64> {
     //  NB  triangular lattice may be indexed as 2D with two additional edges.
     //      Positions are sheared at 60 degrees to create the triangular structure.
@@ -151,7 +201,6 @@ pub fn get_triangular_lattice(nx: usize, ny: usize, x0: Vec<f64>, z: f64) -> Arr
 }
 
 pub fn get_triangular_lattice_edges(
-    positions: &Array2<f64>,
     nx: usize,
     ny: usize,
 ) -> Vec<(usize, usize)> {
@@ -214,7 +263,7 @@ pub fn get_slices_triangular_lattice_edges(
     for ((slice, &(nx, ny)), &idx_base) in
         positions_slices.iter().zip(nxy_vec).zip(idx_bases.iter())
     {
-        let local_edges = get_triangular_lattice_edges(slice, nx, ny);
+        let local_edges = get_triangular_lattice_edges(nx, ny);
 
         for (from, to) in local_edges {
             edges.push((idx_base + from, idx_base + to));
@@ -376,6 +425,7 @@ fn cnaster_rs(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_get_triangular_lattice, m)?)?;
     m.add_function(wrap_pyfunction!(py_get_slices_triangular_lattice_edges, m)?)?;
     m.add_function(wrap_pyfunction!(py_nearest_neighbor_edges, m)?)?;
+    m.add_class::<pyCnaster_Graph>()?;
 
     Ok(())
 }

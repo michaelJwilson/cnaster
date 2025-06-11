@@ -4,64 +4,77 @@ use numpy::{IntoPyArray, PyArray2, PyArray1};
 use pyo3::prelude::*;
 use rand::Rng;
 use std::collections::HashMap;
+use std::collections::HashSet;
 
-/*
-pub struct Graph<W> {
-    pub adjacency_list: HashMap<usize, Vec<(usize, W)>>,
+#[derive(Debug)]
+pub struct Cnaster_Graph {
+    // NB input on initialization
     pub positions: Array3<f64>, // shape: (num_nodes, 3)
-    pub labels: Array1<i32>,
     pub coverage: Array2<f64>, // shape: (num_nodes, 2)
+
+    // NB assigned by method
+    pub labels: Array1<i32>,
+    pub adjacency_list: HashMap<usize, Vec<(usize, f64)>>,
 
     // NB derived.
     pub num_nodes: usize,
     pub num_unique_labels: usize,
 }
 
-impl<W: Clone> Graph<W> {
+impl Cnaster_Graph {
     /// Create a new graph with given positions (shape: [num_nodes, 3]) and coverage (shape: [num_nodes, 2]).
     /// Initial labels are set according to the coverage array: label = argmax(coverage[i, :])
     pub fn new(positions: Array3<f64>, coverage: Array2<f64>) -> Self {
         let num_nodes = positions.shape()[0];
+
         assert_eq!(positions.shape()[1], 3, "positions must have shape [num_nodes, 3]");
         assert_eq!(coverage.nrows(), num_nodes, "coverage must have same number of rows as positions");
         assert_eq!(coverage.ncols(), 2, "coverage must have 2 columns (for 2 labels)");
 
-        // Assign label as argmax of coverage for each node
-        let labels = Array1::from(
-            (0..num_nodes)
-                .map(|i| {
-                    if coverage[[i, 0]] >= coverage[[i, 1]] {
-                        0
-                    } else {
-                        1
-                    }
-                })
-                .collect::<Vec<_>>()
-        );
+        // NB initialized to -1
+        let labels = -1 * Array1::<i32>::ones(num_nodes);
+        let num_unique_labels = 1;
 
-        Graph {
-            adjacency_list: HashMap::new(),
+        Cnaster_Graph {
             positions,
-            labels,
             coverage,
+            labels,
+            adjacency_list: HashMap::new(),
             num_nodes,
-            num_unique_labels: 2,
+            num_unique_labels,
         }
     }
 
-    pub fn add_edge(&mut self, from: usize, to: usize, weight: W) {
-        self.adjacency_list
-            .entry(from)
-            .or_insert_with(Vec::new)
-            .push((to, weight.clone()));
+    pub fn update_adjacency_list(&mut self, edges: Vec<(usize, usize)>, weights: Option<Vec<f64>>) {
+        for (i, (from, to)) in edges.iter().enumerate() {
+            let weight = if let Some(ref w) = weights {
+                w[i]
+            } else {
+                1.0 // Default weight if not provided
+            };
 
-        self.adjacency_list
-            .entry(to)
-            .or_insert_with(Vec::new)
-            .push((from, weight));
+            // Check if edge already exists
+            if let Some(neighbors) = self.adjacency_list.get(from) {
+                if let Some((_, existing_weight)) = neighbors.iter().find(|(nbr, _)| nbr == to) {
+                    if (*existing_weight - weight).abs() > 1e-12 {
+                        panic!(
+                            "Edge ({},{}) already exists with incompatible weight: {} vs {}",
+                            from, to, existing_weight, weight
+                        );
+                    } else {
+                        continue; // Edge exists with same weight, skip adding
+                    }
+                }
+            }
+
+            self.adjacency_list
+                .entry(*from)
+                .or_insert_with(Vec::new)
+                .push((*to, weight));
+        }
     }
 
-    pub fn neighbors(&self, node: &usize) -> Option<&Vec<(usize, W)>> {
+    pub fn neighbors(&self, node: &usize) -> Option<&Vec<(usize, f64)>> {
         self.adjacency_list.get(node)
     }
 
@@ -85,7 +98,7 @@ impl<W: Clone> Graph<W> {
                 let label_j = self.labels[*neighbor];
 
                 if label_i != label_j {
-                    cost += J * (*weight).clone().into();
+                    cost += J * *weight;
                 }
 
                 seen.insert((*node, *neighbor));
@@ -95,13 +108,13 @@ impl<W: Clone> Graph<W> {
         // External field cost: H[node, label_i]
         for node in 0..self.num_nodes {
             let label_idx = self.labels[node] as usize;
+
             cost += H[[node, label_idx]];
         }
 
         cost
     }
 }
-*/
 
 pub fn get_triangular_lattice(nx: usize, ny: usize, x0: Vec<f64>, z: f64) -> Array2<f64> {
     //  NB  triangular lattice may be indexed as 2D with two additional edges.

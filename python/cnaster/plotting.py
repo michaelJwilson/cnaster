@@ -20,7 +20,7 @@ def plot_cnaster_graph(cnaster_graph, alpha=0.1):
 
             weight = weight if weight == 1. else weight / max_weight
             
-            ax.plot(x, y, z, color="black", linewidth=0.5, alpha=alpha * weight)
+            ax.plot(x, y, z, color="gray", linewidth=0.5, alpha=alpha * weight)
     
     ax.set_xlabel(r"$x$")
     ax.set_ylabel(r"$y$")

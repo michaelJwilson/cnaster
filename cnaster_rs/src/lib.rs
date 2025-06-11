@@ -1,6 +1,6 @@
 use itertools::iproduct;
 use ndarray::{Array1, Array2, Array3};
-use numpy::{IntoPyArray, PyArray2, PyArray1};
+use numpy::{IntoPyArray, PyArray1, PyArray2};
 use pyo3::prelude::*;
 use rand::Rng;
 use std::collections::HashMap;
@@ -27,9 +27,21 @@ impl Cnaster_Graph {
     pub fn new(positions: Array3<f64>, coverage: Array2<f64>) -> Self {
         let num_nodes = positions.shape()[0];
 
-        assert_eq!(positions.shape()[1], 3, "positions must have shape [num_nodes, 3]");
-        assert_eq!(coverage.nrows(), num_nodes, "coverage must have same number of rows as positions");
-        assert_eq!(coverage.ncols(), 2, "coverage must have 2 columns (for 2 labels)");
+        assert_eq!(
+            positions.shape()[1],
+            3,
+            "positions must have shape [num_nodes, 3]"
+        );
+        assert_eq!(
+            coverage.nrows(),
+            num_nodes,
+            "coverage must have same number of rows as positions"
+        );
+        assert_eq!(
+            coverage.ncols(),
+            2,
+            "coverage must have 2 columns (for 2 labels)"
+        );
 
         // NB initialized to -1
         let labels = -1 * Array1::<i32>::ones(num_nodes);
@@ -77,16 +89,19 @@ impl Cnaster_Graph {
     pub fn neighbors(&self, node: &usize) -> Option<&Vec<(usize, f64)>> {
         self.adjacency_list.get(node)
     }
-
+    
     /// Potts cost: sum over edges of J * (label_i != label_j) * weight_ij
     /// plus sum over nodes of H[node, label_i]
-    pub fn potts_cost(&self, J: f64, H: &ndarray::Array2<f64>) -> f64 {
-        assert_eq!(H.nrows(), self.num_nodes, "H must have shape [num_nodes, num_unique_labels]");
+    pub fn potts_cost(&self, J: f64, H: &Array2<f64>) -> f64 {
+        assert_eq!(
+            H.nrows(),
+            self.num_nodes,
+            "H must have shape [num_nodes, num_unique_labels]"
+        );
 
         let mut cost = 0.0;
         let mut seen = std::collections::HashSet::new();
 
-        // Edge costs
         for (node, neighbors) in &self.adjacency_list {
             let label_i = self.labels[*node];
 
@@ -94,21 +109,15 @@ impl Cnaster_Graph {
                 if seen.contains(&(*neighbor, *node)) {
                     continue;
                 }
-
                 let label_j = self.labels[*neighbor];
-
                 if label_i != label_j {
                     cost += J * *weight;
                 }
-
                 seen.insert((*node, *neighbor));
             }
         }
-
-        // External field cost: H[node, label_i]
         for node in 0..self.num_nodes {
             let label_idx = self.labels[node] as usize;
-
             cost += H[[node, label_idx]];
         }
 
@@ -193,7 +202,7 @@ pub fn get_slices_triangular_lattice_edges(
     nxy_vec: &Vec<(usize, usize)>,
 ) -> Vec<(usize, usize)> {
     let mut edges = Vec::new();
-    
+
     let mut idx_bases: Vec<usize> = Vec::with_capacity(positions_slices.len());
     let mut acc = 0;
 
@@ -202,9 +211,11 @@ pub fn get_slices_triangular_lattice_edges(
         acc += slice.nrows();
     }
 
-    for ((slice, &(nx, ny)), &idx_base) in positions_slices.iter().zip(nxy_vec).zip(idx_bases.iter()) {
+    for ((slice, &(nx, ny)), &idx_base) in
+        positions_slices.iter().zip(nxy_vec).zip(idx_bases.iter())
+    {
         let local_edges = get_triangular_lattice_edges(slice, nx, ny);
-        
+
         for (from, to) in local_edges {
             edges.push((idx_base + from, idx_base + to));
         }
@@ -226,7 +237,7 @@ pub fn nearest_neighbor_edges(
     let mut from_to = Vec::new();
     let mut weights = Vec::new();
 
-    // NB idx by cumulative node number by slice, in slice order. 
+    // NB idx by cumulative node number by slice, in slice order.
     let idx_bases: Vec<usize> = positions_slices
         .iter()
         .scan(0, |acc, arr| {
@@ -304,7 +315,7 @@ fn py_get_triangular_lattice<'py>(
 ) -> PyResult<&'py PyArray2<f64>> {
     let x0 = x0.unwrap_or((0.0, 0.0));
     let positions = get_triangular_lattice(nx, ny, vec![x0.0, x0.1], z);
-    
+
     Ok(positions.into_pyarray(py))
 }
 
@@ -365,7 +376,7 @@ fn cnaster_rs(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_get_triangular_lattice, m)?)?;
     m.add_function(wrap_pyfunction!(py_get_slices_triangular_lattice_edges, m)?)?;
     m.add_function(wrap_pyfunction!(py_nearest_neighbor_edges, m)?)?;
-    
+
     Ok(())
 }
 

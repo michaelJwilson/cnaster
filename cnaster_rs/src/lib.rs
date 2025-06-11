@@ -20,6 +20,7 @@ pub struct Cnaster_Graph {
     // NB derived.
     pub num_nodes: usize,
     pub max_label: usize,
+    pub max_edge_weight: f64,
     pub mean_cov: Vec<f64>,
 }
 
@@ -43,11 +44,13 @@ impl Cnaster_Graph {
             3,
             "positions must have shape [num_nodes, 3]"
         );
+
         assert_eq!(
             coverage.nrows(),
             num_nodes,
             "coverage must have same number of rows as positions"
         );
+
         assert_eq!(
             coverage.ncols(),
             2,
@@ -74,6 +77,7 @@ impl Cnaster_Graph {
             adjacency_list: HashMap::new(),
             num_nodes,
             max_label,
+            max_edge_weight: 0.0,
             mean_cov,
         }
     }
@@ -98,6 +102,10 @@ impl Cnaster_Graph {
                         continue; // Edge exists with same weight, skip adding
                     }
                 }
+            }
+
+            if weight > self.max_edge_weight {
+                self.max_edge_weight = weight;
             }
 
             self.adjacency_list
@@ -201,6 +209,11 @@ impl pyCnaster_Graph {
     #[getter]
     pub fn max_label(&self) -> usize {
         self.inner.max_label
+    }
+
+    #[getter]
+    pub fn max_edge_weight(&self) -> f64 {
+        self.inner.max_edge_weight
     }
 
     #[getter]

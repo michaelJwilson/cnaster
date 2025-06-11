@@ -129,62 +129,45 @@ pub fn get_triangular_lattice(nx: usize, ny: usize, x0: Vec<f64>, z: f64) -> Arr
 }
 
 pub fn get_triangular_lattice_edges(
-    positions_slices: &Vec<Array2<f64>>,
+    positions: &Array2<f64>,
     nx: usize,
     ny: usize,
 ) -> Vec<(usize, usize)> {
-    // NB see page 336 of Newman & Barkema;
     let mut edges = Vec::new();
-    let nodes_per_slice = nx * ny;
 
-    for (z, slice) in positions_slices.iter().enumerate() {
-        let idx_base = z * nodes_per_slice;
+    for y in 0..ny {
+        for x in 0..nx {
+            let idx = y * nx + x;
 
-        for y in 0..ny {
-            for x in 0..nx {
-                let idx = idx_base + y * nx + x;
-
-                // NB right neighbor, (i+1, j)
-                if x + 1 < nx {
-                    let nbr = idx_base + y * nx + (x + 1);
-
-                    edges.push((idx, nbr));
-                }
-                
-                // NB left neighbor, (i-1, j)
-                if x >= 1 {
-                    let nbr = idx_base + y * nx + (x - 1);
-
-                    edges.push((idx, nbr));
-                }
-                
-                // NB top neighbor, (i, j+1)
-                if y + 1 < ny {
-                    let nbr = idx_base + (y + 1) * nx + x;
-
-                    edges.push((idx, nbr));
-                }
-                
-                // NB bottom neighbor, (i, j-1)
-                if y >= 1 {
-                    let nbr = idx_base + (y - 1) * nx + x;
-
-                    edges.push((idx, nbr));
-                }
-
-                // NB triangular specific, (i+1, j-1)
-                if x + 1 < nx && y >= 1 {
-                    let nbr = idx_base + (y - 1) * nx + (x + 1);
-
-                    edges.push((idx, nbr));
-                }
-
-                // NB triangular specific, (i-1, j+1)
-                if x >= 1 && y + 1 < ny {
-                    let nbr = idx_base + (y + 1) * nx + (x - 1);
-
-                    edges.push((idx, nbr));
-                }
+            // right neighbor, (i+1, j)
+            if x + 1 < nx {
+                let nbr = y * nx + (x + 1);
+                edges.push((idx, nbr));
+            }
+            // left neighbor, (i-1, j)
+            if x >= 1 {
+                let nbr = y * nx + (x - 1);
+                edges.push((idx, nbr));
+            }
+            // top neighbor, (i, j+1)
+            if y + 1 < ny {
+                let nbr = (y + 1) * nx + x;
+                edges.push((idx, nbr));
+            }
+            // bottom neighbor, (i, j-1)
+            if y >= 1 {
+                let nbr = (y - 1) * nx + x;
+                edges.push((idx, nbr));
+            }
+            // triangular specific, (i+1, j-1)
+            if x + 1 < nx && y >= 1 {
+                let nbr = (y - 1) * nx + (x + 1);
+                edges.push((idx, nbr));
+            }
+            // triangular specific, (i-1, j+1)
+            if x >= 1 && y + 1 < ny {
+                let nbr = (y + 1) * nx + (x - 1);
+                edges.push((idx, nbr));
             }
         }
     }
@@ -291,17 +274,12 @@ fn py_get_triangular_lattice<'py>(
 #[pyo3(name = "get_triangular_lattice_edges")]
 fn py_get_triangular_lattice_edges<'py>(
     py: Python<'py>,
-    positions_slices: Vec<&PyArray2<f64>>,
+    positions: &PyArray2<f64>,
     nx: usize,
     ny: usize,
 ) -> PyResult<&'py PyArray2<usize>> {
-    // TODO PyReadOnlyArray
-    let positions_vec: Vec<Array2<f64>> = positions_slices
-        .iter()
-        .map(|arr| arr.readonly().as_array().to_owned())
-        .collect();
-
-    let edges = get_triangular_lattice_edges(&positions_vec, nx, ny);
+    let positions = positions.readonly().as_array().to_owned();
+    let edges = get_triangular_lattice_edges(&positions, nx, ny);
 
     let num_edges = edges.len();
     let mut edges_arr = Array2::<usize>::zeros((num_edges, 2));

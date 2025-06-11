@@ -2,25 +2,19 @@ import numpy as np
 
 
 def planar_power_law(planar_positions, k, exponent):
-    k = np.asarray(k)
-    k_sq = np.dot(k, k)
-
-    scalars = np.dot(planar_positions, k) / k_sq
+    modk = np.linalg.norm(k)
+    modx = np.sqrt(planar_positions[:,0]**2. + planar_positions[:,1]**2.)
     
-    return scalars
+    scalars = np.dot(planar_positions, k) / modk
+    scalars /= scalars.max()
+    
+    return scalars ** exponent
 
 
 def planar_power_law_fields(positions, max_label, vec_k):
-    modk = np.linalg.norm(vec_k)
+    epsilon = 0.1
+    exponents = np.array([1. - (n + 1) * epsilon for n in range(1+max_label)])
 
-    wavelength = (2.0 * np.pi) / modk
-
-    exponents = np.random.uniform(size=(1 + max_label))
-    exponents /= exponents.max()
-    exponents = np.sort(exponents)
-
-    print(exponents)
-    
     planar_positions = positions[:, :-1]
 
     fields = np.vstack(

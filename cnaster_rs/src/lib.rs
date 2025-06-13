@@ -407,12 +407,7 @@ impl pyCnaster_Graph {
         self.inner.icm_sweep(J, epsilon, h_ref)
     }
 
-    pub fn icm_learn(
-        &mut self,
-        J: f64,
-        max_iters: usize,
-        H: Option<&PyArray2<f64>>,
-    ) -> f64 {
+    pub fn icm_learn(&mut self, J: f64, max_iters: usize, H: Option<&PyArray2<f64>>) -> f64 {
         let mut h_owned = None;
         let h_ref = if let Some(H) = H {
             h_owned = Some(H.readonly().as_array().to_owned());

@@ -440,24 +440,6 @@ impl pyCnaster_Graph {
 
         self.inner.metropolis_hastings_sweep(J, beta, h_ref)
     }
-
-    pub fn wolff_sweep(
-        &mut self,
-        J: f64,
-        beta: f64,
-        num_steps: usize,
-        H: Option<&PyArray2<f64>>,
-    ) -> f64 {
-        let mut h_owned = None;
-        let h_ref = if let Some(H) = H {
-            h_owned = Some(H.readonly().as_array().to_owned());
-            h_owned.as_ref()
-        } else {
-            None
-        };
-
-        self.inner.wolff_sweep(J, beta, num_steps, h_ref)
-    }
 }
 
 pub fn get_triangular_lattice(nx: usize, ny: usize, x0: Vec<f64>, z: f64) -> Array2<f64> {

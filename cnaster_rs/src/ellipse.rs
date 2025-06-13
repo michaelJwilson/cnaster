@@ -1,6 +1,7 @@
 use nalgebra::{Matrix2, Vector2};
 use rand::Rng;
 use std::f64::consts::PI;
+use pyo3::prelude::*;
 
 #[derive(Debug, Clone)]
 pub struct Ellipse {

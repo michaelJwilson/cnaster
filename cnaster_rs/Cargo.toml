@@ -18,6 +18,7 @@ num_cpus = "1.0"
 itertools = "0.12"
 rand = "0.8.5"
 ordered-float = "2.10.0"
+nalgebra = "*"
 GSL = "*"
 
 [profile.release]

@@ -15,27 +15,33 @@ impl Ellipse {
     pub fn new(center: Vector2<f64>, L: Matrix2<f64>) -> Self {
         let Q = &L * L.transpose();
         let det_L = L.determinant();
-        
-        Ellipse { center, L, Q, n: 2, det_L }
+
+        Ellipse {
+            center,
+            L,
+            Q,
+            n: 2,
+            det_L,
+        }
     }
 
-    pub fn from_lower_inv_diagonal(center: Vector2<f64>, inv_diag: [f64; 2]) -> Self {
-        let L = Matrix2::new(1.0 / inv_diag[0], 1.0 / inv_diag[1]);
-        
+    pub fn from_inv_diagonal(center: Vector2<f64>, inv_diag: [f64; 2]) -> Self {
+        let L = Matrix2::from_diagonal(&Vector2::new(1.0 / inv_diag[0], 1.0 / inv_diag[1]));
+
         Self::new(center, L)
     }
 
     pub fn contains(&self, pos_xy: Vector2<f64>) -> bool {
         let v = pos_xy - self.center;
-        
+
         (self.L.transpose() * v).norm_squared() <= 1.0
     }
 
     pub fn rotate(&self, theta: f64) -> Self {
-        let (s, c) = theta.sin_cos();        
+        let (s, c) = theta.sin_cos();
         let R = Matrix2::new(c, -s, s, c);
-        
-        self::new(self.center, R * self.L)
+
+        Self::new(self.center, R * self.L)
     }
 
     pub fn get_daughter(&self, factor: f64) -> Self {
@@ -52,6 +58,6 @@ impl Ellipse {
         new_L /= factor.powi(2);
 
         // NB see https://arxiv.org/pdf/1908.09326
-        self::new(new_center, new_L)
+        Self::new(new_center, new_L)
     }
 }

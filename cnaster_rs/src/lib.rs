@@ -1,9 +1,12 @@
+mod ellipse;
+
 use itertools::iproduct;
 use ndarray::{Array1, Array2, Array3};
 use numpy::{IntoPyArray, PyArray1, PyArray2, ToPyArray};
 use pyo3::prelude::*;
 use rand::prelude::SliceRandom;
 use rand::Rng;
+use ellipse::Ellipse;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt;

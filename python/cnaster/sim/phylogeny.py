@@ -12,10 +12,12 @@ cna_id = 0
 
 centers = [[0,0], [5,5], [5,-5], [-5,-5], [-5,5]]
 
+
+
 @dataclass
 class Node:
     time: int = -1
-    ellipse: Optional['ellipse.CnaEllipse'] = None
+    ellipse_idx: int = -1
     left: Optional['Node'] = None
     right: Optional['Node'] = None
 
@@ -73,14 +75,16 @@ def simulate_phylogeny():
     tree = BinaryTree(normal)
 
     time = 1
+    ellipses, cnas = [], []
 
-    while time < 2:
+    while time < 5:
         leaf = tree.sample_leaf()
+        ellipse_idx = leaf.ellipse_idx
 
         # cna = simulate_cna(cnas, config.phylogeny.parsimony_rate)
                          
         # NB the normal leaf generates a new tumor of sub-clones.
-        if leaf.ellipse == None:
+        if ellipse_idx == -1:
             if time == 0:
                 center = np.array([0.0, 0.0], dtype=float).reshape(2, 1)
                 inv_diag = np.array([1.0, 2.0], dtype=float).reshape(2, 1)
@@ -90,13 +94,13 @@ def simulate_phylogeny():
             else:
                 el = simulate_parent()
         else:
-            el = leaf.ellipse.get_daughter(0.75)
+            el = ellipses[ellipse_idx].get_daughter(0.75)
 
-        print(el)
+        ellipses.append(el)
 
-        leaf.left = copy.deepcopy(leaf)                 
-        # leaf.right = Node(time, el)
-        
+        leaf.left = copy.deepcopy(leaf)
+        leaf.right = Node(time, ellipse_idx + 1)
+
         time += 1
 
 

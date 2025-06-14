@@ -1,0 +1,15 @@
+{
+    "segment_kbp": 50,
+    "trans_rate": 0.00001,
+    "copy_number_states": [
+        "1,1",
+        "1,0",
+        "2,1",
+        "2,2"
+    ],
+    "rdr_dispersion": 0.0,
+    "baf_dispersion": 0.0,
+    "phasing": {
+        "switch_rate": 0.00001
+    }
+}

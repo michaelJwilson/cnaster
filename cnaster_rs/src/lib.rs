@@ -1,8 +1,10 @@
 mod ellipse;
 mod config;
+mod sim_config;
 
 use ellipse::Ellipse;
 use config::Config;
+use sim_config::SimConfig;
 use itertools::iproduct;
 use ndarray::{Array1, Array2, Array3};
 use numpy::{IntoPyArray, PyArray1, PyArray2, ToPyArray};

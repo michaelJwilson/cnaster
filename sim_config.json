@@ -12,4 +12,10 @@
     "phasing": {
         "switch_rate": 0.00001
     }
+    "visium": {
+        "num_spots": 4992
+    }
+    "alignment": {
+        "num_slices": 2
+    }
 }

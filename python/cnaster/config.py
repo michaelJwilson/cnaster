@@ -55,7 +55,7 @@ class PhasingConfig:
 class SimConfig:
     segment_kbp: int
     trans_rate: float
-    copy_number_states: List[str]
+    copy_num_states: List[str]
     rdr_dispersion: float
     baf_dispersion: float
     phasing: PhasingConfig
@@ -67,7 +67,7 @@ class SimConfig:
         return SimConfig(
             segment_kbp=d["segment_kbp"],
             trans_rate=d["trans_rate"],
-            copy_number_states=d["copy_number_states"],
+            copy_num_states=d["copy_num_states"],
             rdr_dispersion=d["rdr_dispersion"],
             baf_dispersion=d["baf_dispersion"],
             phasing=PhasingConfig.from_dict(d["phasing"]),

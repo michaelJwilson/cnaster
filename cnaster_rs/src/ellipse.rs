@@ -66,6 +66,7 @@ impl CnaEllipse {
 
 
 #[pyclass]
+#[pyo3(name = "CnaEllipse")]
 #[derive(Clone)]
 pub struct pyCnaEllipse {
     pub inner: CnaEllipse,
@@ -133,6 +134,12 @@ impl pyCnaEllipse {
 
     pub fn rotate(&self, theta: f64) -> Self {
         pyCnaEllipse { inner: self.inner.rotate(theta) }
+    }
+
+    pub fn get_daughter(&self, factor: f64) -> Self {
+        pyCnaEllipse {
+            inner: self.inner.get_daughter(factor)
+        }
     }
 
     #[getter]

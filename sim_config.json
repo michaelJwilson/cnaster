@@ -1,5 +1,6 @@
 {
     "segment_kbp": 50,
+    "mappable_genome_kbp": 3000000,
     "trans_rate": 0.00001,
     "copy_num_states": [
         "1,1",
@@ -7,14 +8,14 @@
         "2,1",
         "2,2"
     ],
-    "rdr_dispersion": 0.0,
-    "baf_dispersion": 0.0,
+    "rdr_dispersion": 0,
+    "baf_dispersion": 0,
     "phasing": {
         "switch_rate": 0.00001
-    }
+    },
     "visium": {
         "num_spots": 4992
-    }
+    },
     "alignment": {
         "num_slices": 2
     }

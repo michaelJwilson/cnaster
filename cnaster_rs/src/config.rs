@@ -13,7 +13,7 @@ struct CloneInitialization {
 }
 
 #[derive(Deserialize, Debug)]
-struct Config {
+pub struct Config {
     model_parameters: ModelParameters,
     clone_initialization: CloneInitialization,
 }

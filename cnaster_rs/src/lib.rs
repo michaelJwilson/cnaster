@@ -2,7 +2,7 @@ mod ellipse;
 mod config;
 
 use ellipse::Ellipse;
-use config::{Config}
+use config::Config;
 use itertools::iproduct;
 use ndarray::{Array1, Array2, Array3};
 use numpy::{IntoPyArray, PyArray1, PyArray2, ToPyArray};
@@ -690,7 +690,7 @@ fn cnaster_rs(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_get_slices_triangular_lattice_edges, m)?)?;
     m.add_function(wrap_pyfunction!(py_nearest_neighbor_edges, m)?)?;
     m.add_class::<pyCnaster_Graph>()?;
-    m.add_class::<pyEllipse>()?;
+    // m.add_class::<pyEllipse>()?;
 
     Ok(())
 }

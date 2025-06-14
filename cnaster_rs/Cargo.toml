@@ -20,6 +20,8 @@ rand = "0.8.5"
 ordered-float = "2.10.0"
 nalgebra = "*"
 GSL = "*"
+serde = {version = "1.0.219", features = ["derive"]}
+serde_json = "1.0.140"
 
 [profile.release]
 opt-level = 3

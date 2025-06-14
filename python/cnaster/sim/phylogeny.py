@@ -10,16 +10,18 @@ from cnaster.config import JSONConfig
 config = JSONConfig.from_file("/Users/mw9568/repos/cnaster/sim_config.json")
 cna_id = 0
 
-centers = [[0,0], [5,5], [5,-5], [-5,-5], [-5,5]]
-
+centers = [[0, 0], [5, 5], [5, -5], [-5, -5], [-5, 5]]
 
 
 @dataclass
 class Node:
     time: int = -1
+    cna_idx: int = -1
     ellipse_idx: int = -1
-    left: Optional['Node'] = None
-    right: Optional['Node'] = None
+    parent: Optional["Node"] = None
+    left: Optional["Node"] = None
+    right: Optional["Node"] = None
+
 
 class BinaryTree:
     def __init__(self, root: Optional[Node] = None):
@@ -31,25 +33,25 @@ class BinaryTree:
                 return []
             if node.left is None and node.right is None:
                 return [node]
-            
+
             return _leaves(node.left) + _leaves(node.right)
-        
+
         return _leaves(self.root)
 
     def sample_leaf(self) -> Optional[Node]:
         leaves = self.leaves()
-        
+
         if not leaves:
             return None
-        
+
         return np.random.choice(leaves)
-    
+
+
 def simulate_cna(current_cnas, parsimony_rate):
     copy_num_states = np.array(config.copy_num_states)
     num_segments = config.mappable_genome_kbp // config.segment_size_kbp
 
     if current_cnas and (np.random.uniform() < parsimony_rate):
-        # NB  randomly select an existing copy number state.
         return np.random.choice(current_cnas, size=1, replace=True)
     else:
         state = np.random.choice(copy_num_states, size=1, replace=True)
@@ -57,8 +59,9 @@ def simulate_cna(current_cnas, parsimony_rate):
 
         new_cna = [cna_id, state, pos, config.cna_length_kbp]
         cna_id += 1
-        
+
         return new_cna
+
 
 def simulate_parent():
     center = np.array(centers.pop(), dtype=float).reshape(2, 1)
@@ -67,11 +70,10 @@ def simulate_parent():
     theta = np.pi * np.random.randint(1, high=4) / 4.0
 
     return ellipse.CnaEllipse.from_diagonal(center, inv_diag).rotate(theta)
-                         
-    
+
+
 def simulate_phylogeny():
-    # NB initialize normal root at time zero.
-    normal = Node(0)                         
+    normal = Node(0)
     tree = BinaryTree(normal)
 
     time = 1
@@ -79,10 +81,9 @@ def simulate_phylogeny():
 
     while time < 5:
         leaf = tree.sample_leaf()
+        cna_idx = leaf.cna_idx
         ellipse_idx = leaf.ellipse_idx
 
-        # cna = simulate_cna(cnas, config.phylogeny.parsimony_rate)
-                         
         # NB the normal leaf generates a new tumor of sub-clones.
         if ellipse_idx == -1:
             if time == 0:
@@ -96,10 +97,26 @@ def simulate_phylogeny():
         else:
             el = ellipses[ellipse_idx].get_daughter(0.75)
 
+        lineage_cna_idxs = [leaf.cna_idx]
+
+        while parent := leaf.parent is not None:
+            lineage_cna_idxs.append(parent.cna_idx)
+            leaf = parent
+
+        lineage_cna_idxs = set(lineage_cna_idxs)
+
+        while True:
+            cna = simulate_cna(cnas, config.phylogeny.parsimony_rate)
+            new_idx = cnas.index(cna)
+
+            if new_idx not in lineage_cna_idxs:
+                break
+
         ellipses.append(el)
+        cnas.append(cna)
 
         leaf.left = copy.deepcopy(leaf)
-        leaf.right = Node(time, ellipse_idx + 1)
+        leaf.right = Node(time, cna_idx + 1, ellipse_idx + 1, leaf)
 
         time += 1
 

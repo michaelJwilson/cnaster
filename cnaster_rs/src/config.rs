@@ -22,7 +22,7 @@ impl Config {
     pub fn from_file(path: &str) -> Result<Self, Box<dyn std::error::Error>> {
         let data = fs::read_to_string(path)?;
         let config: Config = serde_json::from_str(&data)?;
-        
+
         Ok(config)
     }
 }

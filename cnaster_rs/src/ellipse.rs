@@ -2,9 +2,10 @@ use nalgebra::{Matrix2, Vector2};
 use pyo3::prelude::*;
 use rand::Rng;
 use std::f64::consts::PI;
+use numpy::{PyArray2, PyReadonlyArray2, IntoPyArray};
 
 #[derive(Debug, Clone)]
-pub struct Ellipse {
+pub struct CnaEllipse {
     pub n: usize,
     pub det_L: f64,
     pub center: Vector2<f64>,
@@ -12,12 +13,12 @@ pub struct Ellipse {
     pub Q: Matrix2<f64>,
 }
 
-impl Ellipse {
+impl CnaEllipse {
     pub fn new(center: Vector2<f64>, L: Matrix2<f64>) -> Self {
         let Q = &L * L.transpose();
         let det_L = L.determinant();
 
-        Ellipse {
+        CnaEllipse {
             center,
             L,
             Q,
@@ -61,4 +62,114 @@ impl Ellipse {
         // NB see https://arxiv.org/pdf/1908.09326
         Self::new(new_center, new_L)
     }
+}
+
+
+#[pyclass]
+#[derive(Clone)]
+pub struct pyCnaEllipse {
+    pub inner: CnaEllipse,
+}
+
+#[pymethods]
+impl pyCnaEllipse {
+    #[new]
+    pub fn new(center: &PyArray2<f64>, l: &PyArray2<f64>) -> PyResult<Self> {
+        let center_binding = center.readonly();
+        let center = center_binding.as_array();
+        let l_binding = l.readonly();
+        let l = l_binding.as_array();
+
+        // Expect center shape (2,1)
+        if center.shape() != [2, 1] {
+            return Err(pyo3::exceptions::PyValueError::new_err("center must be shape (2,1)"));
+        }
+        let center_vec = Vector2::new(center[[0, 0]], center[[1, 0]]);
+
+        if l.shape() != [2, 2] {
+            return Err(pyo3::exceptions::PyValueError::new_err("L must be shape (2,2)"));
+        }
+
+        let l_mat = Matrix2::new(l[[0, 0]], l[[0, 1]], l[[1, 0]], l[[1, 1]]);
+        let inner = CnaEllipse::new(center_vec, l_mat);
+
+        Ok(pyCnaEllipse { inner })
+    }
+
+    #[staticmethod]
+    pub fn from_diagonal(center: &PyArray2<f64>, diag: &PyArray2<f64>) -> PyResult<Self> {
+        let center_binding = center.readonly();
+        let center = center_binding.as_array();
+        let diag_binding = diag.readonly();
+        let diag = diag_binding.as_array();
+
+        // Expect center shape (2,1)
+        if center.shape() != [2, 1] {
+            return Err(pyo3::exceptions::PyValueError::new_err("center must be shape (2,1)"));
+        }
+        let center_vec = Vector2::new(center[[0, 0]], center[[1, 0]]);
+
+        // Expect diag shape (2,1)
+        if diag.shape() != [2, 1] {
+            return Err(pyo3::exceptions::PyValueError::new_err("diag must be shape (2,1)"));
+        }
+        let diag_arr = [diag[[0, 0]], diag[[1, 0]]];
+
+        let inner = CnaEllipse::from_inv_diagonal(center_vec, diag_arr);
+
+        Ok(pyCnaEllipse { inner })
+    }
+
+    pub fn contains(&self, pos_xy: &PyArray2<f64>) -> PyResult<bool> {
+        let pos_binding = pos_xy.readonly();
+        let pos = pos_binding.as_array();
+        // Expect pos_xy shape (2,1)
+        if pos.shape() != [2, 1] {
+            return Err(pyo3::exceptions::PyValueError::new_err("pos_xy must be shape (2,1)"));
+        }
+        let v = Vector2::new(pos[[0, 0]], pos[[1, 0]]);
+        Ok(self.inner.contains(v))
+    }
+
+    pub fn rotate(&self, theta: f64) -> Self {
+        pyCnaEllipse { inner: self.inner.rotate(theta) }
+    }
+
+    #[getter]
+    pub fn center<'py>(&self, py: Python<'py>) -> &'py PyArray2<f64> {
+        let arr = ndarray::Array2::from_shape_vec((1, 2), vec![self.inner.center[0], self.inner.center[1]]).unwrap();
+
+        arr.into_pyarray(py)
+    }
+
+    #[getter]
+    pub fn l<'py>(&self, py: Python<'py>) -> &'py PyArray2<f64> {
+        let arr = ndarray::arr2(&[
+            [self.inner.L[(0, 0)], self.inner.L[(0, 1)]],
+            [self.inner.L[(1, 0)], self.inner.L[(1, 1)]],
+        ]);
+
+        arr.into_pyarray(py)
+    }
+
+    #[getter]
+    pub fn q<'py>(&self, py: Python<'py>) -> &'py PyArray2<f64> {
+        let arr = ndarray::arr2(&[
+            [self.inner.Q[(0, 0)], self.inner.Q[(0, 1)]],
+            [self.inner.Q[(1, 0)], self.inner.Q[(1, 1)]],
+        ]);
+
+        arr.into_pyarray(py)
+    }
+
+    #[getter]
+    pub fn det_l(&self) -> f64 {
+        self.inner.det_L
+    }
+}
+
+#[pymodule]
+pub fn ellipse(_py: Python, m: &PyModule) -> PyResult<()> {
+    m.add_class::<pyCnaEllipse>()?;
+    Ok(())
 }

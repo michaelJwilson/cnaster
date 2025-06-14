@@ -20,7 +20,7 @@ impl SimConfig {
     pub fn from_file(path: &str) -> Result<Self, Box<dyn std::error::Error>> {
         let data = fs::read_to_string(path)?;
         let config: SimConfig = serde_json::from_str(&data)?;
-        
+
         Ok(config)
     }
 }

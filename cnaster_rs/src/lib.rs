@@ -1,16 +1,16 @@
-mod ellipse;
 mod config;
+mod ellipse;
 mod sim_config;
 
-use ellipse::Ellipse;
 use config::Config;
-use sim_config::SimConfig;
+use ellipse::CnaEllipse;
 use itertools::iproduct;
 use ndarray::{Array1, Array2, Array3};
 use numpy::{IntoPyArray, PyArray1, PyArray2, ToPyArray};
 use pyo3::prelude::*;
 use rand::prelude::SliceRandom;
 use rand::Rng;
+use sim_config::SimConfig;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt;
@@ -687,12 +687,16 @@ fn py_nearest_neighbor_edges<'py>(
 
 #[pymodule]
 #[pyo3(name = "cnaster_rs")]
-fn cnaster_rs(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
+fn cnaster_rs(py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_get_triangular_lattice, m)?)?;
     m.add_function(wrap_pyfunction!(py_get_slices_triangular_lattice_edges, m)?)?;
     m.add_function(wrap_pyfunction!(py_nearest_neighbor_edges, m)?)?;
     m.add_class::<pyCnaster_Graph>()?;
-    // m.add_class::<pyEllipse>()?;
+    
+    let ellipse_mod = PyModule::new(py, "ellipse")?;
+
+    ellipse::ellipse(py, ellipse_mod)?;
+    m.add_submodule(ellipse_mod)?;
 
     Ok(())
 }

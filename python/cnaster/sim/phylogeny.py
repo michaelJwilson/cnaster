@@ -16,12 +16,17 @@ centers = [[0, 0], [5, 5], [5, -5], [-5, -5], [-5, 5]]
 
 @dataclass
 class Node:
+    identifier: int = -1
     time: int = -1
     cna_idx: int = -1
     ellipse_idx: int = -1
     parent: Optional["Node"] = None
     left: Optional["Node"] = None
     right: Optional["Node"] = None
+
+    def __str__(self):
+        return (f"Node(identifier={self.identifier}, time={self.time}, "
+                f"cna_idx={self.cna_idx}, ellipse_idx={self.ellipse_idx})")
 
 
 class BinaryTree:
@@ -53,13 +58,16 @@ def simulate_cna(current_cnas, parsimony_rate):
     num_segments = config.mappable_genome_kbp // config.segment_size_kbp
 
     if current_cnas and (np.random.uniform() < parsimony_rate):
-        new_cna = np.random.choice(current_cnas)
-        return new_cna, current_cnas.index(new_cna)
+        new_cna_idx = np.random.randint(0, len(current_cnas))
+        new_cna =  copy.deepcopy(current_cnas[new_cna_idx])
     else:
         state = random.choice(copy_num_states)
         pos = config.segment_size_kbp * np.random.randint(0, num_segments)
     
-        return [state, pos, pos + config.cna_length_kbp], None
+        new_cna = [state, pos, pos + config.cna_length_kbp]
+        new_cna_idx = None
+
+    return new_cna, new_cna_idx
 
 
 def simulate_parent():
@@ -72,16 +80,22 @@ def simulate_parent():
 
 
 def simulate_phylogeny():
-    normal = Node(0)
+    normal = Node(0, 0)
     tree = BinaryTree(normal)
+
+    print(f"\n\n{normal}")
 
     time = 1
     ellipses, cnas = [], []
 
-    while time < 3:
+    node_count = 1
+
+    while time < 4:
         leaf = tree.sample_leaf()
         cna_idx = leaf.cna_idx
         ellipse_idx = leaf.ellipse_idx
+
+        print(f"\nTime {time}:  Solving for ellipse")
 
         # NB the normal leaf generates a metastasis
         if ellipse_idx == -1:
@@ -96,12 +110,16 @@ def simulate_phylogeny():
         else:
             el = ellipses[ellipse_idx].get_daughter(0.75)
 
+        print(f"Time {time}:  Solving for lineage")
+
         lineage_cna_idxs = [leaf.cna_idx]
         parent = leaf.parent
 
         while parent is not None:
             lineage_cna_idxs.append(parent.cna_idx)
-            leaf = parent
+            parent = parent.parent
+
+        print(f"Time {time}:  Solving for CNA")
 
         while True:
             cna, new_cna_idx = simulate_cna(cnas, config.phylogeny.parsimony_rate)
@@ -114,13 +132,20 @@ def simulate_phylogeny():
 
         ellipses.append(el)
 
+        print(f"Time {time}:  Solved for CNA:  {cna}")
+
         if new_cna_idx is None:
             cnas.append(cna)
-            new_cna_idx = cna_idx + 1
+            new_cna_idx = len(cnas) - 1
 
-        leaf.left = copy.deepcopy(leaf)
-        leaf.right = Node(time, new_cna_idx, ellipse_idx + 1, leaf)
+        print(f"Time {time}:  Solving for children")
 
+        leaf.left = Node(leaf.identifier, time, leaf.cna_idx, leaf.ellipse_idx, leaf)
+        leaf.right = Node(node_count, time, new_cna_idx, len(ellipses) - 1, leaf)
+
+        print(f"\n\n{leaf.left}\n{leaf.right}")
+
+        node_count += 1
         time += 1
 
     return tree, ellipses, cnas
@@ -151,4 +176,6 @@ def plot_phylogeny(tree, ellipses, cnas):
 if __name__ == "__main__":
     tree, ellipses, cnas = simulate_phylogeny()
 
-    plot_phylogeny(tree, ellipses, cnas)
+    # plot_phylogeny(tree, ellipses, cnas)
+
+    print("\n\nDone.\n\n")

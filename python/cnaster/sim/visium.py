@@ -1,6 +1,7 @@
 import os
 import gzip
 import logging
+import polars
 import numpy as np
 from cnaster_rs import get_triangular_lattice
 
@@ -12,6 +13,7 @@ def generate_fake_barcodes(num_spots):
 def gen_visium(sample_dir, config, name):
     logger.info(f"Generating {name} visium.")
 
+    # NB generate spot barcodes and positions
     nx, ny = config.visium.nx, config.visium.ny
 
     info = getattr(config.samples, name, None)
@@ -30,4 +32,9 @@ def gen_visium(sample_dir, config, name):
         for bc, (x, y, z) in zip(barcodes, lattice):
             f.write(f"{bc}\t{x:.6f}\t{y:.6f}\t{z:.6f}\n")
 
-    logger.info(f"Generated visium spots to {tsv_path}")
+    # NB generate umi counts
+    #    - "exp_umi_per_spot": 3162,
+    #    - "exp_snp_umi_per_spot": 501,
+    
+            
+    logger.info(f"Generated visium to {sample_dir}")

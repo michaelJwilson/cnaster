@@ -11,14 +11,9 @@ from mpl_toolkits.mplot3d import Axes3D
 from dataclasses import dataclass
 from typing import Any, Optional
 
-from cnaster_rs import ellipse, set_cnaster_rs_seed
-from cnaster.config import JSONConfig
+from cnaster_rs import ellipse
 
 logger =  logging.getLogger(__name__)
-
-# TODO HACK
-centers = (0.5 * np.array([[1, 1], [1, -1], [-1, 1]])).tolist()
-
 @dataclass
 class Node:
     identifier: int = -1
@@ -60,18 +55,22 @@ class BinaryTree:
         return random.choice(leaves)
 
 
-def simulate_cna(current_cnas, parsimony_rate):
+def simulate_cna(config, current_cnas):
     copy_num_states = np.array(config.copy_num_states)
-    num_segments = config.mappable_genome_kbp // config.segment_size_kbp
+    mappable_genome_kbp = config.mappable_genome_kbp
+    segment_size_kbp = config.segment_size_kbp
+    cna_length_kbp = config.cna_length_kbp
+    parsimony_rate = config.phylogeny.parsimony_rate
+
+    num_segments = mappable_genome_kbp // segment_size_kbp
 
     if current_cnas and (np.random.uniform() < parsimony_rate):
         new_cna_idx = np.random.randint(0, len(current_cnas))
         new_cna = copy.deepcopy(current_cnas[new_cna_idx])
     else:
         state = random.choice(copy_num_states)
-        pos = config.segment_size_kbp * np.random.randint(0, num_segments)
-
-        new_cna = [state, pos, pos + config.cna_length_kbp]
+        pos = segment_size_kbp * np.random.randint(0, num_segments)
+        new_cna = [state, pos, pos + cna_length_kbp]
         new_cna_idx = None
 
     return new_cna, new_cna_idx
@@ -101,7 +100,7 @@ def get_cna_lineage(leaf):
     return lineage_cna_idxs
 
 
-def simulate_phylogeny():
+def simulate_phylogeny(config):
     normal = Node(0, 0)
     tree = BinaryTree(normal)
 
@@ -152,7 +151,7 @@ def simulate_phylogeny():
         print(f"Time {time}:  Solving for CNA")
 
         while True:
-            cna, new_cna_idx = simulate_cna(cnas, config.phylogeny.parsimony_rate)
+            cna, new_cna_idx = simulate_cna(config, cnas)
 
             if new_cna_idx is not None:
                 if new_cna_idx not in lineage_cna_idxs:
@@ -196,7 +195,7 @@ def plot_ellipse(center, L, ax=None, **kwargs):
     return ax
 
 
-def finalize_clones(tree, ellipses, cnas, outdir, max_cnas=10):
+def finalize_clones(config, tree, ellipses, cnas, outdir, max_cnas=10):
     leaves = tree.leaves()
     used_cnas = copy.deepcopy(cnas)
 
@@ -335,13 +334,15 @@ def plot_phylogeny(tree, ellipses, cnas, outdir):
 
 
 def generate_phylogenies(config):
-    for ii in range(config["num_phylogenies"]):
-        tree, ellipses, cnas = simulate_phylogeny()
+    for ii in range(config.phylogeny.num_phylogenies):
+        logger.info(f"Generating phylogeny {ii}")
 
-        outdir=config["output_dir"] + "/phylogenies/phylogeny{ii}"
+        tree, ellipses, cnas = simulate_phylogeny(config)
+
+        outdir=config.output_dir + "/phylogenies/phylogeny{ii}"
         
         os.makedirs(outdir, exist_ok=True)
         
-        finalize_clones(tree, ellipses, cnas, max_cnas=config["num_cnas"], outdir=outdir)
+        finalize_clones(config, tree, ellipses, cnas, max_cnas=config.num_cnas, outdir=outdir)
         
         plot_phylogeny(tree, ellipses, cnas, outdir=outdir)

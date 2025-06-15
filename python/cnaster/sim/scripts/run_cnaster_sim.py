@@ -1,9 +1,12 @@
 import argparse
 import logging
 import time
+import numpy as np
 from pathlib import Path
 from cnaster.config import JSONConfig
 from cnaster.sim.visium import gen_visium
+from cnaster_rs import ellipse, set_cnaster_rs_seed
+from cnaster.sim.phylogeny import generate_phylogenies
 from datetime import datetime
 
 logging.basicConfig(
@@ -30,6 +33,10 @@ def run_sim(config_path, debug=True):
     run_dir = output_dir / f"run{run_id}"
     run_dir.mkdir(parents=True, exist_ok=True)
 
+    # NB generate phylogenies
+    generate_phylogenies(config)
+
+    # NB generate sample data
     for sample_name, sample_info in config.samples.items():
         logger.info(f"Solving for sample {sample_name}")
         

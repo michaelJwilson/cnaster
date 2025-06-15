@@ -3,6 +3,7 @@ use pyo3::prelude::*;
 use rand::Rng;
 use std::f64::consts::PI;
 use numpy::{PyArray2, PyReadonlyArray2, IntoPyArray};
+use std::f64::consts::TAU;
 
 #[derive(Debug, Clone)]
 pub struct CnaEllipse {
@@ -37,6 +38,26 @@ impl CnaEllipse {
         let v = pos_xy - self.center;
 
         (self.L.transpose() * v).norm_squared() <= 1.0
+    }
+
+    pub fn overlaps(&self, other: &CnaEllipse, resolution: usize) -> bool {
+        for i in 0..resolution {
+            let theta = (i as f64) * TAU / (resolution as f64);
+            let unit = Vector2::new(theta.cos(), theta.sin());
+            
+            let pt_self = self.center + self.L * unit;
+
+            if other.contains(pt_self) {
+                return true;
+            }
+            let pt_other = other.center + other.L * unit;
+
+            if self.contains(pt_other) {
+                return true;
+            }
+        }
+
+        false
     }
 
     pub fn rotate(&self, theta: f64) -> Self {
@@ -130,6 +151,12 @@ impl pyCnaEllipse {
         }
         let v = Vector2::new(pos[[0, 0]], pos[[1, 0]]);
         Ok(self.inner.contains(v))
+    }
+
+    pub fn overlaps(&self, other: &pyCnaEllipse, resolution: Option<usize>) -> bool {
+        let res = resolution.unwrap_or(1_000);
+
+        self.inner.overlaps(&other.inner, res)
     }
 
     pub fn rotate(&self, theta: f64) -> Self {

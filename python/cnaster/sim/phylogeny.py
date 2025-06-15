@@ -198,7 +198,7 @@ def plot_ellipse(center, L, ax=None, **kwargs):
     return ax
 
 
-def finalize_clones(tree, ellipses, cnas, max_cnas=10, outdir="./clones"):
+def finalize_clones(tree, ellipses, cnas, outdir, max_cnas=10):
     leaves = tree.leaves()
     used_cnas = copy.deepcopy(cnas)
 
@@ -243,7 +243,7 @@ def finalize_clones(tree, ellipses, cnas, max_cnas=10, outdir="./clones"):
             json.dump(clone, f, indent=2)
 
 
-def plot_phylogeny(tree, ellipses, cnas):
+def plot_phylogeny(tree, ellipses, cnas, outdir):
     fig, axes = plt.subplots(1, 2, figsize=(12, 6))
     colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
 
@@ -333,17 +333,19 @@ def plot_phylogeny(tree, ellipses, cnas):
     axes[1].set_xlabel("Number of CNAs")
     axes[1].set_ylabel("Look-back time")
 
-    plt.show()
+    fig.savefig(os.path.join(outdir, "phylogeny.pdf"), bbox_inches="tight")
 
 
 if __name__ == "__main__":
-    while True:
+    for ii in range(10):
         tree, ellipses, cnas = simulate_phylogeny()
 
-        finalize_clones(tree, ellipses, cnas, max_cnas=10, outdir="./clones")
+        outdir=f"./phylogenies/phylogeny{ii}"
         
-        plot_phylogeny(tree, ellipses, cnas)
-
+        os.makedirs(outdir, exist_ok=True)
         
+        finalize_clones(tree, ellipses, cnas, max_cnas=10, outdir=outdir)
+        
+        plot_phylogeny(tree, ellipses, cnas, outdir=outdir)
         
     print("\n\nDone.\n\n")

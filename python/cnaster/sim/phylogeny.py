@@ -84,7 +84,7 @@ def simulate_parent():
 
     inv_diag = np.array(
         np.random.randint(
-            low=3, high=10, size=(2, 1)
+            low=3, high=6, size=(2, 1)
         ),
         dtype=float,
     ).reshape(2, 1)
@@ -103,7 +103,7 @@ def simulate_phylogeny():
 
     node_count = 1
 
-    while time < 3:
+    while time < 5:
         leaf = tree.sample_leaf()
         cna_idx = leaf.cna_idx
         ellipse_idx = leaf.ellipse_idx
@@ -214,7 +214,7 @@ def plot_phylogeny(tree, ellipses, cnas):
             L = el.l
 
             plot_ellipse(
-                center, L, ax=axes[0], color=colors[1 + node.cna_idx], alpha=0.5
+                center, L, ax=axes[0], color=colors[1 + node.cna_idx], alpha=0.25
             )
 
         # NB plot tree
@@ -272,8 +272,8 @@ def plot_phylogeny(tree, ellipses, cnas):
         bbox=dict(boxstyle="round,pad=0.2", fc="white", alpha=0.7, lw=0),
     )
 
-    # axes[0].set_xlim(-0.5, 0.5)
-    # axes[0].set_ylim(-0.5, 0.5)
+    axes[0].set_xlim(-0.5, 0.5)
+    axes[0].set_ylim(-0.5, 0.5)
 
     axes[0].set_xlabel("X")
     axes[0].set_ylabel("Y")
@@ -288,8 +288,8 @@ def plot_phylogeny(tree, ellipses, cnas):
 
 
 if __name__ == "__main__":
-    tree, ellipses, cnas = simulate_phylogeny()
-
-    plot_phylogeny(tree, ellipses, cnas)
+    while True:
+        tree, ellipses, cnas = simulate_phylogeny()
+        plot_phylogeny(tree, ellipses, cnas)
 
     print("\n\nDone.\n\n")

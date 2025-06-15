@@ -70,17 +70,21 @@ impl CnaEllipse {
     }
 
     pub fn get_daughter(&self, factor: f64) -> Self {
+        let mut rng = rand::thread_rng();
+
         // NB parent corresponds to the unit ball pushed forward by L.
-        let new_radius = factor * 1.0;
+        let eff_factor = factor + 0.05 * rng.gen::<f64>();
+        let new_radius = eff_factor;
+
         let new_x = new_radius - 1.0 + self.center[0];
         let new_center = Vector2::new(new_x, self.center[1]);
 
         // NB new projection
-        let mut rng = rand::thread_rng();
         let theta = (PI / 4.0) * rng.gen::<f64>();
 
         let mut new_L = self.rotate(theta).L;
-        new_L *= factor.powi(2);
+
+        new_L *= eff_factor.powi(2);
 
         // NB see https://arxiv.org/pdf/1908.09326
         Self::new(new_center, new_L)

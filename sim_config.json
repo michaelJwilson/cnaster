@@ -12,14 +12,13 @@
     "num_cnas": 10,
     "snp_rate_kbp": 0.5,
     "cna_length_kbp": 1000,
-    "rdr_dispersion": 0,
-    "baf_dispersion": 0,
     "phasing": {
         "switch_rate": 0.00001
     },
     "phylogeny": {
         "num_phylogenies": 10,
-        "parsimony_rate": 0.25
+        "parsimony_rate": 0.25,
+        "spatial_scale": 100.0
     },
     "visium": {
         "num_spots": 4992,
@@ -43,7 +42,6 @@
         }
     },
     "alignments": [
-        ["cnaster_001",
-        "cnaster_002"]
+        ["cnaster_001", "cnaster_002"]
     ]
 }

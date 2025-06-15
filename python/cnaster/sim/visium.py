@@ -1,8 +1,10 @@
 import os
 import gzip
+import glob
 import logging
 import polars
 import numpy as np
+from cnaster.sim.clone import Clone
 from cnaster_rs import get_triangular_lattice
 
 logger = logging.getLogger(__name__)
@@ -35,6 +37,28 @@ def gen_visium(sample_dir, config, name):
     # NB generate umi counts
     #    - "exp_umi_per_spot": 3162,
     #    - "exp_snp_umi_per_spot": 501,
+
+    # TODO HARDCODE
+    clones = [Clone(xx) for xx in sorted(glob.glob(config.output_dir + f"/phylogenies/phylogeny2/*.json"))]    
+
+    for bc, (x, y, z) in zip(barcodes, lattice):
+        query = np.array([x, y]).reshape(2,1)
+        query /= config.phylogeny.spatial_scale
+        
+        isin = [clone.ellipse.contains(query) for clone in clones]
+
+        candidates = [clone for clone, inside in zip(clones, isin) if inside]
+
+        # NB we choose the smallest of overlapping ellipse as proxy for later evolved.
+        if candidates:
+            matched = min(candidates, key=lambda c: c.ellipse.det_l)
+            cnas = matched.cnas
+        else:
+            cnas = []
+                
+        if cnas:
+            print(bc, x, y, z, cnas)
+
+    exit(0)
     
-            
     logger.info(f"Generated visium to {sample_dir}")

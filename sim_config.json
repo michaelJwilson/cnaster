@@ -9,6 +9,7 @@
         "2,1",
         "2,2"
     ],
+    "num_cnas": 10,
     "cna_length_kbp": 1000,
     "rdr_dispersion": 0,
     "baf_dispersion": 0,
@@ -16,6 +17,7 @@
         "switch_rate": 0.00001
     },
     "phylogeny": {
+        "num_phylogenies": 10,
         "parsimony_rate": 0.25
     },
     "visium": {

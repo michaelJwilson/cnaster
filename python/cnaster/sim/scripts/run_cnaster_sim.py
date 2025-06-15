@@ -14,6 +14,9 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
+np.random.seed(42)
+set_cnaster_rs_seed(42)
+
 
 def run_sim(config_path, debug=True):
     start = time.time()

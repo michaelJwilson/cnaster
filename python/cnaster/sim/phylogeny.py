@@ -2,6 +2,7 @@ import os
 import copy
 import json
 import random
+import logging
 import numpy as np
 import pylab as pl
 import matplotlib.pyplot as plt
@@ -13,13 +14,10 @@ from typing import Any, Optional
 from cnaster_rs import ellipse, set_cnaster_rs_seed
 from cnaster.config import JSONConfig
 
-np.random.seed(42)
-set_cnaster_rs_seed(42)
+logger =  logging.getLogger(__name__)
 
 # TODO HACK
-config = JSONConfig.from_file("/Users/mw9568/repos/cnaster/sim_config.json")
 centers = (0.5 * np.array([[1, 1], [1, -1], [-1, 1]])).tolist()
-
 
 @dataclass
 class Node:
@@ -336,16 +334,14 @@ def plot_phylogeny(tree, ellipses, cnas, outdir):
     fig.savefig(os.path.join(outdir, "phylogeny.pdf"), bbox_inches="tight")
 
 
-if __name__ == "__main__":
-    for ii in range(10):
+def generate_phylogenies(config):
+    for ii in range(config["num_phylogenies"]):
         tree, ellipses, cnas = simulate_phylogeny()
 
-        outdir=f"./phylogenies/phylogeny{ii}"
+        outdir=config["output_dir"] + "/phylogenies/phylogeny{ii}"
         
         os.makedirs(outdir, exist_ok=True)
         
-        finalize_clones(tree, ellipses, cnas, max_cnas=10, outdir=outdir)
+        finalize_clones(tree, ellipses, cnas, max_cnas=config["num_cnas"], outdir=outdir)
         
         plot_phylogeny(tree, ellipses, cnas, outdir=outdir)
-        
-    print("\n\nDone.\n\n")

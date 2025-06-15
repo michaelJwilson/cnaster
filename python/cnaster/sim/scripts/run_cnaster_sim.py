@@ -3,6 +3,7 @@ import logging
 import time
 from pathlib import Path
 from cnaster.config import JSONConfig
+from datetime import datetime
 
 logging.basicConfig(
     level=logging.INFO,
@@ -13,15 +14,29 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def run_sim(config_path):
+def run_sim(config_path, debug=True):
     start = time.time()
-    
+
     config = JSONConfig.from_file(config_path)
 
-    print(config)
+    output_dir = Path(config.output_dir)
+
+    run_id = 00000 if debug else datetime.now().strftime('%Y%m%d_%H%M%S')
     
+    run_dir = output_dir / f"run{run_id}"
+    run_dir.mkdir(parents=True, exist_ok=True)
+
+    for sample_name, sample_info in config.samples.items():
+        logger.info(f"Solving for sample {sample_name}")
+        
+        sample_dir = run_dir / sample_name
+        sample_dir.mkdir(parents=True, exist_ok=True)
+
+        logger.info(f"Created sample directory {sample_dir}")
+        
     """
-    for sim_id in range(num_sims):
+    for sample in config.samples:        
+
         Path(f"{output_dir}/cna_sim_{sim_id}/plots").mkdir(exist_ok=True, parents=True)
 
         cna_sim = CNA_sim(sim_id=sim_id, seed=seed + sim_id)
@@ -34,7 +49,7 @@ def run_sim(config_path):
             f"{output_dir}/cna_sim_{sim_id}/plots/truth_rdr_baf_genome_{sim_id}.pdf"
         )
     """
-    
+
     logger.info(f"\n\nDone ({time.time() - start:.3f} seconds).\n\n")
 
 
@@ -48,7 +63,7 @@ def main():
         required=True,
         help="Path to sim. configuration file",
     )
-    
+
     args = parser.parse_args()
 
     run_sim(args.config_path)

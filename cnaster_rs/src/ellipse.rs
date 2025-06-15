@@ -50,11 +50,6 @@ impl CnaEllipse {
             if other.contains(pt_self) {
                 return true;
             }
-            let pt_other = other.center + other.L * unit;
-
-            if self.contains(pt_other) {
-                return true;
-            }
         }
 
         false

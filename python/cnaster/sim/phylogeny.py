@@ -77,8 +77,13 @@ def simulate_cna(current_cnas, parsimony_rate):
 
 
 def simulate_parent():
-    center =  np.array(centers[np.random.randint(0, len(centers))], dtype=float).reshape(2, 1)
-    inv_diag = np.array([2. * np.random.randint(1, high=10), 2. * np.random.randint(1, high=10)], dtype=float).reshape(2, 1)
+    center = np.array(centers[np.random.randint(0, len(centers))], dtype=float).reshape(
+        2, 1
+    )
+    inv_diag = np.array(
+        [2.0 * np.random.randint(1, high=10), 2.0 * np.random.randint(1, high=10)],
+        dtype=float,
+    ).reshape(2, 1)
 
     theta = np.pi * np.random.randint(1, high=4) / 4.0
 
@@ -104,8 +109,8 @@ def simulate_phylogeny():
             print(f"\nTime {time}:  Solving for parent ellipse")
 
             if time == 1:
-                center = np.array([-0.25, -.25], dtype=float).reshape(2, 1)
-                inv_diag = np.array([2., 2.], dtype=float).reshape(2, 1)
+                center = np.array([-0.25, -0.25], dtype=float).reshape(2, 1)
+                inv_diag = np.array([2.0, 2.0], dtype=float).reshape(2, 1)
 
                 el = ellipse.CnaEllipse.from_diagonal(center, inv_diag)
                 el = el.rotate(np.pi / 4.0)
@@ -117,7 +122,7 @@ def simulate_phylogeny():
 
                     for parent in parents:
                         if el.overlaps(parent):
-                            valid = False
+                            # valid = False
                             break
 
                     if valid:
@@ -236,9 +241,9 @@ def plot_phylogeny(tree, ellipses, cnas):
                 fontsize=8,
                 va="bottom",
                 ha="left",
-                bbox=dict(boxstyle="round,pad=0.2", fc="white", alpha=0.7, lw=0)
+                bbox=dict(boxstyle="round,pad=0.2", fc="white", alpha=0.7, lw=0),
             )
-            
+
         if node.left is None and node.right is None:
             axes[1].scatter(xshift, -max_time, color=colors[1 + node.cna_idx])
             axes[1].plot(
@@ -252,26 +257,26 @@ def plot_phylogeny(tree, ellipses, cnas):
         plot_node(node.right, xshift + 1.0 + right_dx)
 
     plot_node(root)
-    
+
     axes[1].text(
         0.05,
-        0.,
+        0.0,
         f"Normal",
         fontsize=8,
         va="bottom",
         ha="left",
-        bbox=dict(boxstyle="round,pad=0.2", fc="white", alpha=0.7, lw=0)
+        bbox=dict(boxstyle="round,pad=0.2", fc="white", alpha=0.7, lw=0),
     )
 
-    axes[0].set_xlim(-.5, .5)
-    axes[0].set_ylim(-.5, .5)
-    
+    axes[0].set_xlim(-0.5, 0.5)
+    axes[0].set_ylim(-0.5, 0.5)
+
     axes[0].set_xlabel("X")
     axes[0].set_ylabel("Y")
 
     axes[1].set_yticks([])
     axes[1].set_yticklabels([])
-    
+
     axes[1].set_xlabel("Number of CNAs")
     axes[1].set_ylabel("Look-back time")
 

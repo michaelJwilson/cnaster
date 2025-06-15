@@ -3,6 +3,7 @@ import logging
 import time
 from pathlib import Path
 from cnaster.config import JSONConfig
+from cnaster.sim.visium import gen_visium
 from datetime import datetime
 
 logging.basicConfig(
@@ -33,22 +34,9 @@ def run_sim(config_path, debug=True):
         sample_dir.mkdir(parents=True, exist_ok=True)
 
         logger.info(f"Created sample directory {sample_dir}")
-        
-    """
-    for sample in config.samples:        
 
-        Path(f"{output_dir}/cna_sim_{sim_id}/plots").mkdir(exist_ok=True, parents=True)
-
-        cna_sim = CNA_sim(sim_id=sim_id, seed=seed + sim_id)
-        cna_sim.save(output_dir)
-
-        cna_sim.plot_realization_true_flat(
-            f"{output_dir}/cna_sim_{sim_id}/plots/truth_rdr_baf_flat_{sim_id}.pdf"
-        )
-        cna_sim.plot_realization_true_genome(
-            f"{output_dir}/cna_sim_{sim_id}/plots/truth_rdr_baf_genome_{sim_id}.pdf"
-        )
-    """
+        if sample_info["type"] == "visium":
+            gen_visium(sample_dir, config, sample_name)
 
     logger.info(f"\n\nDone ({time.time() - start:.3f} seconds).\n\n")
 

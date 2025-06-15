@@ -1,2 +1,7 @@
 cnaster_rs/target
 docs/nb/.ipynb_checkpoints/
+
+python/cnaster/__pycache__/
+python/cnaster/sim/__pycache__/
+python/cnaster/sim/phylogenies/
+python/cnaster/sim/scripts/__pycache__/

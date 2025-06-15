@@ -66,7 +66,7 @@ def gen_visium(sample_dir, config, name):
         else:
             cnas = []
 
-        # NB draw the coverages
+        # NB sample coverages for the spot
         umis = 10.0 ** np.random.normal(
             loc=config.visium.log10umi_per_spot,
             scale=config.visium.log10umi_std_per_spot,
@@ -81,6 +81,8 @@ def gen_visium(sample_dir, config, name):
         rdrs = np.ones(num_segments, dtype=float)
         bafs = np.ones(num_segments, dtype=float)
 
+        tumor_purity = 1.
+        
         for cna in cnas:
             pos_idx = int(np.floor(cna[1] / config.segment_size_kbp))
             state = cna[0]
@@ -94,10 +96,15 @@ def gen_visium(sample_dir, config, name):
             rdrs[pos_idx] = rdr
             bafs[pos_idx] = baf
 
+            tumor_purity = 0.5 * (1. + np.random.uniform())
+            
         # NB number of cells per spot
         num_cells = np.random.poisson(config.visium.exp_cells_per_spot)
 
-        
+        for _ in range(num_cells):
+            normal = np.random.uniform() < (1. - tumor_purity):
+
+            
 
         
         print(f"{bc}\t{umis:.3f}\t{snp_umis:.3f}")

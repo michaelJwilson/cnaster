@@ -40,7 +40,7 @@ def gen_visium(sample_dir, config, name):
     #    - "exp_umi_per_spot": 3162,
     #    - "exp_snp_umi_per_spot": 501,
 
-    # TODO HARDCODE
+    # TODO HARDCODE phylogeny2
     clones = [
         Clone(xx)
         for xx in sorted(
@@ -49,7 +49,7 @@ def gen_visium(sample_dir, config, name):
     ]
 
     num_segments = config.mappable_genome_kbp // config.segment_size_kbp
-    
+
     for bc, (x, y, z) in zip(barcodes, lattice):
         query = np.array([x, y]).reshape(2, 1)
         query /= config.phylogeny.spatial_scale
@@ -66,28 +66,33 @@ def gen_visium(sample_dir, config, name):
             cnas = []
 
         umis = 10.0 ** np.random.normal(
-            loc=config.visium.log10umi_per_spot, scale=config.visium.log10umi_std_per_spot
+            loc=config.visium.log10umi_per_spot,
+            scale=config.visium.log10umi_std_per_spot,
         )
 
         snp_umis = 10.0 ** np.random.normal(
-            loc=config.visium.log10snp_umi_per_spot, scale=config.visium.log10snp_umi_std_per_spot
+            loc=config.visium.log10snp_umi_per_spot,
+            scale=config.visium.log10snp_umi_std_per_spot,
         )
 
-        mat_copies = np.ones(num_segments)
-        pat_copies = np.ones(num_segments)
-        
-        if cnas:
-            for cna in cnas:
-                pos_idx = int(np.floor(cna[1] / config.segment_size_kbp))
-                state = cna[0]
+        rdrs = np.ones(num_segments, dtype=float)
+        bafs = np.ones(num_segments, dtype=float)
 
-                mat_copy, pat_copy = cna[0].split(",")
+        for cna in cnas:
+            pos_idx = int(np.floor(cna[1] / config.segment_size_kbp))
+            state = cna[0]
+
+            mat_copy, pat_copy = [int(xx) for xx in cna[0].split(",")]
+            baf = min([mat_copy, pat_copy]) / (mat_copy + pat_copy)
+
+            rdr = (mat_copy + pat_copy) / 2
+            baf = min([mat_copy, pat_copy]) / (mat_copy + pat_copy)
+
+            rdrs[pos_idx] = rdr
+            bafs[pos_idx] = baf    
                 
-                mat_copies[pos_idx] = int(mat_copy)
-                pat_copies[pos_idx] = int(pat_copy)
-                                
-        print(f"{bc}\t{x}\t{y}\t{z}\t{umis:.3f}\t{snp_umis:.3f}")
-            
+        print(f"{bc}\t{umis:.3f}\t{snp_umis:.3f}")
+
     exit(0)
 
     logger.info(f"Generated visium to {sample_dir}")

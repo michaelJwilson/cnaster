@@ -245,7 +245,7 @@ def plot_phylogeny(tree, ellipses, cnas):
                 fontsize=8,
                 va="bottom",
                 ha="left",
-                bbox=dict(boxstyle="round,pad=0.2", fc="white", alpha=0.7, lw=0),
+                bbox=dict(boxstyle="round,pad=0.2", fc=None, alpha=0.7, lw=0),
             )
 
         if node.left is None and node.right is None:

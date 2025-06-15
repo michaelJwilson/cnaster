@@ -12,10 +12,12 @@ def generate_fake_barcodes(num_spots):
 def gen_visium(sample_dir, config, name):
     logger.info(f"Generating {name} visium.")
 
-    nx, ny = config["visium"]["nx"], config["visium"]["ny"]
+    nx, ny = config.visium.nx, config.visium.ny
 
-    height = config.samples[name]["height"]
-    x0 = tuple(config.samples[name]["origin"])
+    info = getattr(config.samples, name, None)
+
+    height = info.height
+    x0 = tuple(info.origin)
     
     lattice = get_triangular_lattice(nx, ny, height, x0=x0)
     barcodes = generate_fake_barcodes(nx * ny)

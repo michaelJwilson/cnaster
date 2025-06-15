@@ -339,7 +339,7 @@ def generate_phylogenies(config):
 
         tree, ellipses, cnas = simulate_phylogeny(config)
 
-        outdir=config.output_dir + "/phylogenies/phylogeny{ii}"
+        outdir=config.output_dir + f"/phylogenies/phylogeny{ii}"
         
         os.makedirs(outdir, exist_ok=True)
         

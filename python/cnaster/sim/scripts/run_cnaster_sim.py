@@ -37,7 +37,7 @@ def run_sim(config_path, debug=True):
     generate_phylogenies(config)
 
     # NB generate sample data
-    for sample_name, sample_info in config.samples.items():
+    for sample_name in config.samples:
         logger.info(f"Solving for sample {sample_name}")
         
         sample_dir = run_dir / sample_name
@@ -45,7 +45,9 @@ def run_sim(config_path, debug=True):
 
         logger.info(f"Created sample directory {sample_dir}")
 
-        if sample_info["type"] == "visium":
+        type = getattr(getattr(config.samples, sample_name), "type", None)
+
+        if type == "visium":
             gen_visium(sample_dir, config, sample_name)
 
     logger.info(f"\n\nDone ({time.time() - start:.3f} seconds).\n\n")

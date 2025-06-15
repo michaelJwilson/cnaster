@@ -22,6 +22,7 @@
     },
     "visium": {
         "num_spots": 4992,
+        "exp_cells_per_spot": 4,
         "log10umi_per_spot": 3.5,
         "log10umi_std_per_spot": 0.16,
         "log10snp_umi_per_spot": 2.6,

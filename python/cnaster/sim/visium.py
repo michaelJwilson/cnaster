@@ -51,6 +51,7 @@ def gen_visium(sample_dir, config, name):
     num_segments = config.mappable_genome_kbp // config.segment_size_kbp
 
     for bc, (x, y, z) in zip(barcodes, lattice):
+        # NB find the corresponding clone.
         query = np.array([x, y]).reshape(2, 1)
         query /= config.phylogeny.spatial_scale
 
@@ -65,6 +66,7 @@ def gen_visium(sample_dir, config, name):
         else:
             cnas = []
 
+        # NB draw the coverages
         umis = 10.0 ** np.random.normal(
             loc=config.visium.log10umi_per_spot,
             scale=config.visium.log10umi_std_per_spot,
@@ -75,6 +77,7 @@ def gen_visium(sample_dir, config, name):
             scale=config.visium.log10snp_umi_std_per_spot,
         )
 
+        # NB compute the rdrs, bafs.
         rdrs = np.ones(num_segments, dtype=float)
         bafs = np.ones(num_segments, dtype=float)
 
@@ -89,8 +92,14 @@ def gen_visium(sample_dir, config, name):
             baf = min([mat_copy, pat_copy]) / (mat_copy + pat_copy)
 
             rdrs[pos_idx] = rdr
-            bafs[pos_idx] = baf    
-                
+            bafs[pos_idx] = baf
+
+        # NB number of cells per spot
+        num_cells = np.random.poisson(config.visium.exp_cells_per_spot)
+
+        
+
+        
         print(f"{bc}\t{umis:.3f}\t{snp_umis:.3f}")
 
     exit(0)

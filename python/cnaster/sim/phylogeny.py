@@ -230,6 +230,7 @@ def plot_phylogeny(tree, ellipses, cnas):
 
     plot_node(root)
 
+    axes[0].set_xticks([])
     axes[0].set_xticklabels([])
 
     axes[0].set_xlabel("X")

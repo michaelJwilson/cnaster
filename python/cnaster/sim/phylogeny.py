@@ -78,7 +78,7 @@ def simulate_cna(current_cnas, parsimony_rate):
 
 def simulate_parent():
     center =  np.array(centers[np.random.randint(0, len(centers))], dtype=float).reshape(2, 1)
-    inv_diag = np.array([2., 2. * np.random.randint(1, high=4)], dtype=float).reshape(2, 1)
+    inv_diag = np.array([2. * np.random.randint(1, high=10), 2. * np.random.randint(1, high=10)], dtype=float).reshape(2, 1)
 
     theta = np.pi * np.random.randint(1, high=4) / 4.0
 
@@ -99,10 +99,10 @@ def simulate_phylogeny():
         cna_idx = leaf.cna_idx
         ellipse_idx = leaf.ellipse_idx
 
-        print(f"\nTime {time}:  Solving for ellipse")
-
         # NB the normal leaf generates a metastasis
         if ellipse_idx == -1:
+            print(f"\nTime {time}:  Solving for parent ellipse")
+
             if time == 1:
                 center = np.array([-0.25, -.25], dtype=float).reshape(2, 1)
                 inv_diag = np.array([2., 2.], dtype=float).reshape(2, 1)
@@ -119,11 +119,14 @@ def simulate_phylogeny():
                         if el.overlaps(parent):
                             valid = False
                             break
+
                     if valid:
                         break
 
             parents.append(el)
         else:
+            print(f"\nTime {time}:  Solving for daughter ellipse")
+
             el = ellipses[ellipse_idx].get_daughter(0.75)
 
         print(f"Time {time}:  Solving for lineage")

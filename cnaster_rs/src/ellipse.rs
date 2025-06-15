@@ -1,8 +1,8 @@
 use nalgebra::{Matrix2, Vector2};
+use numpy::{IntoPyArray, PyArray2, PyReadonlyArray2};
 use pyo3::prelude::*;
 use rand::Rng;
 use std::f64::consts::PI;
-use numpy::{PyArray2, PyReadonlyArray2, IntoPyArray};
 use std::f64::consts::TAU;
 
 #[derive(Debug, Clone)]
@@ -44,10 +44,16 @@ impl CnaEllipse {
         for i in 0..resolution {
             let theta = (i as f64) * TAU / (resolution as f64);
             let unit = Vector2::new(theta.cos(), theta.sin());
-            
+
             let pt_self = self.center + self.L * unit;
 
             if other.contains(pt_self) {
+                return true;
+            }
+
+            let pt_other = other.center + other.L * unit;
+
+            if self.contains(pt_other) {
                 return true;
             }
         }
@@ -80,7 +86,6 @@ impl CnaEllipse {
     }
 }
 
-
 #[pyclass]
 #[pyo3(name = "CnaEllipse")]
 #[derive(Clone)]
@@ -99,12 +104,16 @@ impl pyCnaEllipse {
 
         // Expect center shape (2,1)
         if center.shape() != [2, 1] {
-            return Err(pyo3::exceptions::PyValueError::new_err("center must be shape (2,1)"));
+            return Err(pyo3::exceptions::PyValueError::new_err(
+                "center must be shape (2,1)",
+            ));
         }
         let center_vec = Vector2::new(center[[0, 0]], center[[1, 0]]);
 
         if l.shape() != [2, 2] {
-            return Err(pyo3::exceptions::PyValueError::new_err("L must be shape (2,2)"));
+            return Err(pyo3::exceptions::PyValueError::new_err(
+                "L must be shape (2,2)",
+            ));
         }
 
         let l_mat = Matrix2::new(l[[0, 0]], l[[0, 1]], l[[1, 0]], l[[1, 1]]);
@@ -114,25 +123,29 @@ impl pyCnaEllipse {
     }
 
     #[staticmethod]
-    pub fn from_diagonal(center: &PyArray2<f64>, diag: &PyArray2<f64>) -> PyResult<Self> {
+    pub fn from_inv_diagonal(center: &PyArray2<f64>, inv_diag: &PyArray2<f64>) -> PyResult<Self> {
         let center_binding = center.readonly();
         let center = center_binding.as_array();
-        let diag_binding = diag.readonly();
-        let diag = diag_binding.as_array();
+        let inv_diag_binding = inv_diag.readonly();
+        let inv_diag = inv_diag_binding.as_array();
 
         // Expect center shape (2,1)
         if center.shape() != [2, 1] {
-            return Err(pyo3::exceptions::PyValueError::new_err("center must be shape (2,1)"));
+            return Err(pyo3::exceptions::PyValueError::new_err(
+                "center must be shape (2,1)",
+            ));
         }
         let center_vec = Vector2::new(center[[0, 0]], center[[1, 0]]);
 
         // Expect diag shape (2,1)
-        if diag.shape() != [2, 1] {
-            return Err(pyo3::exceptions::PyValueError::new_err("diag must be shape (2,1)"));
+        if inv_diag.shape() != [2, 1] {
+            return Err(pyo3::exceptions::PyValueError::new_err(
+                "inv. diag must be shape (2,1)",
+            ));
         }
-        let diag_arr = [diag[[0, 0]], diag[[1, 0]]];
+        let inv_diag_arr = [inv_diag[[0, 0]], inv_diag[[1, 0]]];
 
-        let inner = CnaEllipse::from_inv_diagonal(center_vec, diag_arr);
+        let inner = CnaEllipse::from_inv_diagonal(center_vec, inv_diag_arr);
 
         Ok(pyCnaEllipse { inner })
     }
@@ -142,7 +155,9 @@ impl pyCnaEllipse {
         let pos = pos_binding.as_array();
         // Expect pos_xy shape (2,1)
         if pos.shape() != [2, 1] {
-            return Err(pyo3::exceptions::PyValueError::new_err("pos_xy must be shape (2,1)"));
+            return Err(pyo3::exceptions::PyValueError::new_err(
+                "pos_xy must be shape (2,1)",
+            ));
         }
         let v = Vector2::new(pos[[0, 0]], pos[[1, 0]]);
         Ok(self.inner.contains(v))
@@ -155,18 +170,24 @@ impl pyCnaEllipse {
     }
 
     pub fn rotate(&self, theta: f64) -> Self {
-        pyCnaEllipse { inner: self.inner.rotate(theta) }
+        pyCnaEllipse {
+            inner: self.inner.rotate(theta),
+        }
     }
 
     pub fn get_daughter(&self, factor: f64) -> Self {
         pyCnaEllipse {
-            inner: self.inner.get_daughter(factor)
+            inner: self.inner.get_daughter(factor),
         }
     }
 
     #[getter]
     pub fn center<'py>(&self, py: Python<'py>) -> &'py PyArray2<f64> {
-        let arr = ndarray::Array2::from_shape_vec((1, 2), vec![self.inner.center[0], self.inner.center[1]]).unwrap();
+        let arr = ndarray::Array2::from_shape_vec(
+            (1, 2),
+            vec![self.inner.center[0], self.inner.center[1]],
+        )
+        .unwrap();
 
         arr.into_pyarray(py)
     }

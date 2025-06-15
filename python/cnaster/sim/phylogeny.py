@@ -80,14 +80,15 @@ def simulate_parent():
     center = np.array(centers[np.random.randint(0, len(centers))], dtype=float).reshape(
         2, 1
     )
+
     inv_diag = np.array(
-        [2.0 * np.random.randint(1, high=10), 2.0 * np.random.randint(1, high=10)],
+        [1.0 / np.random.randint(1, high=3) for _ in range(2)],
         dtype=float,
     ).reshape(2, 1)
 
     theta = np.pi * np.random.randint(1, high=4) / 4.0
 
-    return ellipse.CnaEllipse.from_diagonal(center, inv_diag).rotate(theta)
+    return ellipse.CnaEllipse.from_inv_diagonal(center, inv_diag).rotate(theta)
 
 
 def simulate_phylogeny():
@@ -112,7 +113,7 @@ def simulate_phylogeny():
                 center = np.array([-0.25, -0.25], dtype=float).reshape(2, 1)
                 inv_diag = np.array([2.0, 2.0], dtype=float).reshape(2, 1)
 
-                el = ellipse.CnaEllipse.from_diagonal(center, inv_diag)
+                el = ellipse.CnaEllipse.from_inv_diagonal(center, inv_diag)
                 el = el.rotate(np.pi / 4.0)
             else:
                 while True:
@@ -121,8 +122,8 @@ def simulate_phylogeny():
                     valid = True
 
                     for parent in parents:
-                        if el.overlaps(parent):
-                            # valid = False
+                        if parent.overlaps(el):
+                            valid = False
                             break
 
                     if valid:
@@ -268,8 +269,8 @@ def plot_phylogeny(tree, ellipses, cnas):
         bbox=dict(boxstyle="round,pad=0.2", fc="white", alpha=0.7, lw=0),
     )
 
-    axes[0].set_xlim(-0.5, 0.5)
-    axes[0].set_ylim(-0.5, 0.5)
+    # axes[0].set_xlim(-0.5, 0.5)
+    # axes[0].set_ylim(-0.5, 0.5)
 
     axes[0].set_xlabel("X")
     axes[0].set_ylabel("Y")

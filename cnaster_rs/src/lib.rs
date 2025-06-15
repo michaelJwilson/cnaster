@@ -12,12 +12,12 @@ use ndarray::{Array1, Array2, Array3};
 use numpy::{IntoPyArray, PyArray1, PyArray2, ToPyArray};
 use pyo3::prelude::*;
 use rand::prelude::SliceRandom;
+use rand::{rngs::StdRng, Rng, SeedableRng};
 use sim_config::SimConfig;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt;
 use std::sync::Mutex;
-use rand::{SeedableRng, rngs::StdRng, Rng};
 
 lazy_static::lazy_static! {
     static ref GLOBAL_RNG: Mutex<StdRng> = Mutex::new(StdRng::from_entropy());
@@ -712,7 +712,7 @@ fn cnaster_rs(py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_nearest_neighbor_edges, m)?)?;
     m.add_function(wrap_pyfunction!(set_cnaster_rs_seed, m)?)?;
     m.add_class::<pyCnaster_Graph>()?;
-    
+
     let ellipse_mod = PyModule::new(py, "ellipse")?;
 
     ellipse::ellipse(py, ellipse_mod)?;

@@ -18,9 +18,24 @@
         "parsimony_rate": 0.25
     },
     "visium": {
-        "num_spots": 4992
+        "num_spots": 4992,
+        "nx": 70,
+        "ny": 70
     },
-    "alignment": {
-        "num_slices": 2
-    }
+    "samples": {
+        "cnaster_001": {
+            "type": "visium",
+            "origin": [0.0, 0.0],
+            "height": 0.0
+        },
+        "cnaster_002": {
+            "type": "visium",
+            "origin": [-15.0, 0.0],
+            "height": 2.5
+        }
+    },
+    "alignments": [
+        ["cnaster_001",
+        "cnaster_002"]
+    ]
 }

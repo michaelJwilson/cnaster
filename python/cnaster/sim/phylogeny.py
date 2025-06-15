@@ -116,7 +116,7 @@ def simulate_phylogeny(config):
 
         # NB the normal leaf generates a metastasis
         if ellipse_idx == -1:
-            print(f"\nTime {time}:  Solving for parent ellipse")
+            logger.debug(f"\nTime {time}:  Solving for parent ellipse")
 
             if time == 1:
                 center = np.array([-0.25, -0.25], dtype=float).reshape(2, 1)
@@ -140,15 +140,15 @@ def simulate_phylogeny(config):
 
             parents.append(el)
         else:
-            print(f"\nTime {time}:  Solving for daughter ellipse")
+            logger.debug(f"\nTime {time}:  Solving for daughter ellipse")
 
             el = ellipses[ellipse_idx].get_daughter(0.75)
 
-        print(f"Time {time}:  Solving for lineage")
+        logger.debug(f"Time {time}:  Solving for lineage")
 
         lineage_cna_idxs = get_cna_lineage(leaf)
 
-        print(f"Time {time}:  Solving for CNA")
+        logger.debug(f"Time {time}:  Solving for CNA")
 
         while True:
             cna, new_cna_idx = simulate_cna(config, cnas)
@@ -161,18 +161,18 @@ def simulate_phylogeny(config):
 
         ellipses.append(el)
 
-        print(f"Time {time}:  Solved for CNA:  {cna}")
+        logger.debug(f"Time {time}:  Solved for CNA:  {cna}")
 
         if new_cna_idx is None:
             cnas.append(cna)
             new_cna_idx = len(cnas) - 1
 
-        print(f"Time {time}:  Solving for children")
+        logger.debug(f"Time {time}:  Solving for children")
 
         leaf.left = Node(leaf.identifier, time, leaf.cna_idx, leaf.ellipse_idx, leaf)
         leaf.right = Node(node_count, time + 0.5, new_cna_idx, len(ellipses) - 1, leaf)
 
-        print(f"\n\n{leaf.left}\n{leaf.right}")
+        logger.debug(f"\n\n{leaf.left}\n{leaf.right}")
 
         node_count += 1
         time += 1
@@ -335,8 +335,6 @@ def plot_phylogeny(tree, ellipses, cnas, outdir):
 
 def generate_phylogenies(config):
     for ii in range(config.phylogeny.num_phylogenies):
-        logger.info(f"Generating phylogeny {ii}")
-
         tree, ellipses, cnas = simulate_phylogeny(config)
 
         outdir=config.output_dir + f"/phylogenies/phylogeny{ii}"
@@ -346,3 +344,5 @@ def generate_phylogenies(config):
         finalize_clones(config, tree, ellipses, cnas, max_cnas=config.num_cnas, outdir=outdir)
         
         plot_phylogeny(tree, ellipses, cnas, outdir=outdir)
+
+        logger.info(f"Phylogeny {ii} generated and saved to {outdir}")

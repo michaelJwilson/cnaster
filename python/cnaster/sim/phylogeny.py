@@ -1,4 +1,6 @@
+import os
 import copy
+import json
 import random
 import numpy as np
 import pylab as pl
@@ -78,20 +80,27 @@ def simulate_cna(current_cnas, parsimony_rate):
 
 
 def simulate_parent():
-    center = np.random.uniform(
-        low=-0.5, high=0.5, size=(2, 1)
-    ).astype(float)
+    center = np.random.uniform(low=-0.5, high=0.5, size=(2, 1)).astype(float)
 
     inv_diag = np.array(
-        np.random.randint(
-            low=3, high=6, size=(2, 1)
-        ),
+        np.random.randint(low=3, high=6, size=(2, 1)),
         dtype=float,
     ).reshape(2, 1)
 
     theta = np.pi * np.random.randint(1, high=4) / 4.0
 
     return ellipse.CnaEllipse.from_inv_diagonal(center, inv_diag).rotate(theta)
+
+
+def get_cna_lineage(leaf):
+    lineage_cna_idxs = [leaf.cna_idx]
+    parent = leaf.parent
+
+    while parent is not None:
+        lineage_cna_idxs.append(parent.cna_idx)
+        parent = parent.parent
+
+    return lineage_cna_idxs
 
 
 def simulate_phylogeny():
@@ -123,12 +132,12 @@ def simulate_phylogeny():
                     el = simulate_parent()
 
                     valid = True
-                    
+
                     for parent in parents:
                         if parent.overlaps(el):
                             valid = False
                             break
-                    
+
                     if valid:
                         break
 
@@ -140,12 +149,7 @@ def simulate_phylogeny():
 
         print(f"Time {time}:  Solving for lineage")
 
-        lineage_cna_idxs = [leaf.cna_idx]
-        parent = leaf.parent
-
-        while parent is not None:
-            lineage_cna_idxs.append(parent.cna_idx)
-            parent = parent.parent
+        lineage_cna_idxs = get_cna_lineage(leaf)
 
         print(f"Time {time}:  Solving for CNA")
 
@@ -192,6 +196,51 @@ def plot_ellipse(center, L, ax=None, **kwargs):
     ax.plot(ellipse[0], ellipse[1], **kwargs)
 
     return ax
+
+
+def finalize_clones(tree, ellipses, cnas, max_cnas=10, outdir="./clones"):
+    leaves = tree.leaves()
+    used_cnas = copy.deepcopy(cnas)
+
+    for leaf in leaves:
+        if leaf.ellipse_idx == -1:
+            continue
+        
+        ell = ellipses[leaf.ellipse_idx]
+
+        center = np.array(ell.center).flatten().tolist()
+        L = np.array(ell.l).tolist()
+
+        lineage = [cnas[idx] for idx in get_cna_lineage(leaf) if idx >= 0]
+        full_lineage = copy.deepcopy(lineage)
+
+        num_needed = max_cnas - len(lineage)
+
+        for _ in range(num_needed):
+            while True:
+                state = random.choice(np.array(config.copy_num_states))
+                pos = config.segment_size_kbp * np.random.randint(
+                    0, config.mappable_genome_kbp // config.segment_size_kbp
+                )
+
+                passenger = [state, pos, pos + config.cna_length_kbp]
+
+                if passenger not in used_cnas:
+                    used_cnas.append(passenger)
+                    full_lineage.append(passenger)
+
+                    break
+
+        clone = {
+            "cnas": full_lineage,
+            "center": center,
+            "L": L,
+        }
+
+        fname = os.path.join(outdir, f"clone_{leaf.identifier}.json")
+
+        with open(fname, "w") as f:
+            json.dump(clone, f, indent=2)
 
 
 def plot_phylogeny(tree, ellipses, cnas):
@@ -245,7 +294,7 @@ def plot_phylogeny(tree, ellipses, cnas):
                 fontsize=8,
                 va="bottom",
                 ha="left",
-                bbox=dict(boxstyle="round,pad=0.2", fc=None, alpha=0.7, lw=0),
+                bbox=dict(boxstyle="round,pad=0.2", fc="none", alpha=0.7, lw=0),
             )
 
         if node.left is None and node.right is None:
@@ -290,6 +339,11 @@ def plot_phylogeny(tree, ellipses, cnas):
 if __name__ == "__main__":
     while True:
         tree, ellipses, cnas = simulate_phylogeny()
+
+        finalize_clones(tree, ellipses, cnas, max_cnas=10, outdir="./clones")
+        
         plot_phylogeny(tree, ellipses, cnas)
 
+        
+        
     print("\n\nDone.\n\n")

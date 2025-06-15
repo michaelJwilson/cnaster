@@ -49,9 +49,7 @@ def gen_visium(sample_dir, config, name):
     ]
 
     num_segments = config.mappable_genome_kbp // config.segment_size_kbp
-
-    print(num_segments)
-
+    
     for bc, (x, y, z) in zip(barcodes, lattice):
         query = np.array([x, y]).reshape(2, 1)
         query /= config.phylogeny.spatial_scale
@@ -74,13 +72,21 @@ def gen_visium(sample_dir, config, name):
         snp_umis = 10.0 ** np.random.normal(
             loc=config.visium.log10snp_umi_per_spot, scale=config.visium.log10snp_umi_std_per_spot
         )
+
+        mat_copies = np.ones(num_segments)
+        pat_copies = np.ones(num_segments)
         
         if cnas:
-            
-        else:
-            rdr, baf = 1., 0.5
+            for cna in cnas:
+                pos_idx = int(np.floor(cna[1] / config.segment_size_kbp))
+                state = cna[0]
 
-        print(f"{bc}\t{x}\t{y}\t{z}\t{umis:.3f}")
+                mat_copy, pat_copy = cna[0].split(",")
+                
+                mat_copies[pos_idx] = int(mat_copy)
+                pat_copies[pos_idx] = int(pat_copy)
+                                
+        print(f"{bc}\t{x}\t{y}\t{z}\t{umis:.3f}\t{snp_umis:.3f}")
             
     exit(0)
 

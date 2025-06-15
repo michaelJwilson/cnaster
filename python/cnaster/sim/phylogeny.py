@@ -13,7 +13,9 @@ from typing import Any, Optional
 
 from cnaster_rs import ellipse
 
-logger =  logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
+
+
 @dataclass
 class Node:
     identifier: int = -1
@@ -202,7 +204,7 @@ def finalize_clones(config, tree, ellipses, cnas, outdir, max_cnas=10):
     for leaf in leaves:
         if leaf.ellipse_idx == -1:
             continue
-        
+
         ell = ellipses[leaf.ellipse_idx]
 
         center = np.array(ell.center).flatten().tolist()
@@ -337,12 +339,14 @@ def generate_phylogenies(config):
     for ii in range(config.phylogeny.num_phylogenies):
         tree, ellipses, cnas = simulate_phylogeny(config)
 
-        outdir=config.output_dir + f"/phylogenies/phylogeny{ii}"
-        
+        outdir = config.output_dir + f"/phylogenies/phylogeny{ii}"
+
         os.makedirs(outdir, exist_ok=True)
-        
-        finalize_clones(config, tree, ellipses, cnas, max_cnas=config.num_cnas, outdir=outdir)
-        
+
+        finalize_clones(
+            config, tree, ellipses, cnas, max_cnas=config.num_cnas, outdir=outdir
+        )
+
         plot_phylogeny(tree, ellipses, cnas, outdir=outdir)
 
         logger.info(f"Phylogeny {ii} generated and saved to {outdir}")

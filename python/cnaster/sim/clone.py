@@ -2,6 +2,7 @@ import json
 import numpy as np
 from cnaster_rs import ellipse
 
+
 class Clone:
     def __init__(self, fpath, x0=None):
         with open(fpath, "r") as f:
@@ -13,7 +14,7 @@ class Clone:
         if x0 is not None:
             x0 = x0.reshape.reshape(2, 1)
             center += x0
-        
+
         self.ellipse = ellipse.CnaEllipse(center, L)
         self.cnas = data["cnas"]
 

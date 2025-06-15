@@ -8,10 +8,11 @@ from mpl_toolkits.mplot3d import Axes3D
 from dataclasses import dataclass
 from typing import Any, Optional
 
-from cnaster_rs import ellipse
+from cnaster_rs import ellipse, set_cnaster_rs_seed
 from cnaster.config import JSONConfig
 
 np.random.seed(42)
+set_cnaster_rs_seed(42)
 
 # TODO HACK
 config = JSONConfig.from_file("/Users/mw9568/repos/cnaster/sim_config.json")
@@ -77,12 +78,14 @@ def simulate_cna(current_cnas, parsimony_rate):
 
 
 def simulate_parent():
-    center = np.array(centers[np.random.randint(0, len(centers))], dtype=float).reshape(
-        2, 1
-    )
+    center = np.random.uniform(
+        low=-0.5, high=0.5, size=(2, 1)
+    ).astype(float)
 
     inv_diag = np.array(
-        [1.0 / np.random.randint(1, high=3) for _ in range(2)],
+        np.random.randint(
+            low=3, high=10, size=(2, 1)
+        ),
         dtype=float,
     ).reshape(2, 1)
 
@@ -100,7 +103,7 @@ def simulate_phylogeny():
 
     node_count = 1
 
-    while time < 4:
+    while time < 3:
         leaf = tree.sample_leaf()
         cna_idx = leaf.cna_idx
         ellipse_idx = leaf.ellipse_idx
@@ -111,7 +114,7 @@ def simulate_phylogeny():
 
             if time == 1:
                 center = np.array([-0.25, -0.25], dtype=float).reshape(2, 1)
-                inv_diag = np.array([2.0, 2.0], dtype=float).reshape(2, 1)
+                inv_diag = np.array([2.5, 2.5], dtype=float).reshape(2, 1)
 
                 el = ellipse.CnaEllipse.from_inv_diagonal(center, inv_diag)
                 el = el.rotate(np.pi / 4.0)
@@ -120,12 +123,12 @@ def simulate_phylogeny():
                     el = simulate_parent()
 
                     valid = True
-
+                    
                     for parent in parents:
                         if parent.overlaps(el):
                             valid = False
                             break
-
+                    
                     if valid:
                         break
 

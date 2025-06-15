@@ -36,8 +36,9 @@ impl CnaEllipse {
 
     pub fn contains(&self, pos_xy: Vector2<f64>) -> bool {
         let v = pos_xy - self.center;
+        let qinv = self.Q.try_inverse().unwrap();
 
-        (self.L.transpose() * v).norm_squared() <= 1.0
+        (v.transpose() * qinv * v)[(0, 0)] <= 1.0
     }
 
     pub fn overlaps(&self, other: &CnaEllipse, resolution: usize) -> bool {

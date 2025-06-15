@@ -1,3 +1,6 @@
+#[macro_use]
+extern crate lazy_static;
+
 mod config;
 mod ellipse;
 mod sim_config;
@@ -9,11 +12,20 @@ use ndarray::{Array1, Array2, Array3};
 use numpy::{IntoPyArray, PyArray1, PyArray2, ToPyArray};
 use pyo3::prelude::*;
 use rand::prelude::SliceRandom;
-use rand::Rng;
 use sim_config::SimConfig;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt;
+use std::sync::Mutex;
+use rand::{SeedableRng, rngs::StdRng, Rng};
+
+lazy_static::lazy_static! {
+    static ref GLOBAL_RNG: Mutex<StdRng> = Mutex::new(StdRng::from_entropy());
+}
+
+fn get_rng() -> std::sync::MutexGuard<'static, StdRng> {
+    GLOBAL_RNG.lock().unwrap()
+}
 
 pub struct Cnaster_Graph {
     // NB input on initialization
@@ -86,7 +98,7 @@ impl Cnaster_Graph {
     }
 
     pub fn reset_node_labels(&mut self) {
-        let mut rng = rand::thread_rng();
+        let mut rng = get_rng();
 
         for label in self.labels.iter_mut() {
             *label = rng.gen_range(0..=self.max_label as i32);
@@ -176,7 +188,7 @@ impl Cnaster_Graph {
     }
 
     pub fn icm_sweep(&mut self, J: f64, epsilon: f64, H: Option<&Array2<f64>>) -> f64 {
-        let mut rng = rand::thread_rng();
+        let mut rng = get_rng();
 
         for node in 0..self.num_nodes {
             let current_label = self.labels[node];
@@ -252,7 +264,7 @@ impl Cnaster_Graph {
     }
 
     pub fn metropolis_hastings_sweep(&mut self, J: f64, beta: f64, H: Option<&Array2<f64>>) -> f64 {
-        let mut rng = rand::thread_rng();
+        let mut rng = get_rng();
         let mut total_energy = self.potts_energy(J, H);
 
         for node in 0..self.num_nodes {
@@ -685,12 +697,20 @@ fn py_nearest_neighbor_edges<'py>(
     Ok((from_to.into_pyarray(py), weights.into_pyarray(py)))
 }
 
+#[pyfunction]
+pub fn set_cnaster_rs_seed(seed: u64) {
+    let mut rng = GLOBAL_RNG.lock().unwrap();
+
+    *rng = StdRng::seed_from_u64(seed);
+}
+
 #[pymodule]
 #[pyo3(name = "cnaster_rs")]
 fn cnaster_rs(py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_get_triangular_lattice, m)?)?;
     m.add_function(wrap_pyfunction!(py_get_slices_triangular_lattice_edges, m)?)?;
     m.add_function(wrap_pyfunction!(py_nearest_neighbor_edges, m)?)?;
+    m.add_function(wrap_pyfunction!(set_cnaster_rs_seed, m)?)?;
     m.add_class::<pyCnaster_Graph>()?;
     
     let ellipse_mod = PyModule::new(py, "ellipse")?;

@@ -57,7 +57,7 @@ impl CnaEllipse {
         let theta = (PI / 4.0) * rng.gen::<f64>();
 
         let mut new_L = self.rotate(theta).L;
-        new_L /= factor.powi(2);
+        new_L *= factor.powi(2);
 
         // NB see https://arxiv.org/pdf/1908.09326
         Self::new(new_center, new_L)

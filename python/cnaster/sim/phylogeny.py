@@ -15,7 +15,7 @@ np.random.seed(42)
 
 # TODO HACK
 config = JSONConfig.from_file("/Users/mw9568/repos/cnaster/sim_config.json")
-centers = [[0, 0], [5, 5], [5, -5], [-5, -5], [-5, 5]]
+centers = [[1, 1], [1, -1], [-1, -1], [-1, 1]]
 
 
 @dataclass
@@ -89,14 +89,12 @@ def simulate_phylogeny():
     normal = Node(0, 0)
     tree = BinaryTree(normal)
 
-    print(f"\n\n{normal}")
-
     time = 1
     ellipses, cnas = [], []
 
     node_count = 1
 
-    while time < 6:
+    while time < 4:
         leaf = tree.sample_leaf()
         cna_idx = leaf.cna_idx
         ellipse_idx = leaf.ellipse_idx
@@ -162,11 +160,9 @@ def plot_ellipse(center, L, ax=None, **kwargs):
         fig, ax = plt.subplots()
 
     t = np.linspace(0, 2 * np.pi, 100)
-
     circle = np.stack([np.cos(t), np.sin(t)])
 
     ellipse = L @ circle
-
     ellipse = ellipse + np.array(center).reshape(2, 1)
 
     ax.plot(ellipse[0], ellipse[1], **kwargs)
@@ -193,12 +189,14 @@ def plot_phylogeny(tree, ellipses, cnas):
             center = el.center
             L = el.l
 
-            plot_ellipse(center, L, ax=axes[0], color=colors[1 + node.cna_idx], alpha=0.5)
+            plot_ellipse(
+                center, L, ax=axes[0], color=colors[1 + node.cna_idx], alpha=0.5
+            )
 
         # NB plot tree
         axes[1].scatter(xshift, -node.time, color=colors[1 + node.cna_idx])
 
-        right_dx = 0.1 * np.random.uniform()
+        right_dx = 0.025 * np.random.randint(0, 5)
 
         if node.left is not None:
             axes[1].plot(
@@ -216,6 +214,16 @@ def plot_phylogeny(tree, ellipses, cnas):
                 alpha=0.5,
             )
 
+            axes[1].text(
+                np.mean([xshift, xshift + 1.0 + right_dx]),
+                0.99 * np.mean([-node.left.time, -node.right.time]),
+                f"{cnas[node.right.cna_idx][0]}",
+                fontsize=8,
+                va="bottom",
+                ha="left",
+                bbox=dict(boxstyle="round,pad=0.2", fc="white", alpha=0.7, lw=0)
+            )
+            
         if node.left is None and node.right is None:
             axes[1].scatter(xshift, -max_time, color=colors[1 + node.cna_idx])
             axes[1].plot(
@@ -225,13 +233,13 @@ def plot_phylogeny(tree, ellipses, cnas):
                 alpha=0.5,
             )
 
-        plot_node(node.left,  xshift)
+        plot_node(node.left, xshift)
         plot_node(node.right, xshift + 1.0 + right_dx)
 
     plot_node(root)
 
-    axes[0].set_xticks([])
-    axes[0].set_xticklabels([])
+    axes[1].set_yticks([])
+    axes[1].set_yticklabels([])
 
     axes[0].set_xlabel("X")
     axes[0].set_ylabel("Y")
@@ -239,7 +247,6 @@ def plot_phylogeny(tree, ellipses, cnas):
     axes[1].set_xlabel("Number of CNAs")
     axes[1].set_ylabel("Look-back time")
 
-    plt.legend()
     plt.show()
 
 

@@ -18,8 +18,8 @@ dependencies = [
     "rich==14.0.0",
 ]
 
-# [project.scripts]
-# run_sim = "cnaster.scripts.run_sim:main"
+[project.scripts]
+run_cnaster_sim = "cnaster.sim.scripts.run_cnaster_sim:main"
 
 [tool.hatch.build.targets.sdist]
 include = ["python/cnaster"]

@@ -77,7 +77,7 @@ def simulate_cna(current_cnas, parsimony_rate):
 
 
 def simulate_parent():
-    center = np.array(centers.pop(), dtype=float).reshape(2, 1)
+    center =  np.array(centers[np.random.randint(0, len(centers))], dtype=float).reshape(2, 1)
     inv_diag = np.array([2., 2. * np.random.randint(1, high=4)], dtype=float).reshape(2, 1)
 
     theta = np.pi * np.random.randint(1, high=4) / 4.0
@@ -90,7 +90,7 @@ def simulate_phylogeny():
     tree = BinaryTree(normal)
 
     time = 1
-    ellipses, cnas = [], []
+    ellipses, parents, cnas = [], [], []
 
     node_count = 1
 
@@ -110,7 +110,19 @@ def simulate_phylogeny():
                 el = ellipse.CnaEllipse.from_diagonal(center, inv_diag)
                 el = el.rotate(np.pi / 4.0)
             else:
-                el = simulate_parent()
+                while True:
+                    el = simulate_parent()
+
+                    valid = True
+
+                    for parent in parents:
+                        if el.overlaps(parent):
+                            valid = False
+                            break
+                    if valid:
+                        break
+
+            parents.append(el)
         else:
             el = ellipses[ellipse_idx].get_daughter(0.75)
 

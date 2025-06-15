@@ -60,7 +60,7 @@ def gen_visium(sample_dir, config, name):
 
         candidates = [clone for clone, inside in zip(clones, isin) if inside]
 
-        # NB we choose the smallest of overlapping ellipse as proxy for later evolved.
+        # NB we choose the smallest of overlapping ellipse as a (close) proxy for later evolved.
         if candidates:
             matched = min(candidates, key=lambda c: c.ellipse.det_l)
             cnas = matched.cnas
@@ -76,8 +76,12 @@ def gen_visium(sample_dir, config, name):
         )
         
         if cnas:
-            print(bc, x, y, z, umis)
+            
+        else:
+            rdr, baf = 1., 0.5
 
+        print(f"{bc}\t{x}\t{y}\t{z}\t{umis:.3f}")
+            
     exit(0)
 
     logger.info(f"Generated visium to {sample_dir}")

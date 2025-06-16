@@ -17,13 +17,13 @@ def generate_fake_barcodes(num_spots):
     return [f"VIS{i:05d}" for i in range(num_spots)]
 
 
-def assign_umis_to_segments(total_umis, gene_weights):
-    num_segments = len(gene_weights)
-    segment_choices = np.random.choice(
-        num_segments, size=int(round(total_umis)), p=gene_weights
+def assign_counts_to_segments(total, weights):
+    num_segments = len(weights)
+    choices = np.random.choice(
+        num_segments, size=int(round(total)), p=weights
     )
 
-    return np.bincount(segment_choices, minlength=num_segments)
+    return np.bincount(choices, minlength=num_segments)
 
 
 def gen_visium(sample_dir, config, name):
@@ -59,6 +59,7 @@ def gen_visium(sample_dir, config, name):
     ]
     num_segments = config.mappable_genome_kbp // config.segment_size_kbp
     segment_exp_baseline = get_exp_baseline(config)
+    snps_segment = get_snp_baseline(config)
 
     meta = pd.DataFrame(
         {
@@ -140,8 +141,15 @@ def gen_visium(sample_dir, config, name):
         # RETURN:
         #     - Vector of spot realized umis per segment, spot realized b-allele umis per segment.
 
-        segment_baseline_umis = assign_umis_to_segments(
+        segment_baseline_umis = assign_counts_to_segments(
             total_umis, segment_exp_baseline
+        )
+
+        weights = segment_exp_baseline * snps_segment
+        weights /= weights.sum()
+
+        segment_baseline_snp_umis = assign_counts_to_segments(
+            total_snp_umis, weights,
         )
 
         """

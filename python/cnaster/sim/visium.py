@@ -112,17 +112,12 @@ def gen_visium(sample_dir, config, name):
 
         # NB input args:
         #     -  config.segment_size_kbp 
-        #     -  config.exp_snp_kbp
-        #     -  config.exp_gene_kbp
-        #     -  config.exp_block_kbp
+        #     -  baseline exp. per segment
+        #     -  snps per segment
         #     -  tumor_purity
         #     -  [segment_idx, rdr, baf] for all CNAs, if any.
 
         # TODO:
-        #     - generate num_snps per segment as Poisson(exp_snp_kbp * segment_size_kbp), global variable (consistent across spot and samples).
-        #     - generate num_genes per segment as Poisson(exp_gene_kbp * segment_size_kbp), global variable (consistent across spot and samples).
-        #     - generate block labels per segment as block length ~ normal(exp_block_kbp) // segment_size_kbp, global variable (consistent across spot and samples).
-        #
         #     - generate baseline umis per gene as Poisson(umis / num_genes)
         #     - generate baseline umis per segment by aggregating baseline umis per gene by num. genes per segment
         #     - generate baseline snp umis per snp as Poisson(snp_umis / num_snps)
@@ -131,7 +126,7 @@ def gen_visium(sample_dir, config, name):
         #     - generate realized snp umis per segment as beta_binomial.
         # 
         # RETURN:
-        #     - Vector of spot realized umis per segment, pot realized b-allele umis per segment.
+        #     - Vector of spot realized umis per segment, spot realized b-allele umis per segment.
 
         """
         # NB genes and snps are non-uniformly distributed across segments.

@@ -18,7 +18,8 @@
     "phylogeny": {
         "num_phylogenies": 10,
         "parsimony_rate": 0.25,
-        "spatial_scale": 100.0
+        "spatial_scale": 100.0,
+        "mean_purity": 0.75
     },
     "visium": {
         "num_spots": 4992,

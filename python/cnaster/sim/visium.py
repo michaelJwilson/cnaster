@@ -87,7 +87,7 @@ def gen_visium(sample_dir, config, name):
             bafs[pos_idx] = baf
 
             tumor_purity = 0.5 * (1.0 + np.random.uniform())
-
+        
         # NB sample coverages for the spot
         umis = 10.0 ** np.random.normal(
             loc=config.visium.log10umi_per_spot,
@@ -98,9 +98,10 @@ def gen_visium(sample_dir, config, name):
             loc=config.visium.log10snp_umi_per_spot,
             scale=config.visium.log10snp_umi_std_per_spot,
         )
-
+        """
+        # TODO slower
         num_snps_segments = np.random.poisson(lam=exp_snps_segment, size=num_segments)
-
+        
         # TODO no constraint that snp_coverage < coverage
         baseline_segment_umis = np.random.poisson(
             lam=umis / num_segments, size=num_segments
@@ -108,7 +109,7 @@ def gen_visium(sample_dir, config, name):
         baseline_snp_umis = np.random.poisson(
             lam=snp_umis / num_snps_segments.sum(), size=num_snps_segments.sum()
         )
-
+        
         idx = 0
         baseline_segment_snp_umis = np.zeros(num_segments, dtype=int)
 
@@ -139,5 +140,6 @@ def gen_visium(sample_dir, config, name):
             segment_b = np.random.binomial(baseline_snp_umis[ii], pp)
 
             # print(bc, ii, segment_umi, segment_b, config.baf_dispersion, bafs[ii])
-
+        """
+        
     logger.info(f"Generated visium to {sample_dir}")

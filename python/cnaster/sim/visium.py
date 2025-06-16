@@ -46,11 +46,7 @@ def gen_visium(sample_dir, config, name):
             glob.glob(config.output_dir + f"/phylogenies/phylogeny4/*.json")
         )
     ]
-
     num_segments = config.mappable_genome_kbp // config.segment_size_kbp
-    exp_snps_segment = config.segment_size_kbp * config.exp_snp_kbp
-    exp_genes_segment = config.segment_size_kbp * config.exp_gene_kbp
-    exp_block_segment = config.segment_size_kbp * config.exp_block_kbp
 
     meta = pd.DataFrame(
         {
@@ -64,6 +60,7 @@ def gen_visium(sample_dir, config, name):
         {
             "barcode": pd.Series(dtype="str"),
             "clone": pd.Series(dtype=int),
+            "tumor_purity": pd.Series(dtype=float),
         }
     )
 
@@ -88,10 +85,6 @@ def gen_visium(sample_dir, config, name):
             cnas = []
 
         # NB compute the purity, rdrs and bafs for this spot.
-        tumor_purity = 1.0
-
-
-
         for cna in cnas:
             pos_idx = int(np.floor(cna[1] / config.segment_size_kbp))
             state = cna[0]
@@ -114,11 +107,27 @@ def gen_visium(sample_dir, config, name):
             scale=config.visium.log10snp_umi_std_per_spot,
         )
 
-        # NB used args: 
-        #   exp_snps_segment
-        #   num_segments
-        #   umis
-        #   snp_umis 
+        # NB input args:
+        #     -  config.segment_size_kbp 
+        #     -  config.exp_snp_kbp
+        #     -  config.exp_gene_kbp
+        #     -  config.exp_block_kbp
+        #     -  tumor_purity
+        #     -  [pos, rdr, baf] for all CNAs, if any.
+
+        # TODO:
+        #     - generate num_snps per segment as Poisson(exp_snp_kbp * segment_size_kbp), global variable (consistent across spot and samples).
+        #     - generate num_genes per segment as Poisson(exp_gene_kbp * segment_size_kbp), global variable (consistent across spot and samples).
+        #     - generate block labels per segment as block length ~ normal(exp_block_kbp) // segment_size_kbp, global variable (consistent across spot and samples).
+        #     - generate baseline umis per gene as Poisson(umis / num_genes)
+        #     - generate baseline umis per segment by aggregating baseline umis per gene by num. genes per segment
+        #     - generate baseline snp umis per snp as Poisson(snp_umis / num_snps)
+        #     - generate baseline snp umis per segment by aggregating baseline umis per snp by num. snps per segment
+        #     - generate realized umis per segment as negative binomial.
+        #     - generate realized snp umis per segment as beta_binomial.
+        # 
+        # RETURN:
+        #     - Vector of spot realized umis per segment, pot realized b-allele umis per segment.
 
         """
         # NB genes and snps are non-uniformly distributed across segments.
@@ -181,6 +190,7 @@ def gen_visium(sample_dir, config, name):
         truth_row = {
             "barcode": bc,
             "clone":  matched.id if matched is not None else -1,
+            "tumor_purity": tumor_purity,
         }
 
         meta = pd.concat([meta, pd.DataFrame([meta_row])], ignore_index=True)

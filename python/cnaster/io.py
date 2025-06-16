@@ -2,6 +2,7 @@ import ast
 import gzip
 import logging
 import pandas as pd
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -30,3 +31,9 @@ def get_meta(config, run_id, sample_name):
                 break
 
     return pd.read_csv(mpath, sep="\t", comment="#", names=names)
+
+
+def get_umis(config, run_id, sample_name):
+    fpath = f"{config.output_dir}/run{run_id}/{sample_name}/{sample_name}_umis.npy"
+
+    return np.load(fpath)

@@ -80,7 +80,7 @@ def gen_visium(sample_dir, config, name):
     )
 
     # NB transcript umis and b-allele umis for all sports and segments.
-    result = np.zeros(shape=(2, config.visium.num_spots, num_segments), dtype=float)
+    result = np.zeros(shape=(2, config.visium.nx * config.visium.ny, num_segments), dtype=float)
 
     for ii, (bc, (x, y, z)) in enumerate(zip(barcodes, lattice)):
         # NB find the corresponding clone.
@@ -156,14 +156,12 @@ def gen_visium(sample_dir, config, name):
             total_snp_umis, weights,
         )
 
-        result[0, ii, :] = sample_segment_umis(segment_baseline_umis, rdrs, config.rdr_over_dispersion)
-
         ps = np.random.beta(
             1.0 + config.baf_dispersion * bafs,
             1.0 + config.baf_dispersion * (1.0 - bafs),
         )
 
-        # TODO
+        result[0, ii, :] = sample_segment_umis(segment_baseline_umis, rdrs, config.rdr_over_dispersion)
         result[1, ii, :] = np.random.binomial(segment_baseline_snp_umis, ps)
         
         meta_row = {
@@ -210,5 +208,11 @@ def gen_visium(sample_dir, config, name):
             index=False,
             header=False,
         )
+
+    opath = Path(sample_dir) / f"{name}_umis.npy"
+        
+    logger.info(f"Writing umis to {str(opath)}")
+
+    np.save(opath, result)
 
     logger.info(f"Generated visium to {sample_dir}")

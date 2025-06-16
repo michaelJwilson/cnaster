@@ -15,8 +15,9 @@ class Clone:
             x0 = x0.reshape.reshape(2, 1)
             center += x0
 
-        self.ellipse = ellipse.CnaEllipse(center, L)
+        self.id = data["id"]
         self.cnas = data["cnas"]
+        self.ellipse = ellipse.CnaEllipse(center, L)
 
     def __repr__(self):
         return f"<Clone ellipse={self.ellipse} cnas={len(self.cnas)}>"

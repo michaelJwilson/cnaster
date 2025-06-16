@@ -2,7 +2,7 @@ import os
 import gzip
 import glob
 import logging
-import polars
+import pandas as pd
 import numpy as np
 from cnaster.sim.clone import Clone
 from cnaster_rs import get_triangular_lattice
@@ -48,7 +48,15 @@ def gen_visium(sample_dir, config, name):
     exp_snps_segment = config.segment_size_kbp * config.exp_snp_kbp
 
     # NB transcript umis and b-allele umis for all sports and segments.
-    result = np.zeros(shape=(2, config.visium.num_spots, num_segments), dtype=float)
+    data = np.zeros(shape=(2, config.visium.num_spots, num_segments), dtype=float)
+    meta = pd.DataFrame(
+        {
+            "barcode": pd.Series(dtype="str"),
+            "clone": pd.Series(dtype=int),
+            "umis": pd.Series(dtype=int),
+            "snp_umis": pd.Series(dtype=int),
+        }
+    )
 
     # NB loop over spots
     for bc, (x, y, z) in zip(barcodes, lattice):
@@ -87,7 +95,7 @@ def gen_visium(sample_dir, config, name):
             bafs[pos_idx] = baf
 
             tumor_purity = 0.5 * (1.0 + np.random.uniform())
-        
+
         # NB sample coverages for the spot
         umis = 10.0 ** np.random.normal(
             loc=config.visium.log10umi_per_spot,
@@ -150,5 +158,14 @@ def gen_visium(sample_dir, config, name):
 
             # print(bc, ii, segment_umi, segment_b, config.baf_dispersion, bafs[ii])
         """
-        
+
+        meta_row = {
+            "barcode": bc,
+            "clone":  matched.id if matched else -1,
+            "umis":  int(umis),
+            "snp_umis":   int(snp_umis),
+        }
+
+        meta = pd.concat([meta, pd.DataFrame([meta_row])], ignore_index=True)
+
     logger.info(f"Generated visium to {sample_dir}")

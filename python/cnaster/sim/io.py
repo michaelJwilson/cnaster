@@ -12,3 +12,11 @@ def get_truth(config, run_id, sample_name):
                 break
 
     return  pd.read_csv(tpath, sep="\t", comment="#",  names=names)
+
+def get_exp_baseline(config):
+    epath = f"{config.output_dir}/baseline/expression.tsv.gz"
+    return pd.read_csv(epath, sep="\t", comment="#", names=None).to_numpy()
+
+def get_snp_baseline(config):
+    spath = f"{config.output_dir}/baseline/snps.tsv.gz"
+    return pd.read_csv(spath, sep="\t", comment="#", names=None).to_numpy()

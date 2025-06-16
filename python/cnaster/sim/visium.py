@@ -2,10 +2,12 @@ import os
 import gzip
 import glob
 import logging
+import numba
 import pandas as pd
 import numpy as np
 from pathlib import Path
 from cnaster.sim.clone import Clone
+from cnaster.sim.io import get_exp_baseline, get_snp_baseline
 from cnaster_rs import get_triangular_lattice
 
 logger = logging.getLogger(__name__)
@@ -14,6 +16,19 @@ logger = logging.getLogger(__name__)
 def generate_fake_barcodes(num_spots):
     return [f"VIS{i:05d}" for i in range(num_spots)]
 
+@njit
+def assign_umis_to_segments(total_umis, num_genes_per_segment):
+    num_segments = len(num_genes_per_segment)
+    gene_weights = num_genes_per_segment / np.sum(num_genes_per_segment)
+   
+    segment_choices = np.random.choice(num_segments, size=total_umis, p=gene_weights)
+    
+    umi_counts = np.zeros(num_segments, dtype=np.int64)
+
+    for idx in segment_choices:
+        umi_counts[idx] += 1
+
+    return umi_counts
 
 def gen_visium(sample_dir, config, name):
     logger.info(f"Generating {name} visium.")
@@ -100,12 +115,12 @@ def gen_visium(sample_dir, config, name):
             tumor_purity = mean_purity + (1. - mean_purity) * np.random.uniform()
 
         # NB sample coverages for the spot
-        umis = 10.0 ** np.random.normal(
+        total_umis = 10.0 ** np.random.normal(
             loc=config.visium.log10umi_per_spot,
             scale=config.visium.log10umi_std_per_spot,
         )
 
-        snp_umis = 10.0 ** np.random.normal(
+        total_snp_umis = 10.0 ** np.random.normal(
             loc=config.visium.log10snp_umi_per_spot,
             scale=config.visium.log10snp_umi_std_per_spot,
         )
@@ -127,6 +142,8 @@ def gen_visium(sample_dir, config, name):
         # 
         # RETURN:
         #     - Vector of spot realized umis per segment, spot realized b-allele umis per segment.
+
+        segment_umis = assign_umis_to_segments(total_umis, num_genes_per_segment)
 
         """
         # NB genes and snps are non-uniformly distributed across segments.

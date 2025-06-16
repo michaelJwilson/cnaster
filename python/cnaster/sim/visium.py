@@ -84,6 +84,8 @@ def gen_visium(sample_dir, config, name):
             matched=None
             cnas = []
 
+        tumor_purity = 1.
+
         # NB compute the purity, rdrs and bafs for this spot.
         for cna in cnas:
             pos_idx = int(np.floor(cna[1] / config.segment_size_kbp))

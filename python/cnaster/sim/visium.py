@@ -128,6 +128,12 @@ def gen_visium(sample_dir, config, name):
             scale=config.visium.log10snp_umi_std_per_spot,
         )
 
+        # NB used args: 
+        #   exp_snps_segment
+        #   num_segments
+        #   umis
+        #   snp_umis 
+
         """
         # NB genes and snps are non-uniformly distributed across segments.
         # TODO runs slow

@@ -6,6 +6,7 @@
     "copy_num_states": ["1,1", "1,0", "2,1", "2,2"],
     "num_cnas": 10,
     "exp_snp_kbp": 0.5,
+    "exp_gene_kbp": 0.01285,
     "cna_length_kbp": 1000,
     "rdr_over_dispersion": 1.0,
     "baf_dispersion": 1,

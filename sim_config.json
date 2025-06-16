@@ -7,7 +7,8 @@
     "num_cnas": 10,
     "exp_snp_kbp": 0.5,
     "cna_length_kbp": 1000,
-    "rdr_over_dispersion": 0.0,
+    "rdr_over_dispersion": 1.0,
+    "baf_dispersion": 1,
     "phasing": {"switch_rate": 0.00001},
     "phylogeny": {
         "num_phylogenies": 10,

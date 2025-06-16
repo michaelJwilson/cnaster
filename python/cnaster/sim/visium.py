@@ -104,8 +104,10 @@ def gen_visium(sample_dir, config, name):
         rdrs = np.ones(num_segments, dtype=float)
         bafs = 0.5 * np.ones(num_segments, dtype=float)
 
-        # NB compute the purity, rdrs and bafs for this spot.
         for cna in cnas:
+            mean_purity = config.phylogeny.mean_purity
+            tumor_purity = mean_purity + (1.0 - mean_purity) * np.random.uniform()
+
             pos_idx = int(np.floor(cna[1] / config.segment_size_kbp))
             state = cna[0]
 
@@ -113,9 +115,6 @@ def gen_visium(sample_dir, config, name):
 
             rdr = (mat_copy + pat_copy) / 2
             baf = min([mat_copy, pat_copy]) / (mat_copy + pat_copy)
-
-            mean_purity = config.phylogeny.mean_purity
-            tumor_purity = mean_purity + (1.0 - mean_purity) * np.random.uniform()
 
             rdrs[pos_idx] = (1. - tumor_purity) + (rdr * tumor_purity)
             bafs[pos_idx] = 0.5 * (1. - tumor_purity) + tumor_purity * baf * rdr

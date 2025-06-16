@@ -158,10 +158,9 @@ def gen_visium(sample_dir, config, name):
 
         result[0, ii, :] = sample_segment_umis(segment_baseline_umis, rdrs, config.rdr_over_dispersion)
 
-        print(ii)
-
-        exit(0)
-
+        # TODO
+        # result[1, ii, :] =
+        
         """
         for ii in range(num_segments):
             # TODO HACK
@@ -171,8 +170,6 @@ def gen_visium(sample_dir, config, name):
             )
             
             segment_b = np.random.binomial(baseline_snp_umis[ii], pp)
-
-            # print(bc, ii, segment_umi, segment_b, config.baf_dispersion, bafs[ii])
         """
 
         meta_row = {

@@ -29,6 +29,11 @@ pub fn sample_segment_umis<'py>(
     let r = 1.0 / rdr_overdispersion;
 
     for ((&base, &rdr), out) in baseline.iter().zip(rdrs.iter()).zip(result_slice.iter_mut()) {
+        if base == 0 {
+           *out = 0;
+           continue;
+        }
+
         let mu = rdr * (base as f64);
         let p = 1. / (1. + rdr_overdispersion * mu);
 

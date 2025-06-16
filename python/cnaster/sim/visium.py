@@ -2,9 +2,9 @@ import os
 import gzip
 import glob
 import logging
-import numba
 import pandas as pd
 import numpy as np
+from numba import njit
 from pathlib import Path
 from cnaster.sim.clone import Clone
 from cnaster.sim.io import get_exp_baseline, get_snp_baseline
@@ -16,19 +16,11 @@ logger = logging.getLogger(__name__)
 def generate_fake_barcodes(num_spots):
     return [f"VIS{i:05d}" for i in range(num_spots)]
 
-@njit
-def assign_umis_to_segments(total_umis, num_genes_per_segment):
-    num_segments = len(num_genes_per_segment)
-    gene_weights = num_genes_per_segment / np.sum(num_genes_per_segment)
-   
-    segment_choices = np.random.choice(num_segments, size=total_umis, p=gene_weights)
+def assign_umis_to_segments(total_umis, gene_weights):
+    num_segments = len(gene_weights)   
+    segment_choices = np.random.choice(num_segments, size=int(round(total_umis)), p=gene_weights)
     
-    umi_counts = np.zeros(num_segments, dtype=np.int64)
-
-    for idx in segment_choices:
-        umi_counts[idx] += 1
-
-    return umi_counts
+    return np.bincount(segment_choices, minlength=num_segments)
 
 def gen_visium(sample_dir, config, name):
     logger.info(f"Generating {name} visium.")
@@ -62,6 +54,7 @@ def gen_visium(sample_dir, config, name):
         )
     ]
     num_segments = config.mappable_genome_kbp // config.segment_size_kbp
+    segment_exp_baseline = get_exp_baseline(config)
 
     meta = pd.DataFrame(
         {
@@ -143,7 +136,7 @@ def gen_visium(sample_dir, config, name):
         # RETURN:
         #     - Vector of spot realized umis per segment, spot realized b-allele umis per segment.
 
-        segment_umis = assign_umis_to_segments(total_umis, num_genes_per_segment)
+        segment_baseline_umis = assign_umis_to_segments(total_umis, segment_exp_baseline)
 
         """
         # NB genes and snps are non-uniformly distributed across segments.
@@ -199,8 +192,8 @@ def gen_visium(sample_dir, config, name):
 
         meta_row = {
             "barcode": bc,
-            "umis":  int(umis),
-            "snp_umis":   int(snp_umis),
+            "umis":  int(total_umis),
+            "snp_umis":   int(total_snp_umis),
         }
 
         truth_row = {

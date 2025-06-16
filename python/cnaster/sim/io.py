@@ -15,8 +15,10 @@ def get_truth(config, run_id, sample_name):
 
 def get_exp_baseline(config):
     epath = f"{config.output_dir}/baseline/expression.tsv.gz"
-    return pd.read_csv(epath, sep="\t", comment="#", names=None).to_numpy()
+    exp = pd.read_csv(epath, sep="\t", comment="#", names=None).to_numpy()
+
+    return exp[:,1] / exp[:,1].sum()
 
 def get_snp_baseline(config):
     spath = f"{config.output_dir}/baseline/snps.tsv.gz"
-    return pd.read_csv(spath, sep="\t", comment="#", names=None).to_numpy()
+    return pd.read_csv(spath, sep="\t", comment="#", names=None)["snp"].to_numpy()

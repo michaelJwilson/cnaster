@@ -36,10 +36,6 @@ def gen_visium(sample_dir, config, name):
         for bc, (x, y, z) in zip(barcodes, lattice):
             f.write(f"{bc}\t{x:.6f}\t{y:.6f}\t{z:.6f}\n")
 
-    # NB generate umi counts
-    #    - "exp_umi_per_spot": 3162,
-    #    - "exp_snp_umi_per_spot": 501,
-
     # TODO HARDCODE phylogeny2
     clones = [
         Clone(xx)
@@ -51,6 +47,10 @@ def gen_visium(sample_dir, config, name):
     num_segments = config.mappable_genome_kbp // config.segment_size_kbp
     exp_snps_segment = config.segment_size_kbp * config.exp_snp_kbp
 
+    # NB transcript umis and b-allele umis for all sports and segments.
+    result = np.zeros(shape=(2, config.visium.num_spots, num_segments), dtype=float)
+
+    # NB loop over spots
     for bc, (x, y, z) in zip(barcodes, lattice):
         # NB find the corresponding clone.
         query = np.array([x, y]).reshape(2, 1)
@@ -98,14 +98,18 @@ def gen_visium(sample_dir, config, name):
             loc=config.visium.log10snp_umi_per_spot,
             scale=config.visium.log10snp_umi_std_per_spot,
         )
+
         """
-        # TODO slower
+        # NB genes and snps are non-uniformly distributed across segments.
+        # TODO runs slow
         num_snps_segments = np.random.poisson(lam=exp_snps_segment, size=num_segments)
         
         # TODO no constraint that snp_coverage < coverage
         baseline_segment_umis = np.random.poisson(
             lam=umis / num_segments, size=num_segments
         )
+
+        # NB depends on global number of snps across all segments.
         baseline_snp_umis = np.random.poisson(
             lam=snp_umis / num_snps_segments.sum(), size=num_snps_segments.sum()
         )
@@ -118,23 +122,28 @@ def gen_visium(sample_dir, config, name):
                 baseline_segment_snp_umis[seg_idx] = np.sum(
                     baseline_snp_umis[idx : idx + n_snps]
                 )
+
                 idx += n_snps
             else:
                 baseline_segment_snp_umis[seg_idx] = 0
 
+        
         for ii in range(num_segments):
-            pp = 1.0 / (
-                1.0 + config.rdr_over_dispersion * rdrs[ii] * baseline_segment_umis[ii]
-            )
+            # NB accounts for tumor purity.
+            rdr = (1. - tumor_purity) + (rdrs[ii] * tumor_purity)
+            baf = 0.5 * (1. - tumor_purity) + tumor_purity * bafs[ii] * rdrs[ii]
             
             rr = 1.0 / config.rdr_over_dispersion
+            pp = 1.0 / (
+                1.0 + config.rdr_over_dispersion * rdr * baseline_segment_umis[ii]
+            )
 
             segment_umi = np.random.negative_binomial(n=rr, p=pp)
 
             # TODO HACK
             pp = np.random.beta(
-                1.0 + config.baf_dispersion * bafs[ii],
-                1.0 + config.baf_dispersion * (1.0 - bafs[ii]),
+                1.0 + config.baf_dispersion * baf,
+                1.0 + config.baf_dispersion * (1.0 - baf),
             )
             
             segment_b = np.random.binomial(baseline_snp_umis[ii], pp)

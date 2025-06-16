@@ -231,6 +231,7 @@ def finalize_clones(config, tree, ellipses, cnas, outdir, max_cnas=10):
                     break
 
         clone = {
+            "id": leaf.identifier,
             "cnas": full_lineage,
             "center": center,
             "L": L,

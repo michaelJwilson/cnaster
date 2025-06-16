@@ -37,9 +37,9 @@ def gen_visium(sample_dir, config, name):
         for bc, (x, y, z) in zip(barcodes, lattice):
             f.write(f"{bc}\t{x:.6f}\t{y:.6f}\t{z:.6f}\n")
 
-    # TODO HARDCODE phylogeny2
     x0 = np.array([0.5, 0.5]).reshape(2, 1)
 
+    # TODO HARDCODE phylogeny2
     clones = [
         Clone(xx, x0=x0)
         for xx in sorted(
@@ -49,20 +49,9 @@ def gen_visium(sample_dir, config, name):
 
     num_segments = config.mappable_genome_kbp // config.segment_size_kbp
     exp_snps_segment = config.segment_size_kbp * config.exp_snp_kbp
+    exp_genes_segment = config.segment_size_kbp * config.exp_gene_kbp
+    exp_block_segment = config.segment_size_kbp * config.exp_block_kbp
 
-    """
-    blocks = []
-
-    while sum(blocks) < num_segments:
-        blocks.append(
-            np.random.poisson(lam=config.phasing.exp_block_length_kbp / config.segment_size_kbp)
-        )
-
-    blocks = np.array(blocks)
-    """
-    
-    # NB transcript umis and b-allele umis for all sports and segments.
-    data = np.zeros(shape=(2, config.visium.num_spots, num_segments), dtype=float)
     meta = pd.DataFrame(
         {
             "barcode": pd.Series(dtype="str"),
@@ -78,7 +67,9 @@ def gen_visium(sample_dir, config, name):
         }
     )
 
-    # NB loop over spots
+    # NB transcript umis and b-allele umis for all sports and segments.
+    data = np.zeros(shape=(2, config.visium.num_spots, num_segments), dtype=float)
+
     for bc, (x, y, z) in zip(barcodes, lattice):
         # NB find the corresponding clone.
         query = np.array([x, y]).reshape(2, 1)
@@ -96,24 +87,19 @@ def gen_visium(sample_dir, config, name):
             matched=None
             cnas = []
 
-        # NB compute the rdrs, bafs.
-        rdrs = np.ones(num_segments, dtype=float)
-        bafs = np.ones(num_segments, dtype=float)
-
+        # NB compute the purity, rdrs and bafs for this spot.
         tumor_purity = 1.0
+
+
 
         for cna in cnas:
             pos_idx = int(np.floor(cna[1] / config.segment_size_kbp))
             state = cna[0]
 
             mat_copy, pat_copy = [int(xx) for xx in cna[0].split(",")]
-            baf = min([mat_copy, pat_copy]) / (mat_copy + pat_copy)
 
             rdr = (mat_copy + pat_copy) / 2
             baf = min([mat_copy, pat_copy]) / (mat_copy + pat_copy)
-
-            rdrs[pos_idx] = rdr
-            bafs[pos_idx] = baf
 
             tumor_purity = 0.5 * (1.0 + np.random.uniform())
 

@@ -4,6 +4,7 @@ extern crate lazy_static;
 mod config;
 mod ellipse;
 mod sim_config;
+mod emission;
 
 use config::Config;
 use ellipse::CnaEllipse;
@@ -18,12 +19,13 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt;
 use std::sync::Mutex;
+use emission::sample_segment_umis;
 
 lazy_static::lazy_static! {
     static ref GLOBAL_RNG: Mutex<StdRng> = Mutex::new(StdRng::from_entropy());
 }
 
-fn get_rng() -> std::sync::MutexGuard<'static, StdRng> {
+pub fn get_rng() -> std::sync::MutexGuard<'static, StdRng> {
     GLOBAL_RNG.lock().unwrap()
 }
 
@@ -711,6 +713,7 @@ fn cnaster_rs(py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_get_slices_triangular_lattice_edges, m)?)?;
     m.add_function(wrap_pyfunction!(py_nearest_neighbor_edges, m)?)?;
     m.add_function(wrap_pyfunction!(set_cnaster_rs_seed, m)?)?;
+    m.add_function(wrap_pyfunction!(sample_segment_umis, m)?)?;
     m.add_class::<pyCnaster_Graph>()?;
 
     let ellipse_mod = PyModule::new(py, "ellipse")?;

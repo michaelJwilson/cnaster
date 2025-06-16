@@ -4,6 +4,7 @@ import glob
 import logging
 import pandas as pd
 import numpy as np
+from pathlib import Path
 from cnaster.sim.clone import Clone
 from cnaster_rs import get_triangular_lattice
 
@@ -167,5 +168,22 @@ def gen_visium(sample_dir, config, name):
         }
 
         meta = pd.concat([meta, pd.DataFrame([meta_row])], ignore_index=True)
+
+    opath = Path(sample_dir) / "meta" / f"{name}.tsv.gz"
+    opath.parent.mkdir(parents=True, exist_ok=True)
+
+    os.makedirs(os.path.dirname(opath), exist_ok=True)
+
+    logger.info(f"Writing metadata to {str(opath)}")
+
+    with gzip.open(opath, "wt") as f:
+        f.write(f"# {meta.columns.to_list()}\n")
+        
+        meta.to_csv(
+            f,
+            sep="\t",
+            index=False,
+            header=False,
+        )
 
     logger.info(f"Generated visium to {sample_dir}")

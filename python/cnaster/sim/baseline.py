@@ -26,7 +26,7 @@ def generate_exp_baseline(config):
     logger.info(f"Writing normalized baseline expression to {opath}")
 
     with gzip.open(opath, "wt") as f:
-        f.write("# segment\tbaseline\n")
+        f.write("# segment\texpression\n")
         df.to_csv(f, sep="\t", index=False, header=False)
 
 def generate_snp_baseline(config):
@@ -49,5 +49,5 @@ def generate_snp_baseline(config):
     logger.info(f"Writing SNP baseline to {opath}")
 
     with gzip.open(opath, "wt") as f:
-        f.write("# snp\tumi\n")
+        f.write("# segment\tsnp\n")
         df.to_csv(f, sep="\t", index=False, header=False)   

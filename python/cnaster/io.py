@@ -5,6 +5,7 @@ import pandas as pd
 
 logger = logging.getLogger(__name__)
 
+
 def get_spots(config, run_id, sample_name):
     mpath = f"{config.output_dir}/run{run_id}/{sample_name}/{sample_name}_visium.tsv.gz"
 
@@ -16,7 +17,8 @@ def get_spots(config, run_id, sample_name):
                 names = line[1:].strip().split()
                 break
 
-    return  pd.read_csv(mpath, sep="\t", comment="#",  names=names)
+    return pd.read_csv(mpath, sep="\t", comment="#", names=names)
+
 
 def get_meta(config, run_id, sample_name):
     mpath = f"{config.output_dir}/run{run_id}/{sample_name}/meta/{sample_name}.tsv.gz"
@@ -27,4 +29,4 @@ def get_meta(config, run_id, sample_name):
                 names = ast.literal_eval(line[1:].strip())
                 break
 
-    return  pd.read_csv(mpath, sep="\t", comment="#",  names=names)
+    return pd.read_csv(mpath, sep="\t", comment="#", names=names)

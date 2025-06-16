@@ -6,6 +6,7 @@ import gzip
 
 logger = logging.getLogger(__name__)
 
+
 def generate_exp_baseline(config):
     num_segments = config.mappable_genome_kbp // config.segment_size_kbp
     exp_gene_segment = config.exp_gene_kbp * config.segment_size_kbp
@@ -18,16 +19,14 @@ def generate_exp_baseline(config):
 
     opath = outdir / "expression.tsv.gz"
 
-    df = pd.DataFrame({
-        "segment": np.arange(num_segments),
-        "expression": lambdas
-    })
+    df = pd.DataFrame({"segment": np.arange(num_segments), "expression": lambdas})
 
     logger.info(f"Writing normalized baseline expression to {opath}")
 
     with gzip.open(opath, "wt") as f:
         f.write("# segment\texpression\n")
         df.to_csv(f, sep="\t", index=False, header=False)
+
 
 def generate_snp_baseline(config):
     num_segments = config.mappable_genome_kbp // config.segment_size_kbp
@@ -41,13 +40,10 @@ def generate_snp_baseline(config):
 
     opath = outdir / "snps.tsv.gz"
 
-    df = pd.DataFrame({
-        "segment": np.arange(num_segments),
-        "snps": num_snps_segments
-    })
+    df = pd.DataFrame({"segment": np.arange(num_segments), "snps": num_snps_segments})
 
     logger.info(f"Writing SNP baseline to {opath}")
 
     with gzip.open(opath, "wt") as f:
         f.write("# segment\tsnp\n")
-        df.to_csv(f, sep="\t", index=False, header=False)   
+        df.to_csv(f, sep="\t", index=False, header=False)

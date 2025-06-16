@@ -1,11 +1,12 @@
 import json
 
+
 class JSONConfig:
     def __init__(self, d):
         for k, v in d.items():
             if isinstance(v, dict):
                 v = JSONConfig(v)
-            
+
             setattr(self, k, v)
 
     def __iter__(self):

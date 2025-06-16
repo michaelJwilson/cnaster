@@ -16,11 +16,15 @@ logger = logging.getLogger(__name__)
 def generate_fake_barcodes(num_spots):
     return [f"VIS{i:05d}" for i in range(num_spots)]
 
+
 def assign_umis_to_segments(total_umis, gene_weights):
-    num_segments = len(gene_weights)   
-    segment_choices = np.random.choice(num_segments, size=int(round(total_umis)), p=gene_weights)
-    
+    num_segments = len(gene_weights)
+    segment_choices = np.random.choice(
+        num_segments, size=int(round(total_umis)), p=gene_weights
+    )
+
     return np.bincount(segment_choices, minlength=num_segments)
+
 
 def gen_visium(sample_dir, config, name):
     logger.info(f"Generating {name} visium.")
@@ -89,10 +93,10 @@ def gen_visium(sample_dir, config, name):
             matched = min(candidates, key=lambda c: c.ellipse.det_l)
             cnas = matched.cnas
         else:
-            matched=None
+            matched = None
             cnas = []
 
-        tumor_purity = 0.
+        tumor_purity = 0.0
 
         # NB compute the purity, rdrs and bafs for this spot.
         for cna in cnas:
@@ -105,7 +109,7 @@ def gen_visium(sample_dir, config, name):
             baf = min([mat_copy, pat_copy]) / (mat_copy + pat_copy)
 
             mean_purity = 0.75
-            tumor_purity = mean_purity + (1. - mean_purity) * np.random.uniform()
+            tumor_purity = mean_purity + (1.0 - mean_purity) * np.random.uniform()
 
         # NB sample coverages for the spot
         total_umis = 10.0 ** np.random.normal(
@@ -119,7 +123,7 @@ def gen_visium(sample_dir, config, name):
         )
 
         # NB input args:
-        #     -  config.segment_size_kbp 
+        #     -  config.segment_size_kbp
         #     -  baseline exp. per segment
         #     -  snps per segment
         #     -  tumor_purity
@@ -132,11 +136,13 @@ def gen_visium(sample_dir, config, name):
         #     - generate baseline snp umis per segment by aggregating baseline umis per snp by num. snps per segment
         #     - generate realized umis per segment as negative binomial.
         #     - generate realized snp umis per segment as beta_binomial.
-        # 
+        #
         # RETURN:
         #     - Vector of spot realized umis per segment, spot realized b-allele umis per segment.
 
-        segment_baseline_umis = assign_umis_to_segments(total_umis, segment_exp_baseline)
+        segment_baseline_umis = assign_umis_to_segments(
+            total_umis, segment_exp_baseline
+        )
 
         """
         # NB genes and snps are non-uniformly distributed across segments.
@@ -192,13 +198,13 @@ def gen_visium(sample_dir, config, name):
 
         meta_row = {
             "barcode": bc,
-            "umis":  int(total_umis),
-            "snp_umis":   int(total_snp_umis),
+            "umis": int(total_umis),
+            "snp_umis": int(total_snp_umis),
         }
 
         truth_row = {
             "barcode": bc,
-            "clone":  matched.id if matched is not None else -1,
+            "clone": matched.id if matched is not None else -1,
             "tumor_purity": tumor_purity,
         }
 
@@ -212,7 +218,7 @@ def gen_visium(sample_dir, config, name):
 
     with gzip.open(opath, "wt") as f:
         f.write(f"# {meta.columns.to_list()}\n")
-        
+
         meta.to_csv(
             f,
             sep="\t",
@@ -227,7 +233,7 @@ def gen_visium(sample_dir, config, name):
 
     with gzip.open(opath, "wt") as f:
         f.write(f"# {truth.columns.to_list()}\n")
-        
+
         truth.to_csv(
             f,
             sep="\t",

@@ -29,8 +29,8 @@ def run_sim(config_path, debug=True):
 
     output_dir = Path(config.output_dir)
 
-    run_id = 00000 if debug else datetime.now().strftime('%Y%m%d_%H%M%S')
-    
+    run_id = 00000 if debug else datetime.now().strftime("%Y%m%d_%H%M%S")
+
     run_dir = output_dir / f"run{run_id}"
     run_dir.mkdir(parents=True, exist_ok=True)
 
@@ -43,7 +43,7 @@ def run_sim(config_path, debug=True):
     # NB generate sample data
     for sample_name in config.samples:
         logger.info(f"Solving for sample {sample_name}")
-        
+
         sample_dir = run_dir / sample_name
         sample_dir.mkdir(parents=True, exist_ok=True)
 

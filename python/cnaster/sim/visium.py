@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 def generate_fake_barcodes(num_spots):
     return [f"VIS{i:05d}-1" for i in range(num_spots)]
 
+
 def gen_visium(sample_dir, config, name):
     logger.info(f"Generating {name} visium.")
 
@@ -65,13 +66,13 @@ def gen_visium(sample_dir, config, name):
             cnas = matched.cnas
         else:
             cnas = []
-            
+
         # NB compute the rdrs, bafs.
         rdrs = np.ones(num_segments, dtype=float)
         bafs = np.ones(num_segments, dtype=float)
 
-        tumor_purity = 1.
-        
+        tumor_purity = 1.0
+
         for cna in cnas:
             pos_idx = int(np.floor(cna[1] / config.segment_size_kbp))
             state = cna[0]
@@ -85,9 +86,9 @@ def gen_visium(sample_dir, config, name):
             rdrs[pos_idx] = rdr
             bafs[pos_idx] = baf
 
-            tumor_purity = 0.5 * (1. + np.random.uniform())
+            tumor_purity = 0.5 * (1.0 + np.random.uniform())
 
-        # NB sample coverages for the spot                                                                                                                                   
+        # NB sample coverages for the spot
         umis = 10.0 ** np.random.normal(
             loc=config.visium.log10umi_per_spot,
             scale=config.visium.log10umi_std_per_spot,
@@ -101,34 +102,38 @@ def gen_visium(sample_dir, config, name):
         num_snps_segments = np.random.poisson(lam=exp_snps_segment, size=num_segments)
 
         # TODO no constraint that snp_coverage < coverage
-        baseline_segment_umis = np.random.poisson(lam=umis / num_segments, size=num_segments)
-        baseline_snp_umis = np.random.poisson(lam=snp_umis / num_snps_segments.sum(), size=num_snps_segments.sum())
-        
+        baseline_segment_umis = np.random.poisson(
+            lam=umis / num_segments, size=num_segments
+        )
+        baseline_snp_umis = np.random.poisson(
+            lam=snp_umis / num_snps_segments.sum(), size=num_snps_segments.sum()
+        )
+
         idx = 0
         baseline_segment_snp_umis = np.zeros(num_segments, dtype=int)
-        
+
         for seg_idx, n_snps in enumerate(num_snps_segments):
             if n_snps > 0:
-                baseline_segment_snp_umis[seg_idx] = np.sum(baseline_snp_umis[idx:idx + n_snps])
+                baseline_segment_snp_umis[seg_idx] = np.sum(
+                    baseline_snp_umis[idx : idx + n_snps]
+                )
                 idx += n_snps
             else:
                 baseline_segment_snp_umis[seg_idx] = 0
-        
-        # NB number of cells per spot
-        num_cells = np.random.poisson(config.visium.exp_cells_per_spot)
-        normals = [np.random.uniform() < (1. - tumor_purity) for _ in range(num_cells)]
-        
-        # NB we aim to calculate ALT and REF+ALT transcripts for each cell, snp & segment
-        dbSNPID = 1
 
-        df = []
-        
-        for ii, (base_umi, base_snp_umi) in enumerate(zip(baseline_segment_umis, baseline_segment_snp_umis)):
-            print()
+        for ii in range(num_segments):
+            segment_umis = NegativeBinomial(
+                rdrs[ii] * baseline_segment_umis[ii], config.rdr_over_dispersion
+            )
             
+            segment_bs = BetaBinomial(
+                baseline_snp_umis[ii],
+                baf_dispersion * bafs[ii],
+                baf_dispersion * (1.0 - bafs[ii]),
+            )
 
-
-        
-        
-
+            print(bc, ii, segment_umis, segment_bs)
+            
+    exit(0)
+            
     logger.info(f"Generated visium to {sample_dir}")

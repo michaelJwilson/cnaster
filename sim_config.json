@@ -1,20 +1,14 @@
 {
-    "output_dir": "/Users/mw9568/scratch/cnaster", 
+    "output_dir": "/Users/mw9568/scratch/cnaster",
     "segment_size_kbp": 50,
     "mappable_genome_kbp": 1090600,
     "trans_rate": 0.00001,
-    "copy_num_states": [
-        "1,1",
-        "1,0",
-        "2,1",
-        "2,2"
-    ],
+    "copy_num_states": ["1,1", "1,0", "2,1", "2,2"],
     "num_cnas": 10,
-    "snp_rate_kbp": 0.5,
+    "exp_snp_kbp": 0.5,
     "cna_length_kbp": 1000,
-    "phasing": {
-        "switch_rate": 0.00001
-    },
+    "rdr_over_dispersion": 0.0,
+    "phasing": {"switch_rate": 0.00001},
     "phylogeny": {
         "num_phylogenies": 10,
         "parsimony_rate": 0.25,
@@ -31,18 +25,8 @@
         "ny": 70
     },
     "samples": {
-        "cnaster_001": {
-            "type": "visium",
-            "origin": [0.0, 0.0],
-            "height": 0.0
-        },
-        "cnaster_002": {
-            "type": "visium",
-            "origin": [-15.0, 0.0],
-            "height": 2.5
-        }
+        "cnaster_001": {"type": "visium", "origin": [0.0, 0.0], "height": 0.0},
+        "cnaster_002": {"type": "visium", "origin": [-15.0, 0.0], "height": 2.5}
     },
-    "alignments": [
-        ["cnaster_001", "cnaster_002"]
-    ]
+    "alignments": [["cnaster_001", "cnaster_002"]]
 }

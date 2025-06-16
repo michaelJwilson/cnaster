@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 def generate_fake_barcodes(num_spots):
-    return [f"VIS{i:05d}-1" for i in range(num_spots)]
+    return [f"VIS{i:05d}" for i in range(num_spots)]
 
 
 def gen_visium(sample_dir, config, name):

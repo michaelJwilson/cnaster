@@ -84,7 +84,7 @@ def gen_visium(sample_dir, config, name):
             matched=None
             cnas = []
 
-        tumor_purity = 1.
+        tumor_purity = 0.
 
         # NB compute the purity, rdrs and bafs for this spot.
         for cna in cnas:
@@ -96,7 +96,8 @@ def gen_visium(sample_dir, config, name):
             rdr = (mat_copy + pat_copy) / 2
             baf = min([mat_copy, pat_copy]) / (mat_copy + pat_copy)
 
-            tumor_purity = 0.5 * (1.0 + np.random.uniform())
+            mean_purity = 0.75
+            tumor_purity = mean_purity + (1. - mean_purity) * np.random.uniform()
 
         # NB sample coverages for the spot
         umis = 10.0 ** np.random.normal(

@@ -9,7 +9,10 @@
     "cna_length_kbp": 1000,
     "rdr_over_dispersion": 1.0,
     "baf_dispersion": 1,
-    "phasing": {"switch_rate": 0.00001},
+    "phasing": {
+        "switch_rate": 0.00001,
+        "exp_block_length_kbp": 150
+    },
     "phylogeny": {
         "num_phylogenies": 10,
         "parsimony_rate": 0.25,

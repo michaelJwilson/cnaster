@@ -34,7 +34,7 @@ def run_sim(config_path, debug=True):
     run_dir.mkdir(parents=True, exist_ok=True)
 
     # NB generate phylogenies
-    generate_phylogenies(config)
+    # generate_phylogenies(config)
 
     # NB generate sample data
     for sample_name in config.samples:

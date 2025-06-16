@@ -12,7 +12,7 @@ class Clone:
         L = np.array(data["L"])
 
         if x0 is not None:
-            x0 = x0.reshape.reshape(2, 1)
+            x0 = x0.reshape(2, 1)
             center += x0
 
         self.id = data["id"]

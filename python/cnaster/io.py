@@ -1,9 +1,14 @@
 import ast
 import gzip
+import logging
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 def get_spots(config, run_id, sample_name):
     mpath = f"{config.output_dir}/run{run_id}/{sample_name}/{sample_name}_visium.tsv.gz"
+
+    logger.info(f"Reading spots from {mpath}")
 
     with gzip.open(mpath, "rt") as f:
         for line in f:

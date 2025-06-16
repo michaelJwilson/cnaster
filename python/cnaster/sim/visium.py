@@ -38,24 +38,43 @@ def gen_visium(sample_dir, config, name):
             f.write(f"{bc}\t{x:.6f}\t{y:.6f}\t{z:.6f}\n")
 
     # TODO HARDCODE phylogeny2
+    x0 = np.array([0.5, 0.5]).reshape(2, 1)
+
     clones = [
-        Clone(xx)
+        Clone(xx, x0=x0)
         for xx in sorted(
-            glob.glob(config.output_dir + f"/phylogenies/phylogeny2/*.json")
+            glob.glob(config.output_dir + f"/phylogenies/phylogeny4/*.json")
         )
     ]
 
     num_segments = config.mappable_genome_kbp // config.segment_size_kbp
     exp_snps_segment = config.segment_size_kbp * config.exp_snp_kbp
 
+    """
+    blocks = []
+
+    while sum(blocks) < num_segments:
+        blocks.append(
+            np.random.poisson(lam=config.phasing.exp_block_length_kbp / config.segment_size_kbp)
+        )
+
+    blocks = np.array(blocks)
+    """
+    
     # NB transcript umis and b-allele umis for all sports and segments.
     data = np.zeros(shape=(2, config.visium.num_spots, num_segments), dtype=float)
     meta = pd.DataFrame(
         {
             "barcode": pd.Series(dtype="str"),
-            "clone": pd.Series(dtype=int),
             "umis": pd.Series(dtype=int),
             "snp_umis": pd.Series(dtype=int),
+        }
+    )
+
+    truth = pd.DataFrame(
+        {
+            "barcode": pd.Series(dtype="str"),
+            "clone": pd.Series(dtype=int),
         }
     )
 
@@ -74,6 +93,7 @@ def gen_visium(sample_dir, config, name):
             matched = min(candidates, key=lambda c: c.ellipse.det_l)
             cnas = matched.cnas
         else:
+            matched=None
             cnas = []
 
         # NB compute the rdrs, bafs.
@@ -162,17 +182,20 @@ def gen_visium(sample_dir, config, name):
 
         meta_row = {
             "barcode": bc,
-            "clone":  matched.id if matched else -1,
             "umis":  int(umis),
             "snp_umis":   int(snp_umis),
         }
 
+        truth_row = {
+            "barcode": bc,
+            "clone":  matched.id if matched is not None else -1,
+        }
+
         meta = pd.concat([meta, pd.DataFrame([meta_row])], ignore_index=True)
+        truth = pd.concat([truth, pd.DataFrame([truth_row])], ignore_index=True)
 
     opath = Path(sample_dir) / "meta" / f"{name}.tsv.gz"
     opath.parent.mkdir(parents=True, exist_ok=True)
-
-    os.makedirs(os.path.dirname(opath), exist_ok=True)
 
     logger.info(f"Writing metadata to {str(opath)}")
 
@@ -180,6 +203,21 @@ def gen_visium(sample_dir, config, name):
         f.write(f"# {meta.columns.to_list()}\n")
         
         meta.to_csv(
+            f,
+            sep="\t",
+            index=False,
+            header=False,
+        )
+
+    opath = Path(sample_dir) / "truth" / f"{name}.tsv.gz"
+    opath.parent.mkdir(parents=True, exist_ok=True)
+
+    logger.info(f"Writing truthdata to {str(opath)}")
+
+    with gzip.open(opath, "wt") as f:
+        f.write(f"# {truth.columns.to_list()}\n")
+        
+        truth.to_csv(
             f,
             sep="\t",
             index=False,

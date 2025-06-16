@@ -122,15 +122,22 @@ def gen_visium(sample_dir, config, name):
                 baseline_segment_snp_umis[seg_idx] = 0
 
         for ii in range(num_segments):
-            pp = 1.0 / (1.0 + config.rdr_over_dispersion * rdrs[ii] * baseline_segment_umis[ii])
-            rr = 1.0 / config.rdr_over_dispersion
+            pp = 1.0 / (
+                1.0 + config.rdr_over_dispersion * rdrs[ii] * baseline_segment_umis[ii]
+            )
             
+            rr = 1.0 / config.rdr_over_dispersion
+
             segment_umi = np.random.negative_binomial(n=rr, p=pp)
 
             # TODO HACK
-            pp = np.random.beta(1. + config.baf_dispersion * bafs[ii], 1. + config.baf_dispersion * (1.0 - bafs[ii]))
-            segment_b = np.random.binomial(baseline_snp_umis[ii], pp)
+            pp = np.random.beta(
+                1.0 + config.baf_dispersion * bafs[ii],
+                1.0 + config.baf_dispersion * (1.0 - bafs[ii]),
+            )
             
+            segment_b = np.random.binomial(baseline_snp_umis[ii], pp)
+
             # print(bc, ii, segment_umi, segment_b, config.baf_dispersion, bafs[ii])
-                        
+
     logger.info(f"Generated visium to {sample_dir}")

@@ -116,12 +116,13 @@ def gen_visium(sample_dir, config, name):
         #     -  config.exp_gene_kbp
         #     -  config.exp_block_kbp
         #     -  tumor_purity
-        #     -  [pos, rdr, baf] for all CNAs, if any.
+        #     -  [segment_idx, rdr, baf] for all CNAs, if any.
 
         # TODO:
         #     - generate num_snps per segment as Poisson(exp_snp_kbp * segment_size_kbp), global variable (consistent across spot and samples).
         #     - generate num_genes per segment as Poisson(exp_gene_kbp * segment_size_kbp), global variable (consistent across spot and samples).
         #     - generate block labels per segment as block length ~ normal(exp_block_kbp) // segment_size_kbp, global variable (consistent across spot and samples).
+        #
         #     - generate baseline umis per gene as Poisson(umis / num_genes)
         #     - generate baseline umis per segment by aggregating baseline umis per gene by num. genes per segment
         #     - generate baseline snp umis per snp as Poisson(snp_umis / num_snps)

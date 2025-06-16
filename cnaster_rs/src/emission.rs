@@ -1,8 +1,9 @@
 use numpy::{PyArray1, PyReadonlyArray1};
 use pyo3::prelude::*;
-use statrs::distribution::{NegativeBinomial, Discrete};
+use statrs::distribution::{gamma, poisson, NegativeBinomial, Discrete};
 use rand::distributions::Distribution;
 use pyo3::Python;
+use std::f64;
 
 use crate::get_rng;
 
@@ -19,19 +20,19 @@ pub fn sample_segment_umis<'py>(
     let num_segments = baseline.len();
 
     let mut rng = get_rng();
-    let mut result = Vec::with_capacity(num_segments);
+    
+    let result = PyArray1::<i64>::zeros(py, num_segments, false);
 
-    for i in 0..num_segments {
-        let mu = rdrs[i] * (baseline[i] as f64);
+    let result_slice = unsafe { result.as_slice_mut().unwrap() };
 
-        let r = 1.0 / rdr_overdispersion;
+    let r = 1.0 / rdr_overdispersion;
+
+    for ((&base, &rdr), out) in baseline.iter().zip(rdrs.iter()).zip(result_slice.iter_mut()) {
+        let mu = rdr * (base as f64);
         let p = 1. / (1. + rdr_overdispersion * mu);
 
-        let nb = NegativeBinomial::new(r, p).unwrap();
-        let sample = nb.sample(&mut *rng) as i64;
-
-        result.push(sample);
+        
     }
 
-    PyArray1::from_vec(py, result)
+    result
 }

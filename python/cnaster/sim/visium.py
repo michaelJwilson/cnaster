@@ -8,7 +8,7 @@ from numba import njit
 from pathlib import Path
 from cnaster.sim.clone import Clone
 from cnaster.sim.io import get_exp_baseline, get_snp_baseline
-from cnaster_rs import get_triangular_lattice
+from cnaster_rs import get_triangular_lattice, sample_segment_umis
 
 logger = logging.getLogger(__name__)
 
@@ -23,22 +23,8 @@ def assign_counts_to_segments(total, weights):
         num_segments, size=int(round(total)), p=weights
     )
 
-    return np.bincount(choices, minlength=num_segments)
-
-@njit
-def sample_segment_umis(segment_baseline_umis, rdrs, rdr_overdispersion):
-    num_segments = len(segment_baseline_umis)
-    result = np.zeros(num_segments, dtype=np.int64)
-
-    for ii in range(num_segments):
-        mu = rdrs[ii] * segment_baseline_umis[ii]
-
-        rr = 1.0 / rdr_overdispersion
-        pp = 1. /  (1.0 + rdr_overdispersion * mu)
-
-        result[ii] = np.random.negative_binomial(rr, pp)
-
-    return result
+    # TODO HACK
+    return np.bincount(choices, minlength=1 + num_segments)
 
 def gen_visium(sample_dir, config, name):
     logger.info(f"Generating {name} visium.")
@@ -71,7 +57,9 @@ def gen_visium(sample_dir, config, name):
             glob.glob(config.output_dir + f"/phylogenies/phylogeny4/*.json")
         )
     ]
+
     num_segments = config.mappable_genome_kbp // config.segment_size_kbp
+
     segment_exp_baseline = get_exp_baseline(config)
     snps_segment = get_snp_baseline(config)
 
@@ -170,15 +158,12 @@ def gen_visium(sample_dir, config, name):
 
         result[0, ii, :] = sample_segment_umis(segment_baseline_umis, rdrs, config.rdr_over_dispersion)
 
+        print(ii)
+
+        exit(0)
+
         """
-        for ii in range(num_segments):            
-            rr = 1.0 / config.rdr_over_dispersion
-            pp = 1.0 / (
-                1.0 + config.rdr_over_dispersion * rdr * segment_baseline_umis[ii]
-            )
-
-            segment_umi = np.random.negative_binomial(n=rr, p=pp)
-
+        for ii in range(num_segments):
             # TODO HACK
             pp = np.random.beta(
                 1.0 + config.baf_dispersion * baf,

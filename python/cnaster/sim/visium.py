@@ -54,6 +54,14 @@ def query_clones(config, clones, x, y, z):
         return min(candidates, key=lambda c: c.ellipse.det_l)
     else:
         return None
+    
+def get_cnas(config, clone_ids, phy_id=4):
+    """
+    Load CNAs from phylogeny files.
+    """
+    clones = get_clones(config, phy_id=phy_id)
+
+    return [clones[clone_id].cnas for clone_id in clone_ids if clone_id != -1]
 
 def construct_frac_cnas(num_segments, segment_size_kbp, tumor_purity, cnas):
     rdrs = np.ones(num_segments, dtype=float)

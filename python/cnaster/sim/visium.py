@@ -51,12 +51,9 @@ def query_clones(config, clones, x, y, z):
 
     # NB we choose the smallest of overlapping ellipse as a (close) proxy for later evolved.
     if candidates:
-        matched = min(candidates, key=lambda c: c.ellipse.det_l)
-        cnas = matched.cnas
+        return min(candidates, key=lambda c: c.ellipse.det_l)
     else:
-        matched, cnas = None, []
-
-    return matched, cnas
+        return None
 
 def construct_frac_cnas(num_segments, segment_size_kbp, tumor_purity, cnas):
     rdrs = np.ones(num_segments, dtype=float)
@@ -127,7 +124,8 @@ def gen_visium(sample_dir, config, name):
     result = np.zeros(shape=(2, config.visium.nx * config.visium.ny, num_segments), dtype=float)
 
     for ii, (bc, (x, y, z)) in enumerate(zip(barcodes, lattice)):
-        matched, cnas = query_clones(config, clones, x, y, z)
+        matched = query_clones(config, clones, x, y, z)
+        cnas = matched.cnas if matched is not None else ()
 
         tumor_purity = 0.0
 
@@ -148,20 +146,6 @@ def gen_visium(sample_dir, config, name):
             scale=config.visium.log10snp_umi_std_per_spot,
         )
 
-        # NB input args:
-        #     -  config.segment_size_kbp
-        #     -  baseline exp. per segment
-        #     -  snps per segment
-        #     -  tumor_purity
-        #     -  [segment_idx, rdr, baf] for all CNAs, if any.
-
-        # TODO:
-        #     - generate realized umis per segment as negative binomial.
-        #     - generate realized snp umis per segment as beta_binomial.
-        #
-        # RETURN:
-        #     - Vector of spot realized umis per segment, spot realized b-allele umis per segment.
-
         segment_baseline_umis = assign_counts_to_segments(
             total_umis, segment_exp_baseline
         )
@@ -173,6 +157,7 @@ def gen_visium(sample_dir, config, name):
             total_snp_umis, weights,
         )
 
+        # NB assumes a single pseudo-count.
         ps = np.random.beta(
             1.0 + config.baf_dispersion * bafs,
             1.0 + config.baf_dispersion * (1.0 - bafs),

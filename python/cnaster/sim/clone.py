@@ -60,7 +60,7 @@ def get_cnas(config, clone_ids, phy_id=DEFAULT_PHY_ID):
     """
     clones = get_clones(config, phy_id=phy_id)
 
-    return [clones[clone_id].cnas for clone_id in clone_ids if clone_id != -1]
+    return [clones[clone_id -1].cnas for clone_id in clone_ids if clone_id != -1]
 
 def construct_frac_cnas(num_segments, segment_size_kbp, tumor_purity, cnas):
     rdrs = np.ones(num_segments, dtype=float)

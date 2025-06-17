@@ -1,6 +1,6 @@
 {
     "output_dir": "/Users/mw9568/scratch/cnaster",
-    "cache": 0,
+    "cache": 1,
     "segment_size_kbp": 500,
     "mappable_genome_kbp": 1090600,
     "trans_rate": 0.00001,

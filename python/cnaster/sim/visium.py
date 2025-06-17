@@ -26,6 +26,7 @@ def assign_counts_to_segments(total, weights):
     # TODO HACK
     return np.bincount(choices, minlength=1 + num_segments)
 
+
 def gen_visium(sample_dir, config, name):
     logger.info(f"Generating {name} visium.")
 

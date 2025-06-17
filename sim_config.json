@@ -4,7 +4,7 @@
     "segment_size_kbp": 500,
     "mappable_genome_kbp": 1090600,
     "trans_rate": 0.00001,
-    "copy_num_states": ["1,1", "1,0", "2,1", "2,2"],
+    "copy_num_states": ["1,0", "0,1", "2,1", "1,2", "2,2", "3,1"],
     "num_cnas": 10,
     "exp_snp_kbp": 0.5,
     "exp_gene_kbp": 0.01285,
@@ -19,7 +19,7 @@
         "num_phylogenies": 10,
         "parsimony_rate": 0.25,
         "spatial_scale": 100.0,
-        "mean_purity": 1.00
+        "mean_purity": 0.75
     },
     "visium": {
         "num_spots": 4992,

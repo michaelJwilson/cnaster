@@ -4,7 +4,7 @@ import numpy as np
 from cnaster_rs import ellipse
 
 # TODO HACK
-DEFAULT_PHY_ID = 1
+DEFAULT_PHY_ID = 0
 
 class Clone:
     def __init__(self, fpath, x0=None):
@@ -69,6 +69,8 @@ def construct_frac_cnas(num_segments, segment_size_kbp, tumor_purity, cnas):
     # TODO CNA start, end.
     for cna in cnas:
         pos_idx = int(np.floor(cna[1] / segment_size_kbp))
+        end_idx = int(np.ceil(cna[2] / segment_size_kbp))
+
         state = cna[0]
 
         mat_copy, pat_copy = [int(xx) for xx in cna[0].split(",")]
@@ -76,7 +78,7 @@ def construct_frac_cnas(num_segments, segment_size_kbp, tumor_purity, cnas):
         rdr = (mat_copy + pat_copy) / 2
         baf = min([mat_copy, pat_copy]) / (mat_copy + pat_copy)
 
-        rdrs[pos_idx] = (1. - tumor_purity) + (rdr * tumor_purity)
-        bafs[pos_idx] = 0.5 * (1. - tumor_purity) + tumor_purity * baf * rdr
+        rdrs[pos_idx:end_idx] = (1. - tumor_purity) + (rdr * tumor_purity)
+        bafs[pos_idx:end_idx] = 0.5 * (1. - tumor_purity) + tumor_purity * baf * rdr
 
     return rdrs, bafs

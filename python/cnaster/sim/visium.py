@@ -26,6 +26,57 @@ def assign_counts_to_segments(total, weights):
     # TODO HACK
     return np.bincount(choices, minlength=1 + num_segments)
 
+def get_clones(config, phy_id=4):
+    """
+    Load clones from phylogeny files.
+    """
+    x0 = np.array([0.5, 0.5]).reshape(2, 1)
+
+    clones = [
+        Clone(xx, x0=x0)
+        for xx in sorted(
+            glob.glob(config.output_dir + f"/phylogenies/phylogeny{phy_id}/*.json")
+        )
+    ]
+
+    return clones
+
+def query_clones(config, clones, x, y, z):
+    # NB find the corresponding clone.
+    query = np.array([x, y]).reshape(2, 1)
+    query /= config.phylogeny.spatial_scale
+
+    isin = [clone.ellipse.contains(query) for clone in clones]
+    candidates = [clone for clone, inside in zip(clones, isin) if inside]
+
+    # NB we choose the smallest of overlapping ellipse as a (close) proxy for later evolved.
+    if candidates:
+        matched = min(candidates, key=lambda c: c.ellipse.det_l)
+        cnas = matched.cnas
+    else:
+        matched, cnas = None, []
+
+    return matched, cnas
+
+def construct_frac_cnas(num_segments, segment_size_kbp, tumor_purity, cnas):
+    rdrs = np.ones(num_segments, dtype=float)
+    bafs = 0.5 * np.ones(num_segments, dtype=float)
+
+    # TODO CNA start, end.
+    for cna in cnas:
+        pos_idx = int(np.floor(cna[1] / segment_size_kbp))
+        state = cna[0]
+
+        mat_copy, pat_copy = [int(xx) for xx in cna[0].split(",")]
+
+        rdr = (mat_copy + pat_copy) / 2
+        baf = min([mat_copy, pat_copy]) / (mat_copy + pat_copy)
+
+        rdrs[pos_idx] = (1. - tumor_purity) + (rdr * tumor_purity)
+        bafs[pos_idx] = 0.5 * (1. - tumor_purity) + tumor_purity * baf * rdr
+
+    return rdrs, bafs
+
 def gen_visium(sample_dir, config, name):
     logger.info(f"Generating {name} visium.")
 
@@ -48,16 +99,6 @@ def gen_visium(sample_dir, config, name):
         for bc, (x, y, z) in zip(barcodes, lattice):
             f.write(f"{bc}\t{x:.6f}\t{y:.6f}\t{z:.6f}\n")
 
-    x0 = np.array([0.5, 0.5]).reshape(2, 1)
-
-    # TODO HARDCODE phylogeny2
-    clones = [
-        Clone(xx, x0=x0)
-        for xx in sorted(
-            glob.glob(config.output_dir + f"/phylogenies/phylogeny4/*.json")
-        )
-    ]
-
     num_segments = config.mappable_genome_kbp // config.segment_size_kbp
 
     segment_exp_baseline = get_exp_baseline(config)
@@ -65,7 +106,7 @@ def gen_visium(sample_dir, config, name):
 
     meta = pd.DataFrame(
         {
-            "barcode": pd.Series(dtype="str"),
+            "barcode": pd.Series(dtype="str") ,
             "umis": pd.Series(dtype=int),
             "snp_umis": pd.Series(dtype=int),
         }
@@ -79,45 +120,22 @@ def gen_visium(sample_dir, config, name):
         }
     )
 
+    # TODO HARDCODE phlogeny id.
+    clones = get_clones(config, phy_id=4)
+
     # NB transcript umis and b-allele umis for all sports and segments.
     result = np.zeros(shape=(2, config.visium.nx * config.visium.ny, num_segments), dtype=float)
 
     for ii, (bc, (x, y, z)) in enumerate(zip(barcodes, lattice)):
-        # NB find the corresponding clone.
-        query = np.array([x, y]).reshape(2, 1)
-        query /= config.phylogeny.spatial_scale
-
-        isin = [clone.ellipse.contains(query) for clone in clones]
-
-        candidates = [clone for clone, inside in zip(clones, isin) if inside]
-
-        # NB we choose the smallest of overlapping ellipse as a (close) proxy for later evolved.
-        if candidates:
-            matched = min(candidates, key=lambda c: c.ellipse.det_l)
-            cnas = matched.cnas
-        else:
-            matched = None
-            cnas = []
+        matched, cnas = query_clones(config, clones, x, y, z)
 
         tumor_purity = 0.0
 
-        rdrs = np.ones(num_segments, dtype=float)
-        bafs = 0.5 * np.ones(num_segments, dtype=float)
-
-        for cna in cnas:
+        if cnas:
             mean_purity = config.phylogeny.mean_purity
             tumor_purity = mean_purity + (1.0 - mean_purity) * np.random.uniform()
 
-            pos_idx = int(np.floor(cna[1] / config.segment_size_kbp))
-            state = cna[0]
-
-            mat_copy, pat_copy = [int(xx) for xx in cna[0].split(",")]
-
-            rdr = (mat_copy + pat_copy) / 2
-            baf = min([mat_copy, pat_copy]) / (mat_copy + pat_copy)
-
-            rdrs[pos_idx] = (1. - tumor_purity) + (rdr * tumor_purity)
-            bafs[pos_idx] = 0.5 * (1. - tumor_purity) + tumor_purity * baf * rdr
+        rdrs, bafs = construct_frac_cnas(num_segments, config.segment_size_kbp, tumor_purity, cnas)
 
         # NB sample coverages for the spot
         total_umis = 10.0 ** np.random.normal(

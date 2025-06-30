@@ -109,8 +109,7 @@ def assign_initial_fragments(
         )
     )
     
-    block_genome_intervals = [tmp_block_genome_intervals[0]]
-    
+    block_genome_intervals = [tmp_block_genome_intervals[0]]    
     merged = 0
     
     for x in tmp_block_genome_intervals[1:]:
@@ -143,7 +142,9 @@ def assign_initial_fragments(
                 < np.minimum(df_gene_snp.END.values, x[2])
             )
         )[0]
-        
+
+        # index of rows into df_gene_snp that overlap each interval.
+        # TODO can fail?
         block_ranges.append((indexes[0], indexes[-1] + 1))
         
     assert np.all(

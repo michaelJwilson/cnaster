@@ -1,4 +1,6 @@
 import pandas as pd
+import numpy as np
+
 from cnaster.reference import get_reference_genes
 
 # TODO place elsewhere.                                                                                                                                                                                                                                                                             
@@ -7,7 +9,7 @@ def form_gene_snp_table(unique_snp_ids, hgtable_file, adata):
     df_hgtable = get_reference_genes(hgtable_file)
     df_hgtable = df_hgtable[df_hgtable.name2.isin(adata.var.index)]
 
-    # a data frame including both gene and SNP info: CHR, START, END, snp_id, gene, is_interval                                                                                                                                                                                                      
+    # a data frame including both gene and SNP info: CHR, START, END, snp_id, gene, is_interval                                                                                                                                                                                                     
     df_gene_snp = pd.DataFrame(
         {
             "CHR": [int(x[3:]) for x in df_hgtable.chrom.values],
@@ -19,7 +21,7 @@ def form_gene_snp_table(unique_snp_ids, hgtable_file, adata):
         }
     )
 
-    # add SNP info                                                                                                                                                                                                                                                                                   
+    # add SNP info                                                                                                                                                                                                                                                                                  
     snp_chr = np.array([int(x.split("_")[0]) for x in unique_snp_ids])
     snp_pos = np.array([int(x.split("_")[1]) for x in unique_snp_ids])
 

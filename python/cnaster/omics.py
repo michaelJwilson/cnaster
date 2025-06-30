@@ -90,7 +90,7 @@ def assign_initial_fragments(
     initial_min_umi=15,
 ):
     """
-    Initially block SNPs along genome.
+    Initially assigns SNPs to fragments along the genome.
 
     Returns
     ----------
@@ -99,6 +99,7 @@ def assign_initial_fragments(
         "is_interval" suggest whether the entry is a gene or a SNP.
         "gene" column either contain gene name if the entry is a gene, or the gene a SNP belongs to if the entry is a SNP.
     """
+    # TODO un-necessary?
     # first level: partition of genome: by gene regions (if two genes overlap, they are grouped to one region)
     tmp_block_genome_intervals = list(
         zip(
@@ -107,7 +108,11 @@ def assign_initial_fragments(
             df_gene_snp[df_gene_snp.is_interval].END.values,
         )
     )
+    
     block_genome_intervals = [tmp_block_genome_intervals[0]]
+    
+    merged = 0
+    
     for x in tmp_block_genome_intervals[1:]:
         # check whether overlap with previous block
         if x[0] == block_genome_intervals[-1][0] and max(
@@ -118,10 +123,18 @@ def assign_initial_fragments(
                 min(x[1], block_genome_intervals[-1][1]),
                 max(x[2], block_genome_intervals[-1][2]),
             )
+
+            # TODO warn on excessive length; 
+            merged += 1
+            
         else:
             block_genome_intervals.append(x)
+
+    logger.info(f"Merged {100. * merged / len(tmp_block_genome_intervals):.3f}% of input ranges;")
+            
     # get block_ranges in the index of df_gene_snp
     block_ranges = []
+    
     for x in block_genome_intervals:
         indexes = np.where(
             (df_gene_snp.CHR.values == x[0])
@@ -130,13 +143,17 @@ def assign_initial_fragments(
                 < np.minimum(df_gene_snp.END.values, x[2])
             )
         )[0]
+        
         block_ranges.append((indexes[0], indexes[-1] + 1))
+        
     assert np.all(
         np.array(np.array([x[1] for x in block_ranges[:-1]]))
         == np.array(np.array([x[0] for x in block_ranges[1:]]))
     )
+    
     # record the initial block id in df_gene_snps
     df_gene_snp["initial_block_id"] = 0
+    
     for i, x in enumerate(block_ranges):
         df_gene_snp.iloc[x[0] : x[1], -1] = i
 

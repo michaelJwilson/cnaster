@@ -43,6 +43,10 @@ def get_spaceranger_meta(spaceranger_meta_path):
         inplace=True,
     )
 
+    logger.info(
+        f"Input spaceranger file list {spaceranger_meta_path} contains:\n{df_meta}"
+    )
+
     return df_meta
 
 
@@ -80,6 +84,28 @@ def get_spatial_positions(spaceranger_dir):
     return df_this_pos
 
 
+def get_spaceranger_counts(spaceranger_dir):
+    # NB https://scanpy.readthedocs.io/en/stable/generated/scanpy.read_10x_h5.html
+    if Path(f"{spaceranger_dir}/filtered_feature_bc_matrix.h5").exists():
+        adatatmp = sc.read_10x_h5(f"{spaceranger_dir}/filtered_feature_bc_matrix.h5")
+
+        logger.info(f"Reading {spaceranger_dir}/filtered_feature_bc_matrix.h5")
+
+    elif Path(f"{spaceranger_dir}/filtered_feature_bc_matrix.h5ad").exists():
+        adatatmp = sc.read_h5ad(f"{spaceranger_dir}/filtered_feature_bc_matrix.h5ad")
+        logger.info(f"Reading {spaceranger_dir}/filtered_feature_bc_matrix.h5ad")
+
+    else:
+        logging.error(
+            f"{spaceranger_dir} directory does not have a filtered_feature_bc_matrix.h5(ad)!"
+        )
+
+        raise RuntimeError()
+
+    # NB data matrix X (ndarray/csr matrix, dask ...): observations/cells are named by their barcode and variables/genes by gene name
+    return adatatmp
+
+
 def load_joint_data(
     spaceranger_meta_path,
     snp_dir,
@@ -91,23 +117,21 @@ def load_joint_data(
     min_percent_expressed_spots=0.005,
     local_outlier_filter=True,
 ):
+    assert (len(alignment_files) == 0) or (len(alignment_files) + 1 == df_meta.shape[0])
+
     df_meta = get_spaceranger_meta(spaceranger_meta_path)
     df_barcode = get_barcodes(f"{snp_dir}/barcodes.txt")
-
-    logger.info(f"Input spaceranger file list {input_filelist} contains:\n{df_meta}")
-
-    ##### read SNP count #####
-    cell_snp_Aallele = scipy.sparse.load_npz(f"{snp_dir}/cell_snp_Aallele.npz")
-    cell_snp_Ballele = scipy.sparse.load_npz(f"{snp_dir}/cell_snp_Ballele.npz")
-
-    unique_snp_ids = np.load(f"{snp_dir}/unique_snp_ids.npy", allow_pickle=True)
 
     # TODO duplicate of df_barcode
     snp_barcodes = pd.read_csv(
         f"{snp_dir}/barcodes.txt", header=None, names=["barcodes"]
     )
 
-    assert (len(alignment_files) == 0) or (len(alignment_files) + 1 == df_meta.shape[0])
+    unique_snp_ids = np.load(f"{snp_dir}/unique_snp_ids.npy", allow_pickle=True)
+
+    ##### read SNP count #####
+    cell_snp_Aallele = scipy.sparse.load_npz(f"{snp_dir}/cell_snp_Aallele.npz")
+    cell_snp_Ballele = scipy.sparse.load_npz(f"{snp_dir}/cell_snp_Ballele.npz")
 
     ##### read anndata and coordinate #####
     # add position
@@ -119,36 +143,7 @@ def load_joint_data(
         df_this_barcode = copy.copy(df_barcode.iloc[index, :])
         df_this_barcode.index = df_this_barcode.barcode
 
-        # read adata count info:
-        if Path(
-            f"{df_meta['spaceranger_dir'].iloc[i]}/filtered_feature_bc_matrix.h5"
-        ).exists():
-            # NB https://scanpy.readthedocs.io/en/stable/generated/scanpy.read_10x_h5.html
-            adatatmp = sc.read_10x_h5(
-                f"{df_meta['spaceranger_dir'].iloc[i]}/filtered_feature_bc_matrix.h5"
-            )
-            logger.info(
-                f"Reading {df_meta['spaceranger_dir'].iloc[i]}/filtered_feature_bc_matrix.h5"
-            )
-
-        elif Path(
-            f"{df_meta['spaceranger_dir'].iloc[i]}/filtered_feature_bc_matrix.h5ad"
-        ).exists():
-            adatatmp = sc.read_h5ad(
-                f"{df_meta['spaceranger_dir'].iloc[i]}/filtered_feature_bc_matrix.h5ad"
-            )
-            logger.info(
-                f"Reading {df_meta['spaceranger_dir'].iloc[i]}/filtered_feature_bc_matrix.h5ad"
-            )
-
-        else:
-            logging.error(
-                f"{df_meta['spaceranger_dir'].iloc[i]} directory doesn't have a filtered_feature_bc_matrix.h5 or filtered_feature_bc_matrix.h5ad file!"
-            )
-
-            raise RuntimeError()
-
-        # NB data matrix X (ndarray/csr matrix, dask ...): observations/cells are named by their barcode and variables/genes by gene name
+        adatatmp = get_spaceranger_counts(df_meta["spaceranger_dir"].iloc[i])
         adatatmp.layers["count"] = adatatmp.X.A
 
         # reorder anndata spots to have the same order as df_this_barcode
@@ -162,6 +157,7 @@ def load_joint_data(
 
         # only keep shared barcodes
         shared_barcodes = set(list(df_this_pos.barcode)) & set(list(adatatmp.obs.index))
+
         adatatmp = adatatmp[adatatmp.obs.index.isin(shared_barcodes), :]
         df_this_pos = df_this_pos[df_this_pos.barcode.isin(shared_barcodes)]
 
@@ -169,10 +165,14 @@ def load_joint_data(
             df_this_pos.barcode, categories=list(adatatmp.obs.index), ordered=True
         )
         df_this_pos.sort_values(by="barcode", inplace=True)
+
         adatatmp.obsm["X_pos"] = np.vstack([df_this_pos.x, df_this_pos.y]).T
+
         adatatmp.obs["sample"] = sname
         adatatmp.obs.index = [f"{x}_{sname}" for x in adatatmp.obs.index]
+
         adatatmp.var_names_make_unique()
+
         if adata is None:
             adata = adatatmp
         else:
@@ -184,9 +184,12 @@ def load_joint_data(
 
     # shared barcodes between adata and SNPs
     shared_barcodes = set(list(snp_barcodes.barcodes)) & set(list(adata.obs.index))
+
     cell_snp_Aallele = cell_snp_Aallele[snp_barcodes.barcodes.isin(shared_barcodes), :]
     cell_snp_Ballele = cell_snp_Ballele[snp_barcodes.barcodes.isin(shared_barcodes), :]
+
     snp_barcodes = snp_barcodes[snp_barcodes.barcodes.isin(shared_barcodes)]
+
     adata = adata[adata.obs.index.isin(shared_barcodes), :]
     adata = adata[
         pd.Categorical(
@@ -257,10 +260,12 @@ def load_joint_data(
     indicator = (
         np.sum(adata.X > 0, axis=0) >= min_percent_expressed_spots * adata.shape[0]
     ).A.flatten()
+
     genenames = set(list(adata.var.index[indicator]))
     adata = adata[:, indicator]
-    print(adata)
-    print(
+
+    logger.info(adata)
+    logger.info(
         "median UMI after filtering out genes < 0.5% of cells = {}".format(
             np.median(np.sum(adata.layers["count"], axis=1))
         )

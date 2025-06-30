@@ -106,6 +106,57 @@ def get_spaceranger_counts(spaceranger_dir):
     return adatatmp
 
 
+def get_alignments(alignment_files, df_meta, significance=1.0e-6):
+    if len(alignment_files) == 0:
+        return None
+
+    row_ind, col_ind = [], []
+    dat = []
+
+    offset = 0
+
+    for i, f in enumerate(alignment_files):
+        pi = np.load(f)
+
+        # normalize p such that max( row_sums(pi), cols_sum(pi) ) = 1;
+        # TODO? max alignment weight = 1
+        pi = pi / np.max(np.append(np.sum(pi, axis=0), np.sum(pi, axis=1)))
+
+        sname1 = df_meta.sample_id.values[i]
+        sname2 = df_meta.sample_id.values[i + 1]
+
+        assert pi.shape[0] == np.sum(df_barcode["sample_id"] == sname1)
+
+        assert pi.shape[1] == np.sum(df_barcode["sample_id"] == sname2)
+
+        # for each spot s in sname1, select {t: spot t in sname2 and pi[s,t] >= np.max(pi[s,:])} as the corresponding spot in the other slice
+        for row in range(pi.shape[0]):
+            row_max = np.max(pi[row, :])
+
+            # NB their exists an element in the alignment of a sample 1 spot with significant probability (> significance)
+            cutoff = row_max if row_max > significance else 1 + significance
+
+            list_cols = np.where(pi[row, :] >= cutoff - significance)[0]
+
+            row_ind += [offset + row] * len(list_cols)
+
+            # NB zero_point = offset + pi.shape[0] +1 per col entry.
+            col_ind += list(offset + pi.shape[0] + list_cols)
+
+            dat += list(pi[row, list_cols])
+
+        offset += pi.shape[0]
+
+        across_slice_adjacency_mat = scipy.sparse.csr_matrix(
+            (dat, (row_ind, col_ind)), shape=(adata.shape[0], adata.shape[0])
+        )
+
+        # TODO symmetric by definition.
+        across_slice_adjacency_mat += across_slice_adjacency_mat.T
+
+    return across_slice_adjacency_mat
+
+
 def load_joint_data(
     spaceranger_meta_path,
     snp_dir,
@@ -138,8 +189,8 @@ def load_joint_data(
     adata = None
 
     for i, sname in enumerate(df_meta.sample_id.values):
-        # locate the corresponding rows in df_meta
         index = np.where(df_barcode["sample_id"] == sname)[0]
+
         df_this_barcode = copy.copy(df_barcode.iloc[index, :])
         df_this_barcode.index = df_this_barcode.barcode
 
@@ -151,6 +202,7 @@ def load_joint_data(
             adatatmp.obs.index, categories=list(df_this_barcode.barcode), ordered=True
         ).argsort()
 
+        # TODO UGH
         adatatmp = adatatmp[idx_argsort, :]
 
         df_this_pos = get_spatial_positions(df_meta["spaceranger_dir"].iloc[i])
@@ -200,37 +252,7 @@ def load_joint_data(
 
     ##### load pairwise alignments #####
     # TBD: directly convert to big "adjacency" matrix
-    across_slice_adjacency_mat = None
-    if len(alignment_files) > 0:
-        EPS = 1e-6
-        row_ind = []
-        col_ind = []
-        dat = []
-        offset = 0
-        for i, f in enumerate(alignment_files):
-            pi = np.load(f)
-            # normalize p such that max( rowsum(pi), colsum(pi) ) = 1, max alignment weight = 1
-            pi = pi / np.max(np.append(np.sum(pi, axis=0), np.sum(pi, axis=1)))
-            sname1 = df_meta.sample_id.values[i]
-            sname2 = df_meta.sample_id.values[i + 1]
-            assert pi.shape[0] == np.sum(
-                df_barcode["sample_id"] == sname1
-            )  # double check whether this is correct
-            assert pi.shape[1] == np.sum(
-                df_barcode["sample_id"] == sname2
-            )  # or the dimension should be flipped
-            # for each spot s in sname1, select {t: spot t in sname2 and pi[s,t] >= np.max(pi[s,:])} as the corresponding spot in the other slice
-            for row in range(pi.shape[0]):
-                cutoff = np.max(pi[row, :]) if np.max(pi[row, :]) > EPS else 1 + EPS
-                list_cols = np.where(pi[row, :] >= cutoff - EPS)[0]
-                row_ind += [offset + row] * len(list_cols)
-                col_ind += list(offset + pi.shape[0] + list_cols)
-                dat += list(pi[row, list_cols])
-            offset += pi.shape[0]
-        across_slice_adjacency_mat = scipy.sparse.csr_matrix(
-            (dat, (row_ind, col_ind)), shape=(adata.shape[0], adata.shape[0])
-        )
-        across_slice_adjacency_mat += across_slice_adjacency_mat.T
+    across_slice_adjacency_mat = get_alignments(alignment_files, df_meta)
 
     # filter out spots with too small number of UMIs
     indicator = np.sum(adata.layers["count"], axis=1) >= min_snpumis

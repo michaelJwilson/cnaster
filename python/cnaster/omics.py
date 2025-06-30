@@ -1,15 +1,18 @@
+import logging
 import pandas as pd
 import numpy as np
 
 from cnaster.reference import get_reference_genes
 
-# TODO place elsewhere.                                                                                                                                                                                                                                                                             
+logger = logging.getLogger(__name__)
+
+# TODO place elsewhere.
 def form_gene_snp_table(unique_snp_ids, hgtable_file, adata):
-    # read gene info and keep only chr1-chr22 and genes appearing in adata                                                                                                                                                                                                                          
+    # read gene info and keep only chr1-chr22 and genes appearing in adata
     df_hgtable = get_reference_genes(hgtable_file)
     df_hgtable = df_hgtable[df_hgtable.name2.isin(adata.var.index)]
 
-    # a data frame including both gene and SNP info: CHR, START, END, snp_id, gene, is_interval                                                                                                                                                                                                     
+    # a data frame including both gene and SNP info: CHR, START, END, snp_id, gene, is_interval
     df_gene_snp = pd.DataFrame(
         {
             "CHR": [int(x[3:]) for x in df_hgtable.chrom.values],
@@ -21,7 +24,7 @@ def form_gene_snp_table(unique_snp_ids, hgtable_file, adata):
         }
     )
 
-    # add SNP info                                                                                                                                                                                                                                                                                  
+    # add SNP info
     snp_chr = np.array([int(x.split("_")[0]) for x in unique_snp_ids])
     snp_pos = np.array([int(x.split("_")[1]) for x in unique_snp_ids])
 
@@ -43,9 +46,9 @@ def form_gene_snp_table(unique_snp_ids, hgtable_file, adata):
     )
 
     df_gene_snp.sort_values(by=["CHR", "START"], inplace=True)
-    
-    # assign genes to each SNP.                                                                                                                                                                                                                                                                     
-    # for each SNP (with not null snp_id), find the previous gene (is_interval == True) such that the SNP start position is within the gene start and end interval                                                                                                                                   
+
+    # assign genes to each SNP.
+    # for each SNP (with not null snp_id), find the previous gene (is_interval == True) such that the SNP start position is within the gene start and end interval
     vec_is_interval = df_gene_snp.is_interval.values
 
     vec_chr = df_gene_snp.CHR.values
@@ -53,14 +56,14 @@ def form_gene_snp_table(unique_snp_ids, hgtable_file, adata):
     vec_end = df_gene_snp.END.values
 
     for i in np.where(df_gene_snp.gene.isnull())[0]:
-        # TODO first SNP has no gene.                                                                                                                                                                                                                                                               
+        # TODO first SNP has no gene.
         if i == 0:
             continue
 
         this_pos = vec_start[i]
         j = i - 1
 
-        # TODO overlapping genes?                                                                                                                                                                                                                                                                   
+        # TODO overlapping genes?
         while j >= 0 and j >= i - 50 and vec_chr[i] == vec_chr[j]:
             if (
                 vec_is_interval[j]
@@ -72,7 +75,134 @@ def form_gene_snp_table(unique_snp_ids, hgtable_file, adata):
 
             j -= 1
 
-    # remove SNPs that have no corresponding genes                                                                                                                                                                                                                                                  
+    # remove SNPs that have no corresponding genes
     df_gene_snp = df_gene_snp[~df_gene_snp.gene.isnull()]
 
+    return df_gene_snp
+
+
+def assign_initial_fragments(
+    df_gene_snp,
+    adata,
+    cell_snp_Aallele,
+    cell_snp_Ballele,
+    unique_snp_ids,
+    initial_min_umi=15,
+):
+    """
+    Initially block SNPs along genome.
+
+    Returns
+    ----------
+    df_gene_snp : data frame, (CHR, START, END, snp_id, gene, is_interval, block_id)
+        Gene and SNP info combined into a single data frame sorted by genomic positions.
+        "is_interval" suggest whether the entry is a gene or a SNP.
+        "gene" column either contain gene name if the entry is a gene, or the gene a SNP belongs to if the entry is a SNP.
+    """
+    # first level: partition of genome: by gene regions (if two genes overlap, they are grouped to one region)
+    tmp_block_genome_intervals = list(
+        zip(
+            df_gene_snp[df_gene_snp.is_interval].CHR.values,
+            df_gene_snp[df_gene_snp.is_interval].START.values,
+            df_gene_snp[df_gene_snp.is_interval].END.values,
+        )
+    )
+    block_genome_intervals = [tmp_block_genome_intervals[0]]
+    for x in tmp_block_genome_intervals[1:]:
+        # check whether overlap with previous block
+        if x[0] == block_genome_intervals[-1][0] and max(
+            x[1], block_genome_intervals[-1][1]
+        ) < min(x[2], block_genome_intervals[-1][2]):
+            block_genome_intervals[-1] = (
+                x[0],
+                min(x[1], block_genome_intervals[-1][1]),
+                max(x[2], block_genome_intervals[-1][2]),
+            )
+        else:
+            block_genome_intervals.append(x)
+    # get block_ranges in the index of df_gene_snp
+    block_ranges = []
+    for x in block_genome_intervals:
+        indexes = np.where(
+            (df_gene_snp.CHR.values == x[0])
+            & (
+                np.maximum(df_gene_snp.START.values, x[1])
+                < np.minimum(df_gene_snp.END.values, x[2])
+            )
+        )[0]
+        block_ranges.append((indexes[0], indexes[-1] + 1))
+    assert np.all(
+        np.array(np.array([x[1] for x in block_ranges[:-1]]))
+        == np.array(np.array([x[0] for x in block_ranges[1:]]))
+    )
+    # record the initial block id in df_gene_snps
+    df_gene_snp["initial_block_id"] = 0
+    for i, x in enumerate(block_ranges):
+        df_gene_snp.iloc[x[0] : x[1], -1] = i
+
+    # second level: group the first level blocks into haplotype blocks such that the minimum SNP-covering UMI counts >= initial_min_umi
+    map_snp_index = {x: i for i, x in enumerate(unique_snp_ids)}
+    initial_block_chr = df_gene_snp.CHR.values[np.array([x[0] for x in block_ranges])]
+    block_ranges_new = []
+    s = 0
+    while s < len(block_ranges):
+        t = s
+        while t <= len(block_ranges):
+            t += 1
+            reach_end = t == len(block_ranges)
+            change_chr = initial_block_chr[s] != initial_block_chr[t - 1]
+            # count SNP-covering UMI
+            involved_snps_ids = df_gene_snp[
+                (df_gene_snp.initial_block_id >= s) & (df_gene_snp.initial_block_id < t)
+            ].snp_id
+            involved_snps_ids = involved_snps_ids[~involved_snps_ids.isnull()].values
+            involved_snp_idx = np.array([map_snp_index[x] for x in involved_snps_ids])
+            this_snp_umis = (
+                0
+                if len(involved_snp_idx) == 0
+                else np.sum(cell_snp_Aallele[:, involved_snp_idx])
+                + np.sum(cell_snp_Ballele[:, involved_snp_idx])
+            )
+            if reach_end:
+                break
+            if change_chr:
+                t -= 1
+                # re-count SNP-covering UMIs
+                involved_snps_ids = df_gene_snp.snp_id.iloc[
+                    block_ranges[s][0] : block_ranges[t - 1][1]
+                ]
+                involved_snps_ids = involved_snps_ids[
+                    ~involved_snps_ids.isnull()
+                ].values
+                involved_snp_idx = np.array(
+                    [map_snp_index[x] for x in involved_snps_ids]
+                )
+                this_snp_umis = (
+                    0
+                    if len(involved_snp_idx) == 0
+                    else np.sum(cell_snp_Aallele[:, involved_snp_idx])
+                    + np.sum(cell_snp_Ballele[:, involved_snp_idx])
+                )
+                break
+            if this_snp_umis >= initial_min_umi:
+                break
+        #
+        if (
+            this_snp_umis < initial_min_umi
+            and s > 0
+            and initial_block_chr[s - 1] == initial_block_chr[s]
+        ):
+            indexes = np.where(df_gene_snp.initial_block_id.isin(np.arange(s, t)))[0]
+            block_ranges_new[-1] = (block_ranges_new[-1][0], indexes[-1] + 1)
+        else:
+            indexes = np.where(df_gene_snp.initial_block_id.isin(np.arange(s, t)))[0]
+            block_ranges_new.append((indexes[0], indexes[-1] + 1))
+        s = t
+
+    # record the block id in df_gene_snps
+    df_gene_snp["block_id"] = 0
+    for i, x in enumerate(block_ranges_new):
+        df_gene_snp.iloc[x[0] : x[1], -1] = i
+
+    df_gene_snp = df_gene_snp.drop(columns=["initial_block_id"])
     return df_gene_snp

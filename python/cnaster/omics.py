@@ -158,33 +158,42 @@ def assign_initial_fragments(
     for i, x in enumerate(block_ranges):
         df_gene_snp.iloc[x[0] : x[1], -1] = i
 
-    # second level: group the first level blocks into haplotype blocks such that the minimum SNP-covering UMI counts >= initial_min_umi
+    # second level: group the first level blocks into "haplotype blocks" such that the minimum SNP-covering UMI counts >= initial_min_umi
     map_snp_index = {x: i for i, x in enumerate(unique_snp_ids)}
     initial_block_chr = df_gene_snp.CHR.values[np.array([x[0] for x in block_ranges])]
     block_ranges_new = []
     s = 0
+
+    # TODO work through.
     while s < len(block_ranges):
         t = s
+        
         while t <= len(block_ranges):
             t += 1
             reach_end = t == len(block_ranges)
             change_chr = initial_block_chr[s] != initial_block_chr[t - 1]
+            
             # count SNP-covering UMI
             involved_snps_ids = df_gene_snp[
                 (df_gene_snp.initial_block_id >= s) & (df_gene_snp.initial_block_id < t)
             ].snp_id
+            
             involved_snps_ids = involved_snps_ids[~involved_snps_ids.isnull()].values
             involved_snp_idx = np.array([map_snp_index[x] for x in involved_snps_ids])
+            
             this_snp_umis = (
                 0
                 if len(involved_snp_idx) == 0
                 else np.sum(cell_snp_Aallele[:, involved_snp_idx])
                 + np.sum(cell_snp_Ballele[:, involved_snp_idx])
             )
+            
             if reach_end:
                 break
+            
             if change_chr:
                 t -= 1
+                
                 # re-count SNP-covering UMIs
                 involved_snps_ids = df_gene_snp.snp_id.iloc[
                     block_ranges[s][0] : block_ranges[t - 1][1]
@@ -192,19 +201,23 @@ def assign_initial_fragments(
                 involved_snps_ids = involved_snps_ids[
                     ~involved_snps_ids.isnull()
                 ].values
+                
                 involved_snp_idx = np.array(
                     [map_snp_index[x] for x in involved_snps_ids]
                 )
+                
                 this_snp_umis = (
                     0
                     if len(involved_snp_idx) == 0
                     else np.sum(cell_snp_Aallele[:, involved_snp_idx])
                     + np.sum(cell_snp_Ballele[:, involved_snp_idx])
                 )
+                
                 break
+            
             if this_snp_umis >= initial_min_umi:
                 break
-        #
+        
         if (
             this_snp_umis < initial_min_umi
             and s > 0
@@ -215,12 +228,15 @@ def assign_initial_fragments(
         else:
             indexes = np.where(df_gene_snp.initial_block_id.isin(np.arange(s, t)))[0]
             block_ranges_new.append((indexes[0], indexes[-1] + 1))
+            
         s = t
 
     # record the block id in df_gene_snps
     df_gene_snp["block_id"] = 0
+    
     for i, x in enumerate(block_ranges_new):
         df_gene_snp.iloc[x[0] : x[1], -1] = i
 
     df_gene_snp = df_gene_snp.drop(columns=["initial_block_id"])
+    
     return df_gene_snp

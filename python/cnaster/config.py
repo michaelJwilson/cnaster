@@ -10,7 +10,9 @@ class JSONConfig:
             setattr(self, k, v)
 
     def __iter__(self):
-        return iter(xx for xx in dir(self) if (xx != "from_file") and not xx.startswith("_") )
+        return iter(
+            xx for xx in dir(self) if (xx != "from_file") and not xx.startswith("_")
+        )
 
     def __str__(self):
         return json.dumps(self, indent=4)

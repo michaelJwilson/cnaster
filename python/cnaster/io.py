@@ -9,11 +9,12 @@ def get_filter_genes(filter_gene_file):
 
     return filter_gene_list
 
+
 def get_filter_ranges(filter_range_file):
     ranges = pd.read_csv(
         filter_range_file, header=None, sep="\t", names=["Chrname", "Start", "End"]
     )
-    
+
     if "chr" in ranges.Chrname.iloc[0]:
         ranges["CHR"] = [int(x[3:]) for x in ranges.Chrname.values]
     else:
@@ -22,43 +23,84 @@ def get_filter_ranges(filter_range_file):
     ranges.sort_values(by=["Chr", "Start"], inplace=True)
 
     return ranges
-    
-def load_joint_data(
-    input_filelist,
-    snp_dir,
-    alignment_files,
-    filtergenelist_file,
-    filterregion_file,
-    normalidx_file,
-    min_snpumis=50,
-    min_percent_expressed_spots=0.005,
-    local_outlier_filter=True,
-):
-    ##### read meta sample info #####
-    df_meta = pd.read_csv(input_filelist, sep="\t", header=None)
-    df_meta.rename(
-        columns=dict(zip(df_meta.columns[:3], ["bam", "sample_id", "spaceranger_dir"])),
-        inplace=True,
-    )
-    
-    logger.info(f"Input spaceranger file list {input_filelist} contains:")
-    logger.info(df_meta)
-    
-    df_barcode = pd.read_csv(
-        f"{snp_dir}/barcodes.txt", header=None, names=["combined_barcode"]
-    )
+
+
+def get_barcodes(barcode_file):
+    df_barcode = pd.read_csv(barcode_file, header=None, names=["combined_barcode"])
     df_barcode["sample_id"] = [
         x.split("_")[-1] for x in df_barcode.combined_barcode.values
     ]
     df_barcode["barcode"] = [
         x.split("_")[0] for x in df_barcode.combined_barcode.values
     ]
+    return df_barcode
+
+
+def get_spaceranger_meta(spaceranger_meta_path):
+    df_meta = pd.read_csv(spaceranger_meta_path, sep="\t", header=None)
+    df_meta.rename(
+        columns=dict(zip(df_meta.columns[:3], ["bam", "sample_id", "spaceranger_dir"])),
+        inplace=True,
+    )
+
+    return df_meta
+
+def get_spatial_positions(spaceranger_dir):
+    if Path(
+        f"{spaceranger_dir}/spatial/tissue_positions.csv",
+    ).exists():
+        df_this_pos = pd.read_csv(
+            f"{spaceranger_dir}/spatial/tissue_positions.csv"
+            sep=",",
+            header=0,
+            names=["barcode", "in_tissue", "x", "y", "pixel_row", "pixel_col"],
+        )
+        
+        logger.info("Reading {spaceranger_dir}/spatial/tissue_positions.csv")
+
+    elif Path(
+        f"{df_meta['spaceranger_dir'].iloc[i]}/spatial/tissue_positions_list.csv"
+    ).exists():
+        df_this_pos = pd.read_csv(
+            f"{df_meta['spaceranger_dir'].iloc[i]}/spatial/tissue_positions_list.csv",
+            sep=",",
+            header=None,
+            names=["barcode", "in_tissue", "x", "y", "pixel_row", "pixel_col"],
+        )
+        
+        logger.info("Reading {df_meta['spaceranger_dir'].iloc[i]}/spatial/tissue_positions_list.csv")
+        
+    else:
+        logger.error("No spatial coordinate file!")
+        raise RuntimeError()
+
+    df_this_pos = df_this_pos[df_this_pos.in_tissue == True]
+
+    return df_this_pos
+
+def load_joint_data(
+    spaceranger_meta_path,
+    snp_dir,
+    alignment_files,
+    filter_gene_file,
+    filter_range_file,
+    normal_idx_file,
+    min_snp_umis=50,
+    min_percent_expressed_spots=0.005,
+    local_outlier_filter=True,
+):
+    df_meta = get_spaceranger_meta(spaceranger_meta_path)
+    df_barcode = get_barcodes(f"{snp_dir}/barcodes.txt")
     
+    logger.info(f"Input spaceranger file list {input_filelist} contains:\n{df_meta}")
+
     ##### read SNP count #####
     cell_snp_Aallele = scipy.sparse.load_npz(f"{snp_dir}/cell_snp_Aallele.npz")
     cell_snp_Ballele = scipy.sparse.load_npz(f"{snp_dir}/cell_snp_Ballele.npz")
-    
+
     unique_snp_ids = np.load(f"{snp_dir}/unique_snp_ids.npy", allow_pickle=True)
+
+    # TODO duplicate of df_barcode
     snp_barcodes = pd.read_csv(
         f"{snp_dir}/barcodes.txt", header=None, names=["barcodes"]
     )
@@ -68,63 +110,55 @@ def load_joint_data(
     ##### read anndata and coordinate #####
     # add position
     adata = None
+    
     for i, sname in enumerate(df_meta.sample_id.values):
         # locate the corresponding rows in df_meta
         index = np.where(df_barcode["sample_id"] == sname)[0]
         df_this_barcode = copy.copy(df_barcode.iloc[index, :])
         df_this_barcode.index = df_this_barcode.barcode
-        # read adata count info
+        
+        # read adata count info: 
         if Path(
             f"{df_meta['spaceranger_dir'].iloc[i]}/filtered_feature_bc_matrix.h5"
         ).exists():
+            # NB https://scanpy.readthedocs.io/en/stable/generated/scanpy.read_10x_h5.html
             adatatmp = sc.read_10x_h5(
                 f"{df_meta['spaceranger_dir'].iloc[i]}/filtered_feature_bc_matrix.h5"
             )
+            logger.info(f"Reading {df_meta['spaceranger_dir'].iloc[i]}/filtered_feature_bc_matrix.h5")
+            
         elif Path(
             f"{df_meta['spaceranger_dir'].iloc[i]}/filtered_feature_bc_matrix.h5ad"
         ).exists():
             adatatmp = sc.read_h5ad(
                 f"{df_meta['spaceranger_dir'].iloc[i]}/filtered_feature_bc_matrix.h5ad"
             )
+            logger.info(f"Reading {df_meta['spaceranger_dir'].iloc[i]}/filtered_feature_bc_matrix.h5ad")
+            
         else:
             logging.error(
                 f"{df_meta['spaceranger_dir'].iloc[i]} directory doesn't have a filtered_feature_bc_matrix.h5 or filtered_feature_bc_matrix.h5ad file!"
             )
 
+            raise RuntimeError()
+
+        # NB data matrix X (ndarray/csr matrix, dask ...): observations/cells are named by their barcode and variables/genes by gene name
         adatatmp.layers["count"] = adatatmp.X.A
+        
         # reorder anndata spots to have the same order as df_this_barcode
         idx_argsort = pd.Categorical(
             adatatmp.obs.index, categories=list(df_this_barcode.barcode), ordered=True
         ).argsort()
+        
         adatatmp = adatatmp[idx_argsort, :]
-        # read position info
-        if Path(
-            f"{df_meta['spaceranger_dir'].iloc[i]}/spatial/tissue_positions.csv"
-        ).exists():
-            df_this_pos = pd.read_csv(
-                f"{df_meta['spaceranger_dir'].iloc[i]}/spatial/tissue_positions.csv",
-                sep=",",
-                header=0,
-                names=["barcode", "in_tissue", "x", "y", "pixel_row", "pixel_col"],
-            )
-        elif Path(
-            f"{df_meta['spaceranger_dir'].iloc[i]}/spatial/tissue_positions_list.csv"
-        ).exists():
-            df_this_pos = pd.read_csv(
-                f"{df_meta['spaceranger_dir'].iloc[i]}/spatial/tissue_positions_list.csv",
-                sep=",",
-                header=None,
-                names=["barcode", "in_tissue", "x", "y", "pixel_row", "pixel_col"],
-            )
-        else:
-            raise Exception("No spatial coordinate file!")
-        df_this_pos = df_this_pos[df_this_pos.in_tissue == True]
+        
+        df_this_pos = get_spatial_positions(df_meta['spaceranger_dir'].iloc[i])
+        
         # only keep shared barcodes
         shared_barcodes = set(list(df_this_pos.barcode)) & set(list(adatatmp.obs.index))
         adatatmp = adatatmp[adatatmp.obs.index.isin(shared_barcodes), :]
         df_this_pos = df_this_pos[df_this_pos.barcode.isin(shared_barcodes)]
-        #
-        # df_this_pos.barcode = pd.Categorical(df_this_pos.barcode, categories=list(df_this_barcode.barcode), ordered=True)
+
         df_this_pos.barcode = pd.Categorical(
             df_this_pos.barcode, categories=list(adatatmp.obs.index), ordered=True
         )
@@ -227,13 +261,12 @@ def load_joint_data(
 
     if not filtergenelist_file is None:
         filter_gene_list = get_filtergenelist(filtergenelist_file)
-        
         indicator_filter = np.array(
             [(not x in filter_gene_list) for x in adata.var.index]
         )
-        
+
         adata = adata[:, indicator_filter]
-        
+
         logger.info(
             "median UMI after filtering out genes in filtergenelist_file = {}".format(
                 np.median(np.sum(adata.layers["count"], axis=1))
@@ -242,10 +275,10 @@ def load_joint_data(
 
     if not filterregion_file is None:
         ranges = ranges_get_filter_ranges(filter_range_file)
-        
+
         indicator_filter = np.array([True] * cell_snp_Aallele.shape[1])
         j = 0
-        
+
         for i in range(cell_snp_Aallele.shape[1]):
             this_chr = int(unique_snp_ids[i].split("_")[0])
             this_pos = int(unique_snp_ids[i].split("_")[1])
@@ -266,25 +299,25 @@ def load_joint_data(
                 and (ranges.End.values[j] > this_pos)
             ):
                 indicator_filter[i] = False
-                
+
         cell_snp_Aallele = cell_snp_Aallele[:, indicator_filter]
         cell_snp_Ballele = cell_snp_Ballele[:, indicator_filter]
-        
+
         unique_snp_ids = unique_snp_ids[indicator_filter]
 
     if local_outlier_filter:
         clf = LocalOutlierFactor(n_neighbors=200)
         label = clf.fit_predict(np.sum(adata.layers["count"], axis=0).reshape(-1, 1))
-        
+
         adata.layers["count"][:, np.where(label == -1)[0]] = 0
-        
+
         logger.info("filter out {} outlier genes.".format(np.sum(label == -1)))
 
     if not normalidx_file is None:
         normal_barcodes = pd.read_csv(normalidx_file, header=None).iloc[:, 0].values
         adata.obs["tumor_annotation"] = "tumor"
         adata.obs["tumor_annotation"][adata.obs.index.isin(normal_barcodes)] = "normal"
-        
+
         logger.info(adata.obs["tumor_annotation"].value_counts())
 
     return (

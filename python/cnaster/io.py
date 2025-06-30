@@ -106,6 +106,7 @@ def get_spaceranger_counts(spaceranger_dir):
     return adatatmp
 
 
+# TODO massively inefficient?
 def get_alignments(alignment_files, df_meta, significance=1.0e-6):
     if len(alignment_files) == 0:
         return None
@@ -157,7 +158,7 @@ def get_alignments(alignment_files, df_meta, significance=1.0e-6):
     return across_slice_adjacency_mat
 
 
-def load_joint_data(
+def load_sample_data(
     spaceranger_meta_path,
     snp_dir,
     alignment_files,
@@ -165,7 +166,7 @@ def load_joint_data(
     filter_range_file,
     normal_idx_file,
     min_snp_umis=50,
-    min_percent_expressed_spots=0.005,
+    min_percent_expressed_spots=5.0e-3,
     local_outlier_filter=True,
 ):
     assert (len(alignment_files) == 0) or (len(alignment_files) + 1 == df_meta.shape[0])
@@ -180,12 +181,11 @@ def load_joint_data(
 
     unique_snp_ids = np.load(f"{snp_dir}/unique_snp_ids.npy", allow_pickle=True)
 
-    ##### read SNP count #####
+    ##### read SNP counts #####
     cell_snp_Aallele = scipy.sparse.load_npz(f"{snp_dir}/cell_snp_Aallele.npz")
     cell_snp_Ballele = scipy.sparse.load_npz(f"{snp_dir}/cell_snp_Ballele.npz")
 
     ##### read anndata and coordinate #####
-    # add position
     adata = None
 
     for i, sname in enumerate(df_meta.sample_id.values):
@@ -250,29 +250,35 @@ def load_joint_data(
         :,
     ]
 
-    ##### load pairwise alignments #####
-    # TBD: directly convert to big "adjacency" matrix
     across_slice_adjacency_mat = get_alignments(alignment_files, df_meta)
 
-    # filter out spots with too small number of UMIs
+    # NB filter out spots with too small number of snp covering UMIs (transcripts);
+    # TODO why before genomic binning?
     indicator = np.sum(adata.layers["count"], axis=1) >= min_snpumis
+
     adata = adata[indicator, :]
+
     cell_snp_Aallele = cell_snp_Aallele[indicator, :]
     cell_snp_Ballele = cell_snp_Ballele[indicator, :]
+
     if not (across_slice_adjacency_mat is None):
         across_slice_adjacency_mat = across_slice_adjacency_mat[indicator, :][
             :, indicator
         ]
 
-    # filter out spots with too small number of SNP-covering UMIs
+    # filter out spots with too small number of snp covering UMIs (variants);
+    # TODO indicator &= indicator ...
     indicator = (
         np.sum(cell_snp_Aallele, axis=1).A.flatten()
         + np.sum(cell_snp_Ballele, axis=1).A.flatten()
         >= min_snpumis
     )
+
     adata = adata[indicator, :]
+
     cell_snp_Aallele = cell_snp_Aallele[indicator, :]
     cell_snp_Ballele = cell_snp_Ballele[indicator, :]
+
     if not (across_slice_adjacency_mat is None):
         across_slice_adjacency_mat = across_slice_adjacency_mat[indicator, :][
             :, indicator

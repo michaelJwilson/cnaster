@@ -279,36 +279,46 @@ def summarize_counts_for_blocks(
         Log phase switch probability between each pair of adjacent blocks.
     """
     blocks = df_gene_snp.block_id.unique()
+    
     single_X = np.zeros((len(blocks), 2, adata.shape[0]), dtype=int)
+    
     single_base_nb_mean = np.zeros((len(blocks), adata.shape[0]))
     single_total_bb_RD = np.zeros((len(blocks), adata.shape[0]), dtype=int)
+    
     # summarize counts of involved genes and SNPs within each block
     map_snp_index = {x: i for i, x in enumerate(unique_snp_ids)}
+    
     df_block_contents = df_gene_snp.groupby("block_id").agg(
         {"snp_id": list, "gene": list}
     )
+
+    # NB loop over "blocks"
     for b in range(df_block_contents.shape[0]):
         # BAF (SNPs)
         involved_snps_ids = [
             x for x in df_block_contents.snp_id.values[b] if not x is None
         ]
+        
         involved_snp_idx = np.array([map_snp_index[x] for x in involved_snps_ids])
+        
         if len(involved_snp_idx) > 0:
             single_X[b, 1, :] = np.sum(cell_snp_Aallele[:, involved_snp_idx], axis=1)
             single_total_bb_RD[b, :] = np.sum(
                 cell_snp_Aallele[:, involved_snp_idx], axis=1
             ) + np.sum(cell_snp_Ballele[:, involved_snp_idx], axis=1)
+            
         # RDR (genes)
         involved_genes = list(
             set([x for x in df_block_contents.gene.values[b] if not x is None])
         )
+        
         if len(involved_genes) > 0:
             single_X[b, 0, :] = np.sum(
                 adata.layers["count"][:, adata.var.index.isin(involved_genes)], axis=1
             )
 
-    # lengths
     lengths = np.zeros(len(df_gene_snp.CHR.unique()), dtype=int)
+    
     for i, c in enumerate(df_gene_snp.CHR.unique()):
         lengths[i] = len(df_gene_snp[df_gene_snp.CHR == c].block_id.unique())
 
@@ -325,18 +335,21 @@ def summarize_counts_for_blocks(
     sorted_chr_pos_last = list(
         zip(sorted_chr_pos_last.CHR.values, sorted_chr_pos_last.END.values)
     )
-    #
+
     tmp_sorted_chr_pos = [
         val for pair in zip(sorted_chr_pos_first, sorted_chr_pos_last) for val in pair
     ]
+    
     position_cM = get_position_cM_table(tmp_sorted_chr_pos, geneticmap_file)
+    
     phase_switch_prob = compute_phase_switch_probability_position(
         position_cM, tmp_sorted_chr_pos, nu
     )
+    
     log_sitewise_transmat = np.minimum(
         np.log(0.5), np.log(phase_switch_prob) - logphase_shift
     )
-    # log_sitewise_transmat = log_sitewise_transmat[np.arange(0, len(log_sitewise_transmat), 2)]
+
     log_sitewise_transmat = log_sitewise_transmat[
         np.arange(1, len(log_sitewise_transmat), 2)
     ]

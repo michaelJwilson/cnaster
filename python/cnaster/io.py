@@ -45,38 +45,40 @@ def get_spaceranger_meta(spaceranger_meta_path):
 
     return df_meta
 
+
 def get_spatial_positions(spaceranger_dir):
+    names = ("barcode", "in_tissue", "x", "y", "pixel_row", "pixel_col")
+
     if Path(
         f"{spaceranger_dir}/spatial/tissue_positions.csv",
     ).exists():
         df_this_pos = pd.read_csv(
-            f"{spaceranger_dir}/spatial/tissue_positions.csv"
+            f"{spaceranger_dir}/spatial/tissue_positions.csv",
             sep=",",
             header=0,
-            names=["barcode", "in_tissue", "x", "y", "pixel_row", "pixel_col"],
+            names=names,
         )
-        
+
         logger.info("Reading {spaceranger_dir}/spatial/tissue_positions.csv")
 
-    elif Path(
-        f"{df_meta['spaceranger_dir'].iloc[i]}/spatial/tissue_positions_list.csv"
-    ).exists():
+    elif Path(f"{spaceranger_dir}/spatial/tissue_positions_list.csv").exists():
         df_this_pos = pd.read_csv(
-            f"{df_meta['spaceranger_dir'].iloc[i]}/spatial/tissue_positions_list.csv",
+            f"{spaceranger_dir}/spatial/tissue_positions_list.csv",
             sep=",",
             header=None,
-            names=["barcode", "in_tissue", "x", "y", "pixel_row", "pixel_col"],
+            names=names,
         )
-        
-        logger.info("Reading {df_meta['spaceranger_dir'].iloc[i]}/spatial/tissue_positions_list.csv")
-        
+
+        logger.info("Reading {spaceranger_dir}/spatial/tissue_positions_list.csv")
+
     else:
-        logger.error("No spatial coordinate file!")
+        logger.error("No spatial coordinate file @ {spaceranger_dir}.")
         raise RuntimeError()
 
     df_this_pos = df_this_pos[df_this_pos.in_tissue == True]
 
     return df_this_pos
+
 
 def load_joint_data(
     spaceranger_meta_path,
@@ -91,7 +93,7 @@ def load_joint_data(
 ):
     df_meta = get_spaceranger_meta(spaceranger_meta_path)
     df_barcode = get_barcodes(f"{snp_dir}/barcodes.txt")
-    
+
     logger.info(f"Input spaceranger file list {input_filelist} contains:\n{df_meta}")
 
     ##### read SNP count #####
@@ -110,14 +112,14 @@ def load_joint_data(
     ##### read anndata and coordinate #####
     # add position
     adata = None
-    
+
     for i, sname in enumerate(df_meta.sample_id.values):
         # locate the corresponding rows in df_meta
         index = np.where(df_barcode["sample_id"] == sname)[0]
         df_this_barcode = copy.copy(df_barcode.iloc[index, :])
         df_this_barcode.index = df_this_barcode.barcode
-        
-        # read adata count info: 
+
+        # read adata count info:
         if Path(
             f"{df_meta['spaceranger_dir'].iloc[i]}/filtered_feature_bc_matrix.h5"
         ).exists():
@@ -125,16 +127,20 @@ def load_joint_data(
             adatatmp = sc.read_10x_h5(
                 f"{df_meta['spaceranger_dir'].iloc[i]}/filtered_feature_bc_matrix.h5"
             )
-            logger.info(f"Reading {df_meta['spaceranger_dir'].iloc[i]}/filtered_feature_bc_matrix.h5")
-            
+            logger.info(
+                f"Reading {df_meta['spaceranger_dir'].iloc[i]}/filtered_feature_bc_matrix.h5"
+            )
+
         elif Path(
             f"{df_meta['spaceranger_dir'].iloc[i]}/filtered_feature_bc_matrix.h5ad"
         ).exists():
             adatatmp = sc.read_h5ad(
                 f"{df_meta['spaceranger_dir'].iloc[i]}/filtered_feature_bc_matrix.h5ad"
             )
-            logger.info(f"Reading {df_meta['spaceranger_dir'].iloc[i]}/filtered_feature_bc_matrix.h5ad")
-            
+            logger.info(
+                f"Reading {df_meta['spaceranger_dir'].iloc[i]}/filtered_feature_bc_matrix.h5ad"
+            )
+
         else:
             logging.error(
                 f"{df_meta['spaceranger_dir'].iloc[i]} directory doesn't have a filtered_feature_bc_matrix.h5 or filtered_feature_bc_matrix.h5ad file!"
@@ -144,16 +150,16 @@ def load_joint_data(
 
         # NB data matrix X (ndarray/csr matrix, dask ...): observations/cells are named by their barcode and variables/genes by gene name
         adatatmp.layers["count"] = adatatmp.X.A
-        
+
         # reorder anndata spots to have the same order as df_this_barcode
         idx_argsort = pd.Categorical(
             adatatmp.obs.index, categories=list(df_this_barcode.barcode), ordered=True
         ).argsort()
-        
+
         adatatmp = adatatmp[idx_argsort, :]
-        
-        df_this_pos = get_spatial_positions(df_meta['spaceranger_dir'].iloc[i])
-        
+
+        df_this_pos = get_spatial_positions(df_meta["spaceranger_dir"].iloc[i])
+
         # only keep shared barcodes
         shared_barcodes = set(list(df_this_pos.barcode)) & set(list(adatatmp.obs.index))
         adatatmp = adatatmp[adatatmp.obs.index.isin(shared_barcodes), :]
@@ -171,6 +177,7 @@ def load_joint_data(
             adata = adatatmp
         else:
             adata = anndata.concat([adata, adatatmp], join="outer")
+
     # replace nan with 0
     adata.layers["count"][np.isnan(adata.layers["count"])] = 0
     adata.layers["count"] = adata.layers["count"].astype(int)

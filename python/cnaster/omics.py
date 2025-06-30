@@ -279,15 +279,15 @@ def summarize_counts_for_blocks(
         Log phase switch probability between each pair of adjacent blocks.
     """
     blocks = df_gene_snp.block_id.unique()
-    
+
     single_X = np.zeros((len(blocks), 2, adata.shape[0]), dtype=int)
-    
+
     single_base_nb_mean = np.zeros((len(blocks), adata.shape[0]))
     single_total_bb_RD = np.zeros((len(blocks), adata.shape[0]), dtype=int)
-    
+
     # summarize counts of involved genes and SNPs within each block
     map_snp_index = {x: i for i, x in enumerate(unique_snp_ids)}
-    
+
     df_block_contents = df_gene_snp.groupby("block_id").agg(
         {"snp_id": list, "gene": list}
     )
@@ -298,9 +298,9 @@ def summarize_counts_for_blocks(
         involved_snps_ids = [
             x for x in df_block_contents.snp_id.values[b] if not x is None
         ]
-        
+
         involved_snp_idx = np.array([map_snp_index[x] for x in involved_snps_ids])
-        
+
         if len(involved_snp_idx) > 0:
             # NB sum haplotype A allele across block: not A is defined by Eagle2 0/1 vs 1/0;
             single_X[b, 1, :] = np.sum(cell_snp_Aallele[:, involved_snp_idx], axis=1)
@@ -309,12 +309,12 @@ def summarize_counts_for_blocks(
             single_total_bb_RD[b, :] = np.sum(
                 cell_snp_Aallele[:, involved_snp_idx], axis=1
             ) + np.sum(cell_snp_Ballele[:, involved_snp_idx], axis=1)
-            
+
         # RDR (genes)
         involved_genes = list(
             set([x for x in df_block_contents.gene.values[b] if not x is None])
         )
-        
+
         if len(involved_genes) > 0:
             # NB sum of umis for all genes in block.
             single_X[b, 0, :] = np.sum(
@@ -333,11 +333,11 @@ def summarize_counts_for_blocks(
         {"CHR": "first", "START": "first"}
     )
 
-    # TODO 
+    # TODO
     sorted_chr_pos_first = list(
         zip(sorted_chr_pos_first.CHR.values, sorted_chr_pos_first.START.values)
     )
-    
+
     sorted_chr_pos_last = df_gene_snp.groupby("block_id").agg(
         {"CHR": "last", "END": "last"}
     )
@@ -345,17 +345,17 @@ def summarize_counts_for_blocks(
         zip(sorted_chr_pos_last.CHR.values, sorted_chr_pos_last.END.values)
     )
 
-    # 
+    #
     tmp_sorted_chr_pos = [
         val for pair in zip(sorted_chr_pos_first, sorted_chr_pos_last) for val in pair
     ]
-    
+
     position_cM = get_position_cM_table(tmp_sorted_chr_pos, geneticmap_file)
-    
+
     phase_switch_prob = compute_phase_switch_probability_position(
         position_cM, tmp_sorted_chr_pos, nu
     )
-    
+
     log_sitewise_transmat = np.minimum(
         np.log(0.5), np.log(phase_switch_prob) - logphase_shift
     )

@@ -302,7 +302,10 @@ def summarize_counts_for_blocks(
         involved_snp_idx = np.array([map_snp_index[x] for x in involved_snps_ids])
         
         if len(involved_snp_idx) > 0:
+            # NB sum haplotype A allele across block: not A is defined by Eagle2 0/1 vs 1/0;
             single_X[b, 1, :] = np.sum(cell_snp_Aallele[:, involved_snp_idx], axis=1)
+
+            # NB Eagle2 phased "REF" vs "ALT" counts.
             single_total_bb_RD[b, :] = np.sum(
                 cell_snp_Aallele[:, involved_snp_idx], axis=1
             ) + np.sum(cell_snp_Ballele[:, involved_snp_idx], axis=1)
@@ -313,22 +316,28 @@ def summarize_counts_for_blocks(
         )
         
         if len(involved_genes) > 0:
+            # NB sum of umis for all genes in block.
             single_X[b, 0, :] = np.sum(
                 adata.layers["count"][:, adata.var.index.isin(involved_genes)], axis=1
             )
 
     lengths = np.zeros(len(df_gene_snp.CHR.unique()), dtype=int)
-    
+
+    # NB lengths per block by chromosome.
     for i, c in enumerate(df_gene_snp.CHR.unique()):
         lengths[i] = len(df_gene_snp[df_gene_snp.CHR == c].block_id.unique())
 
-    # phase switch probability from genetic distance
+    # NB -  phase switch probability from genetic distance.
+    #    -  first chr and start of each block.
     sorted_chr_pos_first = df_gene_snp.groupby("block_id").agg(
         {"CHR": "first", "START": "first"}
     )
+
+    # TODO 
     sorted_chr_pos_first = list(
         zip(sorted_chr_pos_first.CHR.values, sorted_chr_pos_first.START.values)
     )
+    
     sorted_chr_pos_last = df_gene_snp.groupby("block_id").agg(
         {"CHR": "last", "END": "last"}
     )
@@ -336,6 +345,7 @@ def summarize_counts_for_blocks(
         zip(sorted_chr_pos_last.CHR.values, sorted_chr_pos_last.END.values)
     )
 
+    # 
     tmp_sorted_chr_pos = [
         val for pair in zip(sorted_chr_pos_first, sorted_chr_pos_last) for val in pair
     ]

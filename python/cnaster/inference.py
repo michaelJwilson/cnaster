@@ -17,11 +17,14 @@ def hmrfmix_reassignment_posterior_concatenate(
     return_posterior=False,
 ):
     N = single_X.shape[2]
+    
     n_obs = single_X.shape[0]
     n_clones = np.max(prev_assignment) + 1
     n_states = res["new_p_binom"].shape[0]
 
+    # NB this will be the node potential for all (spot, clone).
     single_llf = np.zeros((N, n_clones))
+    
     new_assignment = copy.copy(prev_assignment)
 
     lambd = np.sum(single_base_nb_mean, axis=1) / np.sum(single_base_nb_mean)

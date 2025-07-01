@@ -1,6 +1,7 @@
 from cnaster.io import load_sample_data
 from cnaster.omics import form_gene_snp_table, assign_initial_fragments, summarize_counts_for_blocks
 from cnaster.clones import initialize_clones
+from cnaster.hmm import pipeline_baum_welch
 
 (
     adata,
@@ -100,3 +101,13 @@ df_gene_snp = create_bin_ranges(
     logphase_shift=config["logphase_shift"],
     geneticmap_file=config["geneticmap_file"],
 )
+
+# expression count dataframe
+exp_counts = pd.DataFrame.sparse.from_spmatrix( scipy.sparse.csc_matrix(adata.layers["count"]), index=adata.obs.index, columns=adata.var.index)
+
+# smooth and adjacency matrix for each sample
+adjacency_mat, smooth_mat = multislice_adjacency(sample_ids, sample_list, coords, single_total_bb_RD, exp_counts, 
+                                                 across_slice_adjacency_mat, construct_adjacency_method=config['construct_adjacency_method'], 
+                                                 maxspots_pooling=config['maxspots_pooling'], construct_adjacency_w=config['construct_adjacency_w'])
+
+n_pooled = np.median(np.sum(smooth_mat > 0, axis=0).A.flatten())

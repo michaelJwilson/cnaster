@@ -374,3 +374,189 @@ def summarize_counts_for_blocks(
         single_total_bb_RD,
         log_sitewise_transmat,
     )
+
+
+def create_bin_ranges(
+    df_gene_snp,
+    single_total_bb_RD,
+    refined_lengths,
+    secondary_min_umi,
+    max_binlength=5e6,
+):
+    """
+    Aggregate haplotype blocks to bins
+
+    Attributes
+    ----------
+    df_gene_snp : data frame, (CHR, START, END, snp_id, gene, is_interval, block_id)
+        Gene and SNP info combined into a single data frame sorted by genomic positions.
+        "is_interval" suggest whether the entry is a gene or a SNP. "gene" column either
+        contain gene name if the entry is a gene, or the gene a SNP belongs to if the entry is a SNP.
+
+    single_total_bb_RD : array, (n_blocks, n_spots)
+        Total SNP-covering reads per haplotype block per spot.
+
+    refined_lengths : array
+        Number of haplotype blocks before each phase switch. The numbers should sum up to n_blocks.
+
+    Returns
+    -------
+    df_gene_snp : data frame, (CHR, START, END, snp_id, gene, is_interval, block_id, bin_id)
+        The newly added bin_id column indicates which bin each gene or SNP belongs to.
+    """
+
+    def greedy_binning_nobreak(
+        block_lengths, block_umi, secondary_min_umi, max_binlength
+    ):
+        """
+        Returns
+        -------
+        bin_ids : array, (n_blocks)
+            The bin id of the input blocks. Should have the same size with block_lengths and block_umi.
+        """
+        assert len(block_lengths) == len(block_umi)
+        
+        bin_ranges = []
+        s = 0
+        
+        while s < len(block_lengths):
+            t = s + 1
+            
+            while t < len(block_lengths) and np.sum(block_umi[s:t]) < secondary_min_umi:
+                t += 1
+                if np.sum(block_lengths[s:t]) >= max_binlength:
+                    t = max(t - 1, s + 1)
+                    break
+                
+            # check whether it is a very small bin in the end
+            if (
+                s > 0
+                and t == len(block_lengths)
+                and np.sum(block_umi[s:t]) < 0.5 * secondary_min_umi
+                and np.sum(block_lengths[s:t]) < 0.5 * max_binlength
+            ):
+                bin_ranges[-1][1] = t
+            else:
+                bin_ranges.append([s, t])
+                
+            s = t
+            
+        bin_ids = np.zeros(len(block_lengths), dtype=int)
+        
+        for i, x in enumerate(bin_ranges):
+            bin_ids[x[0] : x[1]] = i
+            
+        return bin_ids
+
+    # block lengths and block umis
+    sorted_chr_pos_both = df_gene_snp.groupby("block_id").agg(
+        {"CHR": "first", "START": "first", "END": "last"}
+    )
+    
+    block_lengths = sorted_chr_pos_both.END.values - sorted_chr_pos_both.START.values
+    block_umi = np.sum(single_total_bb_RD, axis=1)
+    
+    n_blocks = len(block_lengths)
+
+    # get a list of breakpoints where bin much break
+    breakpoints = np.concatenate(
+        [
+            np.cumsum(refined_lengths),
+            np.where(block_lengths > max_binlength)[0],
+            np.where(block_lengths > max_binlength)[0] + 1,
+        ]
+    )
+    
+    breakpoints = np.sort(np.unique(breakpoints))
+    
+    # append 0 in the front of breakpoints so that each pair of adjacent breakpoints can be an input to greedy_binning_nobreak
+    if breakpoints[0] != 0:
+        breakpoints = np.append([0], breakpoints)
+        
+    assert np.all(breakpoints[:-1] < breakpoints[1:])
+
+    # loop over breakpoints and bin each block
+    bin_ids = np.zeros(n_blocks, dtype=int)
+    offset = 0
+    
+    for i in range(len(breakpoints) - 1):
+        b1 = breakpoints[i]
+        b2 = breakpoints[i + 1]
+        
+        if b2 - b1 == 1:
+            bin_ids[b1:b2] = offset
+            offset += 1
+        else:
+            this_bin_ids = greedy_binning_nobreak(
+                block_lengths[b1:b2], block_umi[b1:b2], secondary_min_umi, max_binlength
+            )
+            bin_ids[b1:b2] = offset + this_bin_ids
+            offset += np.max(this_bin_ids) + 1
+
+    # append bin_ids to df_gene_snp
+    df_gene_snp["bin_id"] = df_gene_snp.block_id.map(
+        {i: x for i, x in enumerate(bin_ids)}
+    )
+
+    return df_gene_snp
+
+# TODO duplicates summarize_counts_for_blocks
+def summarize_counts_for_bins(df_gene_snp, adata, single_X, single_total_bb_RD, phase_indicator, nu, logphase_shift, geneticmap_file):
+    """
+    Attributes:
+    ----------
+    df_gene_snp : pd.DataFrame
+        Contain "block_id" column to indicate which genes/snps belong to which block.
+
+    Returns
+    ----------
+    lengths : array, (n_chromosomes,)
+        Number of blocks per chromosome.
+
+    single_X : array, (n_blocks, 2, n_spots)
+        Transcript counts and B allele count per block per cell.
+
+    single_base_nb_mean : array, (n_blocks, n_spots)
+        Baseline transcript counts in normal diploid per block per cell.
+    
+    single_total_bb_RD : array, (n_blocks, n_spots)
+        Total allele count per block per cell.
+
+    log_sitewise_transmat : array, (n_blocks,)
+        Log phase switch probability between each pair of adjacent blocks.
+    """
+    bins = df_gene_snp.bin_id.unique()
+    bin_single_X = np.zeros((len(bins), 2, adata.shape[0]), dtype=int)
+    bin_single_base_nb_mean = np.zeros((len(bins), adata.shape[0]))
+    bin_single_total_bb_RD = np.zeros((len(bins), adata.shape[0]), dtype=int)
+    # summarize counts of involved genes and SNPs within each block
+    df_bin_contents = df_gene_snp[~df_gene_snp.bin_id.isnull()].groupby('bin_id').agg({"block_id":set, "gene":set})
+    for b in range(df_bin_contents.shape[0]):
+        # BAF (SNPs)
+        involved_blocks = [x for x in df_bin_contents.block_id.values[b] if not x is None]
+        this_phased = np.where(phase_indicator[involved_blocks].reshape(-1,1), single_X[involved_blocks, 1, :], single_total_bb_RD[involved_blocks, :] - single_X[involved_blocks, 1, :])
+        bin_single_X[b, 1, :] = np.sum(this_phased, axis=0)
+        bin_single_total_bb_RD[b, :] = np.sum( single_total_bb_RD[involved_blocks, :], axis=0 )
+        # RDR (genes)
+        involved_genes = [x for x in df_bin_contents.gene.values[b] if not x is None]
+        bin_single_X[b, 0, :] = np.sum( adata.layers['count'][:, adata.var.index.isin(involved_genes)], axis=1 )
+
+    # lengths
+    lengths = np.zeros(len(df_gene_snp.CHR.unique()), dtype=int)
+    for i,c in enumerate( df_gene_snp.CHR.unique() ):
+        lengths[i] = len( df_gene_snp[ (df_gene_snp.CHR == c) & (~df_gene_snp.bin_id.isnull()) ].bin_id.unique() )
+
+    # phase switch probability from genetic distance
+    sorted_chr_pos_first = df_gene_snp.groupby('bin_id').agg({'CHR': 'first', 'START': 'first'})
+    sorted_chr_pos_first = list(zip(sorted_chr_pos_first.CHR.values, sorted_chr_pos_first.START.values))
+    sorted_chr_pos_last = df_gene_snp.groupby('bin_id').agg({'CHR': 'last', 'END': 'last'})
+    sorted_chr_pos_last = list(zip(sorted_chr_pos_last.CHR.values, sorted_chr_pos_last.END.values))
+    
+    tmp_sorted_chr_pos = [val for pair in zip(sorted_chr_pos_first, sorted_chr_pos_last) for val in pair]
+    position_cM = get_position_cM_table( tmp_sorted_chr_pos, geneticmap_file )
+    phase_switch_prob = compute_phase_switch_probability_position(position_cM, tmp_sorted_chr_pos, nu)
+    log_sitewise_transmat = np.minimum(np.log(0.5), np.log(phase_switch_prob) - logphase_shift)
+    
+    log_sitewise_transmat = log_sitewise_transmat[np.arange(1, len(log_sitewise_transmat), 2)]
+
+    return lengths, bin_single_X, bin_single_base_nb_mean, bin_single_total_bb_RD, log_sitewise_transmat

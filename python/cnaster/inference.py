@@ -27,8 +27,10 @@ def hmrfmix_reassignment_posterior_concatenate(
     
     new_assignment = copy.copy(prev_assignment)
 
+    # NB baseline expression.
     lambd = np.sum(single_base_nb_mean, axis=1) / np.sum(single_base_nb_mean)
 
+    # NB shift baseline mu according to Tn?
     if np.sum(single_base_nb_mean) > 0:
         logmu_shift = []
 
@@ -48,6 +50,7 @@ def hmrfmix_reassignment_posterior_concatenate(
             )
 
         logmu_shift = np.vstack(logmu_shift)
+        
         kwargs = {
             "logmu_shift": logmu_shift,
             "sample_length": np.ones(n_clones, dtype=int) * n_obs,
@@ -55,9 +58,11 @@ def hmrfmix_reassignment_posterior_concatenate(
     else:
         kwargs = {}
 
+    # NB spot posterior under all clones.
     posterior = np.zeros((N, n_clones))
 
     for i in range(N):
+        # NB aggregate across connected components implied by smooth mat.
         idx = smooth_mat[i, :].nonzero()[1]
         idx = idx[~np.isnan(single_tumor_prop[idx])]
 
@@ -86,7 +91,7 @@ def hmrfmix_reassignment_posterior_concatenate(
                     * np.sum(single_total_bb_RD[:, i : (i + 1)] > 0)
                     / np.sum(single_base_nb_mean[:, i : (i + 1)] > 0)
                 )
-                # ratio_nonzeros = 1.0 * np.sum(np.sum(single_total_bb_RD[:,idx], axis=1) > 0) / np.sum(np.sum(single_base_nb_mean[:,idx], axis=1) > 0)
+
                 single_llf[i, c] = ratio_nonzeros * np.sum(
                     scipy.special.logsumexp(
                         tmp_log_emission_rdr[:, :, 0]

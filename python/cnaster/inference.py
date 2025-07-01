@@ -14,7 +14,6 @@ def hmrfmix_reassignment_posterior_concatenate(
     log_persample_weights,
     spatial_weight,
     hmmclass=hmm_sitewise,
-    return_posterior=False,
 ):
     N = single_X.shape[2]
     
@@ -81,7 +80,8 @@ def hmrfmix_reassignment_posterior_concatenate(
                 np.ones((n_obs, 1)) * np.mean(single_tumor_prop[idx]),
                 **kwargs,
             )
-
+            
+            # NB ... 
             if (
                 np.sum(single_base_nb_mean[:, i : (i + 1)] > 0) > 0
                 and np.sum(single_total_bb_RD[:, i : (i + 1)] > 0) > 0
@@ -119,14 +119,17 @@ def hmrfmix_reassignment_posterior_concatenate(
                         axis=0,
                     )
                 )
+                
         w_node = single_llf[i, :]
         w_node += log_persample_weights[:, sample_ids[i]]
+        
         w_edge = np.zeros(n_clones)
+        
         for j in adjacency_mat[i, :].nonzero()[1]:
-            # w_edge[new_assignment[j]] += 1
             w_edge[new_assignment[j]] += adjacency_mat[i, j]
+            
         new_assignment[i] = np.argmax(w_node + spatial_weight * w_edge)
-        #
+
         posterior[i, :] = np.exp(
             w_node
             + spatial_weight * w_edge
@@ -135,6 +138,7 @@ def hmrfmix_reassignment_posterior_concatenate(
 
     # compute total log likelihood log P(X | Z) + log P(Z)
     total_llf = np.sum(single_llf[np.arange(N), new_assignment])
+    
     for i in range(N):
         total_llf += np.sum(
             spatial_weight
@@ -142,10 +146,8 @@ def hmrfmix_reassignment_posterior_concatenate(
                 new_assignment[adjacency_mat[i, :].nonzero()[1]] == new_assignment[i]
             )
         )
-    if return_posterior:
-        return new_assignment, single_llf, total_llf, posterior
-    else:
-        return new_assignment, single_llf, total_llf
+        
+    return new_assignment, single_llf, total_llf
 
 
 def hmrfmix_concatenate_pipeline(
@@ -167,7 +169,7 @@ def hmrfmix_concatenate_pipeline(
     nodepotential="max",
     hmmclass=hmm_sitewise,
     params="stmp",
-    t=1 - 1e-6,
+    t=1. - 1.e-6,
     random_state=0,
     init_log_mu=None,
     init_p_binom=None,
@@ -188,7 +190,7 @@ def hmrfmix_concatenate_pipeline(
     n_obs, _, n_spots = single_X.shape
     n_clones = len(initial_clone_index)
 
-    # spot adjacency matric
+    # spot adjacency matrix
     assert not (coords is None and adjacency_mat is None)
 
     if adjacency_mat is None:

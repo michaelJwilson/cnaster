@@ -84,22 +84,22 @@ def compute_adjacency_mat_v2(coords, unit_xsquared=9, unit_ysquared=3, ratio=1):
     # pairwise distance
     x_dist = coords[:, 0][None, :] - coords[:, 0][:, None]
     y_dist = coords[:, 1][None, :] - coords[:, 1][:, None]
-    
+
     pairwise_squared_dist = x_dist**2 * unit_xsquared + y_dist**2 * unit_ysquared
-    
+
     # adjacency
     A = np.zeros((coords.shape[0], coords.shape[0]), dtype=np.int8)
-    
+
     for i in range(coords.shape[0]):
         indexes = np.where(
             pairwise_squared_dist[i, :] <= ratio * (unit_xsquared + unit_ysquared)
         )[0]
-        
+
         indexes = np.array([j for j in indexes if j != i])
-        
+
         if len(indexes) > 0:
             A[i, indexes] = 1
-            
+
     return scipy.sparse.csr_matrix(A)
 
 
@@ -109,21 +109,21 @@ def compute_weighted_adjacency(
     # pairwise distance
     x_dist = coords[:, 0][None, :] - coords[:, 0][:, None]
     y_dist = coords[:, 1][None, :] - coords[:, 1][:, None]
-    
+
     pairwise_squared_dist = x_dist**2 * unit_xsquared + y_dist**2 * unit_ysquared
-    
+
     kern = np.exp(-((pairwise_squared_dist / bandwidth) ** decay))
-    
+
     # adjacency
     A = np.zeros((coords.shape[0], coords.shape[0]))
-    
+
     for i in range(coords.shape[0]):
         indexes = np.where(kern[i, :] > 1e-4)[0]
         indexes = np.array([j for j in indexes if j != i])
-        
+
         if len(indexes) > 0:
             A[i, indexes] = kern[i, indexes]
-            
+
     return scipy.sparse.csr_matrix(A)
 
 
@@ -149,6 +149,7 @@ def choose_adjacency_by_readcounts(
         smooth_mat = compute_adjacency_mat_v2(
             coords, unit_xsquared, unit_ysquared, ratio * base_ratio
         )
+
         smooth_mat.setdiag(1)
 
         if np.median(np.sum(smooth_mat > 0, axis=0).A.flatten()) > maxspots_pooling:
@@ -201,21 +202,11 @@ def multislice_adjacency(
         index = np.where(sample_ids == i)[0]
         this_coords = np.array(coords[index, :])
 
-        if construct_adjacency_method == "hexagon":
-            tmpsmooth_mat, tmpadjacency_mat = choose_adjacency_by_readcounts(
-                this_coords,
-                single_total_bb_RD[:, index],
-                maxspots_pooling=maxspots_pooling,
-            )
-        elif construct_adjacency_method == "KNN":
-            tmpsmooth_mat, tmpadjacency_mat = choose_adjacency_by_KNN(
-                this_coords,
-                exp_counts.iloc[index, :],
-                w=construct_adjacency_w,
-                maxspots_pooling=maxspots_pooling,
-            )
-        else:
-            raise ("Unknown adjacency construction method")
+        tmpsmooth_mat, tmpadjacency_mat = choose_adjacency_by_readcounts(
+            this_coords,
+            single_total_bb_RD[:, index],
+            maxspots_pooling=maxspots_pooling,
+        )
 
         adjacency_mat.append(tmpadjacency_mat.A)
         smooth_mat.append(tmpsmooth_mat.A)

@@ -1,7 +1,7 @@
 import numpy as np
 
 # TODO respect alignment.
-def fixed_rectangle_initialization(
+def fixed_rectangle_partition(
     coords, x_part, y_part, single_tumor_prop=None, threshold=0.5
 ):
     """
@@ -57,7 +57,7 @@ def fixed_rectangle_initialization(
     return initial_clone_index
 
 
-def perform_partition(coords, sample_ids, x_part, y_part, single_tumor_prop, threshold):
+def initialize_clones(coords, sample_ids, x_part, y_part, single_tumor_prop, threshold):
     initial_clone_index = []
 
     for s in range(np.max(sample_ids) + 1):
@@ -65,7 +65,7 @@ def perform_partition(coords, sample_ids, x_part, y_part, single_tumor_prop, thr
 
         assert len(index) > 0
 
-        tmp_clone_index = fixed_rectangle_initialization(
+        tmp_clone_index = fixed_rectangle_partition(
             coords[index, :],
             x_part,
             y_part,

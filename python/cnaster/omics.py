@@ -350,7 +350,9 @@ def summarize_counts_for_blocks(
         val for pair in zip(sorted_chr_pos_first, sorted_chr_pos_last) for val in pair
     ]
 
-    position_cM = get_reference_recomb_rates(tmp_sorted_chr_pos, geneticmap_file)
+    ref_positions_cM = get_reference_recomb_rates(geneticmap_file)
+
+    position_cM = assign_centiMorgans(tmp_sorted_chr_pos, ref_positions_cM)
 
     # NB tmp_sorted_chr_pos used to identify chromosome switches.
     phase_switch_prob = compute_numbat_phase_switch_prob(

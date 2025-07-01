@@ -104,7 +104,8 @@ def initial_phase_given_partition(
             @ baf_profiles
         )
 
-    adj_baf_profiles = np.where(baf_profiles < 0.5, baf_profiles, 1.0 - baf_profiles)
+    # TODO?  assign inferred BAF to minor.
+    mirror_baf_profiles = np.where(baf_profiles < 0.5, baf_profiles, 1.0 - baf_profiles)
 
     phase_indicator = population_baf < 0.5
     refined_lengths = []
@@ -114,15 +115,17 @@ def initial_phase_given_partition(
         s = 0
 
         for i in range(le):
+            # NB min. segment size of 10
             if i > s + 10 and np.any(
                 np.abs(
-                    adj_baf_profiles[:, i + cumlen]
-                    - adj_baf_profiles[:, i + cumlen - 1]
+                    mirror_baf_profiles[:, i + cumlen]
+                    - mirror_baf_profiles[:, i + cumlen - 1]
                 )
                 > 0.1
             ):
                 refined_lengths.append(i - s)
                 s = i
+
         refined_lengths.append(le - s)
         cumlen += le
 

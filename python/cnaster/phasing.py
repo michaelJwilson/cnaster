@@ -1,5 +1,6 @@
 from cnaster.pseduobulk import merge_pseudobulk_by_index
 
+
 def initial_phase_given_partition(
     single_X,
     lengths,
@@ -22,26 +23,21 @@ def initial_phase_given_partition(
     min_snpumi=2e3,
 ):
     EPS_BAF = 0.05
-    
-    if single_tumor_prop is None:
-        tumor_prop = None
-        X, base_nb_mean, total_bb_RD = merge_pseudobulk_by_index(
-            single_X, single_base_nb_mean, single_total_bb_RD, initial_clone_index
-        )
-    else:
-        X, base_nb_mean, total_bb_RD, tumor_prop = merge_pseudobulk_by_index_mix(
-            single_X,
-            single_base_nb_mean,
-            single_total_bb_RD,
-            initial_clone_index,
-            single_tumor_prop,
-            threshold=threshold,
-        )
 
-    # pseudobulk HMM for phase_prob
+    X, base_nb_mean, total_bb_RD, tumor_prop = merge_pseudobulk_by_index(
+        single_X,
+        single_base_nb_mean,
+        single_total_bb_RD,
+        initial_clone_index,
+        single_tumor_prop,
+        threshold=threshold,
+    )
+
     baf_profiles = np.zeros((X.shape[2], X.shape[0]))
     pred_cnv = np.zeros((X.shape[2], X.shape[0]))
+
     for i in range(X.shape[2]):
+        # NB assumes BAF = 0.5 for insufficient snp umi count.
         if np.sum(total_bb_RD[:, i]) < min_snpumi:
             baf_profiles[i, :] = 0.5
         else:
@@ -70,15 +66,22 @@ def initial_phase_given_partition(
                 max_iter=max_iter,
                 tol=tol,
             )
-            #
+
+            # NB MAP estimate
             pred = np.argmax(res["log_gamma"], axis=0)
+
+            # NB BAF by mirroring by inferred haplotype.
             this_baf_profiles = np.where(
                 pred < n_states,
                 res["new_p_binom"][pred % n_states, 0],
-                1 - res["new_p_binom"][pred % n_states, 0],
+                1.0 - res["new_p_binom"][pred % n_states, 0],
             )
+
+            # NB TODO attractor to 0.5 if sufficiently close, independent of coverage.
             this_baf_profiles[np.abs(this_baf_profiles - 0.5) < EPS_BAF] = 0.5
+
             baf_profiles[i, :] = this_baf_profiles
+
             pred_cnv[i, :] = pred % n_states
 
     if single_tumor_prop is None:
@@ -100,12 +103,16 @@ def initial_phase_given_partition(
             )
             @ baf_profiles
         )
-    adj_baf_profiles = np.where(baf_profiles < 0.5, baf_profiles, 1 - baf_profiles)
+
+    adj_baf_profiles = np.where(baf_profiles < 0.5, baf_profiles, 1.0 - baf_profiles)
+
     phase_indicator = population_baf < 0.5
     refined_lengths = []
     cumlen = 0
+
     for le in lengths:
         s = 0
+
         for i in range(le):
             if i > s + 10 and np.any(
                 np.abs(
@@ -118,5 +125,7 @@ def initial_phase_given_partition(
                 s = i
         refined_lengths.append(le - s)
         cumlen += le
+
     refined_lengths = np.array(refined_lengths)
+
     return phase_indicator, refined_lengths

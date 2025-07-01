@@ -2,7 +2,8 @@ import logging
 import pandas as pd
 import numpy as np
 
-from cnaster.reference import get_reference_genes
+from cnaster.reference import get_reference_genes, get_reference_recomb_rates
+from cnaster.recomb import compute_numbat_phase_switch_prob
 
 logger = logging.getLogger(__name__)
 
@@ -345,14 +346,14 @@ def summarize_counts_for_blocks(
         zip(sorted_chr_pos_last.CHR.values, sorted_chr_pos_last.END.values)
     )
 
-    #
     tmp_sorted_chr_pos = [
         val for pair in zip(sorted_chr_pos_first, sorted_chr_pos_last) for val in pair
     ]
 
-    position_cM = get_position_cM_table(tmp_sorted_chr_pos, geneticmap_file)
+    position_cM = get_reference_recomb_rates(tmp_sorted_chr_pos, geneticmap_file)
 
-    phase_switch_prob = compute_phase_switch_probability_position(
+    # NB tmp_sorted_chr_pos used to identify chromosome switches.
+    phase_switch_prob = compute_numbat_phase_switch_prob(
         position_cM, tmp_sorted_chr_pos, nu
     )
 

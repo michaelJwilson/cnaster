@@ -1,5 +1,6 @@
 from cnaster.io import load_sample_data
 from cnaster.omics import form_gene_snp_table, assign_initial_fragments, summarize_counts_for_blocks
+from cnaster.clones import initialize_clones
 
 (
     adata,
@@ -22,7 +23,7 @@ from cnaster.omics import form_gene_snp_table, assign_initial_fragments, summari
 df_gene_snp = form_gene_snp_table(unique_snp_ids, config["hgtable_file"], adata)
 
 # TODO assign initial fragment ranges based on over-lapping gene and min. snp covering umi count.
-df_gene_snp = assign_initial_fragments(
+df_gene_snp = assign_initial_blocks(
     df_gene_snp, adata, cell_snp_Aallele, cell_snp_Ballele, unique_snp_ids
 )
 
@@ -43,55 +44,46 @@ df_gene_snp = assign_initial_fragments(
     geneticmap_file=config["geneticmap_file"],
 )
 
-if not Path(f"{config['output_dir']}/initial_phase.npz").exists():
-    initial_clone_for_phasing = perform_partition(
-        coords,
-        sample_ids,
-        x_part=config["npart_phasing"],
-        y_part=config["npart_phasing"],
-        single_tumor_prop=single_tumor_prop,
-        threshold=config["tumorprop_threshold"],
-    )
-    phase_indicator, refined_lengths = initial_phase_given_partition(
-        single_X,
-        lengths,
-        single_base_nb_mean,
-        single_total_bb_RD,
-        single_tumor_prop,
-        initial_clone_for_phasing,
-        5,
-        log_sitewise_transmat,
-        "sp",
-        config["t_phaseing"],
-        config["gmm_random_state"],
-        config["fix_NB_dispersion"],
-        config["shared_NB_dispersion"],
-        config["fix_BB_dispersion"],
-        config["shared_BB_dispersion"],
-        30,
-        1e-3,
-        threshold=config["tumorprop_threshold"],
-    )
-    np.savez(
-        f"{config['output_dir']}/initial_phase.npz",
-        phase_indicator=phase_indicator,
-        refined_lengths=refined_lengths,
-    )
+initial_clone_for_phasing = initialize_clones(
+    coords,
+    sample_ids,
+    x_part=config["npart_phasing"],
+    y_part=config["npart_phasing"],
+    single_tumor_prop=single_tumor_prop,
+    threshold=config["tumorprop_threshold"],
+)
 
-    # map phase indicator to individual snps
-    df_gene_snp["phase"] = np.where(
-        df_gene_snp.snp_id.isnull(),
-        None,
-        df_gene_snp.block_id.map({i: x for i, x in enumerate(phase_indicator)}),
-    )
-else:
-    tmp = dict(np.load(f"{config['output_dir']}/initial_phase.npz"))
-    phase_indicator, refined_lengths = tmp["phase_indicator"], tmp["refined_lengths"]
+phase_indicator, refined_lengths = initial_phase_given_partition(
+    single_X,
+    lengths,
+    single_base_nb_mean,
+    single_total_bb_RD,
+    single_tumor_prop,
+    initial_clone_for_phasing,
+    5,
+    log_sitewise_transmat,
+    "sp",
+    config["t_phaseing"],
+    config["gmm_random_state"],
+    config["fix_NB_dispersion"],
+    config["shared_NB_dispersion"],
+    config["fix_BB_dispersion"],
+    config["shared_BB_dispersion"],
+    30,
+    1e-3,
+    threshold=config["tumorprop_threshold"],
+)
 
-# binning
+df_gene_snp["phase"] = np.where(
+    df_gene_snp.snp_id.isnull(),
+    None,
+    df_gene_snp.block_id.map({i: x for i, x in enumerate(phase_indicator)}),
+)
+
 df_gene_snp = create_bin_ranges(
     df_gene_snp, single_total_bb_RD, refined_lengths, config["secondary_min_umi"]
 )
+
 (
     lengths,
     single_X,

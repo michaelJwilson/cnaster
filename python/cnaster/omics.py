@@ -83,7 +83,7 @@ def form_gene_snp_table(unique_snp_ids, hgtable_file, adata):
     return df_gene_snp
 
 
-def assign_initial_fragments(
+def assign_initial_blocks(
     df_gene_snp,
     adata,
     cell_snp_Aallele,

@@ -17,6 +17,9 @@ dependencies = [
     "rich==14.0.0",
     "polars>=1.30.0",
     "pyyaml>=6.0",
+    "pybedtools",
+    "hmmlearn",
+    "pysam"
 ]
 
 [project.optional-dependencies]
@@ -26,7 +29,13 @@ dev = [
     "black>=25.1.0",
     "mypy>=1.0.0",
     "pre-commit>=3.0.0",
-    "isort"
+    "isort",
+    "mock",
+    "sphinx",
+    "sphinxcontrib-bibtex<2.0.0",
+    "sphinx-rtd-theme",
+    "recommonmark",
+    "sphinx-markdown-tables",
 ]
 build = [
     "setuptools>=65.0.0",

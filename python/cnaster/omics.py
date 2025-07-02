@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 
 from cnaster.reference import get_reference_genes, get_reference_recomb_rates
-from cnaster.recomb import compute_numbat_phase_switch_prob
+from cnaster.recomb import compute_numbat_phase_switch_prob, assign_centiMorgans
 
 logger = logging.getLogger(__name__)
 
@@ -152,8 +152,8 @@ def assign_initial_blocks(
         block_ranges.append((indexes[0], indexes[-1] + 1))
 
     assert np.all(
-        np.array(np.array([x[1] for x in block_ranges[:-1]]))
-        == np.array(np.array([x[0] for x in block_ranges[1:]]))
+        np.array([x[1] for x in block_ranges[:-1]])
+        == np.array([x[0] for x in block_ranges[1:]])
     )
 
     # record the initial block id in df_gene_snps
@@ -174,6 +174,7 @@ def assign_initial_blocks(
 
         while t <= len(block_ranges):
             t += 1
+            
             reach_end = t == len(block_ranges)
             change_chr = initial_block_chr[s] != initial_block_chr[t - 1]
 
@@ -297,7 +298,7 @@ def summarize_counts_for_blocks(
     for b in range(df_block_contents.shape[0]):
         # BAF (SNPs)
         involved_snps_ids = [
-            x for x in df_block_contents.snp_id.values[b] if not x is None
+            x for x in df_block_contents.snp_id.values[b] if x is not None
         ]
 
         involved_snp_idx = np.array([map_snp_index[x] for x in involved_snps_ids])
@@ -313,7 +314,7 @@ def summarize_counts_for_blocks(
 
         # RDR (genes)
         involved_genes = list(
-            set([x for x in df_block_contents.gene.values[b] if not x is None])
+            set([x for x in df_block_contents.gene.values[b] if x is not None])
         )
 
         if len(involved_genes) > 0:
@@ -548,7 +549,7 @@ def summarize_counts_for_bins(
     for b in range(df_bin_contents.shape[0]):
         # BAF (SNPs)
         involved_blocks = [
-            x for x in df_bin_contents.block_id.values[b] if not x is None
+            x for x in df_bin_contents.block_id.values[b] if x is not None
         ]
         this_phased = np.where(
             phase_indicator[involved_blocks].reshape(-1, 1),
@@ -560,7 +561,7 @@ def summarize_counts_for_bins(
             single_total_bb_RD[involved_blocks, :], axis=0
         )
         # RDR (genes)
-        involved_genes = [x for x in df_bin_contents.gene.values[b] if not x is None]
+        involved_genes = [x for x in df_bin_contents.gene.values[b] if x is not None]
         bin_single_X[b, 0, :] = np.sum(
             adata.layers["count"][:, adata.var.index.isin(involved_genes)], axis=1
         )
@@ -591,8 +592,11 @@ def summarize_counts_for_bins(
     tmp_sorted_chr_pos = [
         val for pair in zip(sorted_chr_pos_first, sorted_chr_pos_last) for val in pair
     ]
-    position_cM = get_position_cM_table(tmp_sorted_chr_pos, geneticmap_file)
-    phase_switch_prob = compute_phase_switch_probability_position(
+    ref_positions_cM = get_reference_recomb_rates(geneticmap_file)
+
+    position_cM = assign_centiMorgans(tmp_sorted_chr_pos, ref_positions_cM)
+
+    phase_switch_prob = compute_numbat_phase_switch_prob(
         position_cM, tmp_sorted_chr_pos, nu
     )
     log_sitewise_transmat = np.minimum(

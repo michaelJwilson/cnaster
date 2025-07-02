@@ -39,7 +39,7 @@ process cellsnp_lite_pileup {
     
     cellsnp-lite -s ${bam} \\
                  -b ${barcodes} \\
-                 -O ${sample_id}/genotyping/ \\
+                 -O ${sample_id}/pileup/ \\
                  -R ${ref_snp_vcf} \\
                  -p ${task.cpus} \\
                  --minMAF 0 \\
@@ -179,11 +179,13 @@ workflow {
         .map { row -> 
             tuple(
                 row.sample_id,
-                row.bam,
-                row.bai,
+                file(row.bam),
+                file(row.bai),
+                file(row.barcodes)
             )
         }
-    
+
+    ref_snp_vcf_ch = Channel.fromPath(params.ref_snp_vcf)
     chr_ch = Channel.from(params.contigs.split(','))
 
     sample_ids = sample_ch
@@ -206,6 +208,7 @@ workflow {
         """
     }
 
-    
-
+    cellsnp_lite_pileup(
+        sample_ch.combine(ref_snp_vcf_ch)
+    )
 }

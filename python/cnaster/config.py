@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import json
 import yaml
+import logging
 from pathlib import Path
 from typing import Dict, Any, Union
 
+logger = logging.getLogger(__name__)
 
 class JSONConfig:
     def __init__(self, d):
@@ -13,7 +15,7 @@ class JSONConfig:
                 v = JSONConfig(v)
 
             setattr(self, k, v)
-
+            
     def __iter__(self):
         return iter(
             xx for xx in dir(self) if (xx != "from_file") and not xx.startswith("_")
@@ -58,6 +60,7 @@ class YAMLConfig:
             else:
                 formatted_value = repr(value)
             items.append(f"{space}{key}: {formatted_value}")
+            
         return ",\n".join(items)
 
     @classmethod
@@ -65,4 +68,8 @@ class YAMLConfig:
         with open(config_path, "r") as f:
             config_dict = yaml.safe_load(f)
 
-        return cls(config_dict)
+        config = cls(config_dict)
+
+        logger.info(f"Read configuration:\n{config}")
+        
+        return config

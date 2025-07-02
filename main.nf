@@ -37,8 +37,6 @@ process cellsnp_lite_pileup {
     echo "Region VCF: ${region_vcf}" >> ${sample_id}_cellsnp.log
     echo "Threads: ${task.cpus}" >> ${sample_id}_cellsnp.log
     
-    mkdir -p ${sample_id}
-    
     cellsnp-lite -s ${bam} \\
                  -b ${barcodes} \\
                  -O ${sample_id} \\
@@ -76,12 +74,11 @@ process filter_snps_forphasing {
     echo "Input BAM: ${bam}" >> ${sample_id}_filter_snps.log
     echo "Output directory: \$(pwd)" >> ${sample_id}_filter_snps.log
     
-    python ${params.scriptdir}/filter_snps_forphasing.py \\
+    prep_snps \\
         ${sample_id} \\
         \$(pwd) \\
         >> ${sample_id}_filter_snps.log 2>&1
     
-    # Check if output was created and compress if needed
     if [ -f "${sample_id}_filtered_snps.vcf" ]; then
         bgzip "${sample_id}_filtered_snps.vcf"
         tabix -p vcf "${sample_id}_filtered_snps.vcf.gz"
@@ -184,14 +181,12 @@ workflow {
                 row.bai,
             )
         }
-        // .view { "Parsed row: $it" }
     
     chr_ch = Channel.from(params.chromosomes.split(','))
 
     sample_ids = sample_ch
         .map { sample_id, bam, bai -> sample_id }
         .collect()
-    
     
     sample_ids.subscribe { ids ->
         println """
@@ -208,6 +203,4 @@ workflow {
         =====================================
         """
     }
-
-
 }

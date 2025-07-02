@@ -1,7 +1,7 @@
 #!/usr/bin/env nextflow
 nextflow.enable.dsl = 2
 
-params.samples = null
+params.samples = "./mock/mock_sample_list.tsv"
 params.outputdir = "./results"
 params.container = "cnaster.sif"
 params.config = "config.yaml"
@@ -176,14 +176,38 @@ process create_allele_matrices {
 workflow {
     sample_ch = Channel
         .fromPath(params.samples)
-        .splitCsv(header: true, sep: '\t')
+        .splitCsv(header: true, sep: ' ')
         .map { row -> 
             tuple(
-                row.sample,
-                file(row.bam),
-                file(row.bai),
+                row.sample_id,
+                row.bam,
+                row.bai,
             )
         }
+        // .view { "Parsed row: $it" }
     
     chr_ch = Channel.from(params.chromosomes.split(','))
+
+    sample_ids = sample_ch
+        .map { sample_id, bam, bai -> sample_id }
+        .collect()
+    
+    
+    sample_ids.subscribe { ids ->
+        println """
+        =====================================
+        CNAster Pipeline Run
+        =====================================
+        Samples to process: ${ids.size()}
+        Sample IDs: ${ids.join(', ')}
+        
+        Contig range: chr${params.chromosomes.split(',').first()} - chr${params.chromosomes.split(',').last()}
+        
+        Output directory: ${params.outputdir}
+        Container: ${params.container}
+        =====================================
+        """
+    }
+
+
 }

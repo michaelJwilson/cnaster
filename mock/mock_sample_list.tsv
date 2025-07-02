@@ -1,0 +1,4 @@
+sample_id bam bai
+sample_J2_314_Y8_X /path/to/sample_J2_314_Y8_X.bam /path/to/sample_J2_314_Y8_X.bam.bai
+sample2 /path/to/sample2.bam /path/to/sample2.bam.bai
+sample3 /path/to/sample3.bam /path/to/sample3.bam.bai

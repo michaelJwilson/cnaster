@@ -1,7 +1,7 @@
 #!/usr/bin/env nextflow
 nextflow.enable.dsl = 2
 
-params.samples = "./mock/mock_sample_list.tsv"
+params.sample_list = "./mock/mock_sample_list.tsv"
 params.outputdir = "./results"
 params.container = "cnaster.sif"
 params.config = "config.yaml"
@@ -170,9 +170,10 @@ process create_allele_matrices {
     """
 }
 
+# NB (sudo) nextflow run main.nf --sample_list
 workflow {
     sample_ch = Channel
-        .fromPath(params.samples)
+        .fromPath(params.sample_list)
         .splitCsv(header: true, sep: ' ')
         .map { row -> 
             tuple(

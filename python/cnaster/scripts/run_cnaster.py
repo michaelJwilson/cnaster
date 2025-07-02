@@ -3,7 +3,6 @@ from cnaster.io import load_sample_data
 from cnaster.omics import form_gene_snp_table, assign_initial_blocks, summarize_counts_for_blocks
 from cnaster.spatial import initialize_clones
 from cnaster.phasing import initial_phase_given_partition
-# from cnaster.hmm import pipeline_baum_welch
 from cnaster.config import YAMLConfig
 
 logging.basicConfig(

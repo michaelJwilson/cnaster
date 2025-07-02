@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 
 
-def main(cellsnplite_results_dir, eagle_results_dir, vaf_threshold=0.1):
+def main(cellsnplite_results_dir, output_dir, vaf_threshold=0.1):
     cellsnp_base = [str(x) for x in Path(cellsnplite_results_dir).glob("cellSNP.base*")][
         0
     ]
@@ -81,6 +81,7 @@ def main(cellsnplite_results_dir, eagle_results_dir, vaf_threshold=0.1):
         info = [f"AD={row.AD};DP={row.DP};OTH={row.OTH}" for i, row in df.iterrows()]
         
         df["INFO"] = info
+        
         df = df[
             [
                 "CHROM",
@@ -98,7 +99,7 @@ def main(cellsnplite_results_dir, eagle_results_dir, vaf_threshold=0.1):
         
         df.sort_values(by="POS", inplace=True)
         
-        fp = open(f"{eagle_results_dir}/chr{c}.vcf", "w")
+        fp = open(f"{output_dir}/chr{c}.vcf", "w")
         fp.write("##fileformat=VCFv4.2\n")
         fp.write(
             '##FORMAT=<ID=GT,Number=1,Type=String,Description="Consensus Genotype across all datasets with called genotype">\n'
@@ -116,7 +117,7 @@ if __name__ == "__main__":
         "-c", "--cellsnplite_results_dir", help="cellsnplite result directory", type=str
     )
     parser.add_argument(
-        "-o", "--eagle_results_dir", help="eagle output directory", type=str
+        "-o", "--output_dir", help="output directory", type=str
     )
     parser.add_argument(
         "-v", "--vaf_threshold", help="vaf threshold", default=0.1, type=float
@@ -125,5 +126,5 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     main(
-        args.cellsnplite_results_dir, args.eagle_results_dir, args.vaf_threshold
+        args.cellsnplite_results_dir, args.output_dir, args.vaf_threshold
     )

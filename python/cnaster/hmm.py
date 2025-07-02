@@ -6,7 +6,6 @@ import scipy.stats
 import scipy.special
 import scipy.linalg
 from sklearn.mixture import GaussianMixture
-import statsmodels.api as sm
 from statsmodels.base.model import GenericLikelihoodModel
 from numba import njit
 

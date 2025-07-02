@@ -5,6 +5,7 @@ from cnaster.pseudobulk import merge_pseudobulk_by_index
 
 logger = logging.getLogger(__name__)
 
+
 def initial_phase_given_partition(
     single_X,
     lengths,

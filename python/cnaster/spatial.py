@@ -5,6 +5,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 # TODO respect alignment.
 def fixed_rectangle_partition(
     coords, x_part, y_part, single_tumor_prop=None, threshold=0.5

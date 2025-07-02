@@ -3,6 +3,7 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
+
 def merge_pseudobulk_by_index(
     single_X,
     single_base_nb_mean,

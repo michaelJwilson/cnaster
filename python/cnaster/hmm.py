@@ -1,11 +1,14 @@
+import copy
 import logging
 import numpy as np
 import scipy.special
 import scipy.stats
 import scipy.special
+import scipy.linalg
 from sklearn.mixture import GaussianMixture
+import statsmodels.api as sm
+from statsmodels.base.model import GenericLikelihoodModel
 from numba import njit
-from tqdm import trange
 
 logger = logging.getLogger(__name__)
 
@@ -89,6 +92,22 @@ def mylogsumexp(a):
     s = np.sum(tmp)
     s = np.log(s)
 
+    return s + a_max
+
+
+@njit
+def mylogsumexp_ax_keep(a, axis):
+    # get max
+    a_max = np_max_ax_keep(a, axis=axis)
+    # if a_max.ndim > 0:
+    #     a_max[~np.isfinite(a_max)] = 0
+    # elif not np.isfinite(a_max):
+    #     a_max = 0
+    # exponential
+    tmp = np.exp(a - a_max)
+    # summation
+    s = np_sum_ax_keep(tmp, axis=axis)
+    s = np.log(s)
     return s + a_max
 
 
@@ -1235,7 +1254,7 @@ class hmm_sitewise(object):
             X[:, 1, :], total_bb_RD
         )
 
-        for r in trange(max_iter):
+        for r in range(max_iter):
             if tumor_prop is None:
                 (
                     log_emission_rdr,

@@ -211,4 +211,6 @@ workflow {
     cellsnp_lite_pileup(
         sample_ch.combine(ref_snp_vcf_ch)
     )
+    
+    // ....
 }

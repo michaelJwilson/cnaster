@@ -171,7 +171,7 @@ process create_allele_matrices {
     """
 }
 
-// NB (sudo) nextflow run main.nf --sample_list
+// (sudo) nextflow run main.nf --sample_list ./mock/mock_sample_list.tsv --outputdir ./results --container cnaster.sif --config config.yaml
 workflow {
     sample_ch = Channel
         .fromPath(params.sample_list)

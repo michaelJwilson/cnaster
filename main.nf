@@ -24,6 +24,8 @@ process sayHello {
     """
 }
 
+
+
 workflow {
     greeting_ch = Channel.of(params.greeting)
     name_ch = Channel.of(params.name)

@@ -1,5 +1,7 @@
 import json
-
+import yaml
+from pathlib import Path
+from typing import Dict, Any
 
 class JSONConfig:
     def __init__(self, d):
@@ -24,3 +26,21 @@ class JSONConfig:
             lines = [line for line in f if not line.strip().startswith("//")]
             d = json.loads("".join(lines))
         return cls(d)
+
+class YAMLConfig:
+    def __init__(self, config_dict: Dict[str, Any]):
+        for key, value in config_dict.items():
+            if isinstance(value, dict):
+                setattr(self, key, Config(value))
+            else:
+                setattr(self, key, value)
+    
+    def __repr__(self):
+        return f"Config({self.__dict__})"
+
+    @classmethod
+    def from_file(config_path: str) -> Config:
+        with open(config_path, 'r') as f:
+            config_dict = yaml.safe_load(f)
+
+        return Config(config_dict)

@@ -2,7 +2,16 @@ from cnaster.io import load_sample_data
 from cnaster.omics import form_gene_snp_table, assign_initial_fragments, summarize_counts_for_blocks
 from cnaster.clones import initialize_clones
 from cnaster.hmm import pipeline_baum_welch
+from cnaster.config import YAMLConfig
 
+# HACK
+root = "/Users/mw9568/repos/cnaster"
+
+config = YAMLConfig.from_file(f"{root}/config.yaml")
+
+print(config)
+
+"""
 (
     adata,
     cell_snp_Aallele.A,
@@ -111,3 +120,4 @@ adjacency_mat, smooth_mat = multislice_adjacency(sample_ids, sample_list, coords
                                                  maxspots_pooling=config['maxspots_pooling'], construct_adjacency_w=config['construct_adjacency_w'])
 
 n_pooled = np.median(np.sum(smooth_mat > 0, axis=0).A.flatten())
+"""

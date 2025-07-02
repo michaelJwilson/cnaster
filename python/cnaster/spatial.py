@@ -87,7 +87,6 @@ def compute_adjacency_mat_v2(coords, unit_xsquared=9, unit_ysquared=3, ratio=1):
 
     pairwise_squared_dist = x_dist**2 * unit_xsquared + y_dist**2 * unit_ysquared
 
-    # adjacency
     A = np.zeros((coords.shape[0], coords.shape[0]), dtype=np.int8)
 
     for i in range(coords.shape[0]):
@@ -114,7 +113,6 @@ def compute_weighted_adjacency(
 
     kern = np.exp(-((pairwise_squared_dist / bandwidth) ** decay))
 
-    # adjacency
     A = np.zeros((coords.shape[0], coords.shape[0]))
 
     for i in range(coords.shape[0]):

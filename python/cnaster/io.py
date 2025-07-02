@@ -107,7 +107,6 @@ def get_alignments(alignment_files, df_meta, significance=1.0e-6):
         sname2 = df_meta.sample_id.values[i + 1]
 
         assert pi.shape[0] == np.sum(df_barcode["sample_id"] == sname1)
-
         assert pi.shape[1] == np.sum(df_barcode["sample_id"] == sname2)
 
         # for each spot s in sname1, select {t: spot t in sname2 and pi[s,t] >= np.max(pi[s,:])} as the corresponding spot in the other slice
@@ -177,7 +176,7 @@ def load_sample_data(
         adatatmp = get_spaceranger_counts(df_meta["spaceranger_dir"].iloc[i])
         adatatmp.layers["count"] = adatatmp.X.A
 
-        # reorder anndata spots to have the same order as df_this_barcode
+        # NB reorder anndata spots to have the same order as df_this_barcode
         idx_argsort = pd.Categorical(
             adatatmp.obs.index, categories=list(df_this_barcode.barcode), ordered=True
         ).argsort()
@@ -187,7 +186,7 @@ def load_sample_data(
 
         df_this_pos = get_spatial_positions(df_meta["spaceranger_dir"].iloc[i])
 
-        # only keep shared barcodes
+        # NB only keep shared barcodes
         shared_barcodes = set(list(df_this_pos.barcode)) & set(list(adatatmp.obs.index))
 
         adatatmp = adatatmp[adatatmp.obs.index.isin(shared_barcodes), :]
@@ -196,6 +195,7 @@ def load_sample_data(
         df_this_pos.barcode = pd.Categorical(
             df_this_pos.barcode, categories=list(adatatmp.obs.index), ordered=True
         )
+        
         df_this_pos.sort_values(by="barcode", inplace=True)
 
         adatatmp.obsm["X_pos"] = np.vstack([df_this_pos.x, df_this_pos.y]).T

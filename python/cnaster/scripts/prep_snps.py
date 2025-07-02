@@ -1,8 +1,9 @@
+import argparse
 import sys
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
-from pathlib import Path
-import argparse
 
 
 def main(cellsnplite_result_dir, eagle_out_dir, vaf_threshold=0.1):

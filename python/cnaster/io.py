@@ -1,15 +1,17 @@
-import logging
 import copy
+import logging
+from pathlib import Path
+
+import anndata
 import numpy as np
 import pandas as pd
-import scipy.sparse
 import scanpy as sc
-import anndata
-from pathlib import Path
+import scipy.sparse
 from sklearn.neighbors import LocalOutlierFactor
+
 from cnaster.filter import get_filter_genes, get_filter_ranges
-from cnaster.reference import get_reference_genes
 from cnaster.omics import form_gene_snp_table
+from cnaster.reference import get_reference_genes
 
 logger = logging.getLogger(__name__)
 

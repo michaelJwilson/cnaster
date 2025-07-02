@@ -1,7 +1,8 @@
-import numpy as np
-import scipy.sparse
-import scipy.linalg
 import logging
+
+import numpy as np
+import scipy.linalg
+import scipy.sparse
 
 logger = logging.getLogger(__name__)
 

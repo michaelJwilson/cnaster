@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import json
-import yaml
 import logging
 from pathlib import Path
-from typing import Dict, Any, Union
+from typing import Any, Dict, Union
+
+import yaml
 
 logger = logging.getLogger(__name__)
 

@@ -1,13 +1,13 @@
 import copy
 import logging
+
 import numpy as np
+import scipy.linalg
 import scipy.special
 import scipy.stats
-import scipy.special
-import scipy.linalg
+from numba import njit
 from sklearn.mixture import GaussianMixture
 from statsmodels.base.model import GenericLikelihoodModel
-from numba import njit
 
 logger = logging.getLogger(__name__)
 

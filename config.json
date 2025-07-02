@@ -1,9 +1,0 @@
-{
-    "model_parameters": {
-        "cna_rate": 0.00001
-    },
-    "clone_initialization": {
-        "min_clone_read_coverage": 200,
-        "min_clone_snp_coverage": 50
-    }
-}

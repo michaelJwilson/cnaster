@@ -1,4 +1,12 @@
 import logging
+import copy
+import numpy as np
+import pandas as pd
+import scipy.sparse
+import scanpy as sc
+import anndata
+from pathlib import Path
+from sklearn.neighbors import LocalOutlierFactor
 from cnaster.filter import get_filter_genes, get_filter_ranges
 from cnaster.reference import get_reference_genes, form_gene_snp_table
 
@@ -13,6 +21,11 @@ def get_barcodes(barcode_file):
     df_barcode["barcode"] = [
         x.split("_")[0] for x in df_barcode.combined_barcode.values
     ]
+
+    logger.info(
+        f"Input barcode file {barcode_file} with {df_barcode.shape[0]} barcodes, e.g.\n{df_barcode.head()}\n"
+    )
+
     return df_barcode
 
 
@@ -59,9 +72,7 @@ def get_spatial_positions(spaceranger_dir):
         logger.error("No spatial coordinate file @ {spaceranger_dir}.")
         raise RuntimeError()
 
-    df_this_pos = df_this_pos[df_this_pos.in_tissue == True]
-
-    return df_this_pos
+    return df_this_pos[df_this_pos.in_tissue == True]
 
 
 def get_spaceranger_counts(spaceranger_dir):
@@ -127,12 +138,12 @@ def get_alignments(alignment_files, df_meta, significance=1.0e-6):
 
         offset += pi.shape[0]
 
-        across_slice_adjacency_mat = scipy.sparse.csr_matrix(
-            (dat, (row_ind, col_ind)), shape=(adata.shape[0], adata.shape[0])
-        )
+     across_slice_adjacency_mat = scipy.sparse.csr_matrix(
+        (dat, (row_ind, col_ind)), shape=(adata.shape[0], adata.shape[0])
+    )
 
-        # TODO symmetric by definition.
-        across_slice_adjacency_mat += across_slice_adjacency_mat.T
+    # TODO symmetric by definition.
+    across_slice_adjacency_mat += across_slice_adjacency_mat.T
 
     return across_slice_adjacency_mat
 
@@ -141,17 +152,17 @@ def load_sample_data(
     spaceranger_meta_path,
     snp_dir,
     alignment_files,
-    filter_gene_file,
-    filter_range_file,
-    normal_idx_file,
+    filter_gene_file=None,
+    filter_range_file=None,
+    normal_idx_file=None,
     min_snp_umis=50,
     min_percent_expressed_spots=5.0e-3,
     local_outlier_filter=True,
 ):
-    assert (len(alignment_files) == 0) or (len(alignment_files) + 1 == df_meta.shape[0])
-
     df_meta = get_spaceranger_meta(spaceranger_meta_path)
     df_barcode = get_barcodes(f"{snp_dir}/barcodes.txt")
+
+    assert (len(alignment_files) == 0) or (len(alignment_files) + 1 == df_meta.shape[0])
 
     # TODO duplicate of df_barcode
     snp_barcodes = pd.read_csv(

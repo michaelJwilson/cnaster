@@ -1,6 +1,6 @@
 import logging
 from cnaster.io import load_sample_data
-from cnaster.omics import form_gene_snp_table, assign_initial_blocks, summarize_counts_for_blocks
+from cnaster.omics import form_gene_snp_table, assign_initial_blocks, summarize_counts_for_blocks, create_bin_ranges, summarize_counts_for_bins
 from cnaster.spatial import initialize_clones
 from cnaster.phasing import initial_phase_given_partition
 from cnaster.config import YAMLConfig

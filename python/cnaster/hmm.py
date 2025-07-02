@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
     def __init__(self, endog, exog, weights, exposure, tumor_prop, seed=0, **kwds):
         super(Weighted_NegativeBinomial_mix, self).__init__(endog, exog, **kwds)
+        
         self.weights = weights
         self.exposure = exposure
         self.seed = seed

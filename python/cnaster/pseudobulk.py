@@ -1,5 +1,7 @@
+import logging
 import numpy as np
 
+logger = logging.getLogger(__name__)
 
 def merge_pseudobulk_by_index(
     single_X,
@@ -21,11 +23,14 @@ def merge_pseudobulk_by_index(
 
     for k, idx in enumerate(clone_index):
         if len(idx) == 0:
+            logger.warning(f"Clone {k} has no cells, skipping")
             continue
 
         if single_tumor_prop is not None:
-            idx = idx[np.where(single_tumor_prop[idx] > threshold)[0]]
-            tumor_prop[k] = np.mean(single_tumor_prop[idx]) if len(idx) > 0 else 0
+            tumor_mask = single_tumor_prop[idx] > threshold
+
+            idx = idx[tumor_mask]
+            tumor_prop[k] = np.mean(single_tumor_prop[idx]) if len(idx) > 0 else 0.0
 
         # TODO assumes simple aggregation.
         X[:, :, k] = np.sum(single_X[:, :, idx], axis=2)

@@ -1,5 +1,9 @@
-from cnaster.pseduobulk import merge_pseudobulk_by_index
+import logging
+import numpy as np
+from cnaster.hmm import pipeline_baum_welch, hmm_sitewise
+from cnaster.pseudobulk import merge_pseudobulk_by_index
 
+logger = logging.getLogger(__name__)
 
 def initial_phase_given_partition(
     single_X,
@@ -23,6 +27,11 @@ def initial_phase_given_partition(
     min_snpumi=2e3,
 ):
     EPS_BAF = 0.05
+    MIN_SEGMENT_SIZE = 10
+    BAF_CHANGE_THRESHOLD = 0.1
+    DEFAULT_DIPLOID_STATE = 2
+
+    logger.info(f"Starting phasing with {len(initial_clone_index)} clones")
 
     X, base_nb_mean, total_bb_RD, tumor_prop = merge_pseudobulk_by_index(
         single_X,
@@ -33,6 +42,9 @@ def initial_phase_given_partition(
         threshold=threshold,
     )
 
+    logger.info(f"Created pseudobulk with shape {X.shape}")
+
+    # TODO why transpose?
     baf_profiles = np.zeros((X.shape[2], X.shape[0]))
     pred_cnv = np.zeros((X.shape[2], X.shape[0]))
 
@@ -40,6 +52,9 @@ def initial_phase_given_partition(
         # NB assumes BAF = 0.5 for insufficient snp umi count.
         if np.sum(total_bb_RD[:, i]) < min_snpumi:
             baf_profiles[i, :] = 0.5
+
+            # TODO BUG?
+            # pred_cnv[i, :] = ??
         else:
             res = pipeline_baum_welch(
                 None,
@@ -81,9 +96,9 @@ def initial_phase_given_partition(
             this_baf_profiles[np.abs(this_baf_profiles - 0.5) < EPS_BAF] = 0.5
 
             baf_profiles[i, :] = this_baf_profiles
-
             pred_cnv[i, :] = pred % n_states
 
+    # NB compute population-level BAF weighted by clone sizes
     if single_tumor_prop is None:
         n_total_spots = np.sum([len(x) for x in initial_clone_index])
         population_baf = (
@@ -116,12 +131,12 @@ def initial_phase_given_partition(
 
         for i in range(le):
             # NB min. segment size of 10
-            if i > s + 10 and np.any(
+            if i > s + MIN_SEGMENT_SIZE and np.any(
                 np.abs(
                     mirror_baf_profiles[:, i + cumlen]
                     - mirror_baf_profiles[:, i + cumlen - 1]
                 )
-                > 0.1
+                > BAF_CHANGE_THRESHOLD
             ):
                 refined_lengths.append(i - s)
                 s = i

@@ -7,12 +7,12 @@ params.container = "cnaster.sif"
 params.config = "config.yaml"
 
 // TODO e.g. derive from config.
-params.eagledir = "/u/congma/ragr-data/users/congma/environments/Eagle_v2.4.1/"
+params.eagle_dir = "/u/congma/ragr-data/users/congma/environments/Eagle_v2.4.1/"
 params.phasing_panel = "/u/congma/ragr-data/users/congma/references/phasing_ref/1000G_hg38/"
-params.snps = "/u/congma/ragr-data/users/congma/references/snplist/nocpg.genome1K.phase3.SNP_AF5e4.chr1toX.hg38.vcf.gz"
-params.genes = "/u/congma/ragr-data/users/congma/Codes/STARCH_crazydev/hgTables_hg38_gencode.txt"
-params.genetic_map = "<REPLACE_ME>"
-params.chromosomes = "1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22"
+params.ref_snp_vcf = "/u/congma/ragr-data/users/congma/references/snplist/nocpg.genome1K.phase3.SNP_AF5e4.chr1toX.hg38.vcf.gz"
+params.hgtable = "/u/congma/ragr-data/users/congma/Codes/STARCH_crazydev/hgTables_hg38_gencode.txt"
+params.geneticmap = "<REPLACE_ME>"
+params.contigs = "1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22"
 
 process cellsnp_lite_pileup {
     tag "${sample_id}"
@@ -23,7 +23,7 @@ process cellsnp_lite_pileup {
     publishDir "${params.outputdir}/pileup", mode: 'copy'
     
     input:
-    tuple val(sample_id), path(bam), path(bai), path(barcodes), path(region_vcf)
+    tuple val(sample_id), path(bam), path(bai), path(barcodes), path(ref_snp_vcf)
     
     output:
     tuple val(sample_id), path("${sample_id}"), emit: pileup_dir
@@ -34,18 +34,19 @@ process cellsnp_lite_pileup {
     echo "Running cellsnp-lite for sample: ${sample_id}" > ${sample_id}_cellsnp.log
     echo "Input BAM: ${bam}" >> ${sample_id}_cellsnp.log
     echo "Barcodes file: ${barcodes}" >> ${sample_id}_cellsnp.log
-    echo "Region VCF: ${region_vcf}" >> ${sample_id}_cellsnp.log
+    echo "Region VCF: ${ref_snp_vcf}" >> ${sample_id}_cellsnp.log
     echo "Threads: ${task.cpus}" >> ${sample_id}_cellsnp.log
     
     cellsnp-lite -s ${bam} \\
                  -b ${barcodes} \\
-                 -O ${sample_id} \\
-                 -R ${region_vcf} \\
+                 -O ${sample_id}/genotyping/ \\
+                 -R ${ref_snp_vcf} \\
                  -p ${task.cpus} \\
                  --minMAF 0 \\
                  --minCOUNT 2 \\
                  --UMItag Auto \\
                  --cellTAG CB \\
+                 --gzip
                  >> ${sample_id}_cellsnp.log 2>&1
     
     echo "cellsnp-lite completed for ${sample_id}" >> ${sample_id}_cellsnp.log
@@ -108,7 +109,7 @@ process eagle2_phasing {
     
     script:
     """
-    echo "Starting phasing for chromosome ${chrname}" > phasing_chr${chrname}.log
+    echo "Starting phasing for contig ${chrname}" > phasing_chr${chrname}.log
     
     ref_panel="${params.phasing_panel}/chr${chrname}.genotypes.bcf"
 
@@ -127,7 +128,7 @@ process eagle2_phasing {
         --outPrefix chr${chrname}.phased \\
         >> phasing_chr${chrname}.log 2>&1
     
-    echo "Phasing completed for chromosome ${chrname}" >> phasing_chr${chrname}.log
+    echo "Phasing completed for contig ${chrname}" >> phasing_chr${chrname}.log
     """
 }
 
@@ -170,7 +171,7 @@ process create_allele_matrices {
     """
 }
 
-# NB (sudo) nextflow run main.nf --sample_list
+// NB (sudo) nextflow run main.nf --sample_list
 workflow {
     sample_ch = Channel
         .fromPath(params.sample_list)
@@ -183,7 +184,7 @@ workflow {
             )
         }
     
-    chr_ch = Channel.from(params.chromosomes.split(','))
+    chr_ch = Channel.from(params.contigs.split(','))
 
     sample_ids = sample_ch
         .map { sample_id, bam, bai -> sample_id }
@@ -197,11 +198,14 @@ workflow {
         Samples to process: ${ids.size()}
         Sample IDs: ${ids.join(', ')}
         
-        Contig range: chr${params.chromosomes.split(',').first()} - chr${params.chromosomes.split(',').last()}
+        Contig range: chr${params.contigs.split(',').first()} - chr${params.contigs.split(',').last()}
         
         Output directory: ${params.outputdir}
         Container: ${params.container}
         =====================================
         """
     }
+
+    
+
 }

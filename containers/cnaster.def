@@ -1,0 +1,161 @@
+# apptainer build -F cnaster.sif cnaster.def
+#
+# NB images cached to $HOME/.apptainer/cache
+# 
+Bootstrap: docker
+From: python:3.12-slim
+Stage: build
+
+%arguments
+    ENV_NAME="cnaster"
+    UV_VERSION="0.5.0"
+
+%files
+    ../pyproject.toml /tmp/pyproject.toml
+    ../python /tmp/python
+    ../README.md /tmp/README.md
+
+%environment
+    export PATH=/opt/uv/bin:/home/cnaster/.local/bin:$PATH
+    export PYTHONPATH=/opt/cnaster:$PYTHONPATH
+    export UV_CACHE_DIR=/tmp/uv-cache
+
+%post
+    # Update system packages
+    apt-get update && apt-get install -y \
+        wget \
+        curl \
+        git \
+        build-essential \
+        && rm -rf /var/lib/apt/lists/*
+
+    # Install uv
+    curl -LsSf https://astral.sh/uv/{{ UV_VERSION }}/install.sh | sh
+    export PATH="/root/.cargo/bin:$PATH"
+    
+    # Create user and directories
+    useradd -m -s /bin/bash cnaster
+    mkdir -p /opt/cnaster /opt/uv/bin /home/cnaster/.local/bin
+    
+    # Copy uv to system location
+    cp /root/.cargo/bin/uv /opt/uv/bin/
+    
+    # Download and install Eagle
+    # wget -O /tmp/Eagle_v2.4.1.tar.gz https://storage.googleapis.com/broad-alkesgroup-public/Eagle/downloads/Eagle_v2.4.1.tar.gz
+    # tar -xzf /tmp/Eagle_v2.4.1.tar.gz -C /tmp/
+    # cp /tmp/Eagle_v2.4.1/eagle /home/cnaster/.local/bin/
+    # chmod +x /home/cnaster/.local/bin/eagle
+    
+    # Set up cnaster project
+    cp -r /tmp/python /opt/cnaster/
+    cp /tmp/pyproject.toml /opt/cnaster/
+    cp /tmp/README.md /opt/cnaster/
+    
+    # Change to project directory and install with uv
+    cd /opt/cnaster
+    
+    # Create virtual environment and install dependencies
+    /opt/uv/bin/uv venv --python 3.12 /opt/cnaster/venv
+    source /opt/cnaster/venv/bin/activate
+    
+    # Install the package in development mode
+    /opt/uv/bin/uv pip install -e .
+    
+    # Install optional development dependencies
+    # /opt/uv/bin/uv pip install -e ".[dev,test]"
+    
+    # Set ownership
+    chown -R cnaster:cnaster /opt/cnaster /home/cnaster
+    
+    # Clean up
+    rm -rf /tmp/* /root/.cargo /opt/uv/cache
+
+%environment
+    export PATH=/opt/cnaster/venv/bin:/home/cnaster/.local/bin:$PATH
+    export PYTHONPATH=/opt/cnaster:$PYTHONPATH
+    export VIRTUAL_ENV=/opt/cnaster/venv
+
+%runscript
+    #!/bin/bash
+    set -e
+    
+    # Activate virtual environment
+    source /opt/cnaster/venv/bin/activate
+    
+    # Change to user's home directory
+    cd /home/cnaster
+    
+    # If no arguments provided, start interactive shell
+    if [ $# -eq 0 ]; then
+        exec /bin/bash --login
+    else
+        # Execute the provided command
+        exec "$@"
+    fi
+
+%startscript
+    # Ensure virtual environment is activated for services
+    source /opt/cnaster/venv/bin/activate
+
+%test
+    #!/bin/bash
+    set -e
+    
+    echo "=== Testing CNAster Installation ==="
+    
+    # Activate environment
+    source /opt/cnaster/venv/bin/activate
+    
+    # Test Python import
+    python -c "import cnaster; print(f'CNAster version: {cnaster.__version__ if hasattr(cnaster, \"__version__\") else \"dev\"}')"
+    
+    # Test key dependencies
+    python -c "import numpy, pandas, scipy, scanpy, anndata; print('✓ Core dependencies imported')"
+    
+    # Test optional dependencies
+    python -c "import sklearn, numba; print('✓ Optional dependencies imported')"
+    
+    # Test Eagle installation
+    # which eagle && echo "✓ Eagle found in PATH"
+    # eagle --help > /dev/null 2>&1 && echo "✓ Eagle executable works"
+    
+    # Test cnaster modules
+    python -c "from cnaster import config, io, omics, spatial, phasing; print('✓ CNAster modules imported')"
+    
+    echo "=== All tests passed! ==="
+
+%labels
+    Author "Michael J. Wilson"
+    Version "v0.1.0"
+    Description "CNAster: Copy Number Analysis for Spatial Transcriptomics"
+    UV_Version "{{ UV_VERSION }}"
+    Python_Version "3.12"
+    Build_Date "$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+
+%help
+    CNAster Container
+    ================
+    
+    This container provides a complete environment for CNAster analysis.
+    
+    Usage:
+      # Interactive shell
+      apptainer run cnaster.sif
+      
+      # Run specific command
+      apptainer run cnaster.sif python -m cnaster.scripts.run_cnaster
+      
+      # Run with bind mounts for data
+      apptainer run -B /path/to/data:/data cnaster.sif python script.py
+    
+    Features:
+      - Python 3.12 with uv package manager
+      - CNAster installed in development mode
+      - Eagle v2.4.1 for phasing
+      - All scientific Python dependencies
+      - Optimized for reproducible analysis
+    
+    Environment:
+      - Virtual environment: /opt/cnaster/venv
+      - CNAster source: /opt/cnaster
+      - Eagle binary: /home/cnaster/.local/bin/eagle

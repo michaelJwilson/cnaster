@@ -44,7 +44,7 @@ def assign_centiMorgans(chr_pos_vector, ref_positions_cM):
     # also sort the input argument
     chr_pos_vector.sort()
 
-    # find the centimorgan values (interpolate between (k-1)-th and k-th rows 
+    # find the centimorgan values (interpolate between (k-1)-th and k-th rows
     # in centimorgan tables.
     position_cM = np.ones(len(chr_pos_vector)) * np.nan
     k = 0

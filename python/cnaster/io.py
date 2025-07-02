@@ -207,7 +207,7 @@ def load_sample_data(
         df_this_pos.barcode = pd.Categorical(
             df_this_pos.barcode, categories=list(adatatmp.obs.index), ordered=True
         )
-        
+
         df_this_pos.sort_values(by="barcode", inplace=True)
 
         adatatmp.obsm["X_pos"] = np.vstack([df_this_pos.x, df_this_pos.y]).T

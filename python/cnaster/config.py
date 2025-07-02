@@ -8,6 +8,7 @@ from typing import Dict, Any, Union
 
 logger = logging.getLogger(__name__)
 
+
 class JSONConfig:
     def __init__(self, d):
         for k, v in d.items():
@@ -15,7 +16,7 @@ class JSONConfig:
                 v = JSONConfig(v)
 
             setattr(self, k, v)
-            
+
     def __iter__(self):
         return iter(
             xx for xx in dir(self) if (xx != "from_file") and not xx.startswith("_")
@@ -50,7 +51,9 @@ class YAMLConfig:
 
         for key, value in d.items():
             if isinstance(value, YAMLConfig):
-                formatted_value = f"\n{self._format_dict(value.__dict__, indent + 2)}\n{space}"
+                formatted_value = (
+                    f"\n{self._format_dict(value.__dict__, indent + 2)}\n{space}"
+                )
             elif isinstance(value, dict):
                 formatted_value = (
                     f"{{\n{self._format_dict(value, indent + 2)}\n{space}}}"
@@ -60,7 +63,7 @@ class YAMLConfig:
             else:
                 formatted_value = repr(value)
             items.append(f"{space}{key}: {formatted_value}")
-            
+
         return ",\n".join(items)
 
     @classmethod
@@ -71,5 +74,5 @@ class YAMLConfig:
         config = cls(config_dict)
 
         logger.info(f"Read configuration:\n{config}")
-        
+
         return config

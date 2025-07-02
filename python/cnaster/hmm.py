@@ -257,29 +257,29 @@ class hmm_sitewise(object):
                         X[idx_nonzero_rdr, 0, s], n, p
                     )
 
-                    log_emission_rdr[
-                        i + n_states, idx_nonzero_rdr, s
-                    ] = log_emission_rdr[i, idx_nonzero_rdr, s]
+                    log_emission_rdr[i + n_states, idx_nonzero_rdr, s] = (
+                        log_emission_rdr[i, idx_nonzero_rdr, s]
+                    )
 
                 idx_nonzero_baf = np.where(total_bb_RD[:, s] > 0)[0]
 
                 if len(idx_nonzero_baf) > 0:
-                    log_emission_baf[
-                        i, idx_nonzero_baf, s
-                    ] = scipy.stats.betabinom.logpmf(
-                        X[idx_nonzero_baf, 1, s],
-                        total_bb_RD[idx_nonzero_baf, s],
-                        p_binom[i, s] * taus[i, s],
-                        (1 - p_binom[i, s]) * taus[i, s],
+                    log_emission_baf[i, idx_nonzero_baf, s] = (
+                        scipy.stats.betabinom.logpmf(
+                            X[idx_nonzero_baf, 1, s],
+                            total_bb_RD[idx_nonzero_baf, s],
+                            p_binom[i, s] * taus[i, s],
+                            (1 - p_binom[i, s]) * taus[i, s],
+                        )
                     )
 
-                    log_emission_baf[
-                        i + n_states, idx_nonzero_baf, s
-                    ] = scipy.stats.betabinom.logpmf(
-                        X[idx_nonzero_baf, 1, s],
-                        total_bb_RD[idx_nonzero_baf, s],
-                        (1 - p_binom[i, s]) * taus[i, s],
-                        p_binom[i, s] * taus[i, s],
+                    log_emission_baf[i + n_states, idx_nonzero_baf, s] = (
+                        scipy.stats.betabinom.logpmf(
+                            X[idx_nonzero_baf, 1, s],
+                            total_bb_RD[idx_nonzero_baf, s],
+                            (1 - p_binom[i, s]) * taus[i, s],
+                            p_binom[i, s] * taus[i, s],
+                        )
                     )
 
         return log_emission_rdr, log_emission_baf
@@ -350,9 +350,9 @@ class hmm_sitewise(object):
                     log_emission_rdr[i, idx_nonzero_rdr, s] = scipy.stats.nbinom.logpmf(
                         X[idx_nonzero_rdr, 0, s], n, p
                     )
-                    log_emission_rdr[
-                        i + n_states, idx_nonzero_rdr, s
-                    ] = log_emission_rdr[i, idx_nonzero_rdr, s]
+                    log_emission_rdr[i + n_states, idx_nonzero_rdr, s] = (
+                        log_emission_rdr[i, idx_nonzero_rdr, s]
+                    )
 
                 # AF from BetaBinom distribution
                 idx_nonzero_baf = np.where(total_bb_RD[:, s] > 0)[0]

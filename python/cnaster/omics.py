@@ -174,8 +174,10 @@ def assign_initial_blocks(
 
         while t <= len(block_ranges):
             t += 1
-            
+
             reach_end = t == len(block_ranges)
+
+            # TODO BUG? (not reach_end) and ...
             change_chr = initial_block_chr[s] != initial_block_chr[t - 1]
 
             # count SNP-covering UMI

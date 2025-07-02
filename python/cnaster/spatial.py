@@ -131,9 +131,7 @@ def choose_adjacency_by_readcounts(
     x_dist = coords[:, 0][None, :] - coords[:, 0][:, None]
     y_dist = coords[:, 1][None, :] - coords[:, 1][:, None]
 
-    tmp_pairwise_squared_dist = (
-        x_dist**2 * unit_xsquared + y_dist**2 * unit_ysquared
-    )
+    tmp_pairwise_squared_dist = x_dist**2 * unit_xsquared + y_dist**2 * unit_ysquared
 
     np.fill_diagonal(tmp_pairwise_squared_dist, np.max(tmp_pairwise_squared_dist))
 

@@ -119,7 +119,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "-v", "--vaf_threshold", help="vaf threshold", default=0.1, type=float
     )
+    
     args = parser.parse_args()
+    
     main(
         args.cellsnplite_result_dir, args.eagle_out_dir, args.vaf_threshold
     )

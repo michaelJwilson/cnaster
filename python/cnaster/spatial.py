@@ -1,5 +1,9 @@
 import numpy as np
+import scipy.sparse
+import scipy.linalg
+import logging
 
+logger = logging.getLogger(__name__)
 
 # TODO respect alignment.
 def fixed_rectangle_partition(
@@ -64,7 +68,9 @@ def initialize_clones(coords, sample_ids, x_part, y_part, single_tumor_prop, thr
     for s in range(np.max(sample_ids) + 1):
         index = np.where(sample_ids == s)[0]
 
-        assert len(index) > 0
+        if len(index) == 0:
+            logger.error(f"Invalid sample_ids found: {sample_ids}")
+            raise RuntimeError()
 
         tmp_clone_index = fixed_rectangle_partition(
             coords[index, :],
@@ -174,7 +180,7 @@ def choose_adjacency_by_readcounts(
         adjacency_mat[adjacency_mat < 0] = 0
 
         if np.median(np.sum(adjacency_mat, axis=0).A.flatten()) >= 6:
-            print(f"bandwidth: {bandwidth}")
+            logger.info(f"bandwidth: {bandwidth}")
             break
 
     return smooth_mat, adjacency_mat
@@ -210,7 +216,7 @@ def multislice_adjacency(
     adjacency_mat = scipy.linalg.block_diag(*adjacency_mat)
     adjacency_mat = scipy.sparse.csr_matrix(adjacency_mat)
 
-    if not across_slice_adjacency_mat is None:
+    if across_slice_adjacency_mat is not None:
         adjacency_mat += across_slice_adjacency_mat
 
     smooth_mat = scipy.linalg.block_diag(*smooth_mat)

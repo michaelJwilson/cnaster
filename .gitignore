@@ -5,3 +5,7 @@ python/cnaster/__pycache__/
 python/cnaster/sim/__pycache__/
 python/cnaster/sim/phylogenies/
 python/cnaster/sim/scripts/__pycache__/
+
+results/
+work/
+.nextflow*

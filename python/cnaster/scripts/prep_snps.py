@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 
 
-def main(cellsnplite_results_dir, output_dir, vaf_threshold=0.1):
+def prep_snps(cellsnplite_results_dir, output_dir, vaf_threshold=0.1):
     cellsnp_base = [str(x) for x in Path(cellsnplite_results_dir).glob("cellSNP.base*")][
         0
     ]
@@ -111,7 +111,7 @@ def main(cellsnplite_results_dir, output_dir, vaf_threshold=0.1):
         fp.close()
 
 
-if __name__ == "__main__":
+def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "-c", "--cellsnplite_results_dir", help="cellsnplite result directory", type=str
@@ -125,6 +125,9 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
     
-    main(
+    prep_snps(
         args.cellsnplite_results_dir, args.output_dir, args.vaf_threshold
     )
+
+if __name__ == "__main__":
+    main()

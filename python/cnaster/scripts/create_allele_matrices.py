@@ -197,8 +197,7 @@ def cell_by_gene_lefthap_counts(cellsnp_folder, eagle_results_dir, barcode_list)
     # returned matrix has shape (N_cells, N_snps), which is the transpose of the original matrix
     return (DP - phased_AD).T, phased_AD.T, df_snp.snp_id.values
 
-
-if __name__ == "__main__":
+def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "-c", "--cellsnplite_results_dir", help="cellsnplite results directory", type=str
@@ -221,3 +220,6 @@ if __name__ == "__main__":
     scipy.sparse.save_npz(f"{args.outputdir}/cell_snp_Ballele.npz", cell_snp_Ballele)
     
     np.save(f"{args.outputdir}/unique_snp_ids.npy", unique_snp_ids)
+
+if __name__ == "main":
+    main()

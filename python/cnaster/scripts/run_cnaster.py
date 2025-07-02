@@ -1,5 +1,5 @@
 import logging
-# from cnaster.io import load_sample_data
+from cnaster.io import load_sample_data
 # from cnaster.omics import form_gene_snp_table, assign_initial_fragments, summarize_counts_for_blocks
 # from cnaster.clones import initialize_clones
 # from cnaster.hmm import pipeline_baum_welch

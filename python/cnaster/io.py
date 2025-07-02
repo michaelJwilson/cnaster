@@ -8,7 +8,8 @@ import anndata
 from pathlib import Path
 from sklearn.neighbors import LocalOutlierFactor
 from cnaster.filter import get_filter_genes, get_filter_ranges
-from cnaster.reference import get_reference_genes, form_gene_snp_table
+from cnaster.reference import get_reference_genes
+from cnaster.omics import form_gene_snp_table
 
 logger = logging.getLogger(__name__)
 
@@ -138,7 +139,7 @@ def get_alignments(alignment_files, df_meta, significance=1.0e-6):
 
         offset += pi.shape[0]
 
-     across_slice_adjacency_mat = scipy.sparse.csr_matrix(
+    across_slice_adjacency_mat = scipy.sparse.csr_matrix(
         (dat, (row_ind, col_ind)), shape=(adata.shape[0], adata.shape[0])
     )
 

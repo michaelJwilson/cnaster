@@ -37,8 +37,18 @@ def main():
     # TODO CHECK
     coords = adata.obsm["X_pos"]
     
-    sample_list, sample_idx = np.unique(adata.obs["sample"], return_index=True)
-    sample_ids = dict(zip(sample_idx, sample_list))
+    sample_list = [adata.obs["sample"][0]]
+    
+    for i in range(1, adata.shape[0]):
+        if adata.obs["sample"][i] != sample_list[-1]:
+            sample_list.append( adata.obs["sample"][i] )
+            
+    # convert sample name to index
+    sample_ids = np.zeros(adata.shape[0], dtype=int)
+    
+    for s,sname in enumerate(sample_list):
+        index = np.where(adata.obs["sample"] == sname)[0]
+        sample_ids[index] = s
         
     """
     # RUN
@@ -67,6 +77,7 @@ def main():
         geneticmap_file=config.references.geneticmap_file,
     )
 
+    # RUN
     initial_clone_for_phasing = initialize_clones(
         coords,
         sample_ids,
@@ -84,15 +95,15 @@ def main():
         5,
         log_sitewise_transmat,
         "sp",
-        config["t_phaseing"],
-        config["gmm_random_state"],
-        config["fix_NB_dispersion"],
-        config["shared_NB_dispersion"],
-        config["fix_BB_dispersion"],
-        config["shared_BB_dispersion"],
-        30,
-        1e-3,
-        threshold=config["tumorprop_threshold"],
+        config.hmm.t_phaseing,
+        config.hmm.gmm_random_state,
+        config.hmm.fix_NB_dispersion,
+        config.hmm.shared_NB_dispersion,
+        config.hmm.fix_BB_dispersion,
+        config.hmm.shared_BB_dispersion,
+        30, # MAGIC max_iter
+        1.e-3, # MAGIC tol
+        threshold=config.hmrf.tumorprop_threshold,
     )
     
     df_gene_snp["phase"] = np.where(

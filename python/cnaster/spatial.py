@@ -76,6 +76,7 @@ def initialize_clones(
             logger.error(f"Invalid sample_ids found: {sample_ids}")
             raise RuntimeError()
 
+        # NB would be per cell tumor props stacked across samples.
         this_tumor_prop = (
             single_tumor_prop[index] if single_tumor_prop is not None else None
         )

@@ -47,10 +47,11 @@ def initial_phase_given_partition(
 
     logger.info(f"Created pseudobulk with shape {X.shape}")
 
-    # TODO why transpose?
+    # NB (segments, initial clones).
     baf_profiles = np.zeros((X.shape[2], X.shape[0]))
     pred_cnv = np.zeros((X.shape[2], X.shape[0]))
 
+    # NB loop over initial clones.
     for i in range(X.shape[2]):
         # NB assumes BAF = 0.5 for insufficient snp umi count.
         if np.sum(total_bb_RD[:, i]) < min_snpumi:
@@ -59,8 +60,9 @@ def initial_phase_given_partition(
             # TODO BUG?
             # pred_cnv[i, :] = ??
         else:
+            prefix = None
             res = pipeline_baum_welch(
-                None,
+                prefix,
                 X[:, :, i : (i + 1)],
                 lengths,
                 n_states,

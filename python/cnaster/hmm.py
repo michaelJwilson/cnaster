@@ -875,7 +875,7 @@ def compute_posterior_transition_sitewise(
 
 
 class hmm_sitewise(object):
-    def __init__(self, params="stmp", t=1 - 1e-4):
+    def __init__(self, params="stmp", t=1.- 1.e-4):
         self.params = params
         self.t = t
 
@@ -1227,22 +1227,27 @@ class hmm_sitewise(object):
         n_obs = X.shape[0]
         n_comp = X.shape[1]
         n_spots = X.shape[2]
+        
         assert n_comp == 2
+        
         # initialize NB logmean shift and BetaBinom prob
         log_mu = (
             np.vstack([np.linspace(-0.1, 0.1, n_states) for r in range(n_spots)]).T
             if init_log_mu is None
             else init_log_mu
         )
+        
         p_binom = (
             np.vstack([np.linspace(0.05, 0.45, n_states) for r in range(n_spots)]).T
             if init_p_binom is None
             else init_p_binom
         )
+        
         # initialize (inverse of) dispersion param in NB and BetaBinom
         alphas = (
             0.1 * np.ones((n_states, n_spots)) if init_alphas is None else init_alphas
         )
+        
         taus = 30 * np.ones((n_states, n_spots)) if init_taus is None else init_taus
 
         # initialize start probability and emission probability
@@ -1479,6 +1484,7 @@ def pipeline_baum_welch(
     remain_kwargs = {
         k: v for k, v in kwargs.items() if k in ["lambd", "sample_length", "log_gamma"]
     }
+    
     (
         new_log_mu,
         new_alphas,

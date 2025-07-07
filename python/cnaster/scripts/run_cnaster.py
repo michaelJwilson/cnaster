@@ -49,6 +49,18 @@ def main():
     for s,sname in enumerate(sample_list):
         index = np.where(adata.obs["sample"] == sname)[0]
         sample_ids[index] = s
+
+    # TODO
+    if not config.preprocessing.tumorprop_file is None:
+        df_tumorprop = pd.read_csv(config["tumorprop_file"], sep="\t", header=0, index_col=0)
+        df_tumorprop = df_tumorprop[["Tumor"]]
+        df_tumorprop.columns = ["tumor_proportion"]
+        
+        adata.obs = adata.obs.join(df_tumorprop)
+        
+        single_tumor_prop = adata.obs["tumor_proportion"]
+    else:
+        single_tumor_prop = None
         
     """
     # RUN
@@ -85,6 +97,7 @@ def main():
         y_part=config.phasing.npart_phasing,
     )
 
+    # RUN
     phase_indicator, refined_lengths = initial_phase_given_partition(
         single_X,
         lengths,
@@ -92,9 +105,9 @@ def main():
         single_total_bb_RD,
         single_tumor_prop,
         initial_clone_for_phasing,
-        5,
+        5, # MAGIC n_states
         log_sitewise_transmat,
-        "sp",
+        "sp", # MAGIC params (start prob. and baf states).
         config.hmm.t_phaseing,
         config.hmm.gmm_random_state,
         config.hmm.fix_NB_dispersion,
@@ -105,7 +118,8 @@ def main():
         1.e-3, # MAGIC tol
         threshold=config.hmrf.tumorprop_threshold,
     )
-    
+
+    # RUN 
     df_gene_snp["phase"] = np.where(
         df_gene_snp.snp_id.isnull(),
         None,

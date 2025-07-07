@@ -36,6 +36,7 @@ def initial_phase_given_partition(
 
     logger.info(f"Starting phasing with {len(initial_clone_index)} clones")
 
+    # NB merge across initial clones.
     X, base_nb_mean, total_bb_RD, tumor_prop = merge_pseudobulk_by_index(
         single_X,
         single_base_nb_mean,
@@ -49,16 +50,12 @@ def initial_phase_given_partition(
 
     # NB (segments, initial clones).
     baf_profiles = np.zeros((X.shape[2], X.shape[0]))
-    pred_cnv = np.zeros((X.shape[2], X.shape[0]))
 
     # NB loop over initial clones.
     for i in range(X.shape[2]):
         # NB assumes BAF = 0.5 for insufficient snp umi count.
         if np.sum(total_bb_RD[:, i]) < min_snpumi:
             baf_profiles[i, :] = 0.5
-
-            # TODO BUG?
-            # pred_cnv[i, :] = ??
         else:
             prefix = None
             res = pipeline_baum_welch(
@@ -101,9 +98,8 @@ def initial_phase_given_partition(
             this_baf_profiles[np.abs(this_baf_profiles - 0.5) < EPS_BAF] = 0.5
 
             baf_profiles[i, :] = this_baf_profiles
-            pred_cnv[i, :] = pred % n_states
 
-    # NB compute population-level BAF weighted by clone sizes
+    # NB compute population-level BAF with weighted mean by clone size.
     if single_tumor_prop is None:
         n_total_spots = np.sum([len(x) for x in initial_clone_index])
         population_baf = (
@@ -114,6 +110,8 @@ def initial_phase_given_partition(
         n_total_spots = np.sum(
             [len(x) * tumor_prop[i] for i, x in enumerate(initial_clone_index)]
         )
+
+        # NB? tumor_prop for pseudo-bulk.
         population_baf = (
             np.array(
                 [

@@ -388,10 +388,12 @@ def summarize_counts_for_blocks(
         position_cM, tmp_sorted_chr_pos, nu
     )
 
+    # NB tranisition matrix for phasing.
     log_sitewise_transmat = np.minimum(
         np.log(0.5), np.log(phase_switch_prob) - logphase_shift
     )
 
+    # NB positions -> pairs by sampling at rate 2.
     log_sitewise_transmat = log_sitewise_transmat[
         np.arange(1, len(log_sitewise_transmat), 2)
     ]

@@ -1,7 +1,7 @@
 import numpy as np
 
 
-def compute_numbat_phase_switch_prob(position_cM, chr_pos_vector, nu=1, min_prob=1e-20):
+def compute_numbat_phase_switch_prob(position_cM, chr_pos_vector, nu=1., min_prob=1.e-20):
     """
     Attributes
     ----------
@@ -28,7 +28,7 @@ def compute_numbat_phase_switch_prob(position_cM, chr_pos_vector, nu=1, min_prob
         d = cm_next - cm
 
         # NB numbat definition;
-        phase_switch_prob[i] = (1.0 - np.exp(-2 * nu * d)) / 2.0
+        phase_switch_prob[i] = (1.0 - np.exp(-2. * nu * d)) / 2.0
 
     phase_switch_prob[phase_switch_prob < min_prob] = min_prob
 

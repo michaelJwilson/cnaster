@@ -37,7 +37,7 @@ def get_barcodes(barcode_file):
 def get_spaceranger_meta(spaceranger_meta_path):
     df_meta = pd.read_csv(spaceranger_meta_path, sep="\t", header=None)
     df_meta.rename(
-        columns=dict(zip(df_meta.columns[:3], ["bam", "sample_id", "spaceranger_dir"])),
+        columns=dict(zip(df_meta.columns[:4], ["bam", "sample_id", "spaceranger_dir", "snp_dir"])),
         inplace=True,
     )
 
@@ -154,9 +154,9 @@ def get_alignments(alignment_files, df_meta, significance=1.0e-6):
 
 
 def load_sample_data(
-    spaceranger_meta_path,
+    config,
     snp_dir,
-    alignment_files,
+    alignment_files=None,
     filter_gene_file=None,
     filter_range_file=None,
     normal_idx_file=None,
@@ -164,13 +164,12 @@ def load_sample_data(
     min_percent_expressed_spots=5.0e-3,
     local_outlier_filter=True,
 ):
-    # TODO
-    # df_meta = get_spaceranger_meta(spaceranger_meta_path)
-
+    df_meta = get_spaceranger_meta(config.paths.sample_sheet)
+    
     # TODO sample_id not defined?  
     df_barcode = get_barcodes(f"{snp_dir}/barcodes.txt")
 
-    assert (len(alignment_files) == 0) or (len(alignment_files) + 1 == df_meta.shape[0])
+    assert (alignment_files is None) or (len(alignment_files) + 1 == df_meta.shape[0])
 
     # TODO duplicate of df_barcode
     snp_barcodes = pd.read_csv(
@@ -186,7 +185,7 @@ def load_sample_data(
     ##### read anndata and coordinate #####
     adata = None
 
-    # NB df_meta provides the sample_ids; expected to be mirrord in barcodes.
+    # NB df_meta provides the sample_ids; expected to be mirrored in barcodes.
     for i, sname in enumerate(df_meta.sample_id.values):
         index = np.where(df_barcode["sample_id"] == sname)[0]
 

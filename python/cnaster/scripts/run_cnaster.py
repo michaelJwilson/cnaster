@@ -18,11 +18,10 @@ logger = logging.getLogger(__name__)
 
 def main():
     # HACK
-    root = "/u/mw9568/research/repos/cnaster/"
+    config_path = f"/u/mw9568/research/repos/cnaster/config_turing.yaml"
+    config = YAMLConfig.from_file(config_path)
 
-    config = YAMLConfig.from_file(f"{root}/config.yaml")
-
-    print(config.hmm.n_states)    
+    # print(config.paths.sample_sheet)    
     """
     (
         adata,
@@ -31,15 +30,9 @@ def main():
         unique_snp_ids,
         across_slice_adjacency_mat,
     ) = load_sample_data(
-        spaceranger_meta_path,
-        snp_dir,
-        alignment_files,
+        config
         filter_gene_file,
         filter_range_file,
-        normal_idx_file,
-        min_snp_umis=50,
-        min_percent_expressed_spots=5.0e-3,
-        local_outlier_filter=True,
     )
 
     df_gene_snp = form_gene_snp_table(unique_snp_ids, config["hgtable_file"], adata)

@@ -64,21 +64,27 @@ def fixed_rectangle_partition(
     return initial_clone_index
 
 
-def initialize_clones(coords, sample_ids, x_part, y_part, single_tumor_prop, threshold):
+def initialize_clones(
+    coords, sample_ids, x_part, y_part, single_tumor_prop=None, threshold=None
+):
     initial_clone_index = []
 
-    for s in range(np.max(sample_ids) + 1):
+    for s in range(1 + np.max(sample_ids)):
         index = np.where(sample_ids == s)[0]
 
         if len(index) == 0:
             logger.error(f"Invalid sample_ids found: {sample_ids}")
             raise RuntimeError()
 
+        this_tumor_prop = (
+            single_tumor_prop[index] if single_tumor_prop is not None else None
+        )
+
         tmp_clone_index = fixed_rectangle_partition(
             coords[index, :],
             x_part,
             y_part,
-            single_tumor_prop[index],
+            this_tumor_prop,
             threshold=threshold,
         )
 
@@ -139,7 +145,9 @@ def choose_adjacency_by_readcounts(
     x_dist = coords[:, 0][None, :] - coords[:, 0][:, None]
     y_dist = coords[:, 1][None, :] - coords[:, 1][:, None]
 
-    tmp_pairwise_squared_dist = x_dist**2 * unit_xsquared + y_dist**2 * unit_ysquared
+    tmp_pairwise_squared_dist = (
+        x_dist**2 * unit_xsquared + y_dist**2 * unit_ysquared
+    )
 
     np.fill_diagonal(tmp_pairwise_squared_dist, np.max(tmp_pairwise_squared_dist))
 

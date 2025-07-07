@@ -43,6 +43,7 @@ def main():
         df_gene_snp, adata, cell_snp_Aallele, cell_snp_Ballele, unique_snp_ids
     )
 
+    # RUN
     (
         lengths,
         single_X,
@@ -63,10 +64,10 @@ def main():
     initial_clone_for_phasing = initialize_clones(
         coords,
         sample_ids,
-        x_part=config["npart_phasing"],
-        y_part=config["npart_phasing"],
+        x_part=config.phasing.npart_phasing,
+        y_part=config.phasing.npart_phasing,
         single_tumor_prop=single_tumor_prop,
-        threshold=config["tumorprop_threshold"],
+        threshold=config.hmrf.tumorprop_threshold,
     )
 
     phase_indicator, refined_lengths = initial_phase_given_partition(

@@ -125,23 +125,26 @@ def assign_initial_blocks(
         )
     )
 
-    block_genome_intervals = [tmp_block_genome_intervals[0]]
+    first_interval = tmp_block_genome_intervals[0]
+    
+    block_genome_intervals = [first_interval]
     merged = 0
 
-    for x in tmp_block_genome_intervals[1:]:
+    for next_interval in tmp_block_genome_intervals[1:]:
+        contig, start, end = next_interval
+        
         # NB check whether overlap with previous block
-        if x[0] == block_genome_intervals[-1][0] and max(
-            x[1], block_genome_intervals[-1][1]
-        ) < min(x[2], block_genome_intervals[-1][2]):
+        if contig == block_genome_intervals[-1][0] and max(
+            start, block_genome_intervals[-1][1]
+        ) < min(end, block_genome_intervals[-1][2]):
             block_genome_intervals[-1] = (
-                x[0],
-                min(x[1], block_genome_intervals[-1][1]),
-                max(x[2], block_genome_intervals[-1][2]),
+                contig,
+                min(start, block_genome_intervals[-1][1]),
+                max(end, block_genome_intervals[-1][2]),
             )
 
             # TODO warn on excessive length;
             merged += 1
-
         else:
             block_genome_intervals.append(x)
 
@@ -153,6 +156,7 @@ def assign_initial_blocks(
     block_ranges = []
 
     for x in block_genome_intervals:
+        # NB overlap of df_gene_snp with block interval.
         indexes = np.where(
             (df_gene_snp.CHR.values == x[0])
             & (
@@ -170,38 +174,43 @@ def assign_initial_blocks(
         == np.array([x[0] for x in block_ranges[1:]])
     )
 
-    # record the initial block id in df_gene_snps
+    # NB record the initial block id in df_gene_snps
+    # TODO? check for overwrite.
     df_gene_snp["initial_block_id"] = 0
 
     for i, x in enumerate(block_ranges):
         df_gene_snp.iloc[x[0] : x[1], -1] = i
 
-    # second level: group the first level blocks into "haplotype blocks" such that the minimum SNP-covering UMI counts >= initial_min_umi
+    # NB second level: group the first level blocks into "haplotype blocks" such that the minimum SNP-covering UMI counts >= initial_min_umi
+    # TODO requires PHASE SET / PS tag.
     map_snp_index = {x: i for i, x in enumerate(unique_snp_ids)}
     initial_block_chr = df_gene_snp.CHR.values[np.array([x[0] for x in block_ranges])]
     block_ranges_new = []
     s = 0
 
-    # TODO work through.
+    # NB s is the "lower" initial_block_id and t is the "upper" initial_block_id.
     while s < len(block_ranges):
         t = s
 
         while t <= len(block_ranges):
             t += 1
 
-            reach_end = t == len(block_ranges)
+            reach_end = (t == len(block_ranges))
 
             # TODO BUG? (not reach_end) and ...
             change_chr = initial_block_chr[s] != initial_block_chr[t - 1]
 
-            # count SNP-covering UMI
+            # NB count SNP-covering UMI
+            # TODO recalculates for every upper bound.
             involved_snps_ids = df_gene_snp[
                 (df_gene_snp.initial_block_id >= s) & (df_gene_snp.initial_block_id < t)
             ].snp_id
 
+            # NB drop genes.
             involved_snps_ids = involved_snps_ids[~involved_snps_ids.isnull()].values
             involved_snp_idx = np.array([map_snp_index[x] for x in involved_snps_ids])
 
+            # NB num. of snp-covering umis for initial block ids s to t.
             this_snp_umis = (
                 0
                 if len(involved_snp_idx) == 0
@@ -239,6 +248,7 @@ def assign_initial_blocks(
             if this_snp_umis >= initial_min_umi:
                 break
 
+        # NB goal is to have assigned this_snp_umis, s and t. 
         if (
             this_snp_umis < initial_min_umi
             and s > 0
@@ -250,6 +260,7 @@ def assign_initial_blocks(
             indexes = np.where(df_gene_snp.initial_block_id.isin(np.arange(s, t)))[0]
             block_ranges_new.append((indexes[0], indexes[-1] + 1))
 
+        # NB fast-forward lower block id to upper.
         s = t
 
     # NB record the block id in df_gene_snps

@@ -20,7 +20,7 @@ def main():
     # HACK
     config_path = f"/u/mw9568/research/repos/cnaster/config_turing.yaml"
     config = YAMLConfig.from_file(config_path)
-    """
+    
     # RUN
     (
         adata,
@@ -34,7 +34,13 @@ def main():
         filter_range_file=config.references.filterregion_file,
     )
 
+    # TODO CHECK
+    coords = adata.obsm["X_pos"]
     
+    sample_list, sample_idx = np.unique(adata.obs["sample"], return_index=True)
+    sample_ids = dict(zip(sample_idx, sample_list))
+        
+    """
     # RUN
     df_gene_snp = form_gene_snp_table(unique_snp_ids, config.references.hgtable_file, adata)
 
@@ -66,8 +72,6 @@ def main():
         sample_ids,
         x_part=config.phasing.npart_phasing,
         y_part=config.phasing.npart_phasing,
-        single_tumor_prop=single_tumor_prop,
-        threshold=config.hmrf.tumorprop_threshold,
     )
 
     phase_indicator, refined_lengths = initial_phase_given_partition(

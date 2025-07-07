@@ -165,9 +165,8 @@ def get_alignments(alignment_files, df_meta, df_agg_barcode, significance=1.0e-6
     return across_slice_adjacency_mat
 
 
-def load_sample_data(
+def load_input_data(
     config,
-    snp_dir,
     alignment_files=None,
     filter_gene_file=None,
     filter_range_file=None,

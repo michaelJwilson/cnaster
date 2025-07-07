@@ -13,6 +13,8 @@ logger = logging.getLogger(__name__)
 def form_gene_snp_table(unique_snp_ids, hgtable_file, adata):
     # NB read gene info and keep only chr1-chr22 and genes appearing in adata
     df_hgtable = get_reference_genes(hgtable_file)
+
+    # NB TODO? limits reference genes to those present in (filtered) AnnData UMIs.
     df_hgtable = df_hgtable[df_hgtable.name2.isin(adata.var.index)]
 
     # a data frame including both gene and SNP info: CHR, START, END, snp_id, gene, is_interval
@@ -101,17 +103,17 @@ def assign_initial_blocks(
     initial_min_umi=15,
 ):
     """
-    Initially assigns SNPs to fragments along the genome.
+    Initially assigns SNPs to fragments/blocks along the genome.
 
     Returns
     ----------
-    df_gene_snp : data frame, (CHR, START, END, snp_id, gene, is_interval, block_id)
-        Gene and SNP info combined into a single data frame sorted by genomic positions.
-        "is_interval" suggest whether the entry is a gene or a SNP.
-        "gene" column either contain gene name if the entry is a gene, or the gene a SNP belongs to if the entry is a SNP.
+    df_gene_snp : data frame, names: (CHR, START, END, snp_id, gene, is_interval, block_id)
+        Gene and SNP info combined into a single dataframe sorted by (CHR, START).
+        "is_interval"=True is a gene, otherwise SNP.
+        "gene" contains the name of a gene, or the gene a SNP belongs.
     """
     # TODO un-necessary?
-    # first level: partition of genome: by gene regions (if two genes overlap, they are grouped to one region)
+    # NB first level: partition of genome: by gene regions (if two genes overlap, they are grouped to one region).
     tmp_block_genome_intervals = list(
         zip(
             df_gene_snp[df_gene_snp.is_interval].CHR.values,

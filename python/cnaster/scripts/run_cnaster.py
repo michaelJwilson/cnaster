@@ -21,6 +21,7 @@ def main():
     config_path = f"/u/mw9568/research/repos/cnaster/config_turing.yaml"
     config = YAMLConfig.from_file(config_path)
     """
+    # RUN
     (
         adata,
         cell_snp_Aallele.A,
@@ -33,6 +34,8 @@ def main():
         filter_range_file=config.references.filterregion_file,
     )
 
+    
+    # RUN
     df_gene_snp = form_gene_snp_table(unique_snp_ids, config.references.hgtable_file, adata)
     
     # TODO assign initial fragment ranges based on over-lapping gene and min. snp covering umi count.

@@ -16,8 +16,8 @@ from cnaster.reference import get_reference_genes
 logger = logging.getLogger(__name__)
 
 
-def get_spaceranger_meta(spaceranger_meta_path):
-    df_meta = pd.read_csv(spaceranger_meta_path, sep="\t", header=None)
+def get_sample_sheet(sample_sheet_path):
+    df_meta = pd.read_csv(sample_sheet_path, sep="\t", header=None)
     df_meta.rename(
         columns=dict(
             zip(df_meta.columns[:4], ["bam", "sample_id", "spaceranger_dir", "snp_dir"])
@@ -26,13 +26,13 @@ def get_spaceranger_meta(spaceranger_meta_path):
     )
 
     logger.info(
-        f"Input spaceranger file list {spaceranger_meta_path} contains:\n{df_meta}"
+        f"Input sample_sheet_path={spaceranger_meta_path} contains:\n{df_meta}"
     )
 
     return df_meta
 
 
-def get_barcodes(barcode_file):
+def get_aggregated_barcodes(barcode_file):
     # NB see https://github.com/raphael-group/CalicoST/blob/5e4a8a1230e71505667d51390dc9c035a69d60d9/calicost.smk#L32
     df_barcode = pd.read_csv(barcode_file, header=None, names=["combined_barcode"])
 
@@ -54,7 +54,7 @@ def get_barcodes(barcode_file):
     return df_barcode
 
 
-def get_spatial_positions(spaceranger_dir):
+def get_spatial_positions(spaceranger_dir, filter_in_tissue=True):
     names = ("barcode", "in_tissue", "x", "y", "pixel_row", "pixel_col")
 
     if Path(
@@ -84,7 +84,10 @@ def get_spatial_positions(spaceranger_dir):
         raise RuntimeError()
 
     # TODO alignment defined for in_tissue == True only?
-    return df_this_pos[df_this_pos.in_tissue == True]
+    if filter_in_tissue:
+        return df_this_pos[df_this_pos.in_tissue == True]
+    else:
+        return df_this_pos
 
 
 def get_spaceranger_counts(spaceranger_dir):
@@ -171,19 +174,20 @@ def load_sample_data(
     min_percent_expressed_spots=5.0e-3,
     local_outlier_filter=True,
 ):
-    df_meta = get_spaceranger_meta(config.paths.sample_sheet)
+    df_meta = get_sample_sheet(config.paths.sample_sheet)
 
     # TODO HACK
     assert len(df_meta) == 1
 
     snp_dir = df_meta["snp_dir"].iloc[0]
 
-    # TODO sample_id not defined?  barcodes uniquely identify each spot per slice.
-    df_barcode = get_barcodes(f"{snp_dir}/barcodes.txt")
+    # TODO sample_id not defined?  barcodes uniquely identify each spot per slice,
+    #      aggregated across slices/bams.
+    df_agg_barcode = get_aggregated_barcodes(f"{snp_dir}/barcodes.txt")
 
-    assert (alignment_files is None) or (len(alignment_files) + 1 == df_meta.shape[0])
+    assert (alignment_files is None) or (len(alignment_files) + 1 == df_meta.shape[0]), "TODO!"
 
-    # TODO duplicate of df_barcode
+    # TODO duplicate of df_agg_barcode
     snp_barcodes = pd.read_csv(
         f"{snp_dir}/barcodes.txt", header=None, names=["barcodes"]
     )
@@ -197,11 +201,11 @@ def load_sample_data(
     ##### read anndata and coordinate #####
     adata = None
 
-    # NB df_meta provides the sample_ids; expected to be mirrored in barcodes.
+    # NB df_meta provides the sample_ids, one per bam.
     for i, sname in enumerate(df_meta.sample_id.values):
-        index = np.where(df_barcode["sample_id"] == sname)[0]
+        index = np.where(df_agg_barcode["sample_id"] == sname)[0]
 
-        df_this_barcode = copy.copy(df_barcode.iloc[index, :])
+        df_this_barcode = copy.copy(df_agg_barcode.iloc[index, :])
         df_this_barcode.index = df_this_barcode.barcode
 
         # NB read filtered_feature_bc_matrix.h5(ad) from spaceranger_dir for
@@ -217,14 +221,22 @@ def load_sample_data(
         # TODO UGH
         adatatmp = adatatmp[idx_argsort, :]
 
+        # NB limited to in tissue by default.
         df_this_pos = get_spatial_positions(df_meta["spaceranger_dir"].iloc[i])
 
-        # NB only keep shared barcodes
+        # NB only keep shared barcodes between visium barcodes and filtered_feature_bc_matrix.
         shared_barcodes = set(list(df_this_pos.barcode)) & set(list(adatatmp.obs.index))
 
-        adatatmp = adatatmp[adatatmp.obs.index.isin(shared_barcodes), :]
+        isin = adatatmp.obs.index.isin(shared_barcodes)
+
+        logger.info(f"Retaining {100. * np.mean(isin):.3f}% of barcodes (shared with bam & filtered matrix) for {sname}.")
+
+        # TODO filter before sort.
+        adatatmp = adatatmp[isin, :]
+        
         df_this_pos = df_this_pos[df_this_pos.barcode.isin(shared_barcodes)]
 
+        # NB re-order positions to have order of df_this_barcode barcodes.
         df_this_pos.barcode = pd.Categorical(
             df_this_pos.barcode, categories=list(adatatmp.obs.index), ordered=True
         )
@@ -234,6 +246,8 @@ def load_sample_data(
         adatatmp.obsm["X_pos"] = np.vstack([df_this_pos.x, df_this_pos.y]).T
 
         adatatmp.obs["sample"] = sname
+
+        # NB index by {barcode}_{sample} (TBC)
         adatatmp.obs.index = [f"{x}_{sname}" for x in adatatmp.obs.index]
 
         adatatmp.var_names_make_unique()
@@ -243,19 +257,27 @@ def load_sample_data(
         else:
             adata = anndata.concat([adata, adatatmp], join="outer")
 
-    # replace nan with 0
+    # NB replace nan with 0 and cast to int.
     adata.layers["count"][np.isnan(adata.layers["count"])] = 0
     adata.layers["count"] = adata.layers["count"].astype(int)
 
-    # shared barcodes between adata and SNPs
+    # NB shared barcodes between adata and SNPs.
     shared_barcodes = set(list(snp_barcodes.barcodes)) & set(list(adata.obs.index))
 
-    cell_snp_Aallele = cell_snp_Aallele[snp_barcodes.barcodes.isin(shared_barcodes), :]
-    cell_snp_Ballele = cell_snp_Ballele[snp_barcodes.barcodes.isin(shared_barcodes), :]
+    isin = snp_barcodes.barcodes.isin(shared_barcodes)
 
-    snp_barcodes = snp_barcodes[snp_barcodes.barcodes.isin(shared_barcodes)]
+    logger.info(f"Retaining {100. * np.mean(isin):.3f}% of SNP barcodes (shared between UMIs and SNPs).")
+    
+    cell_snp_Aallele = cell_snp_Aallele[isin, :]
+    cell_snp_Ballele = cell_snp_Ballele[isin, :]
 
-    adata = adata[adata.obs.index.isin(shared_barcodes), :]
+    snp_barcodes = snp_barcodes[isin]
+
+    isin = adata.obs.index.isin(shared_barcodes)
+
+    logger.info(f"Retaining {100. * np.mean(isin):.3f}% of UMI barcodes (shared between UMIs and SNPs).")
+    
+    adata = adata[isin, :]
     adata = adata[
         pd.Categorical(
             adata.obs.index, categories=list(snp_barcodes.barcodes), ordered=True

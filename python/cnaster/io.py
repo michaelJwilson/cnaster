@@ -421,7 +421,7 @@ def load_input_data(
         adata.obs["tumor_annotation"] = "tumor"
         adata.obs["tumor_annotation"][adata.obs.index.isin(normal_barcodes)] = "normal"
 
-        logger.info("Applied tumor annotation: {adata.obs["tumor_annotation"].value_counts()}")
+        logger.info("Applied tumor annotation: {adata.obs['tumor_annotation'].value_counts()}")
 
     logger.info("Realized AnnData:\n{adata}")
         

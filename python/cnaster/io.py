@@ -18,6 +18,8 @@ logger = logging.getLogger(__name__)
 
 def get_barcodes(barcode_file):
     df_barcode = pd.read_csv(barcode_file, header=None, names=["combined_barcode"])
+
+    # TODO define sample_id if it does not exist.
     df_barcode["sample_id"] = [
         x.split("_")[-1] for x in df_barcode.combined_barcode.values
     ]

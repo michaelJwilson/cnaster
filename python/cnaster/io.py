@@ -25,9 +25,7 @@ def get_sample_sheet(sample_sheet_path):
         inplace=True,
     )
 
-    logger.info(
-        f"Input sample_sheet_path={spaceranger_meta_path} contains:\n{df_meta}"
-    )
+    logger.info(f"Input sample_sheet_path={spaceranger_meta_path} contains:\n{df_meta}")
 
     return df_meta
 
@@ -108,12 +106,15 @@ def get_spaceranger_counts(spaceranger_dir):
 
         raise RuntimeError()
 
+    # TODO
+    adatatmp.layers["count"] = adatatmp.X.A
+
     # NB data matrix X (ndarray/csr matrix, dask ...): observations/cells are named by their barcode and variables/genes by gene name
     return adatatmp
 
 
 # TODO massively inefficient?
-def get_alignments(alignment_files, df_meta, significance=1.0e-6):
+def get_alignments(alignment_files, df_meta, df_agg_barcode, significance=1.0e-6):
     if len(alignment_files) == 0:
         return None
 
@@ -129,18 +130,19 @@ def get_alignments(alignment_files, df_meta, significance=1.0e-6):
         # TODO? max alignment weight = 1
         pi = pi / np.max(np.append(np.sum(pi, axis=0), np.sum(pi, axis=1)))
 
+        # NB assumes alignments ordered by df_meta sample_ids.
         sname1 = df_meta.sample_id.values[i]
         sname2 = df_meta.sample_id.values[i + 1]
 
-        assert pi.shape[0] == np.sum(df_barcode["sample_id"] == sname1)
-        assert pi.shape[1] == np.sum(df_barcode["sample_id"] == sname2)
+        assert pi.shape[0] == np.sum(df_agg_barcode["sample_id"] == sname1)
+        assert pi.shape[1] == np.sum(df_agg_barcode["sample_id"] == sname2)
 
-        # for each spot s in sname1, select {t: spot t in sname2 and pi[s,t] >= np.max(pi[s,:])} as the corresponding spot in the other slice
+        # NB for each spot s in sname1, select {t: spot t in sname2 and pi[s,t] >= np.max(pi[s,:])} as the corresponding spot in the other slice
         for row in range(pi.shape[0]):
             row_max = np.max(pi[row, :])
 
             # NB their exists an element in the alignment of a sample 1 spot with significant probability (> significance)
-            cutoff = row_max if row_max > significance else 1 + significance
+            cutoff = row_max if row_max > significance else 1.0 + significance
 
             list_cols = np.where(pi[row, :] >= cutoff - significance)[0]
 
@@ -174,6 +176,7 @@ def load_sample_data(
     min_percent_expressed_spots=5.0e-3,
     local_outlier_filter=True,
 ):
+    # NB see https://github.com/raphael-group/CalicoST/blob/5e4a8a1230e71505667d51390dc9c035a69d60d9/src/calicost/utils_IO.py#L127
     df_meta = get_sample_sheet(config.paths.sample_sheet)
 
     # TODO HACK
@@ -185,7 +188,9 @@ def load_sample_data(
     #      aggregated across slices/bams.
     df_agg_barcode = get_aggregated_barcodes(f"{snp_dir}/barcodes.txt")
 
-    assert (alignment_files is None) or (len(alignment_files) + 1 == df_meta.shape[0]), "TODO!"
+    assert (alignment_files is None) or (
+        len(alignment_files) + 1 == df_meta.shape[0]
+    ), "TODO!"
 
     # TODO duplicate of df_agg_barcode
     snp_barcodes = pd.read_csv(
@@ -211,7 +216,6 @@ def load_sample_data(
         # NB read filtered_feature_bc_matrix.h5(ad) from spaceranger_dir for
         #    for this sample.
         adatatmp = get_spaceranger_counts(df_meta["spaceranger_dir"].iloc[i])
-        adatatmp.layers["count"] = adatatmp.X.A
 
         # NB reorder anndata spots to have the order of df_this_barcode (with enum)
         idx_argsort = pd.Categorical(
@@ -224,16 +228,18 @@ def load_sample_data(
         # NB limited to in tissue by default.
         df_this_pos = get_spatial_positions(df_meta["spaceranger_dir"].iloc[i])
 
-        # NB only keep shared barcodes between visium barcodes and filtered_feature_bc_matrix.
+        # NB only keep shared barcodes between (IN_TISSUE) visium barcodes and filtered_feature_bc_matrix.
         shared_barcodes = set(list(df_this_pos.barcode)) & set(list(adatatmp.obs.index))
 
         isin = adatatmp.obs.index.isin(shared_barcodes)
 
-        logger.info(f"Retaining {100. * np.mean(isin):.3f}% of barcodes (shared with bam & filtered matrix) for {sname}.")
+        logger.info(
+            f"Retaining {100. * np.mean(isin):.3f}% of barcodes (shared with bam & filtered matrix) for {sname}."
+        )
 
         # TODO filter before sort.
         adatatmp = adatatmp[isin, :]
-        
+
         df_this_pos = df_this_pos[df_this_pos.barcode.isin(shared_barcodes)]
 
         # NB re-order positions to have order of df_this_barcode barcodes.
@@ -244,7 +250,6 @@ def load_sample_data(
         df_this_pos.sort_values(by="barcode", inplace=True)
 
         adatatmp.obsm["X_pos"] = np.vstack([df_this_pos.x, df_this_pos.y]).T
-
         adatatmp.obs["sample"] = sname
 
         # NB index by {barcode}_{sample} (TBC)
@@ -266,8 +271,10 @@ def load_sample_data(
 
     isin = snp_barcodes.barcodes.isin(shared_barcodes)
 
-    logger.info(f"Retaining {100. * np.mean(isin):.3f}% of SNP barcodes (shared between UMIs and SNPs).")
-    
+    logger.info(
+        f"Retaining {100. * np.mean(isin):.3f}% of SNP barcodes (shared between UMIs and SNPs)."
+    )
+
     cell_snp_Aallele = cell_snp_Aallele[isin, :]
     cell_snp_Ballele = cell_snp_Ballele[isin, :]
 
@@ -275,8 +282,10 @@ def load_sample_data(
 
     isin = adata.obs.index.isin(shared_barcodes)
 
-    logger.info(f"Retaining {100. * np.mean(isin):.3f}% of UMI barcodes (shared between UMIs and SNPs).")
-    
+    logger.info(
+        f"Retaining {100. * np.mean(isin):.3f}% of UMI barcodes (shared between UMIs and SNPs)."
+    )
+
     adata = adata[isin, :]
     adata = adata[
         pd.Categorical(
@@ -287,21 +296,23 @@ def load_sample_data(
 
     across_slice_adjacency_mat = get_alignments(alignment_files, df_meta)
 
-    # NB filter out spots with too small number of snp covering UMIs (transcripts);
-    # TODO why before genomic binning?
+    # NB filter out spots with too small number of UMIs;
+    # TODO differentiate min_snpumis; why before genomic binning?
     indicator = np.sum(adata.layers["count"], axis=1) >= min_snpumis
+
+    logger.info(f"Retaining {100. * np.mean(isin):.3f}% of spots with sufficient UMIs")
 
     adata = adata[indicator, :]
 
     cell_snp_Aallele = cell_snp_Aallele[indicator, :]
     cell_snp_Ballele = cell_snp_Ballele[indicator, :]
 
-    if not (across_slice_adjacency_mat is None):
+    if across_slice_adjacency_mat is not None:
         across_slice_adjacency_mat = across_slice_adjacency_mat[indicator, :][
             :, indicator
         ]
 
-    # filter out spots with too small number of snp covering UMIs (variants);
+    # NB filter out spots with too small number of snp-covering UMIs;
     # TODO indicator &= indicator ...
     indicator = (
         np.sum(cell_snp_Aallele, axis=1).A.flatten()
@@ -319,19 +330,23 @@ def load_sample_data(
             :, indicator
         ]
 
-    # filter out genes that are expressed in <min_percent_expressed_spots cells
+    # NB filter out genes that are expressed in <min_percent_expressed_spots cells
+    # TODO apply @ get_spaceranger_counts
     indicator = (
         np.sum(adata.X > 0, axis=0) >= min_percent_expressed_spots * adata.shape[0]
     ).A.flatten()
 
-    genenames = set(list(adata.var.index[indicator]))
+    logger.info(
+        f"Retaining {100. * np.mean(isin):.3f}% of genes with sufficient expression across spots"
+    )
+
+    # DEPRECATE
+    # genenames = set(list(adata.var.index[indicator]))
     adata = adata[:, indicator]
 
     logger.info(adata)
     logger.info(
-        "median UMI after filtering out genes < 0.5% of cells = {}".format(
-            np.median(np.sum(adata.layers["count"], axis=1))
-        )
+        f"median UMI after filtering out genes < {100. * min_percent_expressed_spots}% of cells = {np.median(np.sum(adata.layers["count"], axis=1))}"
     )
 
     if not filtergenelist_file is None:

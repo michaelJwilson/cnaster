@@ -21,7 +21,6 @@ def main():
     config_path = f"/u/mw9568/research/repos/cnaster/config_turing.yaml"
     config = YAMLConfig.from_file(config_path)
 
-    # print(config.paths.sample_sheet)    
     """
     (
         adata,
@@ -31,8 +30,8 @@ def main():
         across_slice_adjacency_mat,
     ) = load_sample_data(
         config
-        filter_gene_file,
-        filter_range_file,
+        filter_gene_file=config.references.filtergenelist_file,
+        filter_range_file=config.references.filterregion_file,
     )
 
     df_gene_snp = form_gene_snp_table(unique_snp_ids, config["hgtable_file"], adata)

@@ -162,7 +162,10 @@ def load_sample_data(
     min_percent_expressed_spots=5.0e-3,
     local_outlier_filter=True,
 ):
-    df_meta = get_spaceranger_meta(spaceranger_meta_path)
+    # TODO
+    # df_meta = get_spaceranger_meta(spaceranger_meta_path)
+
+    # TODO sample_id not defined?  
     df_barcode = get_barcodes(f"{snp_dir}/barcodes.txt")
 
     assert (len(alignment_files) == 0) or (len(alignment_files) + 1 == df_meta.shape[0])
@@ -181,12 +184,15 @@ def load_sample_data(
     ##### read anndata and coordinate #####
     adata = None
 
+    # NB df_meta provides the sample_ids; expected to be mirrord in barcodes.
     for i, sname in enumerate(df_meta.sample_id.values):
         index = np.where(df_barcode["sample_id"] == sname)[0]
 
         df_this_barcode = copy.copy(df_barcode.iloc[index, :])
         df_this_barcode.index = df_this_barcode.barcode
 
+        # NB read filtered_feature_bc_matrix.h5(ad) from spaceranger_dir for
+        #    for this sample.
         adatatmp = get_spaceranger_counts(df_meta["spaceranger_dir"].iloc[i])
         adatatmp.layers["count"] = adatatmp.X.A
 

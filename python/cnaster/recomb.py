@@ -41,7 +41,6 @@ def assign_centiMorgans(chr_pos_vector, ref_positions_cM):
     ref_cm = np.array(ref_positions_cM.pos_cm)
 
     # TODO
-    # also sort the input argument
     chr_pos_vector.sort()
 
     # find the centimorgan values (interpolate between (k-1)-th and k-th rows
@@ -51,21 +50,26 @@ def assign_centiMorgans(chr_pos_vector, ref_positions_cM):
 
     for i, x in enumerate(chr_pos_vector):
         chrname = x[0]
+
+        # NB? start position.
         pos = x[1]
 
+        # NB fast-forward k to this contig and start.
         while k < len(ref_chrom) and (
             ref_chrom[k] < chrname or (ref_chrom[k] == chrname and ref_pos[k] < pos)
         ):
             k += 1
 
-        if k < len(ref_chrom) and ref_chrom[k] == chrname and ref_pos[k] >= pos:
+        if k < len(ref_chrom) and (ref_chrom[k] == chrname) and (ref_pos[k] >= pos):
             if k > 0 and ref_chrom[k - 1] == chrname:
                 position_cM[i] = ref_cm[k - 1] + (pos - ref_pos[k - 1]) / (
                     ref_pos[k] - ref_pos[k - 1]
                 ) * (ref_cm[k] - ref_cm[k - 1])
             else:
+                # NB Extrapolation from Chromosome Start
                 position_cM[i] = (pos - 0) / (ref_pos[k] - 0) * (ref_cm[k] - 0)
         else:
+            # NB Extrapolation Beyond Last Reference Point
             position_cM[i] = ref_cm[k - 1]
 
     return position_cM

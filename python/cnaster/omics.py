@@ -314,7 +314,7 @@ def summarize_counts_for_blocks(
     single_base_nb_mean = np.zeros((len(blocks), adata.shape[0]))
     single_total_bb_RD = np.zeros((len(blocks), adata.shape[0]), dtype=int)
 
-    # summarize counts of involved genes and SNPs within each block
+    # NB summarize counts of involved genes and SNPs for each block.
     map_snp_index = {x: i for i, x in enumerate(unique_snp_ids)}
 
     df_block_contents = df_gene_snp.groupby("block_id").agg(
@@ -350,19 +350,21 @@ def summarize_counts_for_blocks(
                 adata.layers["count"][:, adata.var.index.isin(involved_genes)], axis=1
             )
 
+    # NB array of number of unique block ids by chromosome.
     lengths = np.zeros(len(df_gene_snp.CHR.unique()), dtype=int)
 
-    # NB lengths per block by chromosome.
     for i, c in enumerate(df_gene_snp.CHR.unique()):
         lengths[i] = len(df_gene_snp[df_gene_snp.CHR == c].block_id.unique())
 
+    # NB define recombination rates.
+    ref_positions_cM = get_reference_recomb_rates(geneticmap_file)
+        
     # NB -  phase switch probability from genetic distance.
     #    -  first chr and start of each block.
     sorted_chr_pos_first = df_gene_snp.groupby("block_id").agg(
         {"CHR": "first", "START": "first"}
     )
 
-    # TODO
     sorted_chr_pos_first = list(
         zip(sorted_chr_pos_first.CHR.values, sorted_chr_pos_first.START.values)
     )
@@ -370,6 +372,7 @@ def summarize_counts_for_blocks(
     sorted_chr_pos_last = df_gene_snp.groupby("block_id").agg(
         {"CHR": "last", "END": "last"}
     )
+    
     sorted_chr_pos_last = list(
         zip(sorted_chr_pos_last.CHR.values, sorted_chr_pos_last.END.values)
     )
@@ -377,8 +380,6 @@ def summarize_counts_for_blocks(
     tmp_sorted_chr_pos = [
         val for pair in zip(sorted_chr_pos_first, sorted_chr_pos_last) for val in pair
     ]
-
-    ref_positions_cM = get_reference_recomb_rates(geneticmap_file)
 
     position_cM = assign_centiMorgans(tmp_sorted_chr_pos, ref_positions_cM)
 

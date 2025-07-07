@@ -55,9 +55,9 @@ def main():
         cell_snp_Aallele,
         cell_snp_Ballele,
         unique_snp_ids,
-        nu=config["nu"],
-        logphase_shift=config["logphase_shift"],
-        geneticmap_file=config["geneticmap_file"],
+        nu=config.phaing.nu,
+        logphase_shift=config.phasing.logphase_shift,
+        geneticmap_file=config.references.geneticmap_file,
     )
 
     initial_clone_for_phasing = initialize_clones(

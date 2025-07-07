@@ -16,28 +16,12 @@ from cnaster.reference import get_reference_genes
 logger = logging.getLogger(__name__)
 
 
-def get_barcodes(barcode_file):
-    df_barcode = pd.read_csv(barcode_file, header=None, names=["combined_barcode"])
-
-    # TODO define sample_id if it does not exist.
-    df_barcode["sample_id"] = [
-        x.split("_")[-1] for x in df_barcode.combined_barcode.values
-    ]
-    df_barcode["barcode"] = [
-        x.split("_")[0] for x in df_barcode.combined_barcode.values
-    ]
-
-    logger.info(
-        f"Input barcode file {barcode_file} with {df_barcode.shape[0]} barcodes, e.g.\n{df_barcode.head()}\n"
-    )
-
-    return df_barcode
-
-
 def get_spaceranger_meta(spaceranger_meta_path):
     df_meta = pd.read_csv(spaceranger_meta_path, sep="\t", header=None)
     df_meta.rename(
-        columns=dict(zip(df_meta.columns[:4], ["bam", "sample_id", "spaceranger_dir", "snp_dir"])),
+        columns=dict(
+            zip(df_meta.columns[:4], ["bam", "sample_id", "spaceranger_dir", "snp_dir"])
+        ),
         inplace=True,
     )
 
@@ -46,6 +30,28 @@ def get_spaceranger_meta(spaceranger_meta_path):
     )
 
     return df_meta
+
+
+def get_barcodes(barcode_file):
+    # NB see https://github.com/raphael-group/CalicoST/blob/5e4a8a1230e71505667d51390dc9c035a69d60d9/calicost.smk#L32
+    df_barcode = pd.read_csv(barcode_file, header=None, names=["combined_barcode"])
+
+    # NB per-slice Visium 10x defined barcode.
+    df_barcode["barcode"] = [
+        x.split("_")[0] for x in df_barcode.combined_barcode.values
+    ]
+
+    # NB user specified sample_id per bam.
+    # TODO define sample_id if it does not exist.
+    df_barcode["sample_id"] = [
+        x.split("_")[-1] for x in df_barcode.combined_barcode.values
+    ]
+
+    logger.info(
+        f"Input barcode file {barcode_file} with {df_barcode.shape[0]} barcodes for all samples/bams, e.g.\n{df_barcode.head()}\n"
+    )
+
+    return df_barcode
 
 
 def get_spatial_positions(spaceranger_dir):
@@ -77,6 +83,7 @@ def get_spatial_positions(spaceranger_dir):
         logger.error("No spatial coordinate file @ {spaceranger_dir}.")
         raise RuntimeError()
 
+    # TODO alignment defined for in_tissue == True only?
     return df_this_pos[df_this_pos.in_tissue == True]
 
 
@@ -165,8 +172,13 @@ def load_sample_data(
     local_outlier_filter=True,
 ):
     df_meta = get_spaceranger_meta(config.paths.sample_sheet)
-    
-    # TODO sample_id not defined?  
+
+    # TODO HACK
+    assert len(df_meta) == 1
+
+    snp_dir = df_meta["snp_dir"].iloc[0]
+
+    # TODO sample_id not defined?  barcodes uniquely identify each spot per slice.
     df_barcode = get_barcodes(f"{snp_dir}/barcodes.txt")
 
     assert (alignment_files is None) or (len(alignment_files) + 1 == df_meta.shape[0])
@@ -197,7 +209,7 @@ def load_sample_data(
         adatatmp = get_spaceranger_counts(df_meta["spaceranger_dir"].iloc[i])
         adatatmp.layers["count"] = adatatmp.X.A
 
-        # NB reorder anndata spots to have the same order as df_this_barcode
+        # NB reorder anndata spots to have the order of df_this_barcode (with enum)
         idx_argsort = pd.Categorical(
             adatatmp.obs.index, categories=list(df_this_barcode.barcode), ordered=True
         ).argsort()

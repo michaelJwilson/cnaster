@@ -20,7 +20,8 @@ def main():
     # HACK
     config_path = f"/u/mw9568/research/repos/cnaster/config_turing.yaml"
     config = YAMLConfig.from_file(config_path)
-    
+
+    """
     # RUN
     (
         adata,
@@ -62,7 +63,6 @@ def main():
     else:
         single_tumor_prop = None
         
-    """
     # RUN
     df_gene_snp = form_gene_snp_table(unique_snp_ids, config.references.hgtable_file, adata)
 

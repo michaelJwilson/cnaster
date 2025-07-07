@@ -114,11 +114,14 @@ def assign_initial_blocks(
     """
     # TODO un-necessary?
     # NB first level: partition of genome: by gene regions (if two genes overlap, they are grouped to one region).
+    is_interval = df_gene_snp.is_interval
+
+    # TODO UGH.
     tmp_block_genome_intervals = list(
         zip(
-            df_gene_snp[df_gene_snp.is_interval].CHR.values,
-            df_gene_snp[df_gene_snp.is_interval].START.values,
-            df_gene_snp[df_gene_snp.is_interval].END.values,
+            df_gene_snp[is_interval].CHR.values,
+            df_gene_snp[is_interval].START.values,
+            df_gene_snp[is_interval].END.values,
         )
     )
 
@@ -126,7 +129,7 @@ def assign_initial_blocks(
     merged = 0
 
     for x in tmp_block_genome_intervals[1:]:
-        # check whether overlap with previous block
+        # NB check whether overlap with previous block
         if x[0] == block_genome_intervals[-1][0] and max(
             x[1], block_genome_intervals[-1][1]
         ) < min(x[2], block_genome_intervals[-1][2]):
@@ -146,7 +149,7 @@ def assign_initial_blocks(
         f"Merged {100. * merged / len(tmp_block_genome_intervals):.3f}% of input ranges;"
     )
 
-    # get block_ranges in the index of df_gene_snp
+    # NB get block_ranges in the index of df_gene_snp
     block_ranges = []
 
     for x in block_genome_intervals:
@@ -249,7 +252,7 @@ def assign_initial_blocks(
 
         s = t
 
-    # record the block id in df_gene_snps
+    # NB record the block id in df_gene_snps
     df_gene_snp["block_id"] = 0
 
     for i, x in enumerate(block_ranges_new):

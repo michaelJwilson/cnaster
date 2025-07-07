@@ -10,4 +10,5 @@ results/
 work/
 .nextflow*
 NOTES.md
-NOTES.md~
+*~
+config_turing.yaml

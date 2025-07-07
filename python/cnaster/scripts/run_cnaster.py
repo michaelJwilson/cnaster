@@ -2,9 +2,9 @@ import logging
 
 from cnaster.config import YAMLConfig
 from cnaster.io import load_input_data
-#from cnaster.omics import (assign_initial_blocks, create_bin_ranges,
-#                           form_gene_snp_table, summarize_counts_for_bins,
-#                           summarize_counts_for_blocks)
+from cnaster.omics import (assign_initial_blocks, create_bin_ranges,
+                           form_gene_snp_table, summarize_counts_for_bins,
+                           summarize_counts_for_blocks)
 #from cnaster.phasing import initial_phase_given_partition
 #from cnaster.spatial import initialize_clones, multislice_adjacency
 
@@ -20,7 +20,7 @@ def main():
     # HACK
     config_path = f"/u/mw9568/research/repos/cnaster/config_turing.yaml"
     config = YAMLConfig.from_file(config_path)
-
+    """
     (
         adata,
         cell_snp_Aallele.A,
@@ -34,7 +34,7 @@ def main():
     )
 
     df_gene_snp = form_gene_snp_table(unique_snp_ids, config.references.hgtable_file, adata)
-    """
+    
     # TODO assign initial fragment ranges based on over-lapping gene and min. snp covering umi count.
     df_gene_snp = assign_initial_blocks(
         df_gene_snp, adata, cell_snp_Aallele, cell_snp_Ballele, unique_snp_ids

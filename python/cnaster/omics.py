@@ -10,9 +10,8 @@ from cnaster.reference import get_reference_genes, get_reference_recomb_rates
 logger = logging.getLogger(__name__)
 
 
-# TODO place elsewhere.
 def form_gene_snp_table(unique_snp_ids, hgtable_file, adata):
-    # read gene info and keep only chr1-chr22 and genes appearing in adata
+    # NB read gene info and keep only chr1-chr22 and genes appearing in adata
     df_hgtable = get_reference_genes(hgtable_file)
     df_hgtable = df_hgtable[df_hgtable.name2.isin(adata.var.index)]
 
@@ -51,8 +50,8 @@ def form_gene_snp_table(unique_snp_ids, hgtable_file, adata):
 
     df_gene_snp.sort_values(by=["CHR", "START"], inplace=True)
 
-    # assign genes to each SNP.
-    # for each SNP (with not null snp_id), find the previous gene (is_interval == True) such that the SNP start position is within the gene start and end interval
+    # NB assign genes to each SNP:  for each SNP (with not null snp_id), find the previous gene (is_interval == True)
+    #    such that the SNP start position is within the gene start & end interval.
     vec_is_interval = df_gene_snp.is_interval.values
 
     vec_chr = df_gene_snp.CHR.values
@@ -65,10 +64,12 @@ def form_gene_snp_table(unique_snp_ids, hgtable_file, adata):
             continue
 
         this_pos = vec_start[i]
+
+        # NB decrement row indexes up to 50 behind (on same contig). 
         j = i - 1
 
-        # TODO overlapping genes?
-        while j >= 0 and j >= i - 50 and vec_chr[i] == vec_chr[j]:
+        # TODO? overlapping genes: closest in start.
+        while j >= 0 and j >= (i - 50) and (vec_chr[i] == vec_chr[j]):
             if (
                 vec_is_interval[j]
                 and vec_start[j] <= this_pos
@@ -79,8 +80,14 @@ def form_gene_snp_table(unique_snp_ids, hgtable_file, adata):
 
             j -= 1
 
-    # remove SNPs that have no corresponding genes
-    df_gene_snp = df_gene_snp[~df_gene_snp.gene.isnull()]
+    # NB remove SNPs that have no corresponding genes.
+    isin = ~df_gene_snp.gene.isnull()
+
+    logger.info(
+        f"Retaining {100. * np.mean(isin[~df_gene_snp.is_interval]):.3f}% of SNPs according to known genes")
+    )
+    
+    df_gene_snp = df_gene_snp[isin]
 
     return df_gene_snp
 

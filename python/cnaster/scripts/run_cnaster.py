@@ -37,8 +37,8 @@ def main():
     
     # RUN
     df_gene_snp = form_gene_snp_table(unique_snp_ids, config.references.hgtable_file, adata)
-    
-    # TODO assign initial fragment ranges based on over-lapping gene and min. snp covering umi count.
+
+    # RUN
     df_gene_snp = assign_initial_blocks(
         df_gene_snp, adata, cell_snp_Aallele, cell_snp_Ballele, unique_snp_ids
     )

@@ -266,6 +266,8 @@ def load_sample_data(
     adata.layers["count"][np.isnan(adata.layers["count"])] = 0
     adata.layers["count"] = adata.layers["count"].astype(int)
 
+    ##### filter by spots #####
+    
     # NB shared barcodes between adata and SNPs.
     shared_barcodes = set(list(snp_barcodes.barcodes)) & set(list(adata.obs.index))
 
@@ -306,7 +308,7 @@ def load_sample_data(
 
     cell_snp_Aallele = cell_snp_Aallele[indicator, :]
     cell_snp_Ballele = cell_snp_Ballele[indicator, :]
-
+    
     if across_slice_adjacency_mat is not None:
         across_slice_adjacency_mat = across_slice_adjacency_mat[indicator, :][
             :, indicator
@@ -324,12 +326,14 @@ def load_sample_data(
 
     cell_snp_Aallele = cell_snp_Aallele[indicator, :]
     cell_snp_Ballele = cell_snp_Ballele[indicator, :]
-
+    
     if not (across_slice_adjacency_mat is None):
         across_slice_adjacency_mat = across_slice_adjacency_mat[indicator, :][
             :, indicator
         ]
 
+    ##### filter by ranges #####
+        
     # NB filter out genes that are expressed in <min_percent_expressed_spots cells
     # TODO apply @ get_spaceranger_counts
     indicator = (
@@ -344,13 +348,14 @@ def load_sample_data(
     # genenames = set(list(adata.var.index[indicator]))
     adata = adata[:, indicator]
 
-    logger.info(adata)
     logger.info(
         f"median UMI after filtering out genes < {100. * min_percent_expressed_spots}% of cells = {np.median(np.sum(adata.layers["count"], axis=1))}"
     )
-
-    if not filtergenelist_file is None:
+    
+    if filtergenelist_file is not None:
         filter_gene_list = get_filtergenelist(filtergenelist_file)
+
+        # TODO slow.
         indicator_filter = np.array(
             [(not x in filter_gene_list) for x in adata.var.index]
         )
@@ -358,17 +363,19 @@ def load_sample_data(
         adata = adata[:, indicator_filter]
 
         logger.info(
-            "median UMI after filtering out genes in filtergenelist_file = {}".format(
-                np.median(np.sum(adata.layers["count"], axis=1))
-            )
+            f"median UMI after filtering out genes in {filtergenelist_file} = {np.median(np.sum(adata.layers["count"], axis=1))}"
         )
 
-    if not filterregion_file is None:
-        ranges = ranges_get_filter_ranges(filter_range_file)
+        # TODO?
+        # apply ranges cut to cell_snp_Aallele, cell_snp_Ballele, unique_snp_ids?
+
+    if filter_range_file is not None:
+        ranges = get_filter_ranges(filter_range_file)
 
         indicator_filter = np.array([True] * cell_snp_Aallele.shape[1])
         j = 0
 
+        # TODO read-through / slow.
         for i in range(cell_snp_Aallele.shape[1]):
             this_chr = int(unique_snp_ids[i].split("_")[0])
             this_pos = int(unique_snp_ids[i].split("_")[1])
@@ -382,6 +389,7 @@ def load_sample_data(
                 )
             ):
                 j += 1
+                
             if (
                 j < ranges.shape[0]
                 and (ranges.Chr.values[j] == this_chr)
@@ -396,20 +404,28 @@ def load_sample_data(
         unique_snp_ids = unique_snp_ids[indicator_filter]
 
     if local_outlier_filter:
+        # NB  k-NN defined density estimates used to filter local outliers given density wrt neighbors.
+        #     see https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.LocalOutlierFactor.html
+        #         https://en.wikipedia.org/wiki/Local_outlier_factor
         clf = LocalOutlierFactor(n_neighbors=200)
+
+        # NB  prediction on spot/barcode summed transcripts for each gene.
         label = clf.fit_predict(np.sum(adata.layers["count"], axis=0).reshape(-1, 1))
 
+        # TODO?  zeros out counts.
         adata.layers["count"][:, np.where(label == -1)[0]] = 0
 
         logger.info("filter out {} outlier genes.".format(np.sum(label == -1)))
 
-    if not normalidx_file is None:
+    if normalidx_file is not None:
         normal_barcodes = pd.read_csv(normalidx_file, header=None).iloc[:, 0].values
         adata.obs["tumor_annotation"] = "tumor"
         adata.obs["tumor_annotation"][adata.obs.index.isin(normal_barcodes)] = "normal"
 
-        logger.info(adata.obs["tumor_annotation"].value_counts())
+        logger.info("Applied tumor annotation: {adata.obs["tumor_annotation"].value_counts()}")
 
+    logger.info("Realized AnnData:\n{adata}")
+        
     return (
         adata,
         cell_snp_Aallele.A,

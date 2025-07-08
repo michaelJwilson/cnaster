@@ -6,7 +6,7 @@ from cnaster.omics import (assign_initial_blocks, create_bin_ranges,
                            form_gene_snp_table, summarize_counts_for_bins,
                            summarize_counts_for_blocks)
 from cnaster.phasing import initial_phase_given_partition
-#from cnaster.spatial import initialize_clones, multislice_adjacency
+from cnaster.spatial import initialize_clones, multislice_adjacency
 
 logging.basicConfig(
     level=logging.INFO,
@@ -157,3 +157,5 @@ def main():
 
     n_pooled = np.median(np.sum(smooth_mat > 0, axis=0).A.flatten())
     """
+
+    logger.info("Done.\n\n")

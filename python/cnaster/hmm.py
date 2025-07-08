@@ -8,6 +8,7 @@ import scipy.stats
 from numba import njit
 from sklearn.mixture import GaussianMixture
 from statsmodels.base.model import GenericLikelihoodModel
+from cnaster.hmm_sitewise import hmm_sitewise
 
 logger = logging.getLogger(__name__)
 
@@ -103,45 +104,6 @@ def initialization_by_gmm(
             gmm_p_binom = np.where(gmm_p_binom > 0.5, 1.0 - gmm_p_binom, gmm_p_binom)
 
     return gmm_log_mu, gmm_p_binom
-
-
-@njit
-def update_startprob_sitewise(lengths, log_gamma):
-    """
-    Input
-        lengths: sum of lengths = n_observations.
-        log_gamma: size 2 * n_states * n_observations. gamma[i,t] = P(q_t = i | O, lambda).
-    Output
-        log_startprob: n_states. Start probability after log transformation.
-    """
-    n_states = int(log_gamma.shape[0] / 2)
-    n_obs = log_gamma.shape[1]
-
-    assert (
-        np.sum(lengths) == n_obs
-    ), "Sum of lengths must be equal to the second dimension of log_gamma!"
-
-    # indices of the start of sequences, given that the length of each sequence is in lengths
-    cumlen = 0
-    indices_start = []
-    for le in lengths:
-        indices_start.append(cumlen)
-        cumlen += le
-    indices_start = np.array(indices_start)
-
-    log_startprob = np.zeros(n_states)
-
-    # compute log_startprob of 2 * n_states
-    log_startprob = mylogsumexp_ax_keep(log_gamma[:, indices_start], axis=1)
-
-    # merge (CNV state, phase A) and (CNV state, phase B)
-    log_startprob = log_startprob.flatten().reshape(2, -1)
-    log_startprob = mylogsumexp_ax_keep(log_startprob, axis=0)
-
-    # normalize such that startprob sums to 1
-    log_startprob -= mylogsumexp(log_startprob)
-
-    return log_startprob
 
 
 def update_transition_sitewise(log_xi, is_diag=False):
@@ -644,30 +606,6 @@ def update_emission_params_bb_sitewise_uniqvalues_mix(
     new_p_binom[new_p_binom < min_binom_prob] = min_binom_prob
     new_p_binom[new_p_binom > max_binom_prob] = max_binom_prob
     return new_p_binom, new_taus
-
-
-def compute_posterior_obs(log_alpha, log_beta):
-    """
-    Input
-        log_alpha: output from forward_lattice_gaussian. size n_states * n_observations. alpha[j, t] = P(o_1, ... o_t, q_t = j | lambda).
-        log_beta: output from backward_lattice_gaussian. size n_states * n_observations. beta[i, t] = P(o_{t+1}, ..., o_T | q_t = i, lambda).
-    Output:
-        log_gamma: size n_states * n_observations. gamma[i,t] = P(q_t = i | O, lambda). gamma[i, t] propto alpha[i,t] * beta[i,t]
-    """
-    n_states = log_alpha.shape[0]
-    n_obs = log_alpha.shape[1]
-
-    log_gamma = np.zeros((n_states, n_obs))
-    log_gamma = log_alpha + log_beta
-
-    if np.any(np.sum(log_gamma, axis=0) == 0):
-        logger.error("Sum of posterior probability is zero for some observations!")
-        raise RuntimeError()
-
-    log_gamma -= scipy.special.logsumexp(log_gamma, axis=0)
-
-    return log_gamma
-
 
 @njit
 def compute_posterior_transition_sitewise(

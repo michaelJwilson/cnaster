@@ -12,8 +12,7 @@ from cnaster.hmm_utils import (
     construct_unique_matrix,
 )
 
-from cnaster.hmm import (
-    compute_posterior_obs,
+from cnaster.hmm_utils import (
     update_startprob_sitewise,
 )
 

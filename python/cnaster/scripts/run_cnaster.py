@@ -136,10 +136,12 @@ def main():
         df_gene_snp.block_id.map({i: x for i, x in enumerate(phase_indicator)}),
     )
 
+    # RUN
     df_gene_snp = create_bin_ranges(
-        df_gene_snp, single_total_bb_RD, refined_lengths, config["secondary_min_umi"]
+        df_gene_snp, single_total_bb_RD, refined_lengths, config.quality.secondary_min_umi
     )
 
+    # RUN
     (
         lengths,
         single_X,
@@ -172,11 +174,13 @@ def main():
         single_total_bb_RD,
         exp_counts,
         across_slice_adjacency_mat,
-        construct_adjacency_method=config["construct_adjacency_method"],
-        maxspots_pooling=config["maxspots_pooling"],
-        construct_adjacency_w=config["construct_adjacency_w"],
+        construct_adjacency_method=config.hmrf.construct_adjacency_method,
+        maxspots_pooling=config.hmrf.maxspots_pooling,
+        construct_adjacency_w=config.hmrf.construct_adjacency_w,
     )
 
     n_pooled = np.median(np.sum(smooth_mat > 0, axis=0).A.flatten())
 
+    
+    
     logger.info("Done.\n\n")

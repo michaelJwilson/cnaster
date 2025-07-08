@@ -436,14 +436,18 @@ def create_bin_ranges(
         The newly added bin_id column indicates which bin each gene or SNP belongs to.
     """
 
+    # TODO no nest.
     def greedy_binning_nobreak(
         block_lengths, block_umi, secondary_min_umi, max_binlength
     ):
         """
+        Aggregates blocks to meet a {secondary_min_umi} count, up to the
+        maximum {max_binlength}.
+
         Returns
         -------
         bin_ids : array, (n_blocks)
-            The bin id of the input blocks. Should have the same size with block_lengths and block_umi.
+            The bin id of the input blocks.  Should have the same size with block_lengths and block_umi.
         """
         assert len(block_lengths) == len(block_umi)
 
@@ -455,11 +459,12 @@ def create_bin_ranges(
 
             while t < len(block_lengths) and np.sum(block_umi[s:t]) < secondary_min_umi:
                 t += 1
+                
                 if np.sum(block_lengths[s:t]) >= max_binlength:
                     t = max(t - 1, s + 1)
                     break
 
-            # check whether it is a very small bin in the end
+            # NB check whether it is a very small bin at the end
             if (
                 s > 0
                 and t == len(block_lengths)
@@ -479,17 +484,19 @@ def create_bin_ranges(
 
         return bin_ids
 
-    # block lengths and block umis
+    # NB block lengths and umis.
     sorted_chr_pos_both = df_gene_snp.groupby("block_id").agg(
         {"CHR": "first", "START": "first", "END": "last"}
     )
 
     block_lengths = sorted_chr_pos_both.END.values - sorted_chr_pos_both.START.values
+    n_blocks = len(block_lengths)
+    
+    # NB? summed across spots.
     block_umi = np.sum(single_total_bb_RD, axis=1)
 
-    n_blocks = len(block_lengths)
-
-    # get a list of breakpoints where bin much break
+    # TODO max_binlength.
+    # NB get a list of breakpoints where bin must break.
     breakpoints = np.concatenate(
         [
             np.cumsum(refined_lengths),
@@ -500,13 +507,14 @@ def create_bin_ranges(
 
     breakpoints = np.sort(np.unique(breakpoints))
 
-    # append 0 in the front of breakpoints so that each pair of adjacent breakpoints can be an input to greedy_binning_nobreak
+    # NB append 0 in the front of breakpoints so that each pair of adjacent
+    #    breakpoints can be an input to greedy_binning_nobreak
     if breakpoints[0] != 0:
         breakpoints = np.append([0], breakpoints)
 
     assert np.all(breakpoints[:-1] < breakpoints[1:])
 
-    # loop over breakpoints and bin each block
+    # NB loop over breakpoints and bin each block
     bin_ids = np.zeros(n_blocks, dtype=int)
     offset = 0
 

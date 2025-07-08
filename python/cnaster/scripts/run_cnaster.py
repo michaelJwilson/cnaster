@@ -9,6 +9,7 @@ from cnaster.omics import (
     summarize_counts_for_bins,
     summarize_counts_for_blocks,
     create_bin_ranges,
+    summarize_counts_for_bins
 )
 from cnaster.phasing import initial_phase_given_partition
 from cnaster.spatial import initialize_clones, multislice_adjacency

@@ -575,37 +575,45 @@ def summarize_counts_for_bins(
         Log phase switch probability between each pair of adjacent blocks.
     """
     bins = df_gene_snp.bin_id.unique()
+
+    # NB last axis is the number of barcodes.
     bin_single_X = np.zeros((len(bins), 2, adata.shape[0]), dtype=int)
+    
     bin_single_base_nb_mean = np.zeros((len(bins), adata.shape[0]))
     bin_single_total_bb_RD = np.zeros((len(bins), adata.shape[0]), dtype=int)
-    # summarize counts of involved genes and SNPs within each block
+    
+    # NB summarize counts of involved genes and SNPs within each block
     df_bin_contents = (
         df_gene_snp[~df_gene_snp.bin_id.isnull()]
         .groupby("bin_id")
         .agg({"block_id": set, "gene": set})
     )
+    
     for b in range(df_bin_contents.shape[0]):
         # BAF (SNPs)
         involved_blocks = [
             x for x in df_bin_contents.block_id.values[b] if x is not None
         ]
+        
         this_phased = np.where(
             phase_indicator[involved_blocks].reshape(-1, 1),
             single_X[involved_blocks, 1, :],
             single_total_bb_RD[involved_blocks, :] - single_X[involved_blocks, 1, :],
         )
+        
         bin_single_X[b, 1, :] = np.sum(this_phased, axis=0)
         bin_single_total_bb_RD[b, :] = np.sum(
             single_total_bb_RD[involved_blocks, :], axis=0
         )
+        
         # RDR (genes)
         involved_genes = [x for x in df_bin_contents.gene.values[b] if x is not None]
         bin_single_X[b, 0, :] = np.sum(
             adata.layers["count"][:, adata.var.index.isin(involved_genes)], axis=1
         )
 
-    # lengths
     lengths = np.zeros(len(df_gene_snp.CHR.unique()), dtype=int)
+    
     for i, c in enumerate(df_gene_snp.CHR.unique()):
         lengths[i] = len(
             df_gene_snp[
@@ -613,16 +621,19 @@ def summarize_counts_for_bins(
             ].bin_id.unique()
         )
 
-    # phase switch probability from genetic distance
+    # NB phase switch probability from genetic distance
     sorted_chr_pos_first = df_gene_snp.groupby("bin_id").agg(
         {"CHR": "first", "START": "first"}
     )
+    
     sorted_chr_pos_first = list(
         zip(sorted_chr_pos_first.CHR.values, sorted_chr_pos_first.START.values)
     )
+    
     sorted_chr_pos_last = df_gene_snp.groupby("bin_id").agg(
         {"CHR": "last", "END": "last"}
     )
+    
     sorted_chr_pos_last = list(
         zip(sorted_chr_pos_last.CHR.values, sorted_chr_pos_last.END.values)
     )
@@ -630,6 +641,8 @@ def summarize_counts_for_bins(
     tmp_sorted_chr_pos = [
         val for pair in zip(sorted_chr_pos_first, sorted_chr_pos_last) for val in pair
     ]
+
+    # TODO why is this required at this stage?
     ref_positions_cM = get_reference_recomb_rates(geneticmap_file)
 
     position_cM = assign_centiMorgans(tmp_sorted_chr_pos, ref_positions_cM)
@@ -637,6 +650,7 @@ def summarize_counts_for_bins(
     phase_switch_prob = compute_numbat_phase_switch_prob(
         position_cM, tmp_sorted_chr_pos, nu
     )
+    
     log_sitewise_transmat = np.minimum(
         np.log(0.5), np.log(phase_switch_prob) - logphase_shift
     )

@@ -138,7 +138,10 @@ def main():
 
     # RUN
     df_gene_snp = create_bin_ranges(
-        df_gene_snp, single_total_bb_RD, refined_lengths, config.quality.secondary_min_umi
+        df_gene_snp,
+        single_total_bb_RD,
+        refined_lengths,
+        config.quality.secondary_min_umi,
     )
 
     # RUN
@@ -180,5 +183,12 @@ def main():
     )
 
     n_pooled = np.median(np.sum(smooth_mat > 0, axis=0).A.flatten())
+
+    # TODO
+    copy_single_X_rdr = copy.copy(single_X[:, 0, :])
+    copy_single_base_nb_mean = copy.copy(single_base_nb_mean)
     
+    single_X[:, 0, :] = 0
+    single_base_nb_mean[:, :] = 0
+
     logger.info("Done.\n\n")

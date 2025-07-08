@@ -2,9 +2,14 @@ import logging
 
 from cnaster.config import YAMLConfig
 from cnaster.io import load_input_data
-from cnaster.omics import (assign_initial_blocks, create_bin_ranges,
-                           form_gene_snp_table, summarize_counts_for_bins,
-                           summarize_counts_for_blocks)
+from cnaster.omics import (
+    assign_initial_blocks,
+    create_bin_ranges,
+    form_gene_snp_table,
+    summarize_counts_for_bins,
+    summarize_counts_for_blocks,
+    create_bin_ranges,
+)
 from cnaster.phasing import initial_phase_given_partition
 from cnaster.spatial import initialize_clones, multislice_adjacency
 
@@ -15,6 +20,7 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
+
 
 def main():
     # HACK

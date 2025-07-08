@@ -180,7 +180,5 @@ def main():
     )
 
     n_pooled = np.median(np.sum(smooth_mat > 0, axis=0).A.flatten())
-
-    
     
     logger.info("Done.\n\n")

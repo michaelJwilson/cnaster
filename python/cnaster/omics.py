@@ -445,6 +445,8 @@ def create_bin_ranges(
         "is_interval" suggest whether the entry is a gene or a SNP. "gene" column either
         contain gene name if the entry is a gene, or the gene a SNP belongs to if the entry is a SNP.
 
+        NB should contain a phase column, derived from pop. + copy based phasing.
+
     single_total_bb_RD : array, (n_blocks, n_spots)
         Total SNP-covering reads per haplotype block per spot.
 
@@ -462,8 +464,7 @@ def create_bin_ranges(
         block_lengths, block_umi, secondary_min_umi, max_binlength
     ):
         """
-        Aggregates blocks to meet a {secondary_min_umi} count, up to the
-        maximum {max_binlength}.
+        Aggregates blocks to meet a {secondary_min_umi} count, up to the maximum {max_binlength}.
 
         Returns
         -------

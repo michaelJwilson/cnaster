@@ -138,15 +138,13 @@ def main():
         1.0e-3,  # MAGIC tol
         threshold=config.hmrf.tumorprop_threshold,
     )
-    """    
-    # RUN
+    
     df_gene_snp["phase"] = np.where(
         df_gene_snp.snp_id.isnull(),
         None,
         df_gene_snp.block_id.map({i: x for i, x in enumerate(phase_indicator)}),
     )
 
-    # RUN
     df_gene_snp = create_bin_ranges(
         df_gene_snp,
         single_total_bb_RD,
@@ -154,6 +152,7 @@ def main():
         config.quality.secondary_min_umi,
     )
 
+    """
     # RUN
     (
         lengths,

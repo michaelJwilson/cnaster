@@ -3,6 +3,7 @@ import pandas as pd
 
 logger = logging.getLogger(__name__)
 
+
 def get_reference_genes(hgtable_file):
     # NB read gene info and keep only chr1-chr22 and genes appearing in adata
     df_hgtable = pd.read_csv(hgtable_file, header=0, index_col=0, sep="\t")
@@ -23,9 +24,11 @@ def get_reference_recomb_rates(geneticmap_file):
 
     # NB drop "chr" prefix.
     df["chrom"] = df.chrom.str.replace("chr", "")
-        
+
     df = df.sort_values(by=["chrom", "pos"])
 
-    logger.info(f"Read reference recombination rates from {geneticmap_file}:\n{df.head()}")
-    
+    logger.info(
+        f"Read reference recombination rates from {geneticmap_file}:\n{df.head()}"
+    )
+
     return df

@@ -195,10 +195,8 @@ def assign_initial_blocks(
     for i, x in enumerate(block_ranges):
         df_gene_snp.iloc[x[0] : x[1], -1] = i
 
-    logger.info(
-        f"Initialized block assignment based on gene overlap"
-    )
-        
+    logger.info(f"Initialized block assignment based on gene overlap")
+
     summarize_block_ids(df_gene_snp["initial_block_id"])
 
     # NB second level: group the first level blocks into "haplotype blocks" such that the minimum SNP-covering UMI counts >= initial_min_umi.
@@ -382,6 +380,7 @@ def summarize_counts_for_blocks(
         single_base_nb_mean,
         single_total_bb_RD,
     )
+
 
 def get_sitewise_transmat(df_gene_snp, geneticmap_file, nu, logphase_shift):
     # NB define recombination rates.

@@ -100,7 +100,7 @@ def initial_phase_given_partition(
             baf_profiles[i, :] = this_baf_profiles
 
     exit(0)
-            
+
     # NB compute population-level BAF with weighted mean by clone size.
     if single_tumor_prop is None:
         n_total_spots = np.sum([len(x) for x in initial_clone_index])

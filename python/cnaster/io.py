@@ -436,14 +436,18 @@ def load_input_data(
         label = clf.fit_predict(np.sum(adata.layers["count"], axis=0).reshape(-1, 1))
 
         to_zero = np.where(label == -1)[0]
-        ratio  = np.sum(adata.layers["count"][:, to_zero]) / np.sum(adata.layers["count"])
+        ratio = np.sum(adata.layers["count"][:, to_zero]) / np.sum(
+            adata.layers["count"]
+        )
 
         # TODO removed 235 outlier genes (51.310% of UMIs)!!
-        logger.info(f"Removed {len(to_zero)} outlier genes ({100. * ratio:.3f}% of UMIs).")
-        
+        logger.info(
+            f"Removed {len(to_zero)} outlier genes ({100. * ratio:.3f}% of UMIs)."
+        )
+
         # TODO?  zeros out counts.
         adata.layers["count"][:, to_zero] = 0
-        
+
     if normal_idx_file is not None:
         normal_barcodes = pd.read_csv(normalidx_file, header=None).iloc[:, 0].values
         adata.obs["tumor_annotation"] = "tumor"

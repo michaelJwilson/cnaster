@@ -11,7 +11,11 @@ from cnaster.hmm_utils import (
     construct_unique_matrix,
     compute_posterior_obs,
     compute_posterior_transition_sitewise,
-    update_startprob_sitewise
+)
+from cnaster.hmm_update import (
+    update_startprob_sitewise,
+    update_emission_params_bb_sitewise_uniqvalues_mix,
+    update_emission_params_nb_sitewise_uniqvalues_mix,
 )
 
 logger = logging.getLogger(__name__)

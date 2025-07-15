@@ -46,14 +46,14 @@ def initialization_by_gmm(
                 X_gmm_rdr[(~np.isnan(X_gmm_rdr)) & (~np.isinf(X_gmm_rdr))]
             )
             X_gmm_rdr = (X_gmm_rdr - offset) / normalizetomax1
-            
+
     if "p" in params:
         X_gmm_baf = np.vstack(
             [X[:, 1, s] / total_bb_RD[:, s] for s in range(X.shape[2])]
         ).T
         X_gmm_baf[X_gmm_baf < min_binom_prob] = min_binom_prob
         X_gmm_baf[X_gmm_baf > max_binom_prob] = max_binom_prob
-        
+
     # combine RDR and BAF
     if ("m" in params) and ("p" in params):
         X_gmm = np.hstack([X_gmm_rdr, X_gmm_baf])
@@ -199,7 +199,7 @@ def pipeline_baum_welch(
     )
 
     exit(0)
-    
+
     # likelihood
     if tumor_prop is None:
         (

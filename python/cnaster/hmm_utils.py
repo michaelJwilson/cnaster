@@ -32,20 +32,22 @@ def np_max_ax_keep(arr, axis=0):
             result[i, :] = np.max(arr[i, :])
     return result
 
+
 @njit
 def np_sum_ax_keep(arr, axis=0):
     assert arr.ndim == 2
     assert axis in [0, 1]
-    
+
     if axis == 0:
-        result = np.zeros( (1, arr.shape[1]) )
+        result = np.zeros((1, arr.shape[1]))
         for i in range(result.shape[1]):
             result[:, i] = np.sum(arr[:, i])
     else:
-        result = np.zeros( (arr.shape[0], 1) )
+        result = np.zeros((arr.shape[0], 1))
         for i in range(result.shape[0]):
             result[i, :] = np.sum(arr[i, :])
     return result
+
 
 @njit
 def mylogsumexp_ax_keep(a, axis):
@@ -153,6 +155,7 @@ def compute_posterior_obs(log_alpha, log_beta):
     log_gamma -= scipy.special.logsumexp(log_gamma, axis=0)
 
     return log_gamma
+
 
 @njit
 def compute_posterior_transition_sitewise(

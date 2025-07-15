@@ -1,4 +1,7 @@
 import numpy as np
+from numba import njit
+from cnaster.hmm_utils import mylogsumexp_ax_keep, mylogsumexp
+
 
 def update_transition_sitewise(log_xi, is_diag=False):
     """
@@ -40,6 +43,7 @@ def update_transition_sitewise(log_xi, is_diag=False):
 
     return log_transmat
 
+
 @njit
 def update_startprob_sitewise(lengths, log_gamma):
     """
@@ -77,6 +81,7 @@ def update_startprob_sitewise(lengths, log_gamma):
     log_startprob -= mylogsumexp(log_startprob)
 
     return log_startprob
+
 
 def update_emission_params_nb_sitewise_uniqvalues_mix(
     unique_values,
@@ -279,11 +284,12 @@ def update_emission_params_nb_sitewise_uniqvalues_mix(
                         new_log_mu[idx_state_posweight, s] = res2.params[l1:l2]
                     if res2.params[-1] > 0:
                         new_alphas[:, :] = res2.params[-1]
-                        
+
     new_log_mu[new_log_mu > max_log_rdr] = max_log_rdr
     new_log_mu[new_log_mu < min_log_rdr] = min_log_rdr
-    
+
     return new_log_mu, new_alphas
+
 
 def update_emission_params_bb_sitewise_uniqvalues_mix(
     unique_values,
@@ -532,8 +538,8 @@ def update_emission_params_bb_sitewise_uniqvalues_mix(
                         new_p_binom[idx_state_posweight, s] = res2.params[l1:l2]
                     if res2.params[-1] > 0:
                         new_taus[:, :] = res2.params[-1]
-                        
+
     new_p_binom[new_p_binom < min_binom_prob] = min_binom_prob
     new_p_binom[new_p_binom > max_binom_prob] = max_binom_prob
-    
+
     return new_p_binom, new_taus

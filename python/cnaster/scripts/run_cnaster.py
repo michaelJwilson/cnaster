@@ -12,6 +12,7 @@ from cnaster.omics import (
 )
 
 from cnaster.spatial import initialize_clones
+from cnaster.phasing import initial_phase_given_partition
 
 """
 from cnaster.omics import (
@@ -22,7 +23,6 @@ from cnaster.omics import (
     create_bin_ranges,
     summarize_counts_for_bins,
 )
-from cnaster.phasing import initial_phase_given_partition
 from cnaster.spatial import initialize_clones, multislice_adjacency
 """
 logging.basicConfig(

@@ -46,12 +46,14 @@ def initialization_by_gmm(
                 X_gmm_rdr[(~np.isnan(X_gmm_rdr)) & (~np.isinf(X_gmm_rdr))]
             )
             X_gmm_rdr = (X_gmm_rdr - offset) / normalizetomax1
+            
     if "p" in params:
         X_gmm_baf = np.vstack(
             [X[:, 1, s] / total_bb_RD[:, s] for s in range(X.shape[2])]
         ).T
         X_gmm_baf[X_gmm_baf < min_binom_prob] = min_binom_prob
         X_gmm_baf[X_gmm_baf > max_binom_prob] = max_binom_prob
+        
     # combine RDR and BAF
     if ("m" in params) and ("p" in params):
         X_gmm = np.hstack([X_gmm_rdr, X_gmm_baf])
@@ -71,7 +73,6 @@ def initialization_by_gmm(
 
     X_gmm = X_gmm[np.sum(np.isnan(X_gmm), axis=1) == 0, :]
 
-    # run GMM
     if random_state is None:
         gmm = GaussianMixture(n_components=n_states, max_iter=1).fit(X_gmm)
     else:
@@ -116,7 +117,6 @@ def update_transition_sitewise(log_xi, is_diag=False):
     n_states = int(log_xi.shape[0] / 2)
     n_obs = log_xi.shape[2]
 
-    # initialize log_transmat
     log_transmat = np.zeros((n_states, n_states))
 
     for i in np.arange(n_states):
@@ -177,7 +177,6 @@ def update_emission_params_nb_sitewise_uniqvalues_mix(
     n_states = int(log_gamma.shape[0] / 2)
     gamma = np.exp(log_gamma)
 
-    # initialization
     new_log_mu = (
         copy.copy(start_log_mu)
         if not start_log_mu is None
@@ -350,8 +349,10 @@ def update_emission_params_nb_sitewise_uniqvalues_mix(
                         new_log_mu[idx_state_posweight, s] = res2.params[l1:l2]
                     if res2.params[-1] > 0:
                         new_alphas[:, :] = res2.params[-1]
+                        
     new_log_mu[new_log_mu > max_log_rdr] = max_log_rdr
     new_log_mu[new_log_mu < min_log_rdr] = min_log_rdr
+    
     return new_log_mu, new_alphas
 
 
@@ -385,7 +386,6 @@ def update_emission_params_bb_sitewise_uniqvalues_mix(
     n_states = int(log_gamma.shape[0] / 2)
     gamma = np.exp(log_gamma)
 
-    # initialization
     new_p_binom = (
         copy.copy(start_p_binom)
         if not start_p_binom is None
@@ -603,8 +603,10 @@ def update_emission_params_bb_sitewise_uniqvalues_mix(
                         new_p_binom[idx_state_posweight, s] = res2.params[l1:l2]
                     if res2.params[-1] > 0:
                         new_taus[:, :] = res2.params[-1]
+                        
     new_p_binom[new_p_binom < min_binom_prob] = min_binom_prob
     new_p_binom[new_p_binom > max_binom_prob] = max_binom_prob
+    
     return new_p_binom, new_taus
 
 
@@ -612,15 +614,6 @@ def update_emission_params_bb_sitewise_uniqvalues_mix(
 def compute_posterior_transition_sitewise(
     log_alpha, log_beta, log_transmat, log_emission
 ):
-    """
-    Input
-        log_alpha: output from forward_lattice_gaussian. size n_states * n_observations. alpha[j, t] = P(o_1, ... o_t, q_t = j | lambda).
-        log_beta: output from backward_lattice_gaussian. size n_states * n_observations. beta[i, t] = P(o_{t+1}, ..., o_T | q_t = i, lambda).
-        log_transmat: n_states * n_states. Transition probability after log transformation.
-        log_emission: n_states * n_observations * n_spots. Log probability.
-    Output:
-        log_xi: size n_states * n_states * (n_observations-1). xi[i,j,t] = P(q_t=i, q_{t+1}=j | O, lambda)
-    """
     n_states = int(log_alpha.shape[0] / 2)
     n_obs = log_alpha.shape[1]
 
@@ -675,12 +668,13 @@ def pipeline_baum_welch(
     tol=1e-4,
     **kwargs,
 ):
-    # initialization
     n_spots = X.shape[2]
 
     if ((init_log_mu is None) and ("m" in params)) or (
         (init_p_binom is None) and ("p" in params)
     ):
+        logger.info(f"Running Gaussian mixture model for initialization.")
+
         tmp_log_mu, tmp_p_binom = initialization_by_gmm(
             n_states,
             X,
@@ -694,13 +688,13 @@ def pipeline_baum_welch(
 
         if (init_log_mu is None) and ("m" in params):
             init_log_mu = tmp_log_mu
+
         if (init_p_binom is None) and ("p" in params):
             init_p_binom = tmp_p_binom
 
-    logger.info(f"Initialized log_mu: {init_log_mu}")
-    logger.info(f"Initialized p_binom: {init_p_binom}")
+    logger.info(f"Initialized log_mu:\n{init_log_mu}")
+    logger.info(f"Initialized p_binom:\n{init_p_binom}")
 
-    # fit HMM-NB-BetaBinom
     hmmmodel = hmmclass(params=params, t=t)
 
     remain_kwargs = {
@@ -737,6 +731,8 @@ def pipeline_baum_welch(
         **remain_kwargs,
     )
 
+    exit(0)
+    
     # likelihood
     if tumor_prop is None:
         (
@@ -745,10 +741,10 @@ def pipeline_baum_welch(
         ) = hmmclass.compute_emission_probability_nb_betabinom(
             X, base_nb_mean, new_log_mu, new_alphas, total_bb_RD, new_p_binom, new_taus
         )
-        log_emission = log_emission_rdr + log_emission_baf
     else:
         if ("m" in params) and ("sample_length" in kwargs):
             logmu_shift = []
+
             for c in range(len(kwargs["sample_length"])):
                 this_pred_cnv = (
                     np.argmax(
@@ -762,6 +758,7 @@ def pipeline_baum_welch(
                     )
                     % n_states
                 )
+
                 logmu_shift.append(
                     scipy.special.logsumexp(
                         new_log_mu[this_pred_cnv, :]
@@ -769,7 +766,9 @@ def pipeline_baum_welch(
                         axis=0,
                     )
                 )
+
             logmu_shift = np.vstack(logmu_shift)
+
             (
                 log_emission_rdr,
                 log_emission_baf,
@@ -800,7 +799,7 @@ def pipeline_baum_welch(
                 tumor_prop,
             )
 
-        log_emission = log_emission_rdr + log_emission_baf
+    log_emission = log_emission_rdr + log_emission_baf
 
     log_alpha = hmmclass.forward_lattice(
         lengths,
@@ -824,7 +823,7 @@ def pipeline_baum_welch(
 
     pred = np.argmax(log_gamma, axis=0)
     pred_cnv = pred % n_states
-
+    """
     if not output_prefix is None:
         tmp = np.log10(1 - t)
         np.savez(
@@ -853,3 +852,4 @@ def pipeline_baum_welch(
         }
 
         return res
+    """

@@ -1,3 +1,4 @@
+import scipy
 import numpy as np
 from numba import njit
 
@@ -16,6 +17,35 @@ def mylogsumexp(a):
 
     return s + a_max
 
+
+@njit
+def np_max_ax_keep(arr, axis=0):
+    assert arr.ndim == 2
+    assert axis in [0, 1]
+    if axis == 0:
+        result = np.zeros((1, arr.shape[1]))
+        for i in range(result.shape[1]):
+            result[:, i] = np.max(arr[:, i])
+    else:
+        result = np.zeros((arr.shape[0], 1))
+        for i in range(result.shape[0]):
+            result[i, :] = np.max(arr[i, :])
+    return result
+
+@njit
+def np_sum_ax_keep(arr, axis=0):
+    assert arr.ndim == 2
+    assert axis in [0, 1]
+    
+    if axis == 0:
+        result = np.zeros( (1, arr.shape[1]) )
+        for i in range(result.shape[1]):
+            result[:, i] = np.sum(arr[:, i])
+    else:
+        result = np.zeros( (arr.shape[0], 1) )
+        for i in range(result.shape[0]):
+            result[i, :] = np.sum(arr[i, :])
+    return result
 
 @njit
 def mylogsumexp_ax_keep(a, axis):
@@ -162,3 +192,33 @@ def update_startprob_sitewise(lengths, log_gamma):
     log_startprob -= mylogsumexp(log_startprob)
 
     return log_startprob
+
+
+@njit
+def compute_posterior_transition_sitewise(
+    log_alpha, log_beta, log_transmat, log_emission
+):
+    n_states = int(log_alpha.shape[0] / 2)
+    n_obs = log_alpha.shape[1]
+
+    log_xi = np.zeros((2 * n_states, 2 * n_states, n_obs - 1))
+
+    for i in np.arange(2 * n_states):
+        for j in np.arange(2 * n_states):
+            for t in np.arange(n_obs - 1):
+                # ??? Theoretically, joint distribution across spots under iid is the prod (or sum) of individual (log) probabilities.
+                # But adding too many spots may lead to a higher weight of the emission rather then transition prob.
+                log_xi[i, j, t] = (
+                    log_alpha[i, t]
+                    + log_transmat[
+                        i - n_states * int(i / n_states),
+                        j - n_states * int(j / n_states),
+                    ]
+                    + np.sum(log_emission[j, t + 1, :])
+                    + log_beta[j, t + 1]
+                )
+
+    for t in np.arange(n_obs - 1):
+        log_xi[:, :, t] -= mylogsumexp(log_xi[:, :, t])
+
+    return log_xi

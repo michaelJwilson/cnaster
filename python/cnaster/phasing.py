@@ -34,7 +34,7 @@ def initial_phase_given_partition(
     BAF_CHANGE_THRESHOLD = 0.1
     DEFAULT_DIPLOID_STATE = 2
 
-    logger.info(f"Starting phasing with {len(initial_clone_index)} clones")
+    logger.info(f"Starting phasing with {len(initial_clone_index)} clones.")
 
     # NB merge across initial clones.
     X, base_nb_mean, total_bb_RD, tumor_prop = merge_pseudobulk_by_index(
@@ -46,7 +46,7 @@ def initial_phase_given_partition(
         threshold=threshold,
     )
 
-    logger.info(f"Created pseudobulk with shape {X.shape}")
+    logger.info(f"Created pseudobulk with shape {X.shape}.")
 
     # NB (segments, initial clones).
     baf_profiles = np.zeros((X.shape[2], X.shape[0]))
@@ -99,6 +99,8 @@ def initial_phase_given_partition(
 
             baf_profiles[i, :] = this_baf_profiles
 
+    exit(0)
+            
     # NB compute population-level BAF with weighted mean by clone size.
     if single_tumor_prop is None:
         n_total_spots = np.sum([len(x) for x in initial_clone_index])

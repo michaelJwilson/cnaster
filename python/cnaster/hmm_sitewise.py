@@ -3,19 +3,16 @@ import scipy.stats
 from numba import njit
 import logging
 
-# TODO
 from cnaster.hmm_utils import (
     mylogsumexp,
     mylogsumexp_ax_keep,
     np_sum_ax_squeeze,
     convert_params,
     construct_unique_matrix,
+    compute_posterior_obs,
+    compute_posterior_transition_sitewise,
+    update_startprob_sitewise
 )
-
-from cnaster.hmm_utils import (
-    update_startprob_sitewise,
-)
-
 
 logger = logging.getLogger(__name__)
 
@@ -400,7 +397,7 @@ class hmm_sitewise(object):
         log_startprob = np.log(np.ones(n_states) / n_states)
 
         if n_states > 1:
-            transmat = np.ones((n_states, n_states)) * (1 - self.t) / (n_states - 1)
+            transmat = np.ones((n_states, n_states)) * (1.0 - self.t) / (n_states - 1.0)
             np.fill_diagonal(transmat, self.t)
             log_transmat = np.log(transmat)
         else:
@@ -423,7 +420,6 @@ class hmm_sitewise(object):
                 ) = hmm_sitewise.compute_emission_probability_nb_betabinom(
                     X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus
                 )
-                log_emission = log_emission_rdr + log_emission_baf
             else:
                 (
                     log_emission_rdr,
@@ -438,7 +434,8 @@ class hmm_sitewise(object):
                     taus,
                     tumor_prop,
                 )
-                log_emission = log_emission_rdr + log_emission_baf
+
+            log_emission = log_emission_rdr + log_emission_baf
 
             log_alpha = hmm_sitewise.forward_lattice(
                 lengths,
@@ -468,10 +465,12 @@ class hmm_sitewise(object):
                 new_log_startprob = new_log_startprob.flatten()
             else:
                 new_log_startprob = log_startprob
+
             if "t" in self.params:
                 new_log_transmat = update_transition_sitewise(log_xi, is_diag=is_diag)
             else:
                 new_log_transmat = log_transmat
+
             if "m" in self.params:
                 if tumor_prop is None:
                     (
@@ -505,6 +504,7 @@ class hmm_sitewise(object):
             else:
                 new_log_mu = log_mu
                 new_alphas = alphas
+
             if "p" in self.params:
                 if tumor_prop is None:
                     (
@@ -554,12 +554,14 @@ class hmm_sitewise(object):
                 and np.mean(np.abs(new_p_binom - p_binom)) < tol
             ):
                 break
+
             log_startprob = new_log_startprob
             log_transmat = new_log_transmat
             log_mu = new_log_mu
             alphas = new_alphas
             p_binom = new_p_binom
             taus = new_taus
+
         return (
             new_log_mu,
             new_alphas,

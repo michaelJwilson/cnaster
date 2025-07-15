@@ -8,6 +8,7 @@ import scipy.stats
 from numba import njit
 from sklearn.mixture import GaussianMixture
 from statsmodels.base.model import GenericLikelihoodModel
+from cnaster.hmm_utils import compute_posterior_obs
 from cnaster.hmm_sitewise import hmm_sitewise
 
 logger = logging.getLogger(__name__)
@@ -162,6 +163,8 @@ def pipeline_baum_welch(
     logger.info(f"Initialized log_mu:\n{init_log_mu}")
     logger.info(f"Initialized p_binom:\n{init_p_binom}")
 
+    logger.info(f"Solving HMM with {hmm_sitewise.__name__} instance.")
+
     hmmmodel = hmmclass(params=params, t=t)
 
     remain_kwargs = {
@@ -198,7 +201,9 @@ def pipeline_baum_welch(
         **remain_kwargs,
     )
 
-    exit(0)
+    logger.info(
+        f"Solved for best state configuration:\nmu={np.exp(new_log_mu)}\nb={np.exp(new_p_binom)}"
+    )
 
     # likelihood
     if tumor_prop is None:
@@ -286,13 +291,19 @@ def pipeline_baum_welch(
         log_sitewise_transmat,
     )
 
+    # NB compute state posterior.
     log_gamma = compute_posterior_obs(log_alpha, log_beta)
 
+    # NB with phasing.
     pred = np.argmax(log_gamma, axis=0)
+
+    # NB copy number only.
     pred_cnv = pred % n_states
+
     """
     if not output_prefix is None:
-        tmp = np.log10(1 - t)
+        tmp = np.log10(1. - t)
+
         np.savez(
             f"{output_prefix}_nstates{n_states}_{params}_{tmp:.0f}_seed{random_state}.npz",
             new_log_mu=new_log_mu,
@@ -305,18 +316,16 @@ def pipeline_baum_welch(
             pred_cnv=pred_cnv,
             llf=llf,
         )
-    else:
-        res = {
-            "new_log_mu": new_log_mu,
-            "new_alphas": new_alphas,
-            "new_p_binom": new_p_binom,
-            "new_taus": new_taus,
-            "new_log_startprob": new_log_startprob,
-            "new_log_transmat": new_log_transmat,
-            "log_gamma": log_gamma,
-            "pred_cnv": pred_cnv,
-            "llf": llf,
-        }
-
-        return res
     """
+
+    return {
+        "new_log_mu": new_log_mu,
+        "new_alphas": new_alphas,
+        "new_p_binom": new_p_binom,
+        "new_taus": new_taus,
+        "new_log_startprob": new_log_startprob,
+        "new_log_transmat": new_log_transmat,
+        "log_gamma": log_gamma,
+        "pred_cnv": pred_cnv,
+        "llf": llf,
+    }

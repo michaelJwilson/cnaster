@@ -14,6 +14,8 @@ from cnaster.hmm_utils import (
 )
 from cnaster.hmm_update import (
     update_startprob_sitewise,
+    update_emission_params_bb_sitewise_uniqvalues,
+    update_emission_params_nb_sitewise_uniqvalues,
     update_emission_params_bb_sitewise_uniqvalues_mix,
     update_emission_params_nb_sitewise_uniqvalues_mix,
 )
@@ -377,7 +379,6 @@ class hmm_sitewise(object):
 
         assert n_comp == 2
 
-        # initialize NB logmean shift and BetaBinom prob
         log_mu = (
             np.vstack([np.linspace(-0.1, 0.1, n_states) for r in range(n_spots)]).T
             if init_log_mu is None
@@ -390,19 +391,19 @@ class hmm_sitewise(object):
             else init_p_binom
         )
 
-        # initialize (inverse of) dispersion param in NB and BetaBinom
         alphas = (
             0.1 * np.ones((n_states, n_spots)) if init_alphas is None else init_alphas
         )
 
         taus = 30 * np.ones((n_states, n_spots)) if init_taus is None else init_taus
 
-        # initialize start probability and emission probability
         log_startprob = np.log(np.ones(n_states) / n_states)
 
         if n_states > 1:
             transmat = np.ones((n_states, n_states)) * (1.0 - self.t) / (n_states - 1.0)
+            
             np.fill_diagonal(transmat, self.t)
+            
             log_transmat = np.log(transmat)
         else:
             log_transmat = np.zeros((1, 1))
@@ -417,6 +418,8 @@ class hmm_sitewise(object):
         )
 
         for r in range(max_iter):
+            logger.info(f"Solving for Baum-Welch iteration {r}/{max_iter} with NegBin+BetaBin emission.")
+            
             if tumor_prop is None:
                 (
                     log_emission_rdr,

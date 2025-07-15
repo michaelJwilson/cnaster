@@ -1,7 +1,9 @@
+import copy
+import scipy
 import numpy as np
 from numba import njit
 from cnaster.hmm_utils import mylogsumexp_ax_keep, mylogsumexp
-
+from cnaster.hmm_emission import Weighted_BetaBinom
 
 def update_transition_sitewise(log_xi, is_diag=False):
     """
@@ -83,6 +85,190 @@ def update_startprob_sitewise(lengths, log_gamma):
     return log_startprob
 
 
+def update_emission_params_nb_sitewise_uniqvalues(
+    unique_values,
+    mapping_matrices,
+    log_gamma,
+    base_nb_mean,
+    alphas,
+    start_log_mu=None,
+    fix_NB_dispersion=False,
+    shared_NB_dispersion=False,
+    min_log_rdr=-2,
+    max_log_rdr=2,
+    min_estep_weight=0.1,
+):
+    """
+    Attributes
+    ----------
+    X : array, shape (n_observations, n_components, n_spots)
+        Observed expression UMI count and allele frequency UMI count.
+
+    log_gamma : array, (2*n_states, n_observations)
+        Posterior probability of observing each state at each observation time.
+
+    base_nb_mean : array, shape (n_observations, n_spots)
+        Mean expression under diploid state.
+    """
+    n_spots = len(unique_values)
+    n_states = int(log_gamma.shape[0] / 2)
+    gamma = np.exp(log_gamma)
+
+    new_log_mu = (
+        copy.copy(start_log_mu)
+        if not start_log_mu is None
+        else np.zeros((n_states, n_spots))
+    )
+    new_alphas = copy.copy(alphas)
+
+    if fix_NB_dispersion:
+        new_log_mu = np.zeros((n_states, n_spots))
+        for s in range(n_spots):
+            tmp = (scipy.sparse.csr_matrix(gamma) @ mapping_matrices[s]).toarray()
+            idx_nonzero = np.where(unique_values[s][:, 1] > 0)[0]
+            for i in range(n_states):
+                model = sm.GLM(
+                    unique_values[s][idx_nonzero, 0],
+                    np.ones(len(idx_nonzero)).reshape(-1, 1),
+                    family=sm.families.NegativeBinomial(alpha=alphas[i, s]),
+                    exposure=unique_values[s][idx_nonzero, 1],
+                    var_weights=tmp[i, idx_nonzero] + tmp[i + n_states, idx_nonzero],
+                )
+                res = model.fit(disp=0, maxiter=1500, xtol=1e-4, ftol=1e-4)
+                new_log_mu[i, s] = res.params[0]
+                if not (start_log_mu is None):
+                    res2 = model.fit(
+                        disp=0,
+                        maxiter=1500,
+                        start_params=np.array([start_log_mu[i, s]]),
+                        xtol=1e-4,
+                        ftol=1e-4,
+                    )
+                    new_log_mu[i, s] = (
+                        res.params[0]
+                        if -model.loglike(res.params) < -model.loglike(res2.params)
+                        else res2.params[0]
+                    )
+    else:
+        if not shared_NB_dispersion:
+            for s in range(n_spots):
+                tmp = (scipy.sparse.csr_matrix(gamma) @ mapping_matrices[s]).toarray()
+                idx_nonzero = np.where(unique_values[s][:, 1] > 0)[0]
+                for i in range(n_states):
+                    model = Weighted_NegativeBinomial(
+                        unique_values[s][idx_nonzero, 0],
+                        np.ones(len(idx_nonzero)).reshape(-1, 1),
+                        weights=tmp[i, idx_nonzero] + tmp[i + n_states, idx_nonzero],
+                        exposure=unique_values[s][idx_nonzero, 1],
+                        penalty=0,
+                    )
+                    res = model.fit(disp=0, maxiter=1500, xtol=1e-4, ftol=1e-4)
+                    new_log_mu[i, s] = res.params[0]
+                    new_alphas[i, s] = res.params[-1]
+                    if not (start_log_mu is None):
+                        res2 = model.fit(
+                            disp=0,
+                            maxiter=1500,
+                            start_params=np.append(
+                                [start_log_mu[i, s]], [alphas[i, s]]
+                            ),
+                            xtol=1e-4,
+                            ftol=1e-4,
+                        )
+                        new_log_mu[i, s] = (
+                            res.params[0]
+                            if model.nloglikeobs(res.params)
+                            < model.nloglikeobs(res2.params)
+                            else res2.params[0]
+                        )
+                        new_alphas[i, s] = (
+                            res.params[-1]
+                            if model.nloglikeobs(res.params)
+                            < model.nloglikeobs(res2.params)
+                            else res2.params[-1]
+                        )
+        else:
+            exposure = []
+            y = []
+            weights = []
+            features = []
+            state_posweights = []
+            for s in range(n_spots):
+                idx_nonzero = np.where(unique_values[s][:, 1] > 0)[0]
+                this_exposure = np.tile(unique_values[s][idx_nonzero, 1], n_states)
+                this_y = np.tile(unique_values[s][idx_nonzero, 0], n_states)
+                tmp = (scipy.sparse.csr_matrix(gamma) @ mapping_matrices[s]).toarray()
+                this_weights = np.concatenate(
+                    [
+                        tmp[i, idx_nonzero] + tmp[i + n_states, idx_nonzero]
+                        for i in range(n_states)
+                    ]
+                )
+                this_features = np.zeros((n_states * len(idx_nonzero), n_states))
+                for i in np.arange(n_states):
+                    this_features[
+                        (i * len(idx_nonzero)) : ((i + 1) * len(idx_nonzero)), i
+                    ] = 1
+                # only optimize for states where at least 1 SNP belongs to
+                idx_state_posweight = np.array(
+                    [
+                        i
+                        for i in range(this_features.shape[1])
+                        if np.sum(this_weights[this_features[:, i] == 1])
+                        >= min_estep_weight
+                    ]
+                )
+                idx_row_posweight = np.concatenate(
+                    [np.where(this_features[:, k] == 1)[0] for k in idx_state_posweight]
+                )
+                y.append(this_y[idx_row_posweight])
+                exposure.append(this_exposure[idx_row_posweight])
+                weights.append(this_weights[idx_row_posweight])
+                features.append(
+                    this_features[idx_row_posweight, :][:, idx_state_posweight]
+                )
+                state_posweights.append(idx_state_posweight)
+            exposure = np.concatenate(exposure)
+            y = np.concatenate(y)
+            weights = np.concatenate(weights)
+            features = scipy.linalg.block_diag(*features)
+            model = Weighted_NegativeBinomial(
+                y, features, weights=weights, exposure=exposure
+            )
+            res = model.fit(disp=0, maxiter=1500, xtol=1e-4, ftol=1e-4)
+            for s, idx_state_posweight in enumerate(state_posweights):
+                l1 = int(np.sum([len(x) for x in state_posweights[:s]]))
+                l2 = int(np.sum([len(x) for x in state_posweights[: (s + 1)]]))
+                new_log_mu[idx_state_posweight, s] = res.params[l1:l2]
+            if res.params[-1] > 0:
+                new_alphas[:, :] = res.params[-1]
+            if not (start_log_mu is None):
+                res2 = model.fit(
+                    disp=0,
+                    maxiter=1500,
+                    start_params=np.concatenate(
+                        [
+                            start_log_mu[idx_state_posweight, s]
+                            for s, idx_state_posweight in enumerate(state_posweights)
+                        ]
+                        + [np.ones(1) * alphas[0, s]]
+                    ),
+                    xtol=1e-4,
+                    ftol=1e-4,
+                )
+                if model.nloglikeobs(res2.params) < model.nloglikeobs(res.params):
+                    for s, idx_state_posweight in enumerate(state_posweights):
+                        l1 = int(np.sum([len(x) for x in state_posweights[:s]]))
+                        l2 = int(np.sum([len(x) for x in state_posweights[: (s + 1)]]))
+                        new_log_mu[idx_state_posweight, s] = res2.params[l1:l2]
+                    if res2.params[-1] > 0:
+                        new_alphas[:, :] = res2.params[-1]
+    new_log_mu[new_log_mu > max_log_rdr] = max_log_rdr
+    new_log_mu[new_log_mu < min_log_rdr] = min_log_rdr
+
+    return new_log_mu, new_alphas
+
+
 def update_emission_params_nb_sitewise_uniqvalues_mix(
     unique_values,
     mapping_matrices,
@@ -123,7 +309,7 @@ def update_emission_params_nb_sitewise_uniqvalues_mix(
     if fix_NB_dispersion:
         new_log_mu = np.zeros((n_states, n_spots))
         for s in range(n_spots):
-            tmp = (scipy.sparse.csr_matrix(gamma) @ mapping_matrices[s]).A
+            tmp = (scipy.sparse.csr_matrix(gamma) @ mapping_matrices[s]).toarray()
             idx_nonzero = np.where(unique_values[s][:, 1] > 0)[0]
             for i in range(n_states):
                 model = sm.GLM(
@@ -151,7 +337,7 @@ def update_emission_params_nb_sitewise_uniqvalues_mix(
     else:
         if not shared_NB_dispersion:
             for s in range(n_spots):
-                tmp = (scipy.sparse.csr_matrix(gamma) @ mapping_matrices[s]).A
+                tmp = (scipy.sparse.csr_matrix(gamma) @ mapping_matrices[s]).toarray()
                 idx_nonzero = np.where(unique_values[s][:, 1] > 0)[0]
                 for i in range(n_states):
                     this_tp = (mapping_matrices[s].T @ tumor_prop[:, s])[
@@ -203,7 +389,7 @@ def update_emission_params_nb_sitewise_uniqvalues_mix(
                 idx_nonzero = np.where(unique_values[s][:, 1] > 0)[0]
                 this_exposure = np.tile(unique_values[s][idx_nonzero, 1], n_states)
                 this_y = np.tile(unique_values[s][idx_nonzero, 0], n_states)
-                tmp = (scipy.sparse.csr_matrix(gamma) @ mapping_matrices[s]).A
+                tmp = (scipy.sparse.csr_matrix(gamma) @ mapping_matrices[s]).toarray()
                 this_tp = np.tile(
                     (mapping_matrices[s].T @ tumor_prop[:, s])[idx_nonzero]
                     / (mapping_matrices[s].T @ np.ones(tumor_prop.shape[0]))[
@@ -291,6 +477,226 @@ def update_emission_params_nb_sitewise_uniqvalues_mix(
     return new_log_mu, new_alphas
 
 
+def update_emission_params_bb_sitewise_uniqvalues(
+    unique_values,
+    mapping_matrices,
+    log_gamma,
+    total_bb_RD,
+    taus,
+    start_p_binom=None,
+    fix_BB_dispersion=False,
+    shared_BB_dispersion=False,
+    percent_threshold=0.99,
+    min_binom_prob=0.01,
+    max_binom_prob=0.99,
+):
+    """
+    Attributes
+    ----------
+    X : array, shape (n_observations, n_components, n_spots)
+        Observed expression UMI count and allele frequency UMI count.
+
+    log_gamma : array, (2*n_states, n_observations)
+        Posterior probability of observing each state at each observation time.
+
+    total_bb_RD : array, shape (n_observations, n_spots)
+        SNP-covering reads for both REF and ALT across genes along genome.
+    """
+    n_spots = len(unique_values)
+    n_states = int(log_gamma.shape[0] / 2)
+    gamma = np.exp(log_gamma)
+    # initialization
+    new_p_binom = (
+        copy.copy(start_p_binom)
+        if not start_p_binom is None
+        else np.ones((n_states, n_spots)) * 0.5
+    )
+    new_taus = copy.copy(taus)
+    if fix_BB_dispersion:
+        for s in np.arange(len(unique_values)):
+            tmp = (scipy.sparse.csr_matrix(gamma) @ mapping_matrices[s]).toarray()
+            idx_nonzero = np.where(unique_values[s][:, 1] > 0)[0]
+            for i in range(n_states):
+                # only optimize for BAF only when the posterior probability >= 0.1 (at least 1 SNP is under this state)
+                if (
+                    np.sum(tmp[i, idx_nonzero]) + np.sum(tmp[i + n_states, idx_nonzero])
+                    >= 0.1
+                ):
+                    model = Weighted_BetaBinom_fixdispersion(
+                        np.append(
+                            unique_values[s][idx_nonzero, 0],
+                            unique_values[s][idx_nonzero, 1]
+                            - unique_values[s][idx_nonzero, 0],
+                        ),
+                        np.ones(2 * len(idx_nonzero)).reshape(-1, 1),
+                        taus[i, s],
+                        weights=np.append(
+                            tmp[i, idx_nonzero], tmp[i + n_states, idx_nonzero]
+                        ),
+                        exposure=np.append(
+                            unique_values[s][idx_nonzero, 1],
+                            unique_values[s][idx_nonzero, 1],
+                        ),
+                    )
+                    res = model.fit(disp=0, maxiter=1500, xtol=1e-4, ftol=1e-4)
+                    new_p_binom[i, s] = res.params[0]
+                    if not (start_p_binom is None):
+                        res2 = model.fit(
+                            disp=0,
+                            maxiter=1500,
+                            start_params=np.array(start_p_binom[i, s]),
+                            xtol=1e-4,
+                            ftol=1e-4,
+                        )
+                        new_p_binom[i, s] = (
+                            res.params[0]
+                            if model.nloglikeobs(res.params)
+                            < model.nloglikeobs(res2.params)
+                            else res2.params[0]
+                        )
+    else:
+        if not shared_BB_dispersion:
+            for s in np.arange(len(unique_values)):
+                tmp = (scipy.sparse.csr_matrix(gamma) @ mapping_matrices[s]).toarray()
+                idx_nonzero = np.where(unique_values[s][:, 1] > 0)[0]
+                for i in range(n_states):
+                    # only optimize for BAF only when the posterior probability >= 0.1 (at least 1 SNP is under this state)
+                    if (
+                        np.sum(tmp[i, idx_nonzero])
+                        + np.sum(tmp[i + n_states, idx_nonzero])
+                        >= 0.1
+                    ):
+                        model = Weighted_BetaBinom(
+                            np.append(
+                                unique_values[s][idx_nonzero, 0],
+                                unique_values[s][idx_nonzero, 1]
+                                - unique_values[s][idx_nonzero, 0],
+                            ),
+                            np.ones(2 * len(idx_nonzero)).reshape(-1, 1),
+                            weights=np.append(
+                                tmp[i, idx_nonzero], tmp[i + n_states, idx_nonzero]
+                            ),
+                            exposure=np.append(
+                                unique_values[s][idx_nonzero, 1],
+                                unique_values[s][idx_nonzero, 1],
+                            ),
+                        )
+                        res = model.fit(disp=0, maxiter=1500, xtol=1e-4, ftol=1e-4)
+                        new_p_binom[i, s] = res.params[0]
+                        new_taus[i, s] = res.params[-1]
+                        if not (start_p_binom is None):
+                            res2 = model.fit(
+                                disp=0,
+                                maxiter=1500,
+                                start_params=np.append(
+                                    [start_p_binom[i, s]], [taus[i, s]]
+                                ),
+                                xtol=1e-4,
+                                ftol=1e-4,
+                            )
+                            new_p_binom[i, s] = (
+                                res.params[0]
+                                if model.nloglikeobs(res.params)
+                                < model.nloglikeobs(res2.params)
+                                else res2.params[0]
+                            )
+                            new_taus[i, s] = (
+                                res.params[-1]
+                                if model.nloglikeobs(res.params)
+                                < model.nloglikeobs(res2.params)
+                                else res2.params[-1]
+                            )
+        else:
+            exposure = []
+            y = []
+            weights = []
+            features = []
+            state_posweights = []
+            for s in np.arange(len(unique_values)):
+                idx_nonzero = np.where(unique_values[s][:, 1] > 0)[0]
+                this_exposure = np.tile(
+                    np.append(
+                        unique_values[s][idx_nonzero, 1],
+                        unique_values[s][idx_nonzero, 1],
+                    ),
+                    n_states,
+                )
+                this_y = np.tile(
+                    np.append(
+                        unique_values[s][idx_nonzero, 0],
+                        unique_values[s][idx_nonzero, 1]
+                        - unique_values[s][idx_nonzero, 0],
+                    ),
+                    n_states,
+                )
+                tmp = (scipy.sparse.csr_matrix(gamma) @ mapping_matrices[s]).toarray()
+                this_weights = np.concatenate(
+                    [
+                        np.append(tmp[i, idx_nonzero], tmp[i + n_states, idx_nonzero])
+                        for i in range(n_states)
+                    ]
+                )
+                this_features = np.zeros((2 * n_states * len(idx_nonzero), n_states))
+                for i in np.arange(n_states):
+                    this_features[
+                        (i * 2 * len(idx_nonzero)) : ((i + 1) * 2 * len(idx_nonzero)), i
+                    ] = 1
+                # only optimize for states where at least 1 SNP belongs to
+                idx_state_posweight = np.array(
+                    [
+                        i
+                        for i in range(this_features.shape[1])
+                        if np.sum(this_weights[this_features[:, i] == 1]) >= 0.1
+                    ]
+                )
+                idx_row_posweight = np.concatenate(
+                    [np.where(this_features[:, k] == 1)[0] for k in idx_state_posweight]
+                )
+                y.append(this_y[idx_row_posweight])
+                exposure.append(this_exposure[idx_row_posweight])
+                weights.append(this_weights[idx_row_posweight])
+                features.append(
+                    this_features[idx_row_posweight, :][:, idx_state_posweight]
+                )
+                state_posweights.append(idx_state_posweight)
+            exposure = np.concatenate(exposure)
+            y = np.concatenate(y)
+            weights = np.concatenate(weights)
+            features = scipy.linalg.block_diag(*features)
+            model = Weighted_BetaBinom(y, features, weights=weights, exposure=exposure)
+            res = model.fit(disp=0, maxiter=1500, xtol=1e-4, ftol=1e-4)
+            for s, idx_state_posweight in enumerate(state_posweights):
+                l1 = int(np.sum([len(x) for x in state_posweights[:s]]))
+                l2 = int(np.sum([len(x) for x in state_posweights[: (s + 1)]]))
+                new_p_binom[idx_state_posweight, s] = res.params[l1:l2]
+            if res.params[-1] > 0:
+                new_taus[:, :] = res.params[-1]
+            if not (start_p_binom is None):
+                res2 = model.fit(
+                    disp=0,
+                    maxiter=1500,
+                    start_params=np.concatenate(
+                        [
+                            start_p_binom[idx_state_posweight, s]
+                            for s, idx_state_posweight in enumerate(state_posweights)
+                        ]
+                        + [np.ones(1) * taus[0, s]]
+                    ),
+                    xtol=1e-4,
+                    ftol=1e-4,
+                )
+                if model.nloglikeobs(res2.params) < model.nloglikeobs(res.params):
+                    for s, idx_state_posweight in enumerate(state_posweights):
+                        l1 = int(np.sum([len(x) for x in state_posweights[:s]]))
+                        l2 = int(np.sum([len(x) for x in state_posweights[: (s + 1)]]))
+                        new_p_binom[idx_state_posweight, s] = res2.params[l1:l2]
+                    if res2.params[-1] > 0:
+                        new_taus[:, :] = res2.params[-1]
+    new_p_binom[new_p_binom < min_binom_prob] = min_binom_prob
+    new_p_binom[new_p_binom > max_binom_prob] = max_binom_prob
+    return new_p_binom, new_taus
+
+
 def update_emission_params_bb_sitewise_uniqvalues_mix(
     unique_values,
     mapping_matrices,
@@ -330,7 +736,7 @@ def update_emission_params_bb_sitewise_uniqvalues_mix(
 
     if fix_BB_dispersion:
         for s in np.arange(n_spots):
-            tmp = (scipy.sparse.csr_matrix(gamma) @ mapping_matrices[s]).A
+            tmp = (scipy.sparse.csr_matrix(gamma) @ mapping_matrices[s]).toarray()
             idx_nonzero = np.where(unique_values[s][:, 1] > 0)[0]
             for i in range(n_states):
                 # only optimize for BAF only when the posterior probability >= 0.1 (at least 1 SNP is under this state)
@@ -381,7 +787,7 @@ def update_emission_params_bb_sitewise_uniqvalues_mix(
     else:
         if not shared_BB_dispersion:
             for s in np.arange(n_spots):
-                tmp = (scipy.sparse.csr_matrix(gamma) @ mapping_matrices[s]).A
+                tmp = (scipy.sparse.csr_matrix(gamma) @ mapping_matrices[s]).toarray()
                 idx_nonzero = np.where(unique_values[s][:, 1] > 0)[0]
                 for i in range(n_states):
                     # only optimize for BAF only when the posterior probability >= 0.1 (at least 1 SNP is under this state)
@@ -462,7 +868,7 @@ def update_emission_params_bb_sitewise_uniqvalues_mix(
                     ),
                     n_states,
                 )
-                tmp = (scipy.sparse.csr_matrix(gamma) @ mapping_matrices[s]).A
+                tmp = (scipy.sparse.csr_matrix(gamma) @ mapping_matrices[s]).toarray()
                 this_tp = np.tile(
                     (mapping_matrices[s].T @ tumor_prop[:, s])[idx_nonzero]
                     / (mapping_matrices[s].T @ np.ones(tumor_prop.shape[0]))[

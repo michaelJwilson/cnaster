@@ -53,6 +53,8 @@ def initial_phase_given_partition(
 
     # NB loop over initial clones.
     for i in range(X.shape[2]):
+        logger.info(f"Solving for phasing of initial clone {i} of {X.shape[2]}.")
+        
         # NB assumes BAF = 0.5 for insufficient snp umi count.
         if np.sum(total_bb_RD[:, i]) < min_snpumi:
             baf_profiles[i, :] = 0.5
@@ -98,8 +100,6 @@ def initial_phase_given_partition(
             this_baf_profiles[np.abs(this_baf_profiles - 0.5) < EPS_BAF] = 0.5
 
             baf_profiles[i, :] = this_baf_profiles
-
-    exit(0)
 
     # NB compute population-level BAF with weighted mean by clone size.
     if single_tumor_prop is None:

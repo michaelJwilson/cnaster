@@ -607,6 +607,7 @@ def update_emission_params_bb_sitewise_uniqvalues_mix(
     new_p_binom[new_p_binom > max_binom_prob] = max_binom_prob
     return new_p_binom, new_taus
 
+
 @njit
 def compute_posterior_transition_sitewise(
     log_alpha, log_beta, log_transmat, log_emission
@@ -705,7 +706,7 @@ def pipeline_baum_welch(
     remain_kwargs = {
         k: v for k, v in kwargs.items() if k in ["lambd", "sample_length", "log_gamma"]
     }
-    
+
     (
         new_log_mu,
         new_alphas,

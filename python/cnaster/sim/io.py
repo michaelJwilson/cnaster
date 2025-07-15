@@ -24,4 +24,4 @@ def get_exp_baseline(config):
 
 def get_snp_baseline(config):
     spath = f"{config.output_dir}/baseline/snps.tsv.gz"
-    return pd.read_csv(spath, sep="\t", comment="#", names=None).to_numpy()[:,1]
+    return pd.read_csv(spath, sep="\t", comment="#", names=None).to_numpy()[:, 1]

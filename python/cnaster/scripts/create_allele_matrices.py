@@ -11,10 +11,11 @@ import pandas as pd
 import scipy.io
 from scipy.special import logsumexp
 
+
 def cell_by_gene_lefthap_counts(cellsnp_folder, eagle_results_dir, barcode_list):
     # create a (snp_id, GT) map from eagle2 output
     snp_gt_map = {}
-    
+
     for c in range(1, 23):
         fname = [
             str(x)
@@ -46,7 +47,7 @@ def cell_by_gene_lefthap_counts(cellsnp_folder, eagle_results_dir, barcode_list)
         # TODO phased?
         # only keep heterozygous SNPs;
         tmpdf = tmpdf[(tmpdf.PHASE == "0|1") | (tmpdf.PHASE == "1|0")]
-        
+
         this_snp_ids = (
             str(c) + "_" + tmpdf.POS.astype(str) + "_" + tmpdf.REF + "_" + tmpdf.ALT
         ).values
@@ -65,7 +66,7 @@ def cell_by_gene_lefthap_counts(cellsnp_folder, eagle_results_dir, barcode_list)
         sep="\t",
         names=["tmpCHR", "POS", "ID", "REF", "ALT", "QUAL", "FILTER", "INFO"],
     )
-    
+
     df_snp["snp_id"] = (
         df_snp.tmpCHR.astype(str)
         + "_"

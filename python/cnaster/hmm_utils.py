@@ -1,6 +1,7 @@
 import numpy as np
 from numba import njit
 
+
 @njit
 def mylogsumexp(a):
     a_max = np.max(a)
@@ -53,6 +54,7 @@ def convert_params(mean, std):
 
     return n, p
 
+
 def construct_unique_matrix(obs_count, total_count):
     """
     Attributes
@@ -99,13 +101,14 @@ def construct_unique_matrix(obs_count, total_count):
 
     return unique_values, mapping_matrices
 
+
 def compute_posterior_obs(log_alpha, log_beta):
-    """                                                                                                                                                                                                            
-    Input                                                                                                                                                                                                          
-        log_alpha: output from forward_lattice_gaussian. size n_states * n_observations. alpha[j, t] = P(o_1, ... o_t, q_t = j | lambda).                                                                          
-        log_beta: output from backward_lattice_gaussian. size n_states * n_observations. beta[i, t] = P(o_{t+1}, ..., o_T | q_t = i, lambda).                                                                      
-    Output:                                                                                                                                                                                                        
-        log_gamma: size n_states * n_observations. gamma[i,t] = P(q_t = i | O, lambda). gamma[i, t] propto alpha[i,t] * beta[i,t]                                                                                  
+    """
+    Input
+        log_alpha: output from forward_lattice_gaussian. size n_states * n_observations. alpha[j, t] = P(o_1, ... o_t, q_t = j | lambda).
+        log_beta: output from backward_lattice_gaussian. size n_states * n_observations. beta[i, t] = P(o_{t+1}, ..., o_T | q_t = i, lambda).
+    Output:
+        log_gamma: size n_states * n_observations. gamma[i,t] = P(q_t = i | O, lambda). gamma[i, t] propto alpha[i,t] * beta[i,t]
     """
     n_states = log_alpha.shape[0]
     n_obs = log_alpha.shape[1]
@@ -121,14 +124,15 @@ def compute_posterior_obs(log_alpha, log_beta):
 
     return log_gamma
 
+
 @njit
 def update_startprob_sitewise(lengths, log_gamma):
-    """                                                                                                                                                                                                            
-    Input                                                                                                                                                                                                          
-        lengths: sum of lengths = n_observations.                                                                                                                                                                  
-        log_gamma: size 2 * n_states * n_observations. gamma[i,t] = P(q_t = i | O, lambda).                                                                                                                        
-    Output                                                                                                                                                                                                         
-        log_startprob: n_states. Start probability after log transformation.                                                                                                                                       
+    """
+    Input
+        lengths: sum of lengths = n_observations.
+        log_gamma: size 2 * n_states * n_observations. gamma[i,t] = P(q_t = i | O, lambda).
+    Output
+        log_startprob: n_states. Start probability after log transformation.
     """
     n_states = int(log_gamma.shape[0] / 2)
     n_obs = log_gamma.shape[1]
@@ -137,7 +141,7 @@ def update_startprob_sitewise(lengths, log_gamma):
         np.sum(lengths) == n_obs
     ), "Sum of lengths must be equal to the second dimension of log_gamma!"
 
-    # indices of the start of sequences, given that the length of each sequence is in lengths                                                                                                                      
+    # indices of the start of sequences, given that the length of each sequence is in lengths
     cumlen = 0
     indices_start = []
     for le in lengths:
@@ -147,14 +151,14 @@ def update_startprob_sitewise(lengths, log_gamma):
 
     log_startprob = np.zeros(n_states)
 
-    # compute log_startprob of 2 * n_states                                                                                                                                                                        
+    # compute log_startprob of 2 * n_states
     log_startprob = mylogsumexp_ax_keep(log_gamma[:, indices_start], axis=1)
 
-    # merge (CNV state, phase A) and (CNV state, phase B)                                                                                                                                                          
+    # merge (CNV state, phase A) and (CNV state, phase B)
     log_startprob = log_startprob.flatten().reshape(2, -1)
     log_startprob = mylogsumexp_ax_keep(log_startprob, axis=0)
 
-    # normalize such that startprob sums to 1                                                                                                                                                                      
+    # normalize such that startprob sums to 1
     log_startprob -= mylogsumexp(log_startprob)
 
     return log_startprob

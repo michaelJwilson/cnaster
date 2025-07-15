@@ -6,7 +6,13 @@ import pandas as pd
 import numpy as np
 from numba import njit
 from pathlib import Path
-from cnaster.sim.clone import Clone, get_clones, query_clones, construct_frac_cnas, get_cnas
+from cnaster.sim.clone import (
+    Clone,
+    get_clones,
+    query_clones,
+    construct_frac_cnas,
+    get_cnas,
+)
 from cnaster.sim.io import get_exp_baseline, get_snp_baseline
 from cnaster_rs import get_triangular_lattice, sample_segment_umis
 
@@ -19,9 +25,7 @@ def generate_fake_barcodes(num_spots):
 
 def assign_counts_to_segments(total, weights):
     num_segments = len(weights)
-    choices = np.random.choice(
-        num_segments, size=int(round(total)), p=weights
-    )
+    choices = np.random.choice(num_segments, size=int(round(total)), p=weights)
 
     # TODO HACK
     return np.bincount(choices, minlength=1 + num_segments)
@@ -56,7 +60,7 @@ def gen_visium(sample_dir, config, name):
 
     meta = pd.DataFrame(
         {
-            "barcode": pd.Series(dtype="str") ,
+            "barcode": pd.Series(dtype="str"),
             "umis": pd.Series(dtype=int),
             "snp_umis": pd.Series(dtype=int),
         }
@@ -74,7 +78,9 @@ def gen_visium(sample_dir, config, name):
     clones = get_clones(config)
 
     # NB transcript umis and b-allele umis for all sports and segments.
-    result = np.zeros(shape=(2, config.visium.nx * config.visium.ny, num_segments), dtype=float)
+    result = np.zeros(
+        shape=(2, config.visium.nx * config.visium.ny, num_segments), dtype=float
+    )
 
     for ii, (bc, (x, y, z)) in enumerate(zip(barcodes, lattice)):
         matched = query_clones(config, clones, x, y, z)
@@ -86,7 +92,9 @@ def gen_visium(sample_dir, config, name):
             mean_purity = config.phylogeny.mean_purity
             tumor_purity = mean_purity + (1.0 - mean_purity) * np.random.uniform()
 
-        rdrs, bafs = construct_frac_cnas(num_segments, config.segment_size_kbp, tumor_purity, cnas)
+        rdrs, bafs = construct_frac_cnas(
+            num_segments, config.segment_size_kbp, tumor_purity, cnas
+        )
 
         # NB sample coverages for the spot
         total_umis = 10.0 ** np.random.normal(
@@ -107,7 +115,8 @@ def gen_visium(sample_dir, config, name):
         weights /= weights.sum()
 
         segment_baseline_snp_umis = assign_counts_to_segments(
-            total_snp_umis, weights,
+            total_snp_umis,
+            weights,
         )
 
         # NB assumes a single pseudo-count.
@@ -116,9 +125,11 @@ def gen_visium(sample_dir, config, name):
             1.0 + config.baf_dispersion * (1.0 - bafs),
         )
 
-        result[0, ii, :] = sample_segment_umis(segment_baseline_umis, rdrs, config.rdr_over_dispersion)
+        result[0, ii, :] = sample_segment_umis(
+            segment_baseline_umis, rdrs, config.rdr_over_dispersion
+        )
         result[1, ii, :] = np.random.binomial(segment_baseline_snp_umis, ps)
-        
+
         meta_row = {
             "barcode": bc,
             "umis": int(total_umis),
@@ -165,7 +176,7 @@ def gen_visium(sample_dir, config, name):
         )
 
     opath = Path(sample_dir) / f"{name}_umis.npy"
-        
+
     logger.info(f"Writing umis to {str(opath)}")
 
     np.save(opath, result)

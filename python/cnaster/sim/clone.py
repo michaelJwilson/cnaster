@@ -6,6 +6,7 @@ from cnaster_rs import ellipse
 # TODO HACK
 DEFAULT_PHY_ID = 0
 
+
 class Clone:
     def __init__(self, fpath, x0=None):
         with open(fpath, "r") as f:
@@ -24,7 +25,8 @@ class Clone:
 
     def __repr__(self):
         return f"<Clone ellipse={self.ellipse} cnas={len(self.cnas)}>"
-    
+
+
 def get_clones(config, phy_id=DEFAULT_PHY_ID):
     """
     Load clones from phylogeny files.
@@ -40,6 +42,7 @@ def get_clones(config, phy_id=DEFAULT_PHY_ID):
 
     return clones
 
+
 def query_clones(config, clones, x, y, z):
     # NB find the corresponding clone.
     query = np.array([x, y]).reshape(2, 1)
@@ -53,14 +56,16 @@ def query_clones(config, clones, x, y, z):
         return min(candidates, key=lambda c: c.ellipse.det_l)
     else:
         return None
-    
+
+
 def get_cnas(config, clone_ids, phy_id=DEFAULT_PHY_ID):
     """
     Load CNAs from phylogeny files.
     """
     clones = get_clones(config, phy_id=phy_id)
 
-    return [clones[clone_id -1].cnas for clone_id in clone_ids if clone_id != -1]
+    return [clones[clone_id - 1].cnas for clone_id in clone_ids if clone_id != -1]
+
 
 def construct_frac_cnas(num_segments, segment_size_kbp, tumor_purity, cnas):
     rdrs = np.ones(num_segments, dtype=float)
@@ -78,7 +83,7 @@ def construct_frac_cnas(num_segments, segment_size_kbp, tumor_purity, cnas):
         rdr = (mat_copy + pat_copy) / 2
         baf = min([mat_copy, pat_copy]) / (mat_copy + pat_copy)
 
-        rdrs[pos_idx:end_idx] = (1. - tumor_purity) + (rdr * tumor_purity)
-        bafs[pos_idx:end_idx] = 0.5 * (1. - tumor_purity) + tumor_purity * baf * rdr
+        rdrs[pos_idx:end_idx] = (1.0 - tumor_purity) + (rdr * tumor_purity)
+        bafs[pos_idx:end_idx] = 0.5 * (1.0 - tumor_purity) + tumor_purity * baf * rdr
 
     return rdrs, bafs

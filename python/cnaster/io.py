@@ -266,7 +266,7 @@ def load_input_data(
     adata.layers["count"] = adata.layers["count"].astype(int)
 
     ##### filter by spots #####
-    
+
     # NB shared barcodes between adata and SNPs.
     shared_barcodes = set(list(snp_barcodes.barcodes)) & set(list(adata.obs.index))
 
@@ -307,7 +307,7 @@ def load_input_data(
 
     cell_snp_Aallele = cell_snp_Aallele[indicator, :]
     cell_snp_Ballele = cell_snp_Ballele[indicator, :]
-    
+
     if across_slice_adjacency_mat is not None:
         across_slice_adjacency_mat = across_slice_adjacency_mat[indicator, :][
             :, indicator
@@ -325,14 +325,14 @@ def load_input_data(
 
     cell_snp_Aallele = cell_snp_Aallele[indicator, :]
     cell_snp_Ballele = cell_snp_Ballele[indicator, :]
-    
+
     if not (across_slice_adjacency_mat is None):
         across_slice_adjacency_mat = across_slice_adjacency_mat[indicator, :][
             :, indicator
         ]
 
     ##### filter by ranges #####
-        
+
     # NB filter out genes that are expressed in <min_percent_expressed_spots cells
     # TODO apply @ get_spaceranger_counts
     indicator = (
@@ -350,7 +350,7 @@ def load_input_data(
     logger.info(
         f"median UMI after filtering out genes < {100. * min_percent_expressed_spots}% of cells = {np.median(np.sum(adata.layers["count"], axis=1))}"
     )
-    
+
     if filtergenelist_file is not None:
         filter_gene_list = get_filtergenelist(filtergenelist_file)
 
@@ -388,7 +388,7 @@ def load_input_data(
                 )
             ):
                 j += 1
-                
+
             if (
                 j < ranges.shape[0]
                 and (ranges.Chr.values[j] == this_chr)
@@ -421,10 +421,12 @@ def load_input_data(
         adata.obs["tumor_annotation"] = "tumor"
         adata.obs["tumor_annotation"][adata.obs.index.isin(normal_barcodes)] = "normal"
 
-        logger.info("Applied tumor annotation: {adata.obs['tumor_annotation'].value_counts()}")
+        logger.info(
+            "Applied tumor annotation: {adata.obs['tumor_annotation'].value_counts()}"
+        )
 
     logger.info("Realized AnnData:\n{adata}")
-        
+
     return (
         adata,
         cell_snp_Aallele.A,

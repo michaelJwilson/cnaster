@@ -201,7 +201,9 @@ def finalize_clones(config, tree, ellipses, cnas, outdir, max_cnas=10):
     leaves = tree.leaves()
     used_cnas = copy.deepcopy(cnas)
 
-    logger.info(f"Adding passenger CNAs to clones with length {config.cna_length_kbp} [Kb].")
+    logger.info(
+        f"Adding passenger CNAs to clones with length {config.cna_length_kbp} [Kb]."
+    )
 
     for leaf in leaves:
         if leaf.ellipse_idx == -1:

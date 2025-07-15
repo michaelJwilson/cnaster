@@ -37,7 +37,7 @@ def run_sim(config_path, debug=True):
     # NB generate phylogenies
     if not config.cache:
         generate_phylogenies(config)
-        
+
         generate_exp_baseline(config)
         generate_snp_baseline(config)
 

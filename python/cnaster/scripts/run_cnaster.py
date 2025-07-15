@@ -2,6 +2,7 @@ import logging
 
 from cnaster.config import YAMLConfig
 from cnaster.io import load_input_data
+
 from cnaster.omics import (
     assign_initial_blocks,
     create_bin_ranges,
@@ -13,7 +14,7 @@ from cnaster.omics import (
 )
 from cnaster.phasing import initial_phase_given_partition
 from cnaster.spatial import initialize_clones, multislice_adjacency
-
+"""
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(filename)s:%(lineno)d - %(message)s",
@@ -27,7 +28,7 @@ def main():
     # HACK
     config_path = f"/u/mw9568/research/repos/cnaster/config_turing.yaml"
     config = YAMLConfig.from_file(config_path)
-
+    """
     # RUN
     (
         adata,
@@ -40,7 +41,7 @@ def main():
         filter_gene_file=config.references.filtergenelist_file,
         filter_range_file=config.references.filterregion_file,
     )
-
+    
     # TODO CHECK
     coords = adata.obsm["X_pos"]
 
@@ -190,5 +191,6 @@ def main():
     
     single_X[:, 0, :] = 0
     single_base_nb_mean[:, :] = 0
-
+    """
     logger.info("Done.\n\n")
+    

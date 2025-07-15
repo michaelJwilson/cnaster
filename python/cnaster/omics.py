@@ -3,8 +3,7 @@ import logging
 import numpy as np
 import pandas as pd
 
-from cnaster.recomb import (assign_centiMorgans,
-                            compute_numbat_phase_switch_prob)
+from cnaster.recomb import assign_centiMorgans, compute_numbat_phase_switch_prob
 from cnaster.reference import get_reference_genes, get_reference_recomb_rates
 
 logger = logging.getLogger(__name__)
@@ -67,7 +66,7 @@ def form_gene_snp_table(unique_snp_ids, hgtable_file, adata):
 
         this_pos = vec_start[i]
 
-        # NB decrement row indexes up to 50 behind (on same contig). 
+        # NB decrement row indexes up to 50 behind (on same contig).
         j = i - 1
 
         # TODO? overlapping genes: closest in start.
@@ -88,7 +87,7 @@ def form_gene_snp_table(unique_snp_ids, hgtable_file, adata):
     logger.info(
         f"Retaining {100. * np.mean(isin[~df_gene_snp.is_interval]):.3f}% of SNPs according to known genes"
     )
-    
+
     df_gene_snp = df_gene_snp[isin]
 
     return df_gene_snp
@@ -126,13 +125,13 @@ def assign_initial_blocks(
     )
 
     first_interval = tmp_block_genome_intervals[0]
-    
+
     block_genome_intervals = [first_interval]
     merged = 0
 
     for next_interval in tmp_block_genome_intervals[1:]:
         contig, start, end = next_interval
-        
+
         # NB check whether overlap with previous block
         if contig == block_genome_intervals[-1][0] and max(
             start, block_genome_intervals[-1][1]
@@ -195,7 +194,7 @@ def assign_initial_blocks(
         while t <= len(block_ranges):
             t += 1
 
-            reach_end = (t == len(block_ranges))
+            reach_end = t == len(block_ranges)
 
             # TODO BUG? (not reach_end) and ...
             change_chr = initial_block_chr[s] != initial_block_chr[t - 1]
@@ -248,7 +247,7 @@ def assign_initial_blocks(
             if this_snp_umis >= initial_min_umi:
                 break
 
-        # NB goal is to have assigned this_snp_umis, s and t. 
+        # NB goal is to have assigned this_snp_umis, s and t.
         if (
             this_snp_umis < initial_min_umi
             and s > 0
@@ -358,7 +357,7 @@ def summarize_counts_for_blocks(
 
     # NB define recombination rates.
     ref_positions_cM = get_reference_recomb_rates(geneticmap_file)
-        
+
     # NB -  phase switch probability from genetic distance.
     #    -  first chr and start of each block.
     sorted_chr_pos_first = df_gene_snp.groupby("block_id").agg(
@@ -372,7 +371,7 @@ def summarize_counts_for_blocks(
     sorted_chr_pos_last = df_gene_snp.groupby("block_id").agg(
         {"CHR": "last", "END": "last"}
     )
-    
+
     sorted_chr_pos_last = list(
         zip(sorted_chr_pos_last.CHR.values, sorted_chr_pos_last.END.values)
     )
@@ -459,7 +458,7 @@ def create_bin_ranges(
 
             while t < len(block_lengths) and np.sum(block_umi[s:t]) < secondary_min_umi:
                 t += 1
-                
+
                 if np.sum(block_lengths[s:t]) >= max_binlength:
                     t = max(t - 1, s + 1)
                     break
@@ -491,7 +490,7 @@ def create_bin_ranges(
 
     block_lengths = sorted_chr_pos_both.END.values - sorted_chr_pos_both.START.values
     n_blocks = len(block_lengths)
-    
+
     # NB? summed across spots.
     block_umi = np.sum(single_total_bb_RD, axis=1)
 
@@ -578,34 +577,34 @@ def summarize_counts_for_bins(
 
     # NB last axis is the number of barcodes.
     bin_single_X = np.zeros((len(bins), 2, adata.shape[0]), dtype=int)
-    
+
     bin_single_base_nb_mean = np.zeros((len(bins), adata.shape[0]))
     bin_single_total_bb_RD = np.zeros((len(bins), adata.shape[0]), dtype=int)
-    
+
     # NB summarize counts of involved genes and SNPs within each block
     df_bin_contents = (
         df_gene_snp[~df_gene_snp.bin_id.isnull()]
         .groupby("bin_id")
         .agg({"block_id": set, "gene": set})
     )
-    
+
     for b in range(df_bin_contents.shape[0]):
         # BAF (SNPs)
         involved_blocks = [
             x for x in df_bin_contents.block_id.values[b] if x is not None
         ]
-        
+
         this_phased = np.where(
             phase_indicator[involved_blocks].reshape(-1, 1),
             single_X[involved_blocks, 1, :],
             single_total_bb_RD[involved_blocks, :] - single_X[involved_blocks, 1, :],
         )
-        
+
         bin_single_X[b, 1, :] = np.sum(this_phased, axis=0)
         bin_single_total_bb_RD[b, :] = np.sum(
             single_total_bb_RD[involved_blocks, :], axis=0
         )
-        
+
         # RDR (genes)
         involved_genes = [x for x in df_bin_contents.gene.values[b] if x is not None]
         bin_single_X[b, 0, :] = np.sum(
@@ -613,7 +612,7 @@ def summarize_counts_for_bins(
         )
 
     lengths = np.zeros(len(df_gene_snp.CHR.unique()), dtype=int)
-    
+
     for i, c in enumerate(df_gene_snp.CHR.unique()):
         lengths[i] = len(
             df_gene_snp[
@@ -625,15 +624,15 @@ def summarize_counts_for_bins(
     sorted_chr_pos_first = df_gene_snp.groupby("bin_id").agg(
         {"CHR": "first", "START": "first"}
     )
-    
+
     sorted_chr_pos_first = list(
         zip(sorted_chr_pos_first.CHR.values, sorted_chr_pos_first.START.values)
     )
-    
+
     sorted_chr_pos_last = df_gene_snp.groupby("bin_id").agg(
         {"CHR": "last", "END": "last"}
     )
-    
+
     sorted_chr_pos_last = list(
         zip(sorted_chr_pos_last.CHR.values, sorted_chr_pos_last.END.values)
     )
@@ -650,7 +649,7 @@ def summarize_counts_for_bins(
     phase_switch_prob = compute_numbat_phase_switch_prob(
         position_cM, tmp_sorted_chr_pos, nu
     )
-    
+
     log_sitewise_transmat = np.minimum(
         np.log(0.5), np.log(phase_switch_prob) - logphase_shift
     )

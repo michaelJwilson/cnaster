@@ -2,7 +2,7 @@ import logging
 
 from cnaster.config import YAMLConfig
 from cnaster.io import load_input_data
-
+"""
 from cnaster.omics import (
     assign_initial_blocks,
     create_bin_ranges,
@@ -28,7 +28,7 @@ def main():
     # HACK
     config_path = f"/u/mw9568/research/repos/cnaster/config_turing.yaml"
     config = YAMLConfig.from_file(config_path)
-    """
+
     # RUN
     (
         adata,
@@ -41,7 +41,7 @@ def main():
         filter_gene_file=config.references.filtergenelist_file,
         filter_range_file=config.references.filterregion_file,
     )
-    
+    """
     # TODO CHECK
     coords = adata.obsm["X_pos"]
 

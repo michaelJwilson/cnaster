@@ -17,15 +17,9 @@ logger = logging.getLogger(__name__)
 
 
 def get_sample_sheet(sample_sheet_path):
-    df_meta = pd.read_csv(sample_sheet_path, sep="\t", header=None)
-    df_meta.rename(
-        columns=dict(
-            zip(df_meta.columns[:4], ["bam", "sample_id", "spaceranger_dir", "snp_dir"])
-        ),
-        inplace=True,
-    )
+    df_meta = pd.read_csv(sample_sheet_path, sep="\t")
 
-    logger.info(f"Input sample_sheet_path={spaceranger_meta_path} contains:\n{df_meta}")
+    logger.info(f"Input sample_sheet_path={sample_sheet_path} contains:\n{df_meta}")
 
     return df_meta
 
@@ -45,6 +39,7 @@ def get_aggregated_barcodes(barcode_file):
         x.split("_")[-1] for x in df_barcode.combined_barcode.values
     ]
 
+    # TODO sample ids currently slice, e.g. U1;
     logger.info(
         f"Input barcode file {barcode_file} with {df_barcode.shape[0]} barcodes for all samples/bams, e.g.\n{df_barcode.head()}\n"
     )
@@ -65,7 +60,7 @@ def get_spatial_positions(spaceranger_dir, filter_in_tissue=True):
             names=names,
         )
 
-        logger.info("Reading {spaceranger_dir}/spatial/tissue_positions.csv")
+        logger.info(f"Reading {spaceranger_dir}/spatial/tissue_positions.csv")
 
     elif Path(f"{spaceranger_dir}/spatial/tissue_positions_list.csv").exists():
         df_this_pos = pd.read_csv(
@@ -75,24 +70,25 @@ def get_spatial_positions(spaceranger_dir, filter_in_tissue=True):
             names=names,
         )
 
-        logger.info("Reading {spaceranger_dir}/spatial/tissue_positions_list.csv")
+        logger.info(f"Reading {spaceranger_dir}/spatial/tissue_positions_list.csv")
 
     else:
-        logger.error("No spatial coordinate file @ {spaceranger_dir}.")
+        logger.error(f"No spatial coordinate file @ {spaceranger_dir}.")
         raise RuntimeError()
 
     # TODO alignment defined for in_tissue == True only?
     if filter_in_tissue:
-        return df_this_pos[df_this_pos.in_tissue == True]
+        result = df_this_pos[df_this_pos.in_tissue == True]
     else:
-        return df_this_pos
+        result = df_this_pos
+
+    return result
 
 
 def get_spaceranger_counts(spaceranger_dir):
     # NB https://scanpy.readthedocs.io/en/stable/generated/scanpy.read_10x_h5.html
     if Path(f"{spaceranger_dir}/filtered_feature_bc_matrix.h5").exists():
         adatatmp = sc.read_10x_h5(f"{spaceranger_dir}/filtered_feature_bc_matrix.h5")
-
         logger.info(f"Reading {spaceranger_dir}/filtered_feature_bc_matrix.h5")
 
     elif Path(f"{spaceranger_dir}/filtered_feature_bc_matrix.h5ad").exists():
@@ -107,7 +103,27 @@ def get_spaceranger_counts(spaceranger_dir):
         raise RuntimeError()
 
     # TODO
-    adatatmp.layers["count"] = adatatmp.X.A
+    adatatmp.layers["count"] = adatatmp.X.toarray()
+
+    is_nan = np.isnan(adatatmp.layers["count"])
+
+    logger.info(f"Found {100. * np.mean(is_nan):.3f}% NaN counts in anndata.  zeroing.")
+
+    # NB replace nan with 0 and cast to int.
+    adatatmp.layers["count"][is_nan] = 0
+    adatatmp.layers["count"] = adatatmp.layers["count"].astype(int)
+
+    # e.g. duplicated:  TBCE  2, LINC01238  2.3; why?
+    # duplicated_mask = adatatmp.var_names.duplicated(keep=False)
+    # non_unique_vars = adatatmp.var_names[duplicated_mask]
+
+    # duplicate_counts = non_unique_vars.value_counts()
+
+    # NB var names made unique by appending an index string,
+    #    see https://anndata.readthedocs.io/en/latest/generated/anndata.AnnData.var_names_make_unique.html
+    adatatmp.var_names_make_unique()
+
+    logger.info(f"Read features of shape {adatatmp.shape} from {spaceranger_dir}")
 
     # NB data matrix X (ndarray/csr matrix, dask ...): observations/cells are named by their barcode and variables/genes by gene name
     return adatatmp
@@ -115,7 +131,7 @@ def get_spaceranger_counts(spaceranger_dir):
 
 # TODO massively inefficient?
 def get_alignments(alignment_files, df_meta, df_agg_barcode, significance=1.0e-6):
-    if len(alignment_files) == 0:
+    if alignment_files is None:
         return None
 
     row_ind, col_ind = [], []
@@ -178,9 +194,7 @@ def load_input_data(
     # NB see https://github.com/raphael-group/CalicoST/blob/5e4a8a1230e71505667d51390dc9c035a69d60d9/src/calicost/utils_IO.py#L127
     df_meta = get_sample_sheet(config.paths.sample_sheet)
 
-    # TODO HACK
-    assert len(df_meta) == 1
-
+    # TODO HACK assumes snps derived from aggregation of all provided samples.
     snp_dir = df_meta["snp_dir"].iloc[0]
 
     # TODO sample_id not defined?  barcodes uniquely identify each spot per slice,
@@ -196,6 +210,18 @@ def load_input_data(
         f"{snp_dir}/barcodes.txt", header=None, names=["barcodes"]
     )
 
+    # TODO HACK
+    sample_id_patcher = {
+        sample_id.split("-")[1]: sample_id for sample_id in df_meta.sample_id.values
+    }
+
+    df_agg_barcode["sample_id"] = df_agg_barcode["sample_id"].map(sample_id_patcher)
+
+    # TODO HACK -/_
+    snp_barcodes["barcodes"] = snp_barcodes["barcodes"].map(
+        lambda xx: xx.split("_")[0] + "_" + sample_id_patcher[xx.split("_")[-1]]
+    )
+
     unique_snp_ids = np.load(f"{snp_dir}/unique_snp_ids.npy", allow_pickle=True)
 
     ##### read SNP counts #####
@@ -207,10 +233,16 @@ def load_input_data(
 
     # NB df_meta provides the sample_ids, one per bam.
     for i, sname in enumerate(df_meta.sample_id.values):
+        logger.info(f"Solving for spaceranger sample {sname}.")
+
+        # NB barcodes for this sample + slice.
         index = np.where(df_agg_barcode["sample_id"] == sname)[0]
 
         df_this_barcode = copy.copy(df_agg_barcode.iloc[index, :])
         df_this_barcode.index = df_this_barcode.barcode
+
+        # NB limited to in tissue by default.
+        df_this_pos = get_spatial_positions(df_meta["spaceranger_dir"].iloc[i])
 
         # NB read filtered_feature_bc_matrix.h5(ad) from spaceranger_dir for
         #    for this sample.
@@ -222,10 +254,7 @@ def load_input_data(
         ).argsort()
 
         # TODO UGH
-        adatatmp = adatatmp[idx_argsort, :]
-
-        # NB limited to in tissue by default.
-        df_this_pos = get_spatial_positions(df_meta["spaceranger_dir"].iloc[i])
+        adatatmp = adatatmp[idx_argsort, :].copy()
 
         # NB only keep shared barcodes between (IN_TISSUE) visium barcodes and filtered_feature_bc_matrix.
         shared_barcodes = set(list(df_this_pos.barcode)) & set(list(adatatmp.obs.index))
@@ -237,7 +266,7 @@ def load_input_data(
         )
 
         # TODO filter before sort.
-        adatatmp = adatatmp[isin, :]
+        adatatmp = adatatmp[isin, :].copy()
 
         df_this_pos = df_this_pos[df_this_pos.barcode.isin(shared_barcodes)]
 
@@ -254,28 +283,22 @@ def load_input_data(
         # NB index by {barcode}_{sample} (TBC)
         adatatmp.obs.index = [f"{x}_{sname}" for x in adatatmp.obs.index]
 
-        adatatmp.var_names_make_unique()
-
         if adata is None:
             adata = adatatmp
         else:
             adata = anndata.concat([adata, adatatmp], join="outer")
-
-    # NB replace nan with 0 and cast to int.
-    adata.layers["count"][np.isnan(adata.layers["count"])] = 0
-    adata.layers["count"] = adata.layers["count"].astype(int)
 
     ##### filter by spots #####
 
     # NB shared barcodes between adata and SNPs.
     shared_barcodes = set(list(snp_barcodes.barcodes)) & set(list(adata.obs.index))
 
-    isin = snp_barcodes.barcodes.isin(shared_barcodes)
+    isin = snp_barcodes.barcodes.isin(shared_barcodes).values
 
     logger.info(
         f"Retaining {100. * np.mean(isin):.3f}% of SNP barcodes (shared between UMIs and SNPs)."
     )
-
+    
     cell_snp_Aallele = cell_snp_Aallele[isin, :]
     cell_snp_Ballele = cell_snp_Ballele[isin, :]
 
@@ -287,22 +310,30 @@ def load_input_data(
         f"Retaining {100. * np.mean(isin):.3f}% of UMI barcodes (shared between UMIs and SNPs)."
     )
 
-    adata = adata[isin, :]
+    adata = adata[isin, :].copy()
     adata = adata[
         pd.Categorical(
             adata.obs.index, categories=list(snp_barcodes.barcodes), ordered=True
         ).argsort(),
         :,
     ]
-
-    across_slice_adjacency_mat = get_alignments(alignment_files, df_meta)
+    
+    across_slice_adjacency_mat = get_alignments(alignment_files, df_meta, df_agg_barcode)
 
     # NB filter out spots with too small number of UMIs;
     # TODO differentiate min_snpumis; why before genomic binning?
-    indicator = np.sum(adata.layers["count"], axis=1) >= min_snpumis
+    indicator = np.sum(adata.layers["count"], axis=1) >= min_snp_umis
+    
+    logger.info(f"Retaining {100. * np.mean(indicator):.3f}% of spots with sufficient UMIs")
 
-    logger.info(f"Retaining {100. * np.mean(isin):.3f}% of spots with sufficient UMIs")
+    indicator &= (
+        np.sum(cell_snp_Aallele, axis=1).A.flatten()
+        + np.sum(cell_snp_Ballele, axis=1).A.flatten()
+        >= min_snp_umis
+    )
 
+    logger.info(f"Retaining {100. * np.mean(indicator):.3f}% of spots with sufficient snp UMIs")
+        
     adata = adata[indicator, :]
 
     cell_snp_Aallele = cell_snp_Aallele[indicator, :]
@@ -313,42 +344,24 @@ def load_input_data(
             :, indicator
         ]
 
-    # NB filter out spots with too small number of snp-covering UMIs;
-    # TODO indicator &= indicator ...
-    indicator = (
-        np.sum(cell_snp_Aallele, axis=1).A.flatten()
-        + np.sum(cell_snp_Ballele, axis=1).A.flatten()
-        >= min_snpumis
-    )
-
-    adata = adata[indicator, :]
-
-    cell_snp_Aallele = cell_snp_Aallele[indicator, :]
-    cell_snp_Ballele = cell_snp_Ballele[indicator, :]
-
-    if not (across_slice_adjacency_mat is None):
-        across_slice_adjacency_mat = across_slice_adjacency_mat[indicator, :][
-            :, indicator
-        ]
-
-    ##### filter by ranges #####
-
     # NB filter out genes that are expressed in <min_percent_expressed_spots cells
     # TODO apply @ get_spaceranger_counts
     indicator = (
         np.sum(adata.X > 0, axis=0) >= min_percent_expressed_spots * adata.shape[0]
     ).A.flatten()
 
+    # NB total UMIs for all spots given (selected) genes.
+    ratio = np.sum(adata.X[:, indicator]) / np.sum(adata.X)
+    
+    # TODO excludes 50% of genes, but retains 99.97% of UMIs; resolves gene definition to house-keeping.
     logger.info(
-        f"Retaining {100. * np.mean(isin):.3f}% of genes with sufficient expression across spots"
+        f"Retaining {100. * np.mean(indicator):.3f}% of genes with sufficient expression across spots ({100. * ratio:.2f}% of total UMIs)."
     )
 
-    # DEPRECATE
-    # genenames = set(list(adata.var.index[indicator]))
     adata = adata[:, indicator]
 
     logger.info(
-        f"median UMI after filtering out genes < {100. * min_percent_expressed_spots}% of cells = {np.median(np.sum(adata.layers["count"], axis=1))}"
+        f"median UMI after gene selection for expression < {100. * min_percent_expressed_spots:.3f}% of cells = {np.median(np.sum(adata.layers["count"], axis=1))}"
     )
 
     if filtergenelist_file is not None:

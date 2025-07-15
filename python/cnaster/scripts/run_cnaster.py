@@ -8,7 +8,10 @@ from cnaster.omics import (
     form_gene_snp_table,
     assign_initial_blocks,
     summarize_counts_for_blocks,
+    get_sitewise_transmat
 )
+
+from cnaster.spatial import initialize_clones
 
 """
 from cnaster.omics import (
@@ -64,6 +67,8 @@ def main():
         index = np.where(adata.obs["sample"] == sname)[0]
         sample_ids[index] = s
 
+    single_tumor_prop = None
+        
     """
     # TODO
     if config.preprocessing.tumorprop_file is not None:
@@ -76,8 +81,6 @@ def main():
         adata.obs = adata.obs.join(df_tumorprop)
 
         single_tumor_prop = adata.obs["tumor_proportion"]
-    else:
-        single_tumor_prop = None
     """
 
     df_gene_snp = form_gene_snp_table(
@@ -108,8 +111,6 @@ def main():
         config.phasing.logphase_shift,
     )
 
-    """
-    # RUN
     initial_clone_for_phasing = initialize_clones(
         coords,
         sample_ids,
@@ -117,7 +118,6 @@ def main():
         y_part=config.phasing.npart_phasing,
     )
 
-    # RUN
     phase_indicator, refined_lengths = initial_phase_given_partition(
         single_X,
         lengths,
@@ -138,7 +138,7 @@ def main():
         1.0e-3,  # MAGIC tol
         threshold=config.hmrf.tumorprop_threshold,
     )
-
+    """    
     # RUN
     df_gene_snp["phase"] = np.where(
         df_gene_snp.snp_id.isnull(),

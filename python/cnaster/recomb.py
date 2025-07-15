@@ -1,5 +1,7 @@
+import logging
 import numpy as np
 
+logger = logging.getLogger(__name__)
 
 def compute_numbat_phase_switch_prob(
     position_cM, chr_pos_vector, nu=1.0, min_prob=1.0e-20
@@ -13,6 +15,8 @@ def compute_numbat_phase_switch_prob(
     chr_pos_vector : list of pairs
         list of (chr, pos) pairs of SNPs. It is used to identify start of a new chr.
     """
+    logger.info("Computing numbat phase switch probabilities")
+    
     phase_switch_prob = min_prob * np.ones(len(position_cM))
 
     for i, cm in enumerate(position_cM[:-1]):
@@ -38,7 +42,9 @@ def compute_numbat_phase_switch_prob(
 
 
 def assign_centiMorgans(chr_pos_vector, ref_positions_cM):
-    ref_chrom = np.array(ref_positions_cM.chrom)
+    logger.info("Assigning centiMorgan recombination rates.")
+    
+    ref_chrom = np.array(ref_positions_cM.chrom).astype(int)
     ref_pos = np.array(ref_positions_cM.pos)
     ref_cm = np.array(ref_positions_cM.pos_cm)
 

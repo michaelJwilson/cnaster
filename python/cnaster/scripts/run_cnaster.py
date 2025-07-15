@@ -32,8 +32,8 @@ def main():
     # RUN
     (
         adata,
-        cell_snp_Aallele.A,
-        cell_snp_Ballele.A,
+        cell_snp_Aallele,
+        cell_snp_Ballele,
         unique_snp_ids,
         across_slice_adjacency_mat,
     ) = load_input_data(

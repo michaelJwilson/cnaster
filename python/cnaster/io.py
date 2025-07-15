@@ -298,7 +298,7 @@ def load_input_data(
     logger.info(
         f"Retaining {100. * np.mean(isin):.3f}% of SNP barcodes (shared between UMIs and SNPs)."
     )
-    
+
     cell_snp_Aallele = cell_snp_Aallele[isin, :]
     cell_snp_Ballele = cell_snp_Ballele[isin, :]
 
@@ -317,14 +317,18 @@ def load_input_data(
         ).argsort(),
         :,
     ]
-    
-    across_slice_adjacency_mat = get_alignments(alignment_files, df_meta, df_agg_barcode)
+
+    across_slice_adjacency_mat = get_alignments(
+        alignment_files, df_meta, df_agg_barcode
+    )
 
     # NB filter out spots with too small number of UMIs;
     # TODO differentiate min_snpumis; why before genomic binning?
     indicator = np.sum(adata.layers["count"], axis=1) >= min_snp_umis
-    
-    logger.info(f"Retaining {100. * np.mean(indicator):.3f}% of spots with sufficient UMIs")
+
+    logger.info(
+        f"Retaining {100. * np.mean(indicator):.3f}% of spots with sufficient UMIs"
+    )
 
     indicator &= (
         np.sum(cell_snp_Aallele, axis=1).A.flatten()
@@ -332,8 +336,10 @@ def load_input_data(
         >= min_snp_umis
     )
 
-    logger.info(f"Retaining {100. * np.mean(indicator):.3f}% of spots with sufficient snp UMIs")
-        
+    logger.info(
+        f"Retaining {100. * np.mean(indicator):.3f}% of spots with sufficient snp UMIs"
+    )
+
     adata = adata[indicator, :]
 
     cell_snp_Aallele = cell_snp_Aallele[indicator, :]
@@ -352,7 +358,7 @@ def load_input_data(
 
     # NB total UMIs for all spots given (selected) genes.
     ratio = np.sum(adata.X[:, indicator]) / np.sum(adata.X)
-    
+
     # TODO excludes 50% of genes, but retains 99.97% of UMIs; resolves gene definition to house-keeping.
     logger.info(
         f"Retaining {100. * np.mean(indicator):.3f}% of genes with sufficient expression across spots ({100. * ratio:.2f}% of total UMIs)."
@@ -364,18 +370,18 @@ def load_input_data(
         f"median UMI after gene selection for expression < {100. * min_percent_expressed_spots:.3f}% of cells = {np.median(np.sum(adata.layers["count"], axis=1))}"
     )
 
-    if filtergenelist_file is not None:
-        filter_gene_list = get_filtergenelist(filtergenelist_file)
+    if filter_gene_file is not None:
+        genes_to_filter = get_filter_genes(filter_gene_file).iloc[:, 0].values
+        indicator_filter = ~np.isin(adata.var.index, genes_to_filter)
 
-        # TODO slow.
-        indicator_filter = np.array(
-            [(not x in filter_gene_list) for x in adata.var.index]
+        logger.info(
+            f"Removing genes based on input:\n{genes_to_filter[np.isin(genes_to_filter, adata.var.index)]}."
         )
 
         adata = adata[:, indicator_filter]
 
         logger.info(
-            f"median UMI after filtering out genes in {filtergenelist_file} = {np.median(np.sum(adata.layers["count"], axis=1))}"
+            f"Median UMI after filtering genes in {filter_gene_file} = {np.median(np.sum(adata.layers["count"], axis=1))}"
         )
 
         # TODO?
@@ -383,6 +389,7 @@ def load_input_data(
 
     if filter_range_file is not None:
         ranges = get_filter_ranges(filter_range_file)
+        num_ranges = ranges.shape[0]
 
         indicator_filter = np.array([True] * cell_snp_Aallele.shape[1])
         j = 0
@@ -393,7 +400,7 @@ def load_input_data(
             this_pos = int(unique_snp_ids[i].split("_")[1])
 
             # NB fast forward genomic position
-            while j < ranges.shape[0] and (
+            while j < num_ranges and (
                 (ranges.Chr.values[j] < this_chr)
                 or (
                     (ranges.Chr.values[j] == this_chr)
@@ -403,12 +410,16 @@ def load_input_data(
                 j += 1
 
             if (
-                j < ranges.shape[0]
+                j < num_ranges
                 and (ranges.Chr.values[j] == this_chr)
                 and (ranges.Start.values[j] <= this_pos)
                 and (ranges.End.values[j] > this_pos)
             ):
                 indicator_filter[i] = False
+
+        logger.info(
+            f"Retaining {100. * np.mean(indicator_filter):.2f}% of SNPs based on input filter ranges."
+        )
 
         cell_snp_Aallele = cell_snp_Aallele[:, indicator_filter]
         cell_snp_Ballele = cell_snp_Ballele[:, indicator_filter]
@@ -424,12 +435,16 @@ def load_input_data(
         # NB  prediction on spot/barcode summed transcripts for each gene.
         label = clf.fit_predict(np.sum(adata.layers["count"], axis=0).reshape(-1, 1))
 
+        to_zero = np.where(label == -1)[0]
+        ratio  = np.sum(adata.layers["count"][:, to_zero]) / np.sum(adata.layers["count"])
+
+        # TODO removed 235 outlier genes (51.310% of UMIs)!!
+        logger.info(f"Removed {len(to_zero)} outlier genes ({100. * ratio:.3f}% of UMIs).")
+        
         # TODO?  zeros out counts.
-        adata.layers["count"][:, np.where(label == -1)[0]] = 0
-
-        logger.info("filter out {} outlier genes.".format(np.sum(label == -1)))
-
-    if normalidx_file is not None:
+        adata.layers["count"][:, to_zero] = 0
+        
+    if normal_idx_file is not None:
         normal_barcodes = pd.read_csv(normalidx_file, header=None).iloc[:, 0].values
         adata.obs["tumor_annotation"] = "tumor"
         adata.obs["tumor_annotation"][adata.obs.index.isin(normal_barcodes)] = "normal"
@@ -440,10 +455,11 @@ def load_input_data(
 
     logger.info("Realized AnnData:\n{adata}")
 
+    # TODO dense array.
     return (
         adata,
-        cell_snp_Aallele.A,
-        cell_snp_Ballele.A,
+        cell_snp_Aallele.toarray(),
+        cell_snp_Ballele.toarray(),
         unique_snp_ids,
         across_slice_adjacency_mat,
     )

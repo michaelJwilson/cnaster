@@ -6,21 +6,16 @@ logger = logging.getLogger(__name__)
 
 
 def get_filter_genes(filter_gene_file):
-    filter_gene_list = pd.read_csv(filter_gene_file, header=None)
-    filter_gene_list = set(list(filter_gene_list.iloc[:, 0]))
-
-    return filter_gene_list
+    return pd.read_csv(filter_gene_file, header=None)
 
 
 def get_filter_ranges(filter_range_file):
     ranges = pd.read_csv(
-        filter_range_file, header=None, sep="\t", names=["Chrname", "Start", "End"]
+        filter_range_file, header=None, sep="\t", names=["Chr", "Start", "End"]
     )
 
-    if "chr" in ranges.Chrname.iloc[0]:
-        ranges["CHR"] = [int(x[3:]) for x in ranges.Chrname.values]
-    else:
-        ranges.rename(columns={"Chrname": "Chr"}, inplace=True)
+    if "chr" in ranges.Chr.iloc[0]:
+        ranges["Chr"] = [int(x[3:]) for x in ranges.Chr.values]
 
     ranges.sort_values(by=["Chr", "Start"], inplace=True)
 

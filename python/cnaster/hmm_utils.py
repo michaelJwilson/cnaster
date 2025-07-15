@@ -154,46 +154,6 @@ def compute_posterior_obs(log_alpha, log_beta):
 
     return log_gamma
 
-
-@njit
-def update_startprob_sitewise(lengths, log_gamma):
-    """
-    Input
-        lengths: sum of lengths = n_observations.
-        log_gamma: size 2 * n_states * n_observations. gamma[i,t] = P(q_t = i | O, lambda).
-    Output
-        log_startprob: n_states. Start probability after log transformation.
-    """
-    n_states = int(log_gamma.shape[0] / 2)
-    n_obs = log_gamma.shape[1]
-
-    assert (
-        np.sum(lengths) == n_obs
-    ), "Sum of lengths must be equal to the second dimension of log_gamma!"
-
-    # indices of the start of sequences, given that the length of each sequence is in lengths
-    cumlen = 0
-    indices_start = []
-    for le in lengths:
-        indices_start.append(cumlen)
-        cumlen += le
-    indices_start = np.array(indices_start)
-
-    log_startprob = np.zeros(n_states)
-
-    # compute log_startprob of 2 * n_states
-    log_startprob = mylogsumexp_ax_keep(log_gamma[:, indices_start], axis=1)
-
-    # merge (CNV state, phase A) and (CNV state, phase B)
-    log_startprob = log_startprob.flatten().reshape(2, -1)
-    log_startprob = mylogsumexp_ax_keep(log_startprob, axis=0)
-
-    # normalize such that startprob sums to 1
-    log_startprob -= mylogsumexp(log_startprob)
-
-    return log_startprob
-
-
 @njit
 def compute_posterior_transition_sitewise(
     log_alpha, log_beta, log_transmat, log_emission

@@ -90,9 +90,21 @@ def form_gene_snp_table(unique_snp_ids, hgtable_file, adata):
 
     df_gene_snp = df_gene_snp[isin]
 
-    logger.info(f"Created gene-SNP table:\n{df_gene_snp.head()}.")
-    
+    logger.info(f"Created gene-SNP table:\n{df_gene_snp.head()}")
+
     return df_gene_snp
+
+
+def summarize_block_ids(block_ids):
+    ids, cnts = np.unique(block_ids, return_counts=True)
+    ids, cnts = np.unique(cnts, return_counts=True)
+
+    logger.info(f"Breakdown of snps per block:")
+
+    print("# SNPs/block\t# occurrences")
+
+    for ii, cnt in zip(ids, cnts):
+        print(f"{ii}\t{cnt}")
 
 
 def assign_initial_blocks(
@@ -147,13 +159,14 @@ def assign_initial_blocks(
             # TODO warn on excessive length;
             merged += 1
         else:
-            block_genome_intervals.append(x)
+            block_genome_intervals.append(next_interval)
 
+    # NB TODO 20%?
     logger.info(
-        f"Merged {100. * merged / len(tmp_block_genome_intervals):.3f}% of input ranges;"
+        f"Merged {100. * merged / len(tmp_block_genome_intervals):.3f}% of gene ranges based on overlap."
     )
 
-    # NB get block_ranges in the index of df_gene_snp
+    # NB map block_genome_intervals to block_ranges for rows of df_gene_snp.
     block_ranges = []
 
     for x in block_genome_intervals:
@@ -182,8 +195,14 @@ def assign_initial_blocks(
     for i, x in enumerate(block_ranges):
         df_gene_snp.iloc[x[0] : x[1], -1] = i
 
-    # NB second level: group the first level blocks into "haplotype blocks" such that the minimum SNP-covering UMI counts >= initial_min_umi
-    # TODO requires PHASE SET / PS tag.
+    logger.info(
+        f"Initialized block assignment based on gene overlap"
+    )
+        
+    summarize_block_ids(df_gene_snp["initial_block_id"])
+
+    # NB second level: group the first level blocks into "haplotype blocks" such that the minimum SNP-covering UMI counts >= initial_min_umi.
+    # TODO requires PHASE SET / PS tag?
     map_snp_index = {x: i for i, x in enumerate(unique_snp_ids)}
     initial_block_chr = df_gene_snp.CHR.values[np.array([x[0] for x in block_ranges])]
     block_ranges_new = []
@@ -270,9 +289,13 @@ def assign_initial_blocks(
     for i, x in enumerate(block_ranges_new):
         df_gene_snp.iloc[x[0] : x[1], -1] = i
 
-    df_gene_snp = df_gene_snp.drop(columns=["initial_block_id"])
+    logger.info(
+        f"Updating block assignment based on input phased genotypes and min. SNP-covering UMI threshold"
+    )
 
-    return df_gene_snp
+    summarize_block_ids(df_gene_snp["block_id"])
+
+    return df_gene_snp.drop(columns=["initial_block_id"])
 
 
 def summarize_counts_for_blocks(
@@ -281,9 +304,6 @@ def summarize_counts_for_blocks(
     cell_snp_Aallele,
     cell_snp_Ballele,
     unique_snp_ids,
-    nu,
-    logphase_shift,
-    geneticmap_file,
 ):
     """
     Attributes:
@@ -322,7 +342,6 @@ def summarize_counts_for_blocks(
         {"snp_id": list, "gene": list}
     )
 
-    # NB loop over "blocks"
     for b in range(df_block_contents.shape[0]):
         # BAF (SNPs)
         involved_snps_ids = [
@@ -357,6 +376,14 @@ def summarize_counts_for_blocks(
     for i, c in enumerate(df_gene_snp.CHR.unique()):
         lengths[i] = len(df_gene_snp[df_gene_snp.CHR == c].block_id.unique())
 
+    return (
+        lengths,
+        single_X,
+        single_base_nb_mean,
+        single_total_bb_RD,
+    )
+
+def get_sitewise_transmat(df_gene_snp, geneticmap_file, nu, logphase_shift):
     # NB define recombination rates.
     ref_positions_cM = get_reference_recomb_rates(geneticmap_file)
 
@@ -389,7 +416,7 @@ def summarize_counts_for_blocks(
         position_cM, tmp_sorted_chr_pos, nu
     )
 
-    # NB tranisition matrix for phasing.
+    # NB transition matrix for phasing.
     log_sitewise_transmat = np.minimum(
         np.log(0.5), np.log(phase_switch_prob) - logphase_shift
     )
@@ -399,13 +426,7 @@ def summarize_counts_for_blocks(
         np.arange(1, len(log_sitewise_transmat), 2)
     ]
 
-    return (
-        lengths,
-        single_X,
-        single_base_nb_mean,
-        single_total_bb_RD,
-        log_sitewise_transmat,
-    )
+    return log_sitewise_transmat
 
 
 def create_bin_ranges(

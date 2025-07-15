@@ -4,7 +4,11 @@ import pandas as pd
 
 from cnaster.config import YAMLConfig
 from cnaster.io import load_input_data
-from cnaster.omics import form_gene_snp_table
+from cnaster.omics import (
+    form_gene_snp_table,
+    assign_initial_blocks,
+    summarize_counts_for_blocks,
+)
 
 """
 from cnaster.omics import (
@@ -12,7 +16,6 @@ from cnaster.omics import (
     create_bin_ranges,
     form_gene_snp_table,
     summarize_counts_for_bins,
-    summarize_counts_for_blocks,
     create_bin_ranges,
     summarize_counts_for_bins,
 )
@@ -60,7 +63,7 @@ def main():
     for s, sname in enumerate(sample_list):
         index = np.where(adata.obs["sample"] == sname)[0]
         sample_ids[index] = s
-        
+
     """
     # TODO
     if config.preprocessing.tumorprop_file is not None:
@@ -76,35 +79,36 @@ def main():
     else:
         single_tumor_prop = None
     """
-    
-    # RUN
+
     df_gene_snp = form_gene_snp_table(
         unique_snp_ids, config.references.hgtable_file, adata
     )
-    """
-    # RUN
+
     df_gene_snp = assign_initial_blocks(
         df_gene_snp, adata, cell_snp_Aallele, cell_snp_Ballele, unique_snp_ids
     )
 
-    # RUN
     (
         lengths,
         single_X,
         single_base_nb_mean,
         single_total_bb_RD,
-        log_sitewise_transmat,
     ) = summarize_counts_for_blocks(
         df_gene_snp,
         adata,
         cell_snp_Aallele,
         cell_snp_Ballele,
         unique_snp_ids,
-        nu=config.phaing.nu,
-        logphase_shift=config.phasing.logphase_shift,
-        geneticmap_file=config.references.geneticmap_file,
     )
 
+    log_sitewise_transmat = get_sitewise_transmat(
+        df_gene_snp,
+        config.references.geneticmap_file,
+        config.phasing.nu,
+        config.phasing.logphase_shift,
+    )
+
+    """
     # RUN
     initial_clone_for_phasing = initialize_clones(
         coords,
@@ -198,4 +202,3 @@ def main():
     single_base_nb_mean[:, :] = 0
     """
     logger.info("Done.\n\n")
-    

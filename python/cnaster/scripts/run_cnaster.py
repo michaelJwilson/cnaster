@@ -1,7 +1,11 @@
 import logging
+import numpy as np
+import pandas as pd
 
 from cnaster.config import YAMLConfig
 from cnaster.io import load_input_data
+from cnaster.omics import form_gene_snp_table
+
 """
 from cnaster.omics import (
     assign_initial_blocks,
@@ -29,7 +33,6 @@ def main():
     config_path = f"/u/mw9568/research/repos/cnaster/config_turing.yaml"
     config = YAMLConfig.from_file(config_path)
 
-    # RUN
     (
         adata,
         cell_snp_Aallele,
@@ -41,15 +44,15 @@ def main():
         filter_gene_file=config.references.filtergenelist_file,
         filter_range_file=config.references.filterregion_file,
     )
-    """
+
     # TODO CHECK
     coords = adata.obsm["X_pos"]
 
-    sample_list = [adata.obs["sample"][0]]
+    sample_list = [adata.obs["sample"].iloc[0]]
 
     for i in range(1, adata.shape[0]):
-        if adata.obs["sample"][i] != sample_list[-1]:
-            sample_list.append(adata.obs["sample"][i])
+        if adata.obs["sample"].iloc[i] != sample_list[-1]:
+            sample_list.append(adata.obs["sample"].iloc[i])
 
     # convert sample name to index
     sample_ids = np.zeros(adata.shape[0], dtype=int)
@@ -57,11 +60,12 @@ def main():
     for s, sname in enumerate(sample_list):
         index = np.where(adata.obs["sample"] == sname)[0]
         sample_ids[index] = s
-
+        
+    """
     # TODO
-    if not config.preprocessing.tumorprop_file is None:
+    if config.preprocessing.tumorprop_file is not None:
         df_tumorprop = pd.read_csv(
-            config["tumorprop_file"], sep="\t", header=0, index_col=0
+            config.preprocessing.tumorprop_file, sep="\t", header=0, index_col=0
         )
         df_tumorprop = df_tumorprop[["Tumor"]]
         df_tumorprop.columns = ["tumor_proportion"]
@@ -71,12 +75,13 @@ def main():
         single_tumor_prop = adata.obs["tumor_proportion"]
     else:
         single_tumor_prop = None
-
+    """
+    
     # RUN
     df_gene_snp = form_gene_snp_table(
         unique_snp_ids, config.references.hgtable_file, adata
     )
-
+    """
     # RUN
     df_gene_snp = assign_initial_blocks(
         df_gene_snp, adata, cell_snp_Aallele, cell_snp_Ballele, unique_snp_ids

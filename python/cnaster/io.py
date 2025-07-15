@@ -453,9 +453,9 @@ def load_input_data(
             "Applied tumor annotation: {adata.obs['tumor_annotation'].value_counts()}"
         )
 
-    logger.info("Realized AnnData:\n{adata}")
+    logger.info(f"Realized AnnData:\n{adata}")
 
-    # TODO dense array.
+    # TODO dense arrays.
     return (
         adata,
         cell_snp_Aallele.toarray(),

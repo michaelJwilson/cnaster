@@ -42,6 +42,7 @@ def fixed_rectangle_partition(
     px = np.linspace(0, 1, x_part + 1)
     px[-1] += 0.01
     px = px[1:]
+    
     xrange = [np.min(range_coords[:, 0]), np.max(range_coords[:, 0])]
     xdigit = np.digitize(
         coords[:, 0], xrange[0] + (xrange[1] - xrange[0]) * px, right=True
@@ -50,6 +51,7 @@ def fixed_rectangle_partition(
     py = np.linspace(0, 1, y_part + 1)
     py[-1] += 0.01
     py = py[1:]
+    
     yrange = [np.min(range_coords[:, 1]), np.max(range_coords[:, 1])]
     ydigit = np.digitize(
         coords[:, 1], yrange[0] + (yrange[1] - yrange[0]) * py, right=True
@@ -96,7 +98,6 @@ def initialize_clones(
 
 
 def compute_adjacency_mat_v2(coords, unit_xsquared=9, unit_ysquared=3, ratio=1):
-    # pairwise distance
     x_dist = coords[:, 0][None, :] - coords[:, 0][:, None]
     y_dist = coords[:, 1][None, :] - coords[:, 1][:, None]
 
@@ -120,7 +121,6 @@ def compute_adjacency_mat_v2(coords, unit_xsquared=9, unit_ysquared=3, ratio=1):
 def compute_weighted_adjacency(
     coords, unit_xsquared=9, unit_ysquared=3, bandwidth=12, decay=5
 ):
-    # pairwise distance
     x_dist = coords[:, 0][None, :] - coords[:, 0][:, None]
     y_dist = coords[:, 1][None, :] - coords[:, 1][:, None]
 
@@ -185,6 +185,7 @@ def choose_adjacency_by_readcounts(
         )
 
         adjacency_mat.setdiag(1)
+        
         adjacency_mat = adjacency_mat - smooth_mat
         adjacency_mat[adjacency_mat < 0] = 0
 
@@ -206,8 +207,7 @@ def multislice_adjacency(
     maxspots_pooling,
     construct_adjacency_w,
 ):
-    adjacency_mat = []
-    smooth_mat = []
+    adjacency_mat, smooth_mat = [], []
 
     for i, sname in enumerate(sample_list):
         index = np.where(sample_ids == i)[0]

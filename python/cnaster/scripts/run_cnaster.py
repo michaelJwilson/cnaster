@@ -8,23 +8,14 @@ from cnaster.omics import (
     form_gene_snp_table,
     assign_initial_blocks,
     summarize_counts_for_blocks,
-    get_sitewise_transmat
+    get_sitewise_transmat,
+    create_bin_ranges,
+    summarize_counts_for_bins
 )
 
-from cnaster.spatial import initialize_clones
+from cnaster.spatial import initialize_clones, multislice_adjacency
 from cnaster.phasing import initial_phase_given_partition
 
-"""
-from cnaster.omics import (
-    assign_initial_blocks,
-    create_bin_ranges,
-    form_gene_snp_table,
-    summarize_counts_for_bins,
-    create_bin_ranges,
-    summarize_counts_for_bins,
-)
-from cnaster.spatial import initialize_clones, multislice_adjacency
-"""
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(filename)s:%(lineno)d - %(message)s",
@@ -32,7 +23,6 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
-
 
 def main():
     # HACK
@@ -118,6 +108,7 @@ def main():
         y_part=config.phasing.npart_phasing,
     )
 
+    # TODO updates mu? as initialization?
     phase_indicator, refined_lengths = initial_phase_given_partition(
         single_X,
         lengths,
@@ -152,8 +143,7 @@ def main():
         config.quality.secondary_min_umi,
     )
 
-    """
-    # RUN
+    # TODO separate transmat.
     (
         lengths,
         single_X,
@@ -166,9 +156,9 @@ def main():
         single_X,
         single_total_bb_RD,
         phase_indicator,
-        nu=config["nu"],
-        logphase_shift=config["logphase_shift"],
-        geneticmap_file=config["geneticmap_file"],
+        nu=config.phasing.nu,
+        logphase_shift=config.phasing.logphase_shift,
+        geneticmap_file=config.references.geneticmap_file,
     )
 
     # NB expression count dataframe
@@ -199,5 +189,5 @@ def main():
     
     single_X[:, 0, :] = 0
     single_base_nb_mean[:, :] = 0
-    """
+ 
     logger.info("Done.\n\n")

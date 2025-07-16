@@ -5,6 +5,7 @@ import pandas as pd
 
 from cnaster.recomb import assign_centiMorgans, compute_numbat_phase_switch_prob
 from cnaster.reference import get_reference_genes, get_reference_recomb_rates
+from numba import njit
 
 logger = logging.getLogger(__name__)
 
@@ -428,6 +429,43 @@ def get_sitewise_transmat(df_gene_snp, geneticmap_file, nu, logphase_shift):
     return log_sitewise_transmat
 
 
+def greedy_binning_nobreak(block_lengths, block_umi, secondary_min_umi, max_binlength):
+    assert len(block_lengths) == len(block_umi)
+
+    bin_ranges = []
+    s = 0
+
+    while s < len(block_lengths):
+        t = s + 1
+
+        while t < len(block_lengths) and np.sum(block_umi[s:t]) < secondary_min_umi:
+            t += 1
+
+            if np.sum(block_lengths[s:t]) >= max_binlength:
+                t = max(t - 1, s + 1)
+                break
+
+        # NB check whether it is a very small bin at the end
+        if (
+            s > 0
+            and t == len(block_lengths)
+            and np.sum(block_umi[s:t]) < 0.5 * secondary_min_umi
+            and np.sum(block_lengths[s:t]) < 0.5 * max_binlength
+        ):
+            bin_ranges[-1][1] = t
+        else:
+            bin_ranges.append([s, t])
+
+        s = t
+
+    bin_ids = np.zeros(len(block_lengths), dtype=int)
+
+    for i, x in enumerate(bin_ranges):
+        bin_ids[x[0] : x[1]] = i
+
+    return bin_ids
+
+
 def create_bin_ranges(
     df_gene_snp,
     single_total_bb_RD,
@@ -458,54 +496,6 @@ def create_bin_ranges(
     df_gene_snp : data frame, (CHR, START, END, snp_id, gene, is_interval, block_id, bin_id)
         The newly added bin_id column indicates which bin each gene or SNP belongs to.
     """
-
-    # TODO no nest.
-    def greedy_binning_nobreak(
-        block_lengths, block_umi, secondary_min_umi, max_binlength
-    ):
-        """
-        Aggregates blocks to meet a {secondary_min_umi} count, up to the maximum {max_binlength}.
-
-        Returns
-        -------
-        bin_ids : array, (n_blocks)
-            The bin id of the input blocks.  Should have the same size with block_lengths and block_umi.
-        """
-        assert len(block_lengths) == len(block_umi)
-
-        bin_ranges = []
-        s = 0
-
-        while s < len(block_lengths):
-            t = s + 1
-
-            while t < len(block_lengths) and np.sum(block_umi[s:t]) < secondary_min_umi:
-                t += 1
-
-                if np.sum(block_lengths[s:t]) >= max_binlength:
-                    t = max(t - 1, s + 1)
-                    break
-
-            # NB check whether it is a very small bin at the end
-            if (
-                s > 0
-                and t == len(block_lengths)
-                and np.sum(block_umi[s:t]) < 0.5 * secondary_min_umi
-                and np.sum(block_lengths[s:t]) < 0.5 * max_binlength
-            ):
-                bin_ranges[-1][1] = t
-            else:
-                bin_ranges.append([s, t])
-
-            s = t
-
-        bin_ids = np.zeros(len(block_lengths), dtype=int)
-
-        for i, x in enumerate(bin_ranges):
-            bin_ids[x[0] : x[1]] = i
-
-        return bin_ids
-
     # NB block lengths and umis.
     sorted_chr_pos_both = df_gene_snp.groupby("block_id").agg(
         {"CHR": "first", "START": "first", "END": "last"}
@@ -562,7 +552,7 @@ def create_bin_ranges(
     return df_gene_snp
 
 
-# TODO duplicates summarize_counts_for_blocks
+# TODO duplicates summarize_counts_for_blocks?
 def summarize_counts_for_bins(
     df_gene_snp,
     adata,

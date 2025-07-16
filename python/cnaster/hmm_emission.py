@@ -28,6 +28,7 @@ class Weighted_NegativeBinomial(GenericLikelihoodModel):
     exposure : array, (n_samples,)
         Multiplication constant outside the exponential term. In scRNA-seq or SRT data, this term is the total UMI count per cell/spot.
     """
+
     def __init__(self, endog, exog, weights, exposure, seed=0, **kwds):
         super(Weighted_NegativeBinomial, self).__init__(endog, exog, **kwds)
         self.weights = weights
@@ -44,7 +45,7 @@ class Weighted_NegativeBinomial(GenericLikelihoodModel):
 
     def fit(self, start_params=None, maxiter=10000, maxfun=5000, **kwds):
         # self.exog_names.append("alpha")
-        
+
         if start_params is None:
             if hasattr(self, "start_params"):
                 start_params = self.start_params
@@ -77,7 +78,7 @@ class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
 
     def fit(self, start_params=None, maxiter=10000, maxfun=5000, **kwds):
         # self.exog_names.append("alpha")
-        
+
         if start_params is None:
             if hasattr(self, "start_params"):
                 start_params = self.start_params
@@ -107,6 +108,7 @@ class Weighted_BetaBinom(GenericLikelihoodModel):
     exposure : array, (n_samples,)
         Total number of trials. In BAF case, this is the total number of SNP-covering UMIs.
     """
+
     def __init__(self, endog, exog, weights, exposure, **kwds):
         super(Weighted_BetaBinom, self).__init__(endog, exog, **kwds)
         self.weights = weights
@@ -154,7 +156,7 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
 
     def fit(self, start_params=None, maxiter=10000, maxfun=5000, **kwds):
         # self.exog_names.append("tau")
-        
+
         if start_params is None:
             if hasattr(self, "start_params"):
                 start_params = self.start_params

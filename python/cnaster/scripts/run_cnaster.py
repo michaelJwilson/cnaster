@@ -1,3 +1,5 @@
+import copy
+import scipy
 import logging
 import numpy as np
 import pandas as pd
@@ -10,7 +12,7 @@ from cnaster.omics import (
     summarize_counts_for_blocks,
     get_sitewise_transmat,
     create_bin_ranges,
-    summarize_counts_for_bins
+    summarize_counts_for_bins,
 )
 
 from cnaster.spatial import initialize_clones, multislice_adjacency
@@ -23,6 +25,7 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
+
 
 def main():
     # HACK
@@ -58,7 +61,7 @@ def main():
         sample_ids[index] = s
 
     single_tumor_prop = None
-        
+
     """
     # TODO
     if config.preprocessing.tumorprop_file is not None:
@@ -129,7 +132,7 @@ def main():
         1.0e-3,  # MAGIC tol
         threshold=config.hmrf.tumorprop_threshold,
     )
-    
+
     df_gene_snp["phase"] = np.where(
         df_gene_snp.snp_id.isnull(),
         None,
@@ -186,8 +189,9 @@ def main():
     # TODO
     copy_single_X_rdr = copy.copy(single_X[:, 0, :])
     copy_single_base_nb_mean = copy.copy(single_base_nb_mean)
-    
+
+    # NB baf-only run;
     single_X[:, 0, :] = 0
     single_base_nb_mean[:, :] = 0
- 
+
     logger.info("Done.\n\n")

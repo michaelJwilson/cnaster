@@ -5,6 +5,7 @@ from numba import njit
 from cnaster.hmm_utils import mylogsumexp_ax_keep, mylogsumexp
 from cnaster.hmm_emission import Weighted_BetaBinom
 
+
 def update_transition_sitewise(log_xi, is_diag=False):
     """
     Input

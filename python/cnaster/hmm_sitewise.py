@@ -401,9 +401,9 @@ class hmm_sitewise(object):
 
         if n_states > 1:
             transmat = np.ones((n_states, n_states)) * (1.0 - self.t) / (n_states - 1.0)
-            
+
             np.fill_diagonal(transmat, self.t)
-            
+
             log_transmat = np.log(transmat)
         else:
             log_transmat = np.zeros((1, 1))
@@ -418,8 +418,10 @@ class hmm_sitewise(object):
         )
 
         for r in range(max_iter):
-            logger.info(f"Solving for Baum-Welch iteration {r}/{max_iter} with NegBin+BetaBin emission.")
-            
+            logger.info(
+                f"Solving for Baum-Welch iteration {r}/{max_iter} with NegBin+BetaBin emission."
+            )
+
             if tumor_prop is None:
                 (
                     log_emission_rdr,

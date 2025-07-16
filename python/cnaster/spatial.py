@@ -1,3 +1,4 @@
+import copy
 import logging
 
 import numpy as np
@@ -42,7 +43,7 @@ def fixed_rectangle_partition(
     px = np.linspace(0, 1, x_part + 1)
     px[-1] += 0.01
     px = px[1:]
-    
+
     xrange = [np.min(range_coords[:, 0]), np.max(range_coords[:, 0])]
     xdigit = np.digitize(
         coords[:, 0], xrange[0] + (xrange[1] - xrange[0]) * px, right=True
@@ -51,7 +52,7 @@ def fixed_rectangle_partition(
     py = np.linspace(0, 1, y_part + 1)
     py[-1] += 0.01
     py = py[1:]
-    
+
     yrange = [np.min(range_coords[:, 1]), np.max(range_coords[:, 1])]
     ydigit = np.digitize(
         coords[:, 1], yrange[0] + (yrange[1] - yrange[0]) * py, right=True
@@ -185,7 +186,7 @@ def choose_adjacency_by_readcounts(
         )
 
         adjacency_mat.setdiag(1)
-        
+
         adjacency_mat = adjacency_mat - smooth_mat
         adjacency_mat[adjacency_mat < 0] = 0
 
@@ -219,8 +220,8 @@ def multislice_adjacency(
             maxspots_pooling=maxspots_pooling,
         )
 
-        adjacency_mat.append(tmpadjacency_mat.A)
-        smooth_mat.append(tmpsmooth_mat.A)
+        adjacency_mat.append(tmpadjacency_mat.toarray())
+        smooth_mat.append(tmpsmooth_mat.toarray())
 
     adjacency_mat = scipy.linalg.block_diag(*adjacency_mat)
     adjacency_mat = scipy.sparse.csr_matrix(adjacency_mat)

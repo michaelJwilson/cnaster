@@ -15,7 +15,12 @@ from cnaster.omics import (
     summarize_counts_for_blocks,
 )
 from cnaster.phasing import initial_phase_given_partition
-from cnaster.spatial import initialize_clones, multislice_adjacency
+from cnaster.spatial import (
+    initialize_clones,
+    multislice_adjacency,
+    rectangle_initialize_initial_clone,
+)
+from cnaster.hmrf import aggr_hmrfmix_reassignment_concatenate
 
 logging.basicConfig(
     level=logging.INFO,
@@ -194,7 +199,39 @@ def main():
     single_base_nb_mean[:, :] = 0
 
     initial_clone_index = rectangle_initialize_initial_clone(
-        coords, config["n_clones"], random_state=r_hmrf_initialization
+        coords, config.hmrf.n_clones, random_state=0
+    )
+
+    
+    hmrfmix_concatenate_pipeline(
+        None,
+        None,
+        single_X,
+        lengths,
+        single_base_nb_mean,
+        single_total_bb_RD,
+        single_tumor_prop,
+        initial_clone_index,
+        config.hmm.n_states,
+        log_sitewise_transmat,
+        smooth_mat=smooth_mat,
+        adjacency_mat=adjacency_mat,
+        sample_ids=sample_ids,
+        max_iter_outer=config.hmrf.max_iter_outer,
+        nodepotential=config.hmrf.nodepotential,
+        hmmclass=hmm_nophasing_v2,
+        params="sp",
+        t=config.hmm.t,
+        random_state=config.hmm.gmm_random_state,
+        fix_NB_dispersion=config.hmm.fix_NB_dispersion,
+        shared_NB_dispersion=config.hmm.shared_NB_dispersion,
+        fix_BB_dispersion=config.hmm.fix_BB_dispersion,
+        shared_BB_dispersion=config.hmm.shared_BB_dispersion,
+        is_diag=True,
+        max_iter=config.hmm.max_iter,
+        tol=config.hmm.tol,
+        spatial_weight=config.hmrf.spatial_weight,
+        tumorprop_threshold=config.hmrf.tumorprop_threshold,
     )
 
     logger.info("Done.\n\n")

@@ -200,7 +200,7 @@ def pipeline_baum_welch(
     )
 
     logger.info(
-        f"Solved for best state configuration:\nmu=\n{np.exp(new_log_mu)}\nb=\n{new_p_binom}"
+        f"Solved for best state configuration with {hmm_model.__class__.__name__}:\nlog_mu=\n{new_log_mu}\nb=\n{new_p_binom}"
     )
 
     if tumor_prop is None:

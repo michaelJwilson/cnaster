@@ -21,6 +21,7 @@ from cnaster.spatial import (
     rectangle_initialize_initial_clone,
 )
 from cnaster.hmrf import hmrfmix_concatenate_pipeline
+from cnaster.hmm_NB_BB_nophasing_v2 import hmm_nophasing_v2
 
 logging.basicConfig(
     level=logging.INFO,

@@ -54,7 +54,6 @@ def initialization_by_gmm(
         X_gmm_baf[X_gmm_baf < min_binom_prob] = min_binom_prob
         X_gmm_baf[X_gmm_baf > max_binom_prob] = max_binom_prob
 
-    # combine RDR and BAF
     if ("m" in params) and ("p" in params):
         X_gmm = np.hstack([X_gmm_rdr, X_gmm_baf])
     elif "m" in params:

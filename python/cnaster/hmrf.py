@@ -205,7 +205,7 @@ def hmrfmix_concatenate_pipeline(
         init_log_mu, init_p_binom = initialization_by_gmm(
             n_states,
             clone_stack_X,
-            clone_stack_base_nb_mean
+            clone_stack_base_nb_mean,
             clone_stack_total_bb_RD,
             params,
             random_state=random_state,

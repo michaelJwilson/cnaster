@@ -220,7 +220,7 @@ def main():
         sample_ids=sample_ids,
         max_iter_outer=config.hmrf.max_iter_outer,
         nodepotential=config.hmrf.nodepotential,
-        hmmclass=hmm_nophasing_v2,
+        hmmclass=hmm_nophasing,
         params="sp",
         t=config.hmm.t,
         random_state=config.hmm.gmm_random_state,

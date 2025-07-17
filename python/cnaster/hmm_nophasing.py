@@ -386,7 +386,7 @@ class hmm_nophasing(object):
             # E step
             if tumor_prop is None:
                 log_emission_rdr, log_emission_baf = (
-                    hmm_nophasing_v2.compute_emission_probability_nb_betabinom(
+                    self.compute_emission_probability_nb_betabinom(
                         X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus
                     )
                 )
@@ -417,7 +417,7 @@ class hmm_nophasing(object):
                         )
                     logmu_shift = np.vstack(logmu_shift)
                     log_emission_rdr, log_emission_baf = (
-                        hmm_nophasing_v2.compute_emission_probability_nb_betabinom_mix(
+                        self.compute_emission_probability_nb_betabinom_mix(
                             X,
                             base_nb_mean,
                             log_mu,
@@ -432,7 +432,7 @@ class hmm_nophasing(object):
                     )
                 else:
                     log_emission_rdr, log_emission_baf = (
-                        hmm_nophasing_v2.compute_emission_probability_nb_betabinom_mix(
+                        self.compute_emission_probability_nb_betabinom_mix(
                             X,
                             base_nb_mean,
                             log_mu,
@@ -446,7 +446,7 @@ class hmm_nophasing(object):
                     
             log_emission = log_emission_rdr + log_emission_baf
                 
-            log_alpha = hmm_nophasing_v2.forward_lattice(
+            log_alpha = self.forward_lattice(
                 lengths,
                 log_transmat,
                 log_startprob,
@@ -454,7 +454,7 @@ class hmm_nophasing(object):
                 log_sitewise_transmat,
             )
             
-            log_beta = hmm_nophasing_v2.backward_lattice(
+            log_beta = self.backward_lattice(
                 lengths,
                 log_transmat,
                 log_startprob,

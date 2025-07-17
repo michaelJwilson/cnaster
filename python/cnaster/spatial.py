@@ -98,6 +98,65 @@ def initialize_clones(
     return initial_clone_index
 
 
+def rectangle_initialize_initial_clone(coords, n_clones, random_state=0):
+    np.random.seed(random_state)
+
+    # NB partition x and y range into ~n_clones based on Dirichlet sampling.
+    p = int(np.ceil(np.sqrt(n_clones)))
+
+    px = np.random.dirichlet(np.ones(p) * 10)
+    px[-1] += 1e-4
+
+    xrange = [np.percentile(coords[:, 0], 5), np.percentile(coords[:, 0], 95)]
+
+    xboundary = xrange[0] + (xrange[1] - xrange[0]) * np.cumsum(px)
+    xboundary[-1] = np.max(coords[:, 0]) + 1
+
+    xdigit = np.digitize(coords[:, 0], xboundary, right=True)
+
+    py = np.random.dirichlet(np.ones(p) * 10)
+    py[-1] += 1e-4
+
+    yrange = [np.percentile(coords[:, 1], 5), np.percentile(coords[:, 1], 95)]
+
+    yboundary = yrange[0] + (yrange[1] - yrange[0]) * np.cumsum(py)
+    yboundary[-1] = np.max(coords[:, 1]) + 1
+
+    ydigit = np.digitize(coords[:, 1], yboundary, right=True)
+
+    # NB partitioned the space into "blocks".
+    block_id = xdigit * p + ydigit
+
+    # TODO? assigning blocks to clone (note that if sqrt(n_clone) is not an integer,
+    # multiple blocks can be assigned to one clone)
+    while True:
+        # NB assign blocks to clones.
+        block_clone_map = np.random.randint(low=0, high=n_clones, size=p**2)
+
+        while len(np.unique(block_clone_map)) < n_clones:
+            bc = np.bincount(block_clone_map, minlength=n_clones)
+
+            assert np.any(bc == 0)
+
+            # NB take a block from the over-represented clone and give to the unassigned
+            #    clone.
+            block_clone_map[np.where(block_clone_map == np.argmax(bc))[0][0]] = (
+                np.where(bc == 0)[0][0]
+            )
+
+        block_clone_map = {i: block_clone_map[i] for i in range(len(block_clone_map))}
+        clone_id = np.array([block_clone_map[i] for i in block_id])
+        initial_clone_index = [np.where(clone_id == i)[0] for i in range(n_clones)]
+
+        if (
+            np.min([len(x) for x in initial_clone_index])
+            > 0.2 * coords.shape[0] / n_clones
+        ):
+            break
+
+    return initial_clone_index
+
+
 def compute_adjacency_mat_v2(coords, unit_xsquared=9, unit_ysquared=3, ratio=1):
     x_dist = coords[:, 0][None, :] - coords[:, 0][:, None]
     y_dist = coords[:, 1][None, :] - coords[:, 1][:, None]

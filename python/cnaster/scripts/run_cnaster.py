@@ -194,6 +194,10 @@ def main():
     single_X[:, 0, :] = 0
     single_base_nb_mean[:, :] = 0
 
+    initial_clone_index = rectangle_initialize_initial_clone(
+        coords, config["n_clones"], random_state=r_hmrf_initialization
+    )
+
     
-    
+
     logger.info("Done.\n\n")

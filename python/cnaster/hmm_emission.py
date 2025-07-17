@@ -1,12 +1,17 @@
 import logging
+import warnings
 
 import numpy as np
 import scipy.stats
 from cnaster.hmm_utils import convert_params
+from statsmodels.base.model import ValueWarning
 from statsmodels.base.model import GenericLikelihoodModel
+
 
 logger = logging.getLogger(__name__)
 
+# TODO
+warnings.filterwarnings('ignore', category=UserWarning, module='statsmodels')
 
 class Weighted_NegativeBinomial(GenericLikelihoodModel):
     """

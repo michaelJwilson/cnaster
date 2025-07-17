@@ -311,6 +311,8 @@ def hmrfmix_concatenate_pipeline(
         last_assignment[idx] = c
 
     for r in range(max_iter_outer):
+        logger.info("----  Solving iteration {r} of HMM+HMRF for state fitting & clone assignment ----")
+
         # NB [num_obs for each clone / sample].
         sample_length = np.ones(X.shape[2], dtype=int) * X.shape[0]
 

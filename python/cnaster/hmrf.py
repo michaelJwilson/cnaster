@@ -362,17 +362,25 @@ def hmrfmix_concatenate_pipeline(
             hmmclass=hmmclass,
         )
 
-        return
-
         # NB handle the case when one clone has zero spots.
         if len(np.unique(new_assignment)) < X.shape[2]:
+            logger.warning(
+                "Outer iteration %d: clone %d has no spots assigned. Re-indexing clones.",
+                r,
+                np.unique(new_assignment),
+            )
+
             res["assignment_before_reindex"] = new_assignment
             remaining_clones = np.sort(np.unique(new_assignment))
             re_indexing = {c: i for i, c in enumerate(remaining_clones)}
+
+            # NB re-index new_assignment to be consecutive given a missing clone.
             new_assignment = np.array([re_indexing[x] for x in new_assignment])
+
             concat_idx = np.concatenate(
                 [np.arange(c * n_obs, c * n_obs + n_obs) for c in remaining_clones]
             )
+
             res["log_gamma"] = res["log_gamma"][:, concat_idx]
             res["pred_cnv"] = res["pred_cnv"][concat_idx]
 
@@ -395,24 +403,20 @@ def hmrfmix_concatenate_pipeline(
             threshold=tumorprop_threshold,
         )
 
-        if "mp" in params:
-            logger.info(
-                "outer iteration %d: difference between parameters = %f, %f",
-                r,
-                np.mean(np.abs(last_log_mu - res["new_log_mu"])),
-                np.mean(np.abs(last_p_binom - res["new_p_binom"])),
+        # Log parameter differences
+        param_diffs = []
+
+        if "m" in params:
+            param_diffs.append(("NB", np.mean(np.abs(last_log_mu - res["new_log_mu"]))))
+        if "p" in params:
+            param_diffs.append(
+                ("BetaBinom", np.mean(np.abs(last_p_binom - res["new_p_binom"])))
             )
-        elif "m" in params:
+
+        if param_diffs:
+            diff_strs = [f"{name}={diff:.6f}" for name, diff in param_diffs]
             logger.info(
-                "outer iteration %d: difference between NB parameters = %f",
-                r,
-                np.mean(np.abs(last_log_mu - res["new_log_mu"])),
-            )
-        elif "p" in params:
-            logger.info(
-                "outer iteration %d: difference between BetaBinom parameters = %f",
-                r,
-                np.mean(np.abs(last_p_binom - res["new_p_binom"])),
+                "outer iteration %d: parameter differences: %s", r, ", ".join(diff_strs)
             )
 
         logger.info(
@@ -432,16 +436,20 @@ def hmrfmix_concatenate_pipeline(
         last_alphas = res["new_alphas"]
         last_taus = res["new_taus"]
         last_assignment = res["new_assignment"]
+
         log_persample_weights = np.ones((X.shape[2], n_samples)) * (-np.log(X.shape[2]))
 
         for sidx in range(n_samples):
             index = np.where(sample_ids == sidx)[0]
+
             this_persample_weight = np.bincount(
                 res["new_assignment"][index], minlength=X.shape[2]
             ) / len(index)
+
             log_persample_weights[:, sidx] = np.where(
                 this_persample_weight > 0, np.log(this_persample_weight), -50
             )
+
             log_persample_weights[:, sidx] = log_persample_weights[
                 :, sidx
             ] - scipy.special.logsumexp(log_persample_weights[:, sidx])

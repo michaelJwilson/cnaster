@@ -352,7 +352,6 @@ def hmrfmix_concatenate_pipeline(
             single_X,
             single_base_nb_mean,
             single_total_bb_RD,
-            single_tumor_prop,
             res,
             pred,
             smooth_mat,
@@ -361,6 +360,7 @@ def hmrfmix_concatenate_pipeline(
             sample_ids,
             log_persample_weights,
             spatial_weight=spatial_weight,
+            single_tumor_prop=single_tumor_prop,
             hmmclass=hmmclass,
         )
 

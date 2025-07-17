@@ -59,9 +59,9 @@ def update_startprob_sitewise(lengths, log_gamma):
     n_states = int(log_gamma.shape[0] / 2)
     n_obs = log_gamma.shape[1]
 
-    assert (
-        np.sum(lengths) == n_obs
-    ), "Sum of lengths must be equal to the second dimension of log_gamma!"
+    assert np.sum(lengths) == n_obs, (
+        "Sum of lengths must be equal to the second dimension of log_gamma!"
+    )
 
     # indices of the start of sequences, given that the length of each sequence is in lengths
     cumlen = 0

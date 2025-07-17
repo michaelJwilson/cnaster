@@ -198,6 +198,4 @@ def main():
         coords, config["n_clones"], random_state=r_hmrf_initialization
     )
 
-    
-
     logger.info("Done.\n\n")

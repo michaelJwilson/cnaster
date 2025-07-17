@@ -107,7 +107,9 @@ def get_spaceranger_counts(spaceranger_dir):
 
     is_nan = np.isnan(adatatmp.layers["count"])
 
-    logger.info(f"Found {100. * np.mean(is_nan):.3f}% NaN counts in anndata.  zeroing.")
+    logger.info(
+        f"Found {100.0 * np.mean(is_nan):.3f}% NaN counts in anndata.  zeroing."
+    )
 
     # NB replace nan with 0 and cast to int.
     adatatmp.layers["count"][is_nan] = 0
@@ -262,7 +264,7 @@ def load_input_data(
         isin = adatatmp.obs.index.isin(shared_barcodes)
 
         logger.info(
-            f"Retaining {100. * np.mean(isin):.3f}% of barcodes (shared with bam & filtered matrix) for {sname}."
+            f"Retaining {100.0 * np.mean(isin):.3f}% of barcodes (shared with bam & filtered matrix) for {sname}."
         )
 
         # TODO filter before sort.
@@ -296,7 +298,7 @@ def load_input_data(
     isin = snp_barcodes.barcodes.isin(shared_barcodes).values
 
     logger.info(
-        f"Retaining {100. * np.mean(isin):.3f}% of SNP barcodes (shared between UMIs and SNPs)."
+        f"Retaining {100.0 * np.mean(isin):.3f}% of SNP barcodes (shared between UMIs and SNPs)."
     )
 
     cell_snp_Aallele = cell_snp_Aallele[isin, :]
@@ -307,7 +309,7 @@ def load_input_data(
     isin = adata.obs.index.isin(shared_barcodes)
 
     logger.info(
-        f"Retaining {100. * np.mean(isin):.3f}% of UMI barcodes (shared between UMIs and SNPs)."
+        f"Retaining {100.0 * np.mean(isin):.3f}% of UMI barcodes (shared between UMIs and SNPs)."
     )
 
     adata = adata[isin, :].copy()
@@ -327,7 +329,7 @@ def load_input_data(
     indicator = np.sum(adata.layers["count"], axis=1) >= min_snp_umis
 
     logger.info(
-        f"Retaining {100. * np.mean(indicator):.3f}% of spots with sufficient UMIs"
+        f"Retaining {100.0 * np.mean(indicator):.3f}% of spots with sufficient UMIs"
     )
 
     indicator &= (
@@ -337,7 +339,7 @@ def load_input_data(
     )
 
     logger.info(
-        f"Retaining {100. * np.mean(indicator):.3f}% of spots with sufficient snp UMIs"
+        f"Retaining {100.0 * np.mean(indicator):.3f}% of spots with sufficient snp UMIs"
     )
 
     adata = adata[indicator, :]
@@ -361,13 +363,13 @@ def load_input_data(
 
     # TODO excludes 50% of genes, but retains 99.97% of UMIs; resolves gene definition to house-keeping.
     logger.info(
-        f"Retaining {100. * np.mean(indicator):.3f}% of genes with sufficient expression across spots ({100. * ratio:.2f}% of total UMIs)."
+        f"Retaining {100.0 * np.mean(indicator):.3f}% of genes with sufficient expression across spots ({100.0 * ratio:.2f}% of total UMIs)."
     )
 
     adata = adata[:, indicator]
 
     logger.info(
-        f"median UMI after gene selection for expression < {100. * min_percent_expressed_spots:.3f}% of cells = {np.median(np.sum(adata.layers["count"], axis=1))}"
+        f"median UMI after gene selection for expression < {100.0 * min_percent_expressed_spots:.3f}% of cells = {np.median(np.sum(adata.layers['count'], axis=1))}"
     )
 
     if filter_gene_file is not None:
@@ -381,7 +383,7 @@ def load_input_data(
         adata = adata[:, indicator_filter]
 
         logger.info(
-            f"Median UMI after filtering genes in {filter_gene_file} = {np.median(np.sum(adata.layers["count"], axis=1))}"
+            f"Median UMI after filtering genes in {filter_gene_file} = {np.median(np.sum(adata.layers['count'], axis=1))}"
         )
 
         # TODO?
@@ -418,7 +420,7 @@ def load_input_data(
                 indicator_filter[i] = False
 
         logger.info(
-            f"Retaining {100. * np.mean(indicator_filter):.2f}% of SNPs based on input filter ranges."
+            f"Retaining {100.0 * np.mean(indicator_filter):.2f}% of SNPs based on input filter ranges."
         )
 
         cell_snp_Aallele = cell_snp_Aallele[:, indicator_filter]
@@ -442,7 +444,7 @@ def load_input_data(
 
         # TODO removed 235 outlier genes (51.310% of UMIs)!!
         logger.info(
-            f"Removed {len(to_zero)} outlier genes ({100. * ratio:.3f}% of UMIs)."
+            f"Removed {len(to_zero)} outlier genes ({100.0 * ratio:.3f}% of UMIs)."
         )
 
         # TODO?  zeros out counts.

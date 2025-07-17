@@ -10,6 +10,7 @@ import pytest
 def rng():
     return np.random.default_rng(314)
 
+
 @pytest.fixture
 def rdr_baf(rng):
     return 5 * (1.0 + rng.uniform(size=(3, 2)))

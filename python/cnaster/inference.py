@@ -258,8 +258,8 @@ def hmrfmix_concatenate_pipeline(
         sample_length = np.ones(X.shape[2], dtype=int) * X.shape[0]
         remain_kwargs = {"sample_length": sample_length, "lambd": lambd}
 
-        if f"round{r-1}_log_gamma" in allres:
-            remain_kwargs["log_gamma"] = allres[f"round{r-1}_log_gamma"]
+        if f"round{r - 1}_log_gamma" in allres:
+            remain_kwargs["log_gamma"] = allres[f"round{r - 1}_log_gamma"]
 
         res = pipeline_baum_welch(
             None,
@@ -331,7 +331,7 @@ def hmrfmix_concatenate_pipeline(
         # append to allres
         for k, v in res.items():
             if k == "prev_assignment":
-                allres[f"round{r-1}_assignment"] = v
+                allres[f"round{r - 1}_assignment"] = v
             elif k == "new_assignment":
                 allres[f"round{r}_assignment"] = v
             else:

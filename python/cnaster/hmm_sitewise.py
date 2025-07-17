@@ -189,21 +189,21 @@ class hmm_sitewise(object):
                     mix_p_B = (1 - p_binom[i, s]) * tumor_prop[
                         idx_nonzero_baf, s
                     ] + 0.5 * (1 - tumor_prop[idx_nonzero_baf, s])
-                    log_emission_baf[
-                        i, idx_nonzero_baf, s
-                    ] += scipy.stats.betabinom.logpmf(
-                        X[idx_nonzero_baf, 1, s],
-                        total_bb_RD[idx_nonzero_baf, s],
-                        mix_p_A * taus[i, s],
-                        mix_p_B * taus[i, s],
+                    log_emission_baf[i, idx_nonzero_baf, s] += (
+                        scipy.stats.betabinom.logpmf(
+                            X[idx_nonzero_baf, 1, s],
+                            total_bb_RD[idx_nonzero_baf, s],
+                            mix_p_A * taus[i, s],
+                            mix_p_B * taus[i, s],
+                        )
                     )
-                    log_emission_baf[
-                        i + n_states, idx_nonzero_baf, s
-                    ] += scipy.stats.betabinom.logpmf(
-                        X[idx_nonzero_baf, 1, s],
-                        total_bb_RD[idx_nonzero_baf, s],
-                        mix_p_B * taus[i, s],
-                        mix_p_A * taus[i, s],
+                    log_emission_baf[i + n_states, idx_nonzero_baf, s] += (
+                        scipy.stats.betabinom.logpmf(
+                            X[idx_nonzero_baf, 1, s],
+                            total_bb_RD[idx_nonzero_baf, s],
+                            mix_p_B * taus[i, s],
+                            mix_p_A * taus[i, s],
+                        )
                     )
         return log_emission_rdr, log_emission_baf
 
@@ -226,13 +226,13 @@ class hmm_sitewise(object):
         n_obs = log_emission.shape[1]
         n_states = int(np.ceil(log_emission.shape[0] / 2))
 
-        assert (
-            np.sum(lengths) == n_obs
-        ), "Sum of lengths must be equal to the first dimension of X!"
+        assert np.sum(lengths) == n_obs, (
+            "Sum of lengths must be equal to the first dimension of X!"
+        )
 
-        assert (
-            len(log_startprob) == n_states
-        ), "Length of startprob_ must be equal to the first dimension of log_transmat!"
+        assert len(log_startprob) == n_states, (
+            "Length of startprob_ must be equal to the first dimension of log_transmat!"
+        )
 
         log_sitewise_self_transmat = np.log(1 - np.exp(log_sitewise_transmat))
 
@@ -298,12 +298,12 @@ class hmm_sitewise(object):
         """
         n_obs = log_emission.shape[1]
         n_states = int(np.ceil(log_emission.shape[0] / 2))
-        assert (
-            np.sum(lengths) == n_obs
-        ), "Sum of lengths must be equal to the first dimension of X!"
-        assert (
-            len(log_startprob) == n_states
-        ), "Length of startprob_ must be equal to the first dimension of log_transmat!"
+        assert np.sum(lengths) == n_obs, (
+            "Sum of lengths must be equal to the first dimension of X!"
+        )
+        assert len(log_startprob) == n_states, (
+            "Length of startprob_ must be equal to the first dimension of log_transmat!"
+        )
         log_sitewise_self_transmat = np.log(1 - np.exp(log_sitewise_transmat))
         # initialize log_beta
         log_beta = np.zeros((log_emission.shape[0], n_obs))

@@ -86,7 +86,7 @@ def form_gene_snp_table(unique_snp_ids, hgtable_file, adata):
     isin = ~df_gene_snp.gene.isnull()
 
     logger.info(
-        f"Retaining {100. * np.mean(isin[~df_gene_snp.is_interval]):.3f}% of SNPs with no known gene (hgTable filtered by AnnData)."
+        f"Retaining {100.0 * np.mean(isin[~df_gene_snp.is_interval]):.3f}% of SNPs with no known gene (hgTable filtered by AnnData)."
     )
 
     df_gene_snp = df_gene_snp[isin]
@@ -164,7 +164,7 @@ def assign_initial_blocks(
 
     # NB TODO 20%?
     logger.info(
-        f"Merged {100. * merged / len(tmp_block_genome_intervals):.3f}% of gene ranges based on overlap."
+        f"Merged {100.0 * merged / len(tmp_block_genome_intervals):.3f}% of gene ranges based on overlap."
     )
 
     # NB map block_genome_intervals to block_ranges for rows of df_gene_snp.

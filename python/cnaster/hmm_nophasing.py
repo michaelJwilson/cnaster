@@ -4,11 +4,16 @@ from numba import njit
 import scipy.special
 from tqdm import trange
 from cnaster.hmm_update import (
+    update_startprob_sitewise,
     update_emission_params_bb_sitewise_uniqvalues,
     update_emission_params_bb_sitewise_uniqvalues_mix,
     update_emission_params_nb_sitewise_uniqvalues,
     update_emission_params_nb_sitewise_uniqvalues_mix,
-    update_startprob_sitewise,
+    update_startprob_nophasing,
+    update_emission_params_bb_nophasing_uniqvalues,
+    update_emission_params_bb_nophasing_uniqvalues_mix,
+    update_emission_params_nb_nophasing_uniqvalues,
+    update_emission_params_nb_nophasing_uniqvalues_mix,
 )
 from cnaster.hmm_utils import (
     compute_posterior_obs,

@@ -405,7 +405,6 @@ def hmrfmix_concatenate_pipeline(
             threshold=tumorprop_threshold,
         )
 
-        # Log parameter differences
         param_diffs = []
 
         if "m" in params:
@@ -414,9 +413,14 @@ def hmrfmix_concatenate_pipeline(
             param_diffs.append(
                 ("BetaBinom", np.mean(np.abs(last_p_binom - res["new_p_binom"])))
             )
+        
+        # Add state usage information
+        state_counts = np.bincount(pred, minlength=n_states)
+        state_usage = state_counts / len(pred)
+        param_diffs.append(("StateUsage", f"[{', '.join(f'{x:.3f}' for x in state_usage)}]"))
 
         if param_diffs:
-            diff_strs = [f"{name}={diff:.6f}" for name, diff in param_diffs]
+            diff_strs = [f"{name}={diff}" for name, diff in param_diffs]
             logger.info(
                 "outer iteration %d: parameter differences: %s", r, ", ".join(diff_strs)
             )

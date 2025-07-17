@@ -203,7 +203,6 @@ def pipeline_baum_welch(
         f"Solved for best state configuration:\nmu={np.exp(new_log_mu)}\nb={np.exp(new_p_binom)}"
     )
 
-    # likelihood
     if tumor_prop is None:
         (
             log_emission_rdr,

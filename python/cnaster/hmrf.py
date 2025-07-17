@@ -350,7 +350,6 @@ def hmrfmix_concatenate_pipeline(
             single_X,
             single_base_nb_mean,
             single_total_bb_RD,
-            single_tumor_prop,
             res,
             pred,
             smooth_mat,
@@ -359,13 +358,12 @@ def hmrfmix_concatenate_pipeline(
             sample_ids,
             log_persample_weights,
             spatial_weight=spatial_weight,
+            single_tumor_prop=single_tumor_prop,
             hmmclass=hmmclass,
         )
-
-        return
-
+        
         # NB handle the case when one clone has zero spots.
-        if len(np.unique(new_assignment)) < X.shape[2]:
+        if len(np.unique(new_assignment)) < X.shape[2]:            
             res["assignment_before_reindex"] = new_assignment
             remaining_clones = np.sort(np.unique(new_assignment))
             re_indexing = {c: i for i, c in enumerate(remaining_clones)}

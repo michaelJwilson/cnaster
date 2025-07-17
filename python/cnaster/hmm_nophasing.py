@@ -581,14 +581,14 @@ class hmm_nophasing(object):
                 new_taus = taus
 
             logger.info(
-                "Parameter differences: startprob=%f, transmat=%f, log_mu=%f, p_binom=%f",
+                "Parameter differences: start prob.=%.6e, transfer matrix=%.6e, log_mu=%.6e, p_binom=%.6e",
                 np.mean(np.abs(np.exp(new_log_startprob) - np.exp(log_startprob))),
                 np.mean(np.abs(np.exp(new_log_transmat) - np.exp(log_transmat))),
                 np.mean(np.abs(new_log_mu - log_mu)),
                 np.mean(np.abs(new_p_binom - p_binom)),
             )
             
-            logger.info("Current parameters: log_mu and p_binom = %s", str(np.hstack([new_log_mu, new_p_binom])))
+            logger.info("Current parameters: log_mu and p_binom =\n%s", str(np.hstack([new_log_mu, new_p_binom])))
             
             if (
                 np.mean(np.abs(np.exp(new_log_transmat) - np.exp(log_transmat))) < tol

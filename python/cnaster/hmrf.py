@@ -431,7 +431,7 @@ def hmrfmix_concatenate_pipeline(
         )
 
         if param_diffs:
-            diff_strs = [f"{name}={diff:.6e}" for name, diff in param_diffs]
+            diff_strs = [f"{name}={diff}" for name, diff in param_diffs]
             logger.info(
                 "HMM+HMRF %d: parameter differences:\n%s", r, "\n".join(diff_strs)
             )

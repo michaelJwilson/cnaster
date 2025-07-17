@@ -141,7 +141,7 @@ def pipeline_baum_welch(
     if ((init_log_mu is None) and ("m" in params)) or (
         (init_p_binom is None) and ("p" in params)
     ):
-        logger.info(f"Running Gaussian mixture model for initialization.")
+        logger.info(f"Initializing with Gaussian mixture model")
 
         tmp_log_mu, tmp_p_binom = initialization_by_gmm(
             n_states,
@@ -201,9 +201,15 @@ def pipeline_baum_welch(
         **remain_kwargs,
     )
 
-    logger.info(
-        f"Solved for best state configuration with {hmm_model.__class__.__name__}:\nlog_mu=\n{new_log_mu}\np_binom=\n{new_p_binom}"
-    )
+    to_log = [f"Solved for best state configuration with {hmm_model.__class__.__name__}:"]
+    
+    if "m" in params and new_log_mu is not None:
+        to_log.append(f"log_mu=\n{new_log_mu}")
+
+    if "p" in params and new_p_binom is not None:
+        to_log.append(f"p_binom=\n{new_p_binom}")
+
+    logger.info("\n".join(to_log))
 
     if tumor_prop is None:
         (

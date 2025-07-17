@@ -583,8 +583,7 @@ class hmm_nophasing(object):
                 new_taus = taus
 
             logger.info(
-                "Found new HMM parameters @ iteration {r}: log_mu and p_binom =\n%s",
-                str(np.hstack([new_log_mu, new_p_binom])),
+                f"Found new parameters @ HMM iteration {r}: log_mu and p_binom =\n{np.hstack([new_log_mu, new_p_binom])}",
             )
 
             logger.info(

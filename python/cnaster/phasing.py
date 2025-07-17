@@ -2,7 +2,7 @@ import logging
 
 import numpy as np
 from cnaster.hmm import hmm_sitewise, pipeline_baum_welch
-from cnaster.pseudobulk import merge_pseudobulk_by_index
+from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +36,7 @@ def initial_phase_given_partition(
     logger.info(f"Starting phasing with {len(initial_clone_index)} clones.")
 
     # NB merge across initial clones.
-    X, base_nb_mean, total_bb_RD, tumor_prop = merge_pseudobulk_by_index(
+    X, base_nb_mean, total_bb_RD, tumor_prop = merge_pseudobulk_by_index_mix(
         single_X,
         single_base_nb_mean,
         single_total_bb_RD,

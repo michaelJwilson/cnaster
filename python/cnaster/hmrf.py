@@ -2,7 +2,7 @@ import logging
 
 import numpy as np
 import scipy.special
-from cnaster.hmm import initialization_by_gmm
+from cnaster.hmm import initialization_by_gmm, pipeline_baum_welch
 from cnaster.hmm_sitewise import hmm_sitewise
 from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
 
@@ -209,31 +209,6 @@ def hmrfmix_concatenate_pipeline(
         last_assignment[idx] = c
 
     for r in range(max_iter_outer):
-        # assuming file f"{outdir}/{prefix}_nstates{n_states}_{params}.npz" exists. When r == 0,
-        # f"{outdir}/{prefix}_nstates{n_states}_{params}.npz" should contain two keys: "num_iterations"
-        # and f"round_-1_assignment" for clone initialization.
-        allres = dict(
-            np.load(
-                f"{outdir}/{prefix}_nstates{n_states}_{params}.npz", allow_pickle=True
-            )
-        )
-
-        if allres["num_iterations"] > r:
-            res = {
-                "new_log_mu": allres[f"round{r}_new_log_mu"],
-                "new_alphas": allres[f"round{r}_new_alphas"],
-                "new_p_binom": allres[f"round{r}_new_p_binom"],
-                "new_taus": allres[f"round{r}_new_taus"],
-                "new_log_startprob": allres[f"round{r}_new_log_startprob"],
-                "new_log_transmat": allres[f"round{r}_new_log_transmat"],
-                "log_gamma": allres[f"round{r}_log_gamma"],
-                "pred_cnv": allres[f"round{r}_pred_cnv"],
-                "llf": allres[f"round{r}_llf"],
-                "total_llf": allres[f"round{r}_total_llf"],
-                "prev_assignment": allres[f"round{r - 1}_assignment"],
-                "new_assignment": allres[f"round{r}_assignment"],
-            }
-        else:
             sample_length = np.ones(X.shape[2], dtype=int) * X.shape[0]
             remain_kwargs = {"sample_length": sample_length, "lambd": lambd}
 

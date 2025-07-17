@@ -11,7 +11,8 @@ from statsmodels.base.model import GenericLikelihoodModel
 logger = logging.getLogger(__name__)
 
 # TODO
-warnings.filterwarnings('ignore', category=UserWarning, module='statsmodels')
+warnings.filterwarnings("ignore", category=UserWarning, module="statsmodels")
+
 
 class Weighted_NegativeBinomial(GenericLikelihoodModel):
     """

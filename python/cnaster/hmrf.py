@@ -311,7 +311,9 @@ def hmrfmix_concatenate_pipeline(
         last_assignment[idx] = c
 
     for r in range(max_iter_outer):
-        logger.info("----  Solving iteration {r} of HMM+HMRF for state fitting & clone assignment ----")
+        logger.info(
+            f"----  Solving iteration {r} of copy number state fitting & clone assignment (HMM + HMRF) ----"
+        )
 
         # NB [num_obs for each clone / sample].
         sample_length = np.ones(X.shape[2], dtype=int) * X.shape[0]
@@ -405,28 +407,37 @@ def hmrfmix_concatenate_pipeline(
             threshold=tumorprop_threshold,
         )
 
+        # TODO max not mean.
         param_diffs = []
 
         if "m" in params:
-            param_diffs.append(("NB", np.mean(np.abs(last_log_mu - res["new_log_mu"]))))
+            param_diffs.append(
+                ("NB: log mu", np.mean(np.abs(last_log_mu - res["new_log_mu"])))
+            )
+
         if "p" in params:
             param_diffs.append(
-                ("BetaBinom", np.mean(np.abs(last_p_binom - res["new_p_binom"])))
+                (
+                    "BetaBinom: p_binom",
+                    np.mean(np.abs(last_p_binom - res["new_p_binom"])),
+                )
             )
-        
+
         # Add state usage information
         state_counts = np.bincount(pred, minlength=n_states)
         state_usage = state_counts / len(pred)
-        param_diffs.append(("StateUsage", f"[{', '.join(f'{x:.3f}' for x in state_usage)}]"))
+        param_diffs.append(
+            ("State usage", f"[{', '.join(f'{x:.3f}' for x in state_usage)}]")
+        )
 
         if param_diffs:
-            diff_strs = [f"{name}={diff}" for name, diff in param_diffs]
+            diff_strs = [f"{name}={diff:.6e}" for name, diff in param_diffs]
             logger.info(
-                "outer iteration %d: parameter differences: %s", r, ", ".join(diff_strs)
+                "HMM+HMRF %d: parameter differences:\n%s", r, "\n".join(diff_strs)
             )
 
         logger.info(
-            "outer iteration %d: ARI between assignment = %f",
+            "HMM+HMRF iteration %d: ARI between assignment = %f",
             r,
             adjusted_rand_score(last_assignment, res["new_assignment"]),
         )

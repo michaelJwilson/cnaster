@@ -24,7 +24,7 @@ def initialization_by_gmm(
     max_binom_prob=0.9,
 ):
     logger.info("Initializing with HMM emission with GMM.")
-    
+
     X_gmm_rdr, X_gmm_baf = None, None
 
     if "m" in params:
@@ -134,6 +134,8 @@ def pipeline_baum_welch(
     tol=1e-4,
     **kwargs,
 ):
+    logger.debug(f"Solving HMM with {hmmclass.__name__} instance.")
+
     n_spots = X.shape[2]
 
     if ((init_log_mu is None) and ("m" in params)) or (
@@ -158,10 +160,10 @@ def pipeline_baum_welch(
         if (init_p_binom is None) and ("p" in params):
             init_p_binom = tmp_p_binom
 
-    logger.debug(f"Solving HMM with {hmmclass.__name__} instance.")
-            
-    logger.info(f"Initialized log_mu:\n{init_log_mu}")
-    logger.info(f"Initialized p_binom:\n{init_p_binom}")
+    if "m" in params:
+        logger.info(f"Initialized log_mu:\n{init_log_mu}")
+    if "p" in params:
+        logger.info(f"Initialized p_binom:\n{init_p_binom}")
 
     hmm_model = hmmclass(params=params, t=t)
 
@@ -200,7 +202,7 @@ def pipeline_baum_welch(
     )
 
     logger.info(
-        f"Solved for best state configuration with {hmm_model.__class__.__name__}:\nlog_mu=\n{new_log_mu}\nb=\n{new_p_binom}"
+        f"Solved for best state configuration with {hmm_model.__class__.__name__}:\nlog_mu=\n{new_log_mu}\np_binom=\n{new_p_binom}"
     )
 
     if tumor_prop is None:

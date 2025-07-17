@@ -32,6 +32,7 @@ Tumor genome proportion is weighted by mu in BB distribution.
 
 logger = logging.getLogger(__name__)
 
+
 class hmm_nophasing(object):
     def __init__(self, params="stmp", t=1 - 1e-4):
         self.params = params
@@ -74,7 +75,7 @@ class hmm_nophasing(object):
         n_comp = X.shape[1]
         n_spots = X.shape[2]
         n_states = log_mu.shape[0]
-        
+
         log_emission_rdr = np.zeros((n_states, n_obs, n_spots))
         log_emission_baf = np.zeros((n_states, n_obs, n_spots))
 
@@ -89,7 +90,7 @@ class hmm_nophasing(object):
                     log_emission_rdr[i, idx_nonzero_rdr, s] = scipy.stats.nbinom.logpmf(
                         X[idx_nonzero_rdr, 0, s], n, p
                     )
-                
+
                 idx_nonzero_baf = np.where(total_bb_RD[:, s] > 0)[0]
 
                 if len(idx_nonzero_baf) > 0:
@@ -149,7 +150,7 @@ class hmm_nophasing(object):
         n_comp = X.shape[1]
         n_spots = X.shape[2]
         n_states = log_mu.shape[0]
-        
+
         log_emission_rdr = np.zeros((n_states, n_obs, n_spots))
         log_emission_baf = np.zeros((n_states, n_obs, n_spots))
 
@@ -168,14 +169,14 @@ class hmm_nophasing(object):
                     log_emission_rdr[i, idx_nonzero_rdr, s] = scipy.stats.nbinom.logpmf(
                         X[idx_nonzero_rdr, 0, s], n, p
                     )
-                
+
                 if ("logmu_shift" in kwargs) and ("sample_length" in kwargs):
                     this_weighted_tp = []
-                    
+
                     for c in range(len(kwargs["sample_length"])):
                         range_s = np.sum(kwargs["sample_length"][:c])
                         range_t = np.sum(kwargs["sample_length"][: (c + 1)])
-                        
+
                         this_weighted_tp.append(
                             tumor_prop[range_s:range_t, s]
                             * np.exp(log_mu[i, s] - kwargs["logmu_shift"][c, s])
@@ -186,7 +187,7 @@ class hmm_nophasing(object):
                                 - tumor_prop[range_s:range_t, s]
                             )
                         )
-                        
+
                     this_weighted_tp = np.concatenate(this_weighted_tp)
                 else:
                     this_weighted_tp = tumor_prop[:, s]
@@ -196,12 +197,12 @@ class hmm_nophasing(object):
                 if len(idx_nonzero_baf) > 0:
                     mix_p_A = p_binom[i, s] * this_weighted_tp[
                         idx_nonzero_baf
-                    ] + 0.5 * (1. - this_weighted_tp[idx_nonzero_baf])
-                    
-                    mix_p_B = (1. - p_binom[i, s]) * this_weighted_tp[
+                    ] + 0.5 * (1.0 - this_weighted_tp[idx_nonzero_baf])
+
+                    mix_p_B = (1.0 - p_binom[i, s]) * this_weighted_tp[
                         idx_nonzero_baf
-                    ] + 0.5 * (1. - this_weighted_tp[idx_nonzero_baf])
-                    
+                    ] + 0.5 * (1.0 - this_weighted_tp[idx_nonzero_baf])
+
                     log_emission_baf[
                         i, idx_nonzero_baf, s
                     ] += scipy.stats.betabinom.logpmf(
@@ -210,7 +211,7 @@ class hmm_nophasing(object):
                         mix_p_A * taus[i, s],
                         mix_p_B * taus[i, s],
                     )
-                    
+
         return log_emission_rdr, log_emission_baf
 
     @staticmethod
@@ -273,7 +274,7 @@ class hmm_nophasing(object):
     ):
         """
         Note that n_states is the CNV states, and there are n_states of paired states for (CNV, phasing) pairs.
-        
+
         Input
             X: size n_observations * n_components * n_spots.
             lengths: sum of lengths = n_observations.
@@ -372,7 +373,7 @@ class hmm_nophasing(object):
         log_startprob = np.log(np.ones(n_states) / n_states)
 
         if n_states > 1:
-            transmat = np.ones((n_states, n_states)) * (1. - self.t) / (n_states - 1)
+            transmat = np.ones((n_states, n_states)) * (1.0 - self.t) / (n_states - 1)
             np.fill_diagonal(transmat, self.t)
             log_transmat = np.log(transmat)
         else:
@@ -401,7 +402,7 @@ class hmm_nophasing(object):
                 # NB compute mu as adjusted RDR;
                 if ((not log_gamma is None) or (r > 0)) and ("m" in self.params):
                     logmu_shift = []
-                    
+
                     for c in range(len(kwargs["sample_length"])):
                         this_pred_cnv = (
                             np.argmax(
@@ -415,7 +416,7 @@ class hmm_nophasing(object):
                             )
                             % n_states
                         )
-                        
+
                         logmu_shift.append(
                             scipy.special.logsumexp(
                                 log_mu[this_pred_cnv, :]
@@ -423,9 +424,9 @@ class hmm_nophasing(object):
                                 axis=0,
                             )
                         )
-                        
+
                     logmu_shift = np.vstack(logmu_shift)
-                    
+
                     log_emission_rdr, log_emission_baf = (
                         self.compute_emission_probability_nb_betabinom_mix(
                             X,
@@ -453,9 +454,9 @@ class hmm_nophasing(object):
                             tumor_prop,
                         )
                     )
-                    
+
             log_emission = log_emission_rdr + log_emission_baf
-                
+
             log_alpha = self.forward_lattice(
                 lengths,
                 log_transmat,
@@ -463,7 +464,7 @@ class hmm_nophasing(object):
                 log_emission,
                 log_sitewise_transmat,
             )
-            
+
             log_beta = self.backward_lattice(
                 lengths,
                 log_transmat,
@@ -471,25 +472,25 @@ class hmm_nophasing(object):
                 log_emission,
                 log_sitewise_transmat,
             )
-            
+
             log_gamma = compute_posterior_obs(log_alpha, log_beta)
-            
+
             log_xi = compute_posterior_transition_nophasing(
                 log_alpha, log_beta, log_transmat, log_emission
             )
-            
+
             # M step
             if "s" in self.params:
                 new_log_startprob = update_startprob_nophasing(lengths, log_gamma)
                 new_log_startprob = new_log_startprob.flatten()
             else:
                 new_log_startprob = log_startprob
-                
+
             if "t" in self.params:
                 new_log_transmat = update_transition_nophasing(log_xi, is_diag=is_diag)
             else:
                 new_log_transmat = log_transmat
-                
+
             if "m" in self.params:
                 if tumor_prop is None:
                     new_log_mu, new_alphas = (
@@ -519,6 +520,7 @@ class hmm_nophasing(object):
             else:
                 new_log_mu = log_mu
                 new_alphas = alphas
+
             if "p" in self.params:
                 if tumor_prop is None:
                     new_p_binom, new_taus = (
@@ -581,22 +583,26 @@ class hmm_nophasing(object):
                 new_taus = taus
 
             logger.info(
-                "Parameter differences: start prob.=%.6e, transfer matrix=%.6e, log_mu=%.6e, p_binom=%.6e",
+                "Found new HMM parameters @ iteration {r}: log_mu and p_binom =\n%s",
+                str(np.hstack([new_log_mu, new_p_binom])),
+            )
+
+            logger.info(
+                "Found mean parameter updates:\nstart prob.=%.6e\ntransfer matrix=%.6e\nlog_mu=%.6e\np_binom=%.6e",
                 np.mean(np.abs(np.exp(new_log_startprob) - np.exp(log_startprob))),
                 np.mean(np.abs(np.exp(new_log_transmat) - np.exp(log_transmat))),
                 np.mean(np.abs(new_log_mu - log_mu)),
                 np.mean(np.abs(new_p_binom - p_binom)),
             )
-            
-            logger.info("Current parameters: log_mu and p_binom =\n%s", str(np.hstack([new_log_mu, new_p_binom])))
-            
+
+            # TODO BUG? no check on start prob.
             if (
                 np.mean(np.abs(np.exp(new_log_transmat) - np.exp(log_transmat))) < tol
                 and np.mean(np.abs(new_log_mu - log_mu)) < tol
                 and np.mean(np.abs(new_p_binom - p_binom)) < tol
             ):
                 break
-            
+
             log_startprob = new_log_startprob
             log_transmat = new_log_transmat
             log_mu = new_log_mu

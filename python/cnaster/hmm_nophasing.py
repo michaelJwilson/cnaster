@@ -13,6 +13,7 @@ from cnaster.hmm_update import (
     update_emission_params_bb_nophasing_uniqvalues_mix,
     update_emission_params_nb_nophasing_uniqvalues,
     update_emission_params_nb_nophasing_uniqvalues_mix,
+    update_transition_nophasing,
 )
 from cnaster.hmm_utils import (
     compute_posterior_obs,
@@ -580,13 +581,14 @@ class hmm_nophasing(object):
                 new_taus = taus
 
             logger.info(
+                "Parameter differences: startprob=%f, transmat=%f, log_mu=%f, p_binom=%f",
                 np.mean(np.abs(np.exp(new_log_startprob) - np.exp(log_startprob))),
                 np.mean(np.abs(np.exp(new_log_transmat) - np.exp(log_transmat))),
                 np.mean(np.abs(new_log_mu - log_mu)),
                 np.mean(np.abs(new_p_binom - p_binom)),
             )
             
-            logger.info(np.hstack([new_log_mu, new_p_binom]))
+            logger.info("Current parameters: log_mu and p_binom = %s", str(np.hstack([new_log_mu, new_p_binom])))
             
             if (
                 np.mean(np.abs(np.exp(new_log_transmat) - np.exp(log_transmat))) < tol

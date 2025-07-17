@@ -25,7 +25,7 @@ def prep_snps(cellsnplite_results_dir, output_dir, vaf_threshold=0.1):
     # NB OTH: count of "other" alleles not classified as the main alternative
     df_snp["OTH"] = [int(x.split(";")[2].split("=")[-1]) for x in df_snp.INFO]
 
-    # remove records with DP == 0;
+    # NB remove records with read Depth (DP) == 0;
     df_snp = df_snp[df_snp.DP > 0]
 
     df_snp = df_snp[
@@ -33,13 +33,13 @@ def prep_snps(cellsnplite_results_dir, output_dir, vaf_threshold=0.1):
             (df_snp.AD >= 2)  # at least two alternative counts.
             & (df_snp.DP - df_snp.AD >= 2)  # at least two reference alleles.
             & (df_snp.AD / df_snp.DP >= vaf_threshold)
-            & (df_snp.AD / df_snp.DP <= 1 - vaf_threshold)
+            & (df_snp.AD / df_snp.DP <= 1. - vaf_threshold)
         )
         | ((df_snp.AD == df_snp.DP) & (df_snp.DP >= 10))
         | ((df_snp.AD == 0) & (df_snp.DP >= 10))
     ]
 
-    # add addition columns
+    # NB add addition columns
     df_snp["FORMAT"] = "GT"
 
     # NB "genotyping"
@@ -52,7 +52,7 @@ def prep_snps(cellsnplite_results_dir, output_dir, vaf_threshold=0.1):
     for c in range(1, 23):
         df = df_snp[(df_snp.tmpCHR == c) | (df_snp.tmpCHR == str(c))]
 
-        # remove records that have duplicated snp_id; why duplicated?
+        # NB remove records that have duplicated snp_id; why duplicated?
         snp_id = [
             f"{row.tmpCHR}_{row.POS}_{row.REF}_{row.ALT}" for i, row in df.iterrows()
         ]

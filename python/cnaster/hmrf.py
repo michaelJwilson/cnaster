@@ -1,7 +1,10 @@
+import copy
 import logging
 
 import numpy as np
 import scipy.special
+from sklearn.metrics import adjusted_rand_score
+
 from cnaster.hmm import initialization_by_gmm, pipeline_baum_welch
 from cnaster.hmm_sitewise import hmm_sitewise
 from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
@@ -37,7 +40,7 @@ def aggr_hmrfmix_reassignment_concatenate(
 
     posterior = np.zeros((N, n_clones))
 
-    for i in trange(N):
+    for i in range(N):
         idx = smooth_mat[i, :].nonzero()[1]
         idx = idx[~np.isnan(single_tumor_prop[idx])]
 
@@ -314,29 +317,25 @@ def hmrfmix_concatenate_pipeline(
 
         if "mp" in params:
             logger.info(
-                "outer iteration {}: difference between parameters = {}, {}".format(
-                    r,
-                    np.mean(np.abs(last_log_mu - res["new_log_mu"])),
-                    np.mean(np.abs(last_p_binom - res["new_p_binom"])),
-                )
+                "outer iteration %d: difference between parameters = %f, %f",
+                r,
+                np.mean(np.abs(last_log_mu - res["new_log_mu"])),
+                np.mean(np.abs(last_p_binom - res["new_p_binom"])),
             )
         elif "m" in params:
             logger.info(
-                "outer iteration {}: difference between NB parameters = {}".format(
-                    r, np.mean(np.abs(last_log_mu - res["new_log_mu"]))
-                )
+                "outer iteration %d: difference between NB parameters = %f",
+                r, np.mean(np.abs(last_log_mu - res["new_log_mu"]))
             )
         elif "p" in params:
             logger.info(
-                "outer iteration {}: difference between BetaBinom parameters = {}".format(
-                    r, np.mean(np.abs(last_p_binom - res["new_p_binom"]))
-                )
+                "outer iteration %d: difference between BetaBinom parameters = %f",
+                r, np.mean(np.abs(last_p_binom - res["new_p_binom"]))
             )
 
         logger.info(
-            "outer iteration {}: ARI between assignment = {}".format(
-                r, adjusted_rand_score(last_assignment, res["new_assignment"])
-            )
+            "outer iteration %d: ARI between assignment = %f",
+            r, adjusted_rand_score(last_assignment, res["new_assignment"])
         )
 
         if (

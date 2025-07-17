@@ -221,13 +221,14 @@ def hmrfmix_concatenate_pipeline(
 
     for c, idx in enumerate(initial_clone_index):
         last_assignment[idx] = c
-    """
+    
     for r in range(max_iter_outer):
         # NB [num_obs for each clone / sample]. 
         sample_length = np.ones(X.shape[2], dtype=int) * X.shape[0]
-        remain_kwargs = {"sample_length": sample_length, "lambd": lambd}
 
         # TODO! remain_kwargs populated with previous round log_gamma.
+        remain_kwargs = {"sample_length": sample_length, "lambd": lambd}
+
         res = pipeline_baum_welch(
             None,
             clone_stack_X,
@@ -254,6 +255,8 @@ def hmrfmix_concatenate_pipeline(
             tol=tol,
             **remain_kwargs,
         )
+
+        return 
 
         pred = np.argmax(res["log_gamma"], axis=0)
 
@@ -357,4 +360,3 @@ def hmrfmix_concatenate_pipeline(
             log_persample_weights[:, sidx] = log_persample_weights[
                 :, sidx
             ] - scipy.special.logsumexp(log_persample_weights[:, sidx])
-    """

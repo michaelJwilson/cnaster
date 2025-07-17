@@ -158,10 +158,10 @@ def pipeline_baum_welch(
         if (init_p_binom is None) and ("p" in params):
             init_p_binom = tmp_p_binom
 
+    logger.info(f"Solving HMM with {hmmclass.__name__} instance.")
+            
     logger.info(f"Initialized log_mu:\n{init_log_mu}")
     logger.info(f"Initialized p_binom:\n{init_p_binom}")
-
-    logger.info(f"Solving HMM with {hmmclass.__name__} instance.")
 
     hmmmodel = hmmclass(params=params, t=t)
 

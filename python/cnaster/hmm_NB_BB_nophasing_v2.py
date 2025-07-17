@@ -25,6 +25,7 @@ Tumor genome proportion is weighted by mu in BB distribution.
 """
 
 logger = logging.getLogger(__name__)
+
 class hmm_nophasing_v2(object):
     def __init__(self, params="stmp", t=1 - 1e-4):
         self.params = params
@@ -384,11 +385,11 @@ class hmm_nophasing_v2(object):
                         X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus
                     )
                 )
-                log_emission = log_emission_rdr + log_emission_baf
             else:
                 # compute mu as adjusted RDR
                 if ((not log_gamma is None) or (r > 0)) and ("m" in self.params):
                     logmu_shift = []
+                    
                     for c in range(len(kwargs["sample_length"])):
                         this_pred_cnv = (
                             np.argmax(
@@ -437,7 +438,9 @@ class hmm_nophasing_v2(object):
                             tumor_prop,
                         )
                     )
-                log_emission = log_emission_rdr + log_emission_baf
+                    
+            log_emission = log_emission_rdr + log_emission_baf
+                
             log_alpha = hmm_nophasing_v2.forward_lattice(
                 lengths,
                 log_transmat,
@@ -445,6 +448,7 @@ class hmm_nophasing_v2(object):
                 log_emission,
                 log_sitewise_transmat,
             )
+            
             log_beta = hmm_nophasing_v2.backward_lattice(
                 lengths,
                 log_transmat,
@@ -452,20 +456,25 @@ class hmm_nophasing_v2(object):
                 log_emission,
                 log_sitewise_transmat,
             )
+            
             log_gamma = compute_posterior_obs(log_alpha, log_beta)
+            
             log_xi = compute_posterior_transition_nophasing(
                 log_alpha, log_beta, log_transmat, log_emission
             )
+            
             # M step
             if "s" in self.params:
                 new_log_startprob = update_startprob_nophasing(lengths, log_gamma)
                 new_log_startprob = new_log_startprob.flatten()
             else:
                 new_log_startprob = log_startprob
+                
             if "t" in self.params:
                 new_log_transmat = update_transition_nophasing(log_xi, is_diag=is_diag)
             else:
                 new_log_transmat = log_transmat
+                
             if "m" in self.params:
                 if tumor_prop is None:
                     new_log_mu, new_alphas = (
@@ -556,13 +565,13 @@ class hmm_nophasing_v2(object):
                 new_p_binom = p_binom
                 new_taus = taus
             # check convergence
-            print(
+            logger.info(
                 np.mean(np.abs(np.exp(new_log_startprob) - np.exp(log_startprob))),
                 np.mean(np.abs(np.exp(new_log_transmat) - np.exp(log_transmat))),
                 np.mean(np.abs(new_log_mu - log_mu)),
                 np.mean(np.abs(new_p_binom - p_binom)),
             )
-            print(np.hstack([new_log_mu, new_p_binom]))
+            logger.info(np.hstack([new_log_mu, new_p_binom]))
             if (
                 np.mean(np.abs(np.exp(new_log_transmat) - np.exp(log_transmat))) < tol
                 and np.mean(np.abs(new_log_mu - log_mu)) < tol

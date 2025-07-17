@@ -2,8 +2,8 @@ import logging
 
 import numpy as np
 import scipy.special
-from cnaster.hmm_sitewise import hmm_sitewise
 from cnaster.hmm import initialization_by_gmm
+from cnaster.hmm_sitewise import hmm_sitewise
 from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
 
 logger = logging.getLogger(__name__)

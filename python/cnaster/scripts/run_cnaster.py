@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 import scipy
 from cnaster.config import YAMLConfig
+from cnaster.hmrf import aggr_hmrfmix_reassignment_concatenate
 from cnaster.io import load_input_data
 from cnaster.omics import (
     assign_initial_blocks,
@@ -20,7 +21,6 @@ from cnaster.spatial import (
     multislice_adjacency,
     rectangle_initialize_initial_clone,
 )
-from cnaster.hmrf import aggr_hmrfmix_reassignment_concatenate
 
 logging.basicConfig(
     level=logging.INFO,
@@ -101,6 +101,7 @@ def main():
         unique_snp_ids,
     )
 
+    # NB 1D array / list?
     log_sitewise_transmat = get_sitewise_transmat(
         df_gene_snp,
         config.references.geneticmap_file,
@@ -201,7 +202,6 @@ def main():
     initial_clone_index = rectangle_initialize_initial_clone(
         coords, config.hmrf.n_clones, random_state=0
     )
-
     
     hmrfmix_concatenate_pipeline(
         None,

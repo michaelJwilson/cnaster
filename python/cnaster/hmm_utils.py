@@ -185,3 +185,38 @@ def compute_posterior_transition_sitewise(
         log_xi[:, :, t] -= mylogsumexp(log_xi[:, :, t])
 
     return log_xi
+
+
+@njit
+def compute_posterior_transition_nophasing(
+    log_alpha, log_beta, log_transmat, log_emission
+):
+    """
+    Input
+        log_alpha: output from forward_lattice_gaussian. size n_states * n_observations. alpha[j, t] = P(o_1, ... o_t, q_t = j | lambda).
+        log_beta: output from backward_lattice_gaussian. size n_states * n_observations. beta[i, t] = P(o_{t+1}, ..., o_T | q_t = i, lambda).
+        log_transmat: n_states * n_states. Transition probability after log transformation.
+        log_emission: n_states * n_observations * n_spots. Log probability.
+    Output:
+        log_xi: size n_states * n_states * (n_observations-1). xi[i,j,t] = P(q_t=i, q_{t+1}=j | O, lambda)
+    """
+    n_states = int(log_alpha.shape[0] / 2)
+    n_obs = log_alpha.shape[1]
+    # initialize log_xi
+    log_xi = np.zeros((n_states, n_states, n_obs - 1))
+    # compute log_xi
+    for i in np.arange(n_states):
+        for j in np.arange(n_states):
+            for t in np.arange(n_obs - 1):
+                # ??? Theoretically, joint distribution across spots under iid is the prod (or sum) of individual (log) probabilities.
+                # But adding too many spots may lead to a higher weight of the emission rather then transition prob.
+                log_xi[i, j, t] = (
+                    log_alpha[i, t]
+                    + log_transmat[i, j]
+                    + np.sum(log_emission[j, t + 1, :])
+                    + log_beta[j, t + 1]
+                )
+    # normalize
+    for t in np.arange(n_obs - 1):
+        log_xi[:, :, t] -= mylogsumexp(log_xi[:, :, t])
+    return log_xi

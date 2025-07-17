@@ -163,7 +163,7 @@ def pipeline_baum_welch(
     logger.info(f"Initialized log_mu:\n{init_log_mu}")
     logger.info(f"Initialized p_binom:\n{init_p_binom}")
 
-    hmmmodel = hmmclass(params=params, t=t)
+    hmm_model = hmmclass(params=params, t=t)
 
     remain_kwargs = {
         k: v for k, v in kwargs.items() if k in ["lambd", "sample_length", "log_gamma"]
@@ -177,7 +177,7 @@ def pipeline_baum_welch(
         new_log_startprob,
         new_log_transmat,
         log_gamma,
-    ) = hmmmodel.run_baum_welch_nb_bb(
+    ) = hmm_model.run_baum_welch_nb_bb(
         X,
         lengths,
         n_states,

@@ -17,6 +17,7 @@ from cnaster.hmm_update import (
 from cnaster.hmm_utils import (
     compute_posterior_obs,
     compute_posterior_transition_sitewise,
+    compute_posterior_transition_nophasing,
     construct_unique_matrix,
     convert_params,
     mylogsumexp,
@@ -169,9 +170,11 @@ class hmm_nophasing(object):
                 
                 if ("logmu_shift" in kwargs) and ("sample_length" in kwargs):
                     this_weighted_tp = []
+                    
                     for c in range(len(kwargs["sample_length"])):
                         range_s = np.sum(kwargs["sample_length"][:c])
                         range_t = np.sum(kwargs["sample_length"][: (c + 1)])
+                        
                         this_weighted_tp.append(
                             tumor_prop[range_s:range_t, s]
                             * np.exp(log_mu[i, s] - kwargs["logmu_shift"][c, s])
@@ -182,6 +185,7 @@ class hmm_nophasing(object):
                                 - tumor_prop[range_s:range_t, s]
                             )
                         )
+                        
                     this_weighted_tp = np.concatenate(this_weighted_tp)
                 else:
                     this_weighted_tp = tumor_prop[:, s]
@@ -191,11 +195,11 @@ class hmm_nophasing(object):
                 if len(idx_nonzero_baf) > 0:
                     mix_p_A = p_binom[i, s] * this_weighted_tp[
                         idx_nonzero_baf
-                    ] + 0.5 * (1 - this_weighted_tp[idx_nonzero_baf])
+                    ] + 0.5 * (1. - this_weighted_tp[idx_nonzero_baf])
                     
-                    mix_p_B = (1 - p_binom[i, s]) * this_weighted_tp[
+                    mix_p_B = (1. - p_binom[i, s]) * this_weighted_tp[
                         idx_nonzero_baf
-                    ] + 0.5 * (1 - this_weighted_tp[idx_nonzero_baf])
+                    ] + 0.5 * (1. - this_weighted_tp[idx_nonzero_baf])
                     
                     log_emission_baf[
                         i, idx_nonzero_baf, s
@@ -393,7 +397,7 @@ class hmm_nophasing(object):
                     )
                 )
             else:
-                # compute mu as adjusted RDR
+                # NB compute mu as adjusted RDR;
                 if ((not log_gamma is None) or (r > 0)) and ("m" in self.params):
                     logmu_shift = []
                     
@@ -410,6 +414,7 @@ class hmm_nophasing(object):
                             )
                             % n_states
                         )
+                        
                         logmu_shift.append(
                             scipy.special.logsumexp(
                                 log_mu[this_pred_cnv, :]
@@ -417,7 +422,9 @@ class hmm_nophasing(object):
                                 axis=0,
                             )
                         )
+                        
                     logmu_shift = np.vstack(logmu_shift)
+                    
                     log_emission_rdr, log_emission_baf = (
                         self.compute_emission_probability_nb_betabinom_mix(
                             X,
@@ -571,20 +578,23 @@ class hmm_nophasing(object):
             else:
                 new_p_binom = p_binom
                 new_taus = taus
-            # check convergence
+
             logger.info(
                 np.mean(np.abs(np.exp(new_log_startprob) - np.exp(log_startprob))),
                 np.mean(np.abs(np.exp(new_log_transmat) - np.exp(log_transmat))),
                 np.mean(np.abs(new_log_mu - log_mu)),
                 np.mean(np.abs(new_p_binom - p_binom)),
             )
+            
             logger.info(np.hstack([new_log_mu, new_p_binom]))
+            
             if (
                 np.mean(np.abs(np.exp(new_log_transmat) - np.exp(log_transmat))) < tol
                 and np.mean(np.abs(new_log_mu - log_mu)) < tol
                 and np.mean(np.abs(new_p_binom - p_binom)) < tol
             ):
                 break
+            
             log_startprob = new_log_startprob
             log_transmat = new_log_transmat
             log_mu = new_log_mu

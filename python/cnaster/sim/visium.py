@@ -1,17 +1,12 @@
-import os
 import gzip
-import glob
 import logging
 import pandas as pd
 import numpy as np
-from numba import njit
 from pathlib import Path
 from cnaster.sim.clone import (
-    Clone,
     get_clones,
     query_clones,
     construct_frac_cnas,
-    get_cnas,
 )
 from cnaster.sim.io import get_exp_baseline, get_snp_baseline
 from cnaster_rs import get_triangular_lattice, sample_segment_umis

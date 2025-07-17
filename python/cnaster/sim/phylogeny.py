@@ -4,12 +4,10 @@ import json
 import random
 import logging
 import numpy as np
-import pylab as pl
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
 
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Optional
 
 from cnaster_rs import ellipse
 

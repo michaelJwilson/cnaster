@@ -1,7 +1,6 @@
 import logging
 import numpy as np
 import scipy.special
-from sklearn.metrics import adjusted_range_score
 
 from cnaster.hmm_sitewise import hmm_sitewise
 from cnaster.spatial import compute_adjacency_mat

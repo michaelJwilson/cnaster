@@ -5,7 +5,6 @@ import logging
 
 from cnaster.hmm_utils import (
     mylogsumexp,
-    mylogsumexp_ax_keep,
     np_sum_ax_squeeze,
     convert_params,
     construct_unique_matrix,

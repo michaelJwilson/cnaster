@@ -1,13 +1,10 @@
-import copy
 import logging
 
 import numpy as np
 import scipy.linalg
 import scipy.special
 import scipy.stats
-from numba import njit
 from sklearn.mixture import GaussianMixture
-from statsmodels.base.model import GenericLikelihoodModel
 from cnaster.hmm_utils import compute_posterior_obs
 from cnaster.hmm_sitewise import hmm_sitewise
 

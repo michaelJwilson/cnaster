@@ -4,7 +4,6 @@ import logging
 from statsmodels.base.model import GenericLikelihoodModel
 from cnaster.hmm_utils import convert_params
 
-from scipy.optimize import minimize
 
 logger = logging.getLogger(__name__)
 

@@ -1,15 +1,9 @@
 import argparse
-import copy
-import gzip
-import json
-import pickle
-import sys
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import scipy.io
-from scipy.special import logsumexp
 
 
 def cell_by_gene_lefthap_counts(cellsnp_folder, eagle_results_dir, barcode_list):

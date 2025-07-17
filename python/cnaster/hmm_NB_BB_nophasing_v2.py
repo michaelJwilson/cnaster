@@ -1,34 +1,35 @@
+import logging
 import numpy as np
 from numba import njit
 import scipy.special
 from tqdm import trange
-from calicost.utils_distribution_fitting import *
-from calicost.utils_hmm import *
+from cnaster.hmm_update import (
+    update_emission_params_bb_sitewise_uniqvalues,
+    update_emission_params_bb_sitewise_uniqvalues_mix,
+    update_emission_params_nb_sitewise_uniqvalues,
+    update_emission_params_nb_sitewise_uniqvalues_mix,
+    update_startprob_sitewise,
+)
+from cnaster.hmm_utils import (
+    compute_posterior_obs,
+    compute_posterior_transition_sitewise,
+    construct_unique_matrix,
+    convert_params,
+    mylogsumexp,
+    np_sum_ax_squeeze,
+)
 
 """
-Joint NB-BB HMM that accounts for tumor/normal genome proportions. Tumor genome proportion is weighted by mu in BB distribution.
+Joint NB-BB HMM that accounts for tumor/normal genome proportions.
+Tumor genome proportion is weighted by mu in BB distribution.
 """
 
-############################################################
-# whole inference
-############################################################
-
-
+logger = logging.getLogger(__name__)
 class hmm_nophasing_v2(object):
     def __init__(self, params="stmp", t=1 - 1e-4):
-        """
-        Attributes
-        ----------
-        params : str
-            Codes for parameters that need to be updated. The corresponding parameter can only be updated if it is included in this argument. "s" for start probability; "t" for transition probability; "m" for Negative Binomial RDR signal; "p" for Beta Binomial BAF signal.
-
-        t : float
-            Determine initial self transition probability to be 1-t.
-        """
         self.params = params
         self.t = t
 
-    #
     @staticmethod
     def compute_emission_probability_nb_betabinom(
         X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus
@@ -66,13 +67,14 @@ class hmm_nophasing_v2(object):
         n_comp = X.shape[1]
         n_spots = X.shape[2]
         n_states = log_mu.shape[0]
-        # initialize log_emission
+        
         log_emission_rdr = np.zeros((n_states, n_obs, n_spots))
         log_emission_baf = np.zeros((n_states, n_obs, n_spots))
+
         for i in np.arange(n_states):
             for s in np.arange(n_spots):
-                # expression from NB distribution
                 idx_nonzero_rdr = np.where(base_nb_mean[:, s] > 0)[0]
+
                 if len(idx_nonzero_rdr) > 0:
                     nb_mean = base_nb_mean[idx_nonzero_rdr, s] * np.exp(log_mu[i, s])
                     nb_std = np.sqrt(nb_mean + alphas[i, s] * nb_mean**2)
@@ -80,8 +82,9 @@ class hmm_nophasing_v2(object):
                     log_emission_rdr[i, idx_nonzero_rdr, s] = scipy.stats.nbinom.logpmf(
                         X[idx_nonzero_rdr, 0, s], n, p
                     )
-                # AF from BetaBinom distribution
+                
                 idx_nonzero_baf = np.where(total_bb_RD[:, s] > 0)[0]
+
                 if len(idx_nonzero_baf) > 0:
                     log_emission_baf[i, idx_nonzero_baf, s] = (
                         scipy.stats.betabinom.logpmf(
@@ -91,9 +94,9 @@ class hmm_nophasing_v2(object):
                             (1 - p_binom[i, s]) * taus[i, s],
                         )
                     )
+
         return log_emission_rdr, log_emission_baf
 
-    #
     @staticmethod
     def compute_emission_probability_nb_betabinom_mix(
         X,
@@ -139,15 +142,15 @@ class hmm_nophasing_v2(object):
         n_comp = X.shape[1]
         n_spots = X.shape[2]
         n_states = log_mu.shape[0]
-        # initialize log_emission
+        
         log_emission_rdr = np.zeros((n_states, n_obs, n_spots))
         log_emission_baf = np.zeros((n_states, n_obs, n_spots))
+
         for i in np.arange(n_states):
             for s in np.arange(n_spots):
-                # expression from NB distribution
                 idx_nonzero_rdr = np.where(base_nb_mean[:, s] > 0)[0]
+
                 if len(idx_nonzero_rdr) > 0:
-                    # nb_mean = base_nb_mean[idx_nonzero_rdr,s] * (tumor_prop[s] * np.exp(log_mu[i, s]) + 1 - tumor_prop[s])
                     nb_mean = base_nb_mean[idx_nonzero_rdr, s] * (
                         tumor_prop[idx_nonzero_rdr, s] * np.exp(log_mu[i, s])
                         + 1
@@ -158,7 +161,7 @@ class hmm_nophasing_v2(object):
                     log_emission_rdr[i, idx_nonzero_rdr, s] = scipy.stats.nbinom.logpmf(
                         X[idx_nonzero_rdr, 0, s], n, p
                     )
-                # AF from BetaBinom distribution
+                
                 if ("logmu_shift" in kwargs) and ("sample_length" in kwargs):
                     this_weighted_tp = []
                     for c in range(len(kwargs["sample_length"])):
@@ -177,7 +180,9 @@ class hmm_nophasing_v2(object):
                     this_weighted_tp = np.concatenate(this_weighted_tp)
                 else:
                     this_weighted_tp = tumor_prop[:, s]
+
                 idx_nonzero_baf = np.where(total_bb_RD[:, s] > 0)[0]
+
                 if len(idx_nonzero_baf) > 0:
                     mix_p_A = p_binom[i, s] * this_weighted_tp[
                         idx_nonzero_baf
@@ -195,7 +200,6 @@ class hmm_nophasing_v2(object):
                     )
         return log_emission_rdr, log_emission_baf
 
-    #
     @staticmethod
     @njit
     def forward_lattice(
@@ -203,6 +207,7 @@ class hmm_nophasing_v2(object):
     ):
         """
         Note that n_states is the CNV states, and there are n_states of paired states for (CNV, phasing) pairs.
+
         Input
             lengths: sum of lengths = n_observations.
             log_transmat: n_states * n_states. Transition probability after log transformation.
@@ -213,16 +218,20 @@ class hmm_nophasing_v2(object):
         """
         n_obs = log_emission.shape[1]
         n_states = log_emission.shape[0]
+
         assert (
             np.sum(lengths) == n_obs
         ), "Sum of lengths must be equal to the first dimension of X!"
+
         assert (
             len(log_startprob) == n_states
         ), "Length of startprob_ must be equal to the first dimension of log_transmat!"
+
         # initialize log_alpha
         log_alpha = np.zeros((log_emission.shape[0], n_obs))
         buf = np.zeros(log_emission.shape[0])
         cumlen = 0
+
         for le in lengths:
             # start prob
             # ??? Theoretically, joint distribution across spots under iid is the prod (or sum) of individual (log) probabilities.
@@ -230,17 +239,20 @@ class hmm_nophasing_v2(object):
             log_alpha[:, cumlen] = log_startprob + np_sum_ax_squeeze(
                 log_emission[:, cumlen, :], axis=1
             )
+
             for t in np.arange(1, le):
                 for j in np.arange(log_emission.shape[0]):
                     for i in np.arange(log_emission.shape[0]):
                         buf[i] = log_alpha[i, (cumlen + t - 1)] + log_transmat[i, j]
+
                     log_alpha[j, (cumlen + t)] = mylogsumexp(buf) + np.sum(
                         log_emission[j, (cumlen + t), :]
                     )
+
             cumlen += le
+
         return log_alpha
 
-    #
     @staticmethod
     @njit
     def backward_lattice(
@@ -248,6 +260,7 @@ class hmm_nophasing_v2(object):
     ):
         """
         Note that n_states is the CNV states, and there are n_states of paired states for (CNV, phasing) pairs.
+        
         Input
             X: size n_observations * n_components * n_spots.
             lengths: sum of lengths = n_observations.
@@ -286,7 +299,6 @@ class hmm_nophasing_v2(object):
             cumlen += le
         return log_beta
 
-    #
     def run_baum_welch_nb_bb(
         self,
         X,
@@ -322,13 +334,16 @@ class hmm_nophasing_v2(object):
         n_obs = X.shape[0]
         n_comp = X.shape[1]
         n_spots = X.shape[2]
+
         assert n_comp == 2
+
         # initialize NB logmean shift and BetaBinom prob
         log_mu = (
             np.vstack([np.linspace(-0.1, 0.1, n_states) for r in range(n_spots)]).T
             if init_log_mu is None
             else init_log_mu
         )
+
         p_binom = (
             np.vstack([np.linspace(0.05, 0.45, n_states) for r in range(n_spots)]).T
             if init_p_binom is None
@@ -339,17 +354,21 @@ class hmm_nophasing_v2(object):
             0.1 * np.ones((n_states, n_spots)) if init_alphas is None else init_alphas
         )
         taus = 30 * np.ones((n_states, n_spots)) if init_taus is None else init_taus
+
         # initialize start probability and emission probability
         log_startprob = np.log(np.ones(n_states) / n_states)
+
         if n_states > 1:
-            transmat = np.ones((n_states, n_states)) * (1 - self.t) / (n_states - 1)
+            transmat = np.ones((n_states, n_states)) * (1. - self.t) / (n_states - 1)
             np.fill_diagonal(transmat, self.t)
             log_transmat = np.log(transmat)
         else:
             log_transmat = np.zeros((1, 1))
-        # initialize log_gamma
+
         log_gamma = kwargs["log_gamma"] if "log_gamma" in kwargs else None
-        # a trick to speed up BetaBinom optimization: taking only unique values of (B allele count, total SNP covering read count)
+
+        # NB a trick to speed up BetaBinom optimization: taking only unique values of
+        # (B allele count, total SNP covering read count)
         unique_values_nb, mapping_matrices_nb = construct_unique_matrix(
             X[:, 0, :], base_nb_mean
         )

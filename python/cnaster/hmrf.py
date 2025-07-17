@@ -185,14 +185,28 @@ def hmrfmix_concatenate_pipeline(
     # TODO BUG? baseline expression by summing over all clones; relative to genome-wide.
     lambd = np.sum(single_base_nb_mean, axis=1) / np.sum(single_base_nb_mean)
 
+    # NB vertical stacking of X, base_nb_mean, total_bb_RD, tumor_prop across clones,
+    # i.e. reshape observation data from (n_obs, 2, n_clones) to (n_obs * n_clones, 2, 1)
+    clone_stack_X = np.vstack([X[:, 0, :].flatten("F"), X[:, 1, :].flatten("F")]).T.reshape(
+        -1, 2, 1
+    )
+    # NB vertical stacking by clone cast to column. 
+    clone_stack_base_nb_mean = base_nb_mean.flatten("F").reshape(-1, 1)
+    clone_stack_total_bb_RD = total_bb_RD.flatten("F").reshape(-1, 1)
+    
+    # NB replicate lengths N clone times.
+    clone_stack_lengths = np.tile(lengths, X.shape[2])
+    clone_stack_sitewise_transmat = np.tile(log_sitewise_transmat, X.shape[2])
+    
+    # NB per-clone tumor prop. repeated num_obs times.
+    stack_tumor_prop = np.repeat(tumor_prop, X.shape[0]).reshape(-1, 1)
+
     if (init_log_mu is None) or (init_p_binom is None):
         init_log_mu, init_p_binom = initialization_by_gmm(
             n_states,
-            np.vstack([X[:, 0, :].flatten("F"), X[:, 1, :].flatten("F")]).T.reshape(
-                -1, 2, 1
-            ),
-            base_nb_mean.flatten("F").reshape(-1, 1),
-            total_bb_RD.flatten("F").reshape(-1, 1),
+            clone_stack_X,
+            clone_stack_base_nb_mean
+            clone_stack_total_bb_RD,
             params,
             random_state=random_state,
             in_log_space=False,
@@ -207,93 +221,77 @@ def hmrfmix_concatenate_pipeline(
 
     for c, idx in enumerate(initial_clone_index):
         last_assignment[idx] = c
-
+   
     for r in range(max_iter_outer):
-            sample_length = np.ones(X.shape[2], dtype=int) * X.shape[0]
-            remain_kwargs = {"sample_length": sample_length, "lambd": lambd}
+        # NB [num_obs for each clone / sample]. 
+        sample_length = np.ones(X.shape[2], dtype=int) * X.shape[0]
+        remain_kwargs = {"sample_length": sample_length, "lambd": lambd}
 
-            if f"round{r - 1}_log_gamma" in allres:
-                remain_kwargs["log_gamma"] = allres[f"round{r - 1}_log_gamma"]
+        # TODO! remain_kwargs populated with previous round log_gamma.
+        res = pipeline_baum_welch(
+            None,
+            clone_stack_X,
+            clone_stack_lengths,
+            n_states,
+            clone_stack_base_nb_mean,
+            clone_stack_total_bb_RD,
+            clone_stack_sitewise_transmat,
+            stack_tumor_prop,
+            hmmclass=hmmclass,
+            params=params,
+            t=t,
+            random_state=random_state,
+            fix_NB_dispersion=fix_NB_dispersion,
+            shared_NB_dispersion=shared_NB_dispersion,
+            fix_BB_dispersion=fix_BB_dispersion,
+            shared_BB_dispersion=shared_BB_dispersion,
+            is_diag=is_diag,
+            init_log_mu=last_log_mu,
+            init_p_binom=last_p_binom,
+            init_alphas=last_alphas,
+            init_taus=last_taus,
+            max_iter=max_iter,
+            tol=tol,
+            **remain_kwargs,
+        )
 
-            res = pipeline_baum_welch(
-                None,
-                np.vstack([X[:, 0, :].flatten("F"), X[:, 1, :].flatten("F")]).T.reshape(
-                    -1, 2, 1
-                ),
-                np.tile(lengths, X.shape[2]),
-                n_states,
-                base_nb_mean.flatten("F").reshape(-1, 1),
-                total_bb_RD.flatten("F").reshape(-1, 1),
-                np.tile(log_sitewise_transmat, X.shape[2]),
-                np.repeat(tumor_prop, X.shape[0]).reshape(-1, 1),
+        pred = np.argmax(res["log_gamma"], axis=0)
+
+        new_assignment, single_llf, total_llf = (
+            aggr_hmrfmix_reassignment_concatenate(
+                single_X,
+                single_base_nb_mean,
+                single_total_bb_RD,
+                single_tumor_prop,
+                res,
+                pred,
+                smooth_mat,
+                adjacency_mat,
+                last_assignment,
+                sample_ids,
+                log_persample_weights,
+                spatial_weight=spatial_weight,
                 hmmclass=hmmclass,
-                params=params,
-                t=t,
-                random_state=random_state,
-                fix_NB_dispersion=fix_NB_dispersion,
-                shared_NB_dispersion=shared_NB_dispersion,
-                fix_BB_dispersion=fix_BB_dispersion,
-                shared_BB_dispersion=shared_BB_dispersion,
-                is_diag=is_diag,
-                init_log_mu=last_log_mu,
-                init_p_binom=last_p_binom,
-                init_alphas=last_alphas,
-                init_taus=last_taus,
-                max_iter=max_iter,
-                tol=tol,
-                **remain_kwargs,
             )
+        )
 
-            pred = np.argmax(res["log_gamma"], axis=0)
-
-            new_assignment, single_llf, total_llf = (
-                aggr_hmrfmix_reassignment_concatenate(
-                    single_X,
-                    single_base_nb_mean,
-                    single_total_bb_RD,
-                    single_tumor_prop,
-                    res,
-                    pred,
-                    smooth_mat,
-                    adjacency_mat,
-                    last_assignment,
-                    sample_ids,
-                    log_persample_weights,
-                    spatial_weight=spatial_weight,
-                    hmmclass=hmmclass,
-                )
+        # NB handle the case when one clone has zero spots.
+        if len(np.unique(new_assignment)) < X.shape[2]:
+            res["assignment_before_reindex"] = new_assignment
+            remaining_clones = np.sort(np.unique(new_assignment))
+            re_indexing = {c: i for i, c in enumerate(remaining_clones)}
+            new_assignment = np.array([re_indexing[x] for x in new_assignment])
+            concat_idx = np.concatenate(
+                [np.arange(c * n_obs, c * n_obs + n_obs) for c in remaining_clones]
             )
+            res["log_gamma"] = res["log_gamma"][:, concat_idx]
+            res["pred_cnv"] = res["pred_cnv"][concat_idx]
 
-            # NB handle the case when one clone has zero spots.
-            if len(np.unique(new_assignment)) < X.shape[2]:
-                res["assignment_before_reindex"] = new_assignment
-                remaining_clones = np.sort(np.unique(new_assignment))
-                re_indexing = {c: i for i, c in enumerate(remaining_clones)}
-                new_assignment = np.array([re_indexing[x] for x in new_assignment])
-                concat_idx = np.concatenate(
-                    [np.arange(c * n_obs, c * n_obs + n_obs) for c in remaining_clones]
-                )
-                res["log_gamma"] = res["log_gamma"][:, concat_idx]
-                res["pred_cnv"] = res["pred_cnv"][concat_idx]
+        # NB add to results.
+        res["prev_assignment"] = last_assignment
+        res["new_assignment"] = new_assignment
+        res["total_llf"] = total_llf
 
-            # NB add to results.
-            res["prev_assignment"] = last_assignment
-            res["new_assignment"] = new_assignment
-            res["total_llf"] = total_llf
-
-            # append to allres
-            for k, v in res.items():
-                if k == "prev_assignment":
-                    allres[f"round{r - 1}_assignment"] = v
-                elif k == "new_assignment":
-                    allres[f"round{r}_assignment"] = v
-                else:
-                    allres[f"round{r}_{k}"] = v
-
-            allres["num_iterations"] = r + 1
-            np.savez(f"{outdir}/{prefix}_nstates{n_states}_{params}.npz", **allres)
-
-        # regroup to pseudobulk
         clone_index = [
             np.where(res["new_assignment"] == c)[0]
             for c in np.sort(np.unique(res["new_assignment"]))
@@ -309,7 +307,7 @@ def hmrfmix_concatenate_pipeline(
         )
 
         if "mp" in params:
-            print(
+            logger.info(
                 "outer iteration {}: difference between parameters = {}, {}".format(
                     r,
                     np.mean(np.abs(last_log_mu - res["new_log_mu"])),
@@ -317,18 +315,19 @@ def hmrfmix_concatenate_pipeline(
                 )
             )
         elif "m" in params:
-            print(
+            logger.info(
                 "outer iteration {}: difference between NB parameters = {}".format(
                     r, np.mean(np.abs(last_log_mu - res["new_log_mu"]))
                 )
             )
         elif "p" in params:
-            print(
+            logger.info(
                 "outer iteration {}: difference between BetaBinom parameters = {}".format(
                     r, np.mean(np.abs(last_p_binom - res["new_p_binom"]))
                 )
             )
-        print(
+
+        logger.info(
             "outer iteration {}: ARI between assignment = {}".format(
                 r, adjusted_rand_score(last_assignment, res["new_assignment"])
             )

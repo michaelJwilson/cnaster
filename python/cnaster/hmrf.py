@@ -57,8 +57,10 @@ def hmrfmix_concatenate_pipeline(
 ):
     n_obs, _, n_spots = single_X.shape
     n_clones = len(initial_clone_index)
+
     # spot adjacency matric
     assert not (coords is None and adjacency_mat is None)
+
     if adjacency_mat is None:
         adjacency_mat = compute_adjacency_mat(coords, unit_xsquared, unit_ysquared)
     if sample_ids is None:
@@ -70,6 +72,7 @@ def hmrfmix_concatenate_pipeline(
         tmp_map_index = {unique_sample_ids[i]: i for i in range(len(unique_sample_ids))}
         sample_ids = np.array([tmp_map_index[x] for x in sample_ids])
     log_persample_weights = np.ones((n_clones, n_samples)) * (-np.log(n_clones))
+
     # pseudobulk
     X, base_nb_mean, total_bb_RD, tumor_prop = merge_pseudobulk_by_index_mix(
         single_X,
@@ -79,8 +82,10 @@ def hmrfmix_concatenate_pipeline(
         single_tumor_prop,
         threshold=tumorprop_threshold,
     )
+
     # baseline proportion of UMI counts
     lambd = np.sum(single_base_nb_mean, axis=1) / np.sum(single_base_nb_mean)
+
     # initialize HMM parameters by GMM
     if (init_log_mu is None) or (init_p_binom is None):
         init_log_mu, init_p_binom = initialization_by_gmm(
@@ -95,6 +100,7 @@ def hmrfmix_concatenate_pipeline(
             in_log_space=False,
             only_minor=False,
         )
+
     # initialization parameters for HMM
     if ("m" in params) and ("p" in params):
         last_log_mu = init_log_mu
@@ -105,9 +111,11 @@ def hmrfmix_concatenate_pipeline(
     elif "p" in params:
         last_log_mu = None
         last_p_binom = init_p_binom
+
     last_alphas = init_alphas
     last_taus = init_taus
     last_assignment = np.zeros(single_X.shape[2], dtype=int)
+
     for c, idx in enumerate(initial_clone_index):
         last_assignment[idx] = c
 
@@ -118,6 +126,7 @@ def hmrfmix_concatenate_pipeline(
             f"{outdir}/{prefix}_nstates{n_states}_{params}.npz", allow_pickle=True
         )
         allres = dict(allres)
+
         if allres["num_iterations"] > r:
             res = {
                 "new_log_mu": allres[f"round{r}_new_log_mu"],
@@ -136,8 +145,10 @@ def hmrfmix_concatenate_pipeline(
         else:
             sample_length = np.ones(X.shape[2], dtype=int) * X.shape[0]
             remain_kwargs = {"sample_length": sample_length, "lambd": lambd}
+
             if f"round{r - 1}_log_gamma" in allres:
                 remain_kwargs["log_gamma"] = allres[f"round{r - 1}_log_gamma"]
+
             res = pipeline_baum_welch(
                 None,
                 np.vstack([X[:, 0, :].flatten("F"), X[:, 1, :].flatten("F")]).T.reshape(
@@ -166,7 +177,9 @@ def hmrfmix_concatenate_pipeline(
                 tol=tol,
                 **remain_kwargs,
             )
+
             pred = np.argmax(res["log_gamma"], axis=0)
+
             # clone assignmment
             if nodepotential == "max":
                 new_assignment, single_llf, total_llf = (
@@ -205,6 +218,7 @@ def hmrfmix_concatenate_pipeline(
                 )
             else:
                 raise Exception("Unknown mode for nodepotential!")
+            
             # handle the case when one clone has zero spots
             if len(np.unique(new_assignment)) < X.shape[2]:
                 res["assignment_before_reindex"] = new_assignment
@@ -216,10 +230,12 @@ def hmrfmix_concatenate_pipeline(
                 )
                 res["log_gamma"] = res["log_gamma"][:, concat_idx]
                 res["pred_cnv"] = res["pred_cnv"][concat_idx]
+
             # add to results
             res["prev_assignment"] = last_assignment
             res["new_assignment"] = new_assignment
             res["total_llf"] = total_llf
+
             # append to allres
             for k, v in res.items():
                 if k == "prev_assignment":
@@ -228,14 +244,16 @@ def hmrfmix_concatenate_pipeline(
                     allres[f"round{r}_assignment"] = v
                 else:
                     allres[f"round{r}_{k}"] = v
+
             allres["num_iterations"] = r + 1
             np.savez(f"{outdir}/{prefix}_nstates{n_states}_{params}.npz", **allres)
-        #
+        
         # regroup to pseudobulk
         clone_index = [
             np.where(res["new_assignment"] == c)[0]
             for c in np.sort(np.unique(res["new_assignment"]))
         ]
+
         X, base_nb_mean, total_bb_RD, tumor_prop = merge_pseudobulk_by_index_mix(
             single_X,
             single_base_nb_mean,
@@ -244,7 +262,7 @@ def hmrfmix_concatenate_pipeline(
             single_tumor_prop,
             threshold=tumorprop_threshold,
         )
-        #
+        
         if "mp" in params:
             print(
                 "outer iteration {}: difference between parameters = {}, {}".format(

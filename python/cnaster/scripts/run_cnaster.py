@@ -5,7 +5,6 @@ import numpy as np
 import pandas as pd
 import scipy
 from cnaster.config import YAMLConfig
-from cnaster.hmrf import aggr_hmrfmix_reassignment_concatenate
 from cnaster.io import load_input_data
 from cnaster.omics import (
     assign_initial_blocks,
@@ -21,6 +20,7 @@ from cnaster.spatial import (
     multislice_adjacency,
     rectangle_initialize_initial_clone,
 )
+from cnaster.hmrf import hmrfmix_concatenate_pipeline
 
 logging.basicConfig(
     level=logging.INFO,

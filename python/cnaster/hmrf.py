@@ -221,7 +221,7 @@ def hmrfmix_concatenate_pipeline(
 
     for c, idx in enumerate(initial_clone_index):
         last_assignment[idx] = c
-   
+    """
     for r in range(max_iter_outer):
         # NB [num_obs for each clone / sample]. 
         sample_length = np.ones(X.shape[2], dtype=int) * X.shape[0]
@@ -357,3 +357,4 @@ def hmrfmix_concatenate_pipeline(
             log_persample_weights[:, sidx] = log_persample_weights[
                 :, sidx
             ] - scipy.special.logsumexp(log_persample_weights[:, sidx])
+    """

@@ -2,7 +2,6 @@ import logging
 import numpy as np
 from numba import njit
 import scipy.special
-from tqdm import trange
 from cnaster.hmm_update import (
     update_startprob_sitewise,
     update_emission_params_bb_sitewise_uniqvalues,
@@ -193,9 +192,11 @@ class hmm_nophasing(object):
                     mix_p_A = p_binom[i, s] * this_weighted_tp[
                         idx_nonzero_baf
                     ] + 0.5 * (1 - this_weighted_tp[idx_nonzero_baf])
+                    
                     mix_p_B = (1 - p_binom[i, s]) * this_weighted_tp[
                         idx_nonzero_baf
                     ] + 0.5 * (1 - this_weighted_tp[idx_nonzero_baf])
+                    
                     log_emission_baf[
                         i, idx_nonzero_baf, s
                     ] += scipy.stats.betabinom.logpmf(
@@ -204,6 +205,7 @@ class hmm_nophasing(object):
                         mix_p_A * taus[i, s],
                         mix_p_B * taus[i, s],
                     )
+                    
         return log_emission_rdr, log_emission_baf
 
     @staticmethod
@@ -381,8 +383,8 @@ class hmm_nophasing(object):
         unique_values_bb, mapping_matrices_bb = construct_unique_matrix(
             X[:, 1, :], total_bb_RD
         )
-        # EM algorithm
-        for r in trange(max_iter):
+
+        for r in range(max_iter):
             # E step
             if tumor_prop is None:
                 log_emission_rdr, log_emission_baf = (

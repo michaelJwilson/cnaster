@@ -29,6 +29,7 @@ def aggr_hmrfmix_reassignment_concatenate(
     n_obs = single_X.shape[0]
     n_clones = int(len(pred) / n_obs)
     n_states = res["new_p_binom"].shape[0]
+    
     single_llf = np.zeros((N, n_clones))
     new_assignment = copy.copy(prev_assignment)
 
@@ -47,6 +48,7 @@ def aggr_hmrfmix_reassignment_concatenate(
                 mu = np.exp(res["new_log_mu"][(this_pred % n_states), :]) / np.sum(
                     np.exp(res["new_log_mu"][(this_pred % n_states), :]) * lambd
                 )
+                
                 weighted_tp = (np.mean(single_tumor_prop[idx]) * mu) / (
                     np.mean(single_tumor_prop[idx]) * mu
                     + 1

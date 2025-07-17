@@ -163,15 +163,14 @@ def hmrfmix_concatenate_pipeline(
     n_obs, _, n_spots = single_X.shape
     n_clones = len(initial_clone_index)
 
-    if sample_ids is None:
-        sample_ids = np.zeros(n_spots, dtype=int)
-        n_samples = len(np.unique(sample_ids))
-    else:
-        unique_sample_ids = np.unique(sample_ids)
-        n_samples = len(unique_sample_ids)
-        tmp_map_index = {unique_sample_ids[i]: i for i in range(len(unique_sample_ids))}
-        sample_ids = np.array([tmp_map_index[x] for x in sample_ids])
+    # NB map sample_ids to integer enum.
+    unique_sample_ids = np.unique(sample_ids)
+    n_samples = len(unique_sample_ids)
+    
+    tmp_map_index = {unique_sample_ids[i]: i for i in range(len(unique_sample_ids))}
+    sample_ids = np.array([tmp_map_index[x] for x in sample_ids])
 
+    # NB inertia to spot clone change.
     log_persample_weights = np.ones((n_clones, n_samples)) * (-np.log(n_clones))
 
     X, base_nb_mean, total_bb_RD, tumor_prop = merge_pseudobulk_by_index_mix(
@@ -183,6 +182,7 @@ def hmrfmix_concatenate_pipeline(
         threshold=tumorprop_threshold,
     )
 
+    # TODO BUG? baseline expression by summing over all clones; relative to genome-wide.
     lambd = np.sum(single_base_nb_mean, axis=1) / np.sum(single_base_nb_mean)
 
     if (init_log_mu is None) or (init_p_binom is None):
@@ -199,29 +199,19 @@ def hmrfmix_concatenate_pipeline(
             only_minor=False,
         )
 
-    if ("m" in params) and ("p" in params):
-        last_log_mu = init_log_mu
-        last_p_binom = init_p_binom
-    elif "m" in params:
-        last_log_mu = init_log_mu
-        last_p_binom = None
-    elif "p" in params:
-        last_log_mu = None
-        last_p_binom = init_p_binom
-
+    last_log_mu = init_log_mu if "m" in params else None
+    last_p_binom = init_p_binom if "p" in params else None        
     last_alphas = init_alphas
     last_taus = init_taus
     last_assignment = np.zeros(single_X.shape[2], dtype=int)
 
-    # NB
     for c, idx in enumerate(initial_clone_index):
         last_assignment[idx] = c
 
-    # HMM
     for r in range(max_iter_outer):
         # assuming file f"{outdir}/{prefix}_nstates{n_states}_{params}.npz" exists. When r == 0,
         # f"{outdir}/{prefix}_nstates{n_states}_{params}.npz" should contain two keys: "num_iterations"
-        # and f"round_-1_assignment" for clone initialization
+        # and f"round_-1_assignment" for clone initialization.
         allres = dict(
             np.load(
                 f"{outdir}/{prefix}_nstates{n_states}_{params}.npz", allow_pickle=True
@@ -368,12 +358,13 @@ def hmrfmix_concatenate_pipeline(
                 r, adjusted_rand_score(last_assignment, res["new_assignment"])
             )
         )
-        # if np.all( last_assignment == res["new_assignment"] ):
+
         if (
             adjusted_rand_score(last_assignment, res["new_assignment"]) > 0.99
             or len(np.unique(res["new_assignment"])) == 1
         ):
             break
+        
         last_log_mu = res["new_log_mu"]
         last_p_binom = res["new_p_binom"]
         last_alphas = res["new_alphas"]

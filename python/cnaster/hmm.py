@@ -23,6 +23,8 @@ def initialization_by_gmm(
     min_binom_prob=0.1,
     max_binom_prob=0.9,
 ):
+    logger.info("Initializing with HMM emission with GMM.")
+    
     X_gmm_rdr, X_gmm_baf = None, None
 
     if "m" in params:

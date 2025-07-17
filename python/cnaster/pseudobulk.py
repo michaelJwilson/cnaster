@@ -53,11 +53,13 @@ def merge_pseudobulk_by_index_mix(
 ):
     n_obs = single_X.shape[0]
     n_spots = len(clone_index)
+    
     X = np.zeros((n_obs, 2, n_spots))
     base_nb_mean = np.zeros((n_obs, n_spots))
     total_bb_RD = np.zeros((n_obs, n_spots))
     tumor_prop = np.zeros(n_spots)
 
+    # NB merge pseudobulk where tumor_prop > 0.5;
     for k, idx in enumerate(clone_index):
         if len(idx) == 0:
             continue

@@ -1,22 +1,21 @@
 import copy
-import scipy
 import logging
+
 import numpy as np
 import pandas as pd
-
+import scipy
 from cnaster.config import YAMLConfig
 from cnaster.io import load_input_data
 from cnaster.omics import (
-    form_gene_snp_table,
     assign_initial_blocks,
-    summarize_counts_for_blocks,
-    get_sitewise_transmat,
     create_bin_ranges,
+    form_gene_snp_table,
+    get_sitewise_transmat,
     summarize_counts_for_bins,
+    summarize_counts_for_blocks,
 )
-
-from cnaster.spatial import initialize_clones, multislice_adjacency
 from cnaster.phasing import initial_phase_given_partition
+from cnaster.spatial import initialize_clones, multislice_adjacency
 
 logging.basicConfig(
     level=logging.INFO,

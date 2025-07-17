@@ -7,9 +7,8 @@ import numpy as np
 import pandas as pd
 import scanpy as sc
 import scipy.sparse
-from sklearn.neighbors import LocalOutlierFactor
-
 from cnaster.filter import get_filter_genes, get_filter_ranges
+from sklearn.neighbors import LocalOutlierFactor
 
 logger = logging.getLogger(__name__)
 

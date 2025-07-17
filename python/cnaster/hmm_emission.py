@@ -1,9 +1,9 @@
+import logging
+
 import numpy as np
 import scipy.stats
-import logging
-from statsmodels.base.model import GenericLikelihoodModel
 from cnaster.hmm_utils import convert_params
-
+from statsmodels.base.model import GenericLikelihoodModel
 
 logger = logging.getLogger(__name__)
 

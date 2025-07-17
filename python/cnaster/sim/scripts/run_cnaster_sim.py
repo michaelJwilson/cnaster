@@ -1,14 +1,16 @@
 import argparse
 import logging
 import time
-import numpy as np
-from pathlib import Path
-from cnaster.config import JSONConfig
-from cnaster.sim.visium import gen_visium
-from cnaster_rs import set_cnaster_rs_seed
-from cnaster.sim.phylogeny import generate_phylogenies
-from cnaster.sim.baseline import generate_exp_baseline, generate_snp_baseline
 from datetime import datetime
+from pathlib import Path
+
+import numpy as np
+from cnaster.config import JSONConfig
+from cnaster.sim.baseline import generate_exp_baseline, generate_snp_baseline
+from cnaster.sim.phylogeny import generate_phylogenies
+from cnaster.sim.visium import gen_visium
+
+from cnaster_rs import set_cnaster_rs_seed
 
 logging.basicConfig(
     level=logging.INFO,

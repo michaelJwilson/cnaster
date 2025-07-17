@@ -1,23 +1,23 @@
-import numpy as np
-import scipy.stats
-from numba import njit
 import logging
 
+import numpy as np
+import scipy.stats
+from cnaster.hmm_update import (
+    update_emission_params_bb_sitewise_uniqvalues,
+    update_emission_params_bb_sitewise_uniqvalues_mix,
+    update_emission_params_nb_sitewise_uniqvalues,
+    update_emission_params_nb_sitewise_uniqvalues_mix,
+    update_startprob_sitewise,
+)
 from cnaster.hmm_utils import (
-    mylogsumexp,
-    np_sum_ax_squeeze,
-    convert_params,
-    construct_unique_matrix,
     compute_posterior_obs,
     compute_posterior_transition_sitewise,
+    construct_unique_matrix,
+    convert_params,
+    mylogsumexp,
+    np_sum_ax_squeeze,
 )
-from cnaster.hmm_update import (
-    update_startprob_sitewise,
-    update_emission_params_bb_sitewise_uniqvalues,
-    update_emission_params_nb_sitewise_uniqvalues,
-    update_emission_params_bb_sitewise_uniqvalues_mix,
-    update_emission_params_nb_sitewise_uniqvalues_mix,
-)
+from numba import njit
 
 logger = logging.getLogger(__name__)
 

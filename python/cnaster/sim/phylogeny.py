@@ -1,13 +1,13 @@
-import os
 import copy
 import json
-import random
 import logging
-import numpy as np
-import matplotlib.pyplot as plt
-
+import os
+import random
 from dataclasses import dataclass
 from typing import Optional
+
+import matplotlib.pyplot as plt
+import numpy as np
 
 from cnaster_rs import ellipse
 

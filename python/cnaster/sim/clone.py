@@ -1,6 +1,8 @@
 import glob
 import json
+
 import numpy as np
+
 from cnaster_rs import ellipse
 
 # TODO HACK

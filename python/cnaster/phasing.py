@@ -1,7 +1,6 @@
 import logging
 
 import numpy as np
-
 from cnaster.hmm import hmm_sitewise, pipeline_baum_welch
 from cnaster.pseudobulk import merge_pseudobulk_by_index
 

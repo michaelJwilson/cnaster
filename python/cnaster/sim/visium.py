@@ -1,14 +1,16 @@
 import gzip
 import logging
-import pandas as pd
-import numpy as np
 from pathlib import Path
+
+import numpy as np
+import pandas as pd
 from cnaster.sim.clone import (
+    construct_frac_cnas,
     get_clones,
     query_clones,
-    construct_frac_cnas,
 )
 from cnaster.sim.io import get_exp_baseline, get_snp_baseline
+
 from cnaster_rs import get_triangular_lattice, sample_segment_umis
 
 logger = logging.getLogger(__name__)

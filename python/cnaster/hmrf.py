@@ -1,19 +1,18 @@
 import logging
+
 import numpy as np
 import scipy.special
-
 from cnaster.hmm_sitewise import hmm_sitewise
-from cnaster.spatial import compute_adjacency_mat
-from cnaster.omics import (
-    merge_pseudobulk_by_index_mix,
-    initialization_by_gmm,
-    pipeline_baum_welch,
-)
-
 from cnaster.hmrf_reassignment import (
     aggr_hmrfmix_reassignment_concatenate,
     hmrfmix_reassignment_posterior_concatenate,
 )
+from cnaster.omics import (
+    initialization_by_gmm,
+    merge_pseudobulk_by_index_mix,
+    pipeline_baum_welch,
+)
+from cnaster.spatial import compute_adjacency_mat
 
 # Set up logger
 logger = logging.getLogger(__name__)

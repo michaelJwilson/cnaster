@@ -4,9 +4,9 @@ import numpy as np
 import scipy.linalg
 import scipy.special
 import scipy.stats
-from sklearn.mixture import GaussianMixture
-from cnaster.hmm_utils import compute_posterior_obs
 from cnaster.hmm_sitewise import hmm_sitewise
+from cnaster.hmm_utils import compute_posterior_obs
+from sklearn.mixture import GaussianMixture
 
 logger = logging.getLogger(__name__)
 

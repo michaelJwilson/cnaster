@@ -5,7 +5,7 @@ import argparse
 import numpy as np
 import pandas as pd
 import scipy
-from cnaster.config import YAMLConfig
+from cnaster.config import YAMLConfig, set_global_config
 from cnaster.io import load_input_data
 from cnaster.omics import (
     assign_initial_blocks,
@@ -32,19 +32,9 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-# TODO
-_global_config = None
-
-def set_global_config(config):
-    global _global_config
-    _global_config = config
-
-def get_global_config():
-    return _global_config
-
 def run_cnaster(config_path):
     config = YAMLConfig.from_file(config_path)
-    
+
     set_global_config(config)
 
     (
@@ -256,6 +246,7 @@ def main():
         "config_path", 
         type=str, 
         help="Path to the YAML configuration file"
+        required=True,
     )
     
     args = parser.parse_args()

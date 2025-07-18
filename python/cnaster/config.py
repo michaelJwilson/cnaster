@@ -10,6 +10,19 @@ import yaml
 logger = logging.getLogger(__name__)
 
 
+# TODO
+_global_config = None
+
+
+def set_global_config(config):
+    global _global_config
+    _global_config = config
+
+
+def get_global_config():
+    return _global_config
+
+
 class JSONConfig:
     def __init__(self, d):
         for k, v in d.items():

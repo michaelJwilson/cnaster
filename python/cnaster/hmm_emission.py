@@ -4,7 +4,7 @@ import time
 
 import numpy as np
 import scipy.stats
-from cnaster.config import YAMLConfig
+from cnaster.config import YAMLConfig, get_global_config
 from cnaster.hmm_utils import convert_params
 from statsmodels.base.model import ValueWarning
 from statsmodels.base.model import GenericLikelihoodModel

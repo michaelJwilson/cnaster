@@ -358,7 +358,8 @@ def load_input_data(
     # NB total UMIs for all spots given (selected) genes.
     ratio = np.sum(adata.X[:, indicator]) / np.sum(adata.X)
 
-    # TODO excludes 50% of genes, but retains 99.97% of UMIs; resolves gene definition to house-keeping.
+    # TODO gencode gene list is not all sampled by (3') visium umis.
+    # TODO excludes 50% of genes, but retains 99.97% of UMIs; resolves gene definition to house-keeping?
     logger.info(
         f"Retaining {100.0 * np.mean(indicator):.3f}% of genes with sufficient expression across spots ({100.0 * ratio:.2f}% of total UMIs)."
     )
@@ -366,7 +367,7 @@ def load_input_data(
     adata = adata[:, indicator]
 
     logger.info(
-        f"median UMI after gene selection for expression < {100.0 * min_percent_expressed_spots:.3f}% of cells = {np.median(np.sum(adata.layers['count'], axis=1))}"
+        f"Median UMI after gene selection for expression < {100.0 * min_percent_expressed_spots:.3f}% of cells = {np.median(np.sum(adata.layers['count'], axis=1))}"
     )
 
     if filter_gene_file is not None:
@@ -374,7 +375,7 @@ def load_input_data(
         indicator_filter = ~np.isin(adata.var.index, genes_to_filter)
 
         logger.info(
-            f"Removing genes based on input:"
+            f"Removing genes based on input ranges ({filter_gene_file}):"
         )
 
         for to_print in genes_to_filter[np.isin(genes_to_filter, adata.var.index)]:
@@ -383,7 +384,7 @@ def load_input_data(
         adata = adata[:, indicator_filter]
 
         logger.info(
-            f"Median UMI after filtering genes in {filter_gene_file} = {np.median(np.sum(adata.layers['count'], axis=1))}"
+            f"Median UMI after filtering genes = {np.median(np.sum(adata.layers['count'], axis=1))}"
         )
 
         # TODO?
@@ -447,9 +448,27 @@ def load_input_data(
             f"Removed {len(to_zero)} outlier genes ({100.0 * ratio:.3f}% of UMIs)."
         )
 
-        # TODO?  zeros out counts.
-        adata.layers["count"][:, to_zero] = 0
+        if len(to_zero) > 0:
+            gene_umi_counts = np.sum(adata.layers["count"], axis=0)
+            total_umis = np.sum(adata.layers["count"])
+            
+            outlier_genes_info = []
 
+            for gene_idx in to_zero:
+                gene_name = adata.var.index[gene_idx]
+                gene_umis = gene_umi_counts[gene_idx]
+                gene_pct = 100.0 * gene_umis / total_umis
+                outlier_genes_info.append((gene_name, gene_umis, gene_pct))
+            
+            outlier_genes_info.sort(key=lambda x: x[2], reverse=True)
+            
+            logger.info("Top 10 outlier genes removed:")
+
+            for i, (gene_name, gene_umis, gene_pct) in enumerate(outlier_genes_info[:10]):
+                logger.info(f"  {i+1}. {gene_name}: {gene_umis} UMIs ({gene_pct:.3f}%)")
+
+        # NB zero count of outlier genes.
+        adata.layers["count"][:, to_zero] = 0
     if normal_idx_file is not None:
         normal_barcodes = pd.read_csv(normalidx_file, header=None).iloc[:, 0].values
         adata.obs["tumor_annotation"] = "tumor"

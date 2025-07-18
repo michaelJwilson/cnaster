@@ -381,7 +381,7 @@ class hmm_nophasing(object):
 
         log_gamma = kwargs["log_gamma"] if "log_gamma" in kwargs else None
 
-        logger.info("Assuming initial log_gamma?  {log_gamma is not None}")
+        logger.info(f"Assuming initial log_gamma?  {log_gamma is not None}")
 
         # NB a trick to speed up BetaBinom optimization: taking only unique values of
         # (B allele count, total SNP covering read count)

@@ -458,6 +458,7 @@ def hmrfmix_concatenate_pipeline(
         logger.info(f"Copy number state usage [%]:\n{100. * state_usage}")
 
         if (
+            # TODO config.hmrf.assignment_ari_tolerance: 0.9?
             adjusted_rand_score(last_assignment, res["new_assignment"]) > 0.99
             or len(np.unique(res["new_assignment"])) == 1
         ):

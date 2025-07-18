@@ -239,13 +239,13 @@ def run_cnaster(config_path):
 
     logger.info("Done.\n\n")
 
-
+# NB run_cnaster --config_path config_turing.yaml
 def main():
     parser = argparse.ArgumentParser(description="Run CNAster pipeline")
     parser.add_argument(
         "config_path", 
         type=str, 
-        help="Path to the YAML configuration file"
+        help="Path to the YAML configuration file",
         required=True,
     )
     

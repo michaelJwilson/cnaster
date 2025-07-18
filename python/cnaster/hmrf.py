@@ -206,7 +206,9 @@ def aggr_hmrfmix_reassignment_concatenate(
         return new_assignment, single_llf, total_llf
 
 
-def clone_stack_obs(X, base_nb_mean, total_bb_RD, lengths, log_sitewise_transmat, tumor_prop):
+def clone_stack_obs(
+    X, base_nb_mean, total_bb_RD, lengths, log_sitewise_transmat, tumor_prop
+):
     # NB vertical stacking of X, base_nb_mean, total_bb_RD, tumor_prop across clones,
     # i.e. reshape observation data from (n_obs, 2, n_clones) to (n_obs * n_clones, 2, 1)
     clone_stack_X = np.vstack(
@@ -221,20 +223,20 @@ def clone_stack_obs(X, base_nb_mean, total_bb_RD, lengths, log_sitewise_transmat
     clone_stack_lengths = np.tile(lengths, X.shape[2])
     clone_stack_sitewise_transmat = np.tile(log_sitewise_transmat, X.shape[2])
 
-    # NB per-clone tumor prop. repeated num_obs times.                                                                                        
+    # NB per-clone tumor prop. repeated num_obs times.
     stack_tumor_prop = (
         np.repeat(tumor_prop, X.shape[0]).reshape(-1, 1)
         if tumor_prop is not None
         else None
     )
-    
+
     return (
         clone_stack_X,
         clone_stack_base_nb_mean,
         clone_stack_total_bb_RD,
         clone_stack_lengths,
         clone_stack_sitewise_transmat,
-        stack_tumor_prop
+        stack_tumor_prop,
     )
 
 
@@ -272,7 +274,7 @@ def hmrfmix_concatenate_pipeline(
     tol=1e-4,
     unit_xsquared=9,
     unit_ysquared=3,
-    spatial_weight=1.0 / 6.,
+    spatial_weight=1.0 / 6.0,
     tumorprop_threshold=0.5,
 ):
     n_obs, _, n_spots = single_X.shape
@@ -288,10 +290,10 @@ def hmrfmix_concatenate_pipeline(
     # NB inertia to spot clone change.
     log_persample_weights = np.ones((n_clones, n_samples)) * (-np.log(n_clones))
 
-    # TODO BUG? baseline expression by summing over all clones; relative to genome-wide.                                                   
-    # NB not applicable for BAF only.                                                                                                       
+    # TODO BUG? baseline expression by summing over all clones; relative to genome-wide.
+    # NB not applicable for BAF only.
     lambd = np.sum(single_base_nb_mean, axis=1) / np.sum(single_base_nb_mean)
-    
+
     X, base_nb_mean, total_bb_RD, tumor_prop = merge_pseudobulk_by_index_mix(
         single_X,
         single_base_nb_mean,
@@ -308,8 +310,10 @@ def hmrfmix_concatenate_pipeline(
         clone_stack_lengths,
         clone_stack_sitewise_transmat,
         stack_tumor_prop,
-    ) = clone_stack_obs(X, base_nb_mean, total_bb_RD, lengths, log_sitewise_transmat, tumor_prop)
-   
+    ) = clone_stack_obs(
+        X, base_nb_mean, total_bb_RD, lengths, log_sitewise_transmat, tumor_prop
+    )
+
     if (init_log_mu is None) or (init_p_binom is None):
         init_log_mu, init_p_binom = initialization_by_gmm(
             n_states,
@@ -436,12 +440,16 @@ def hmrfmix_concatenate_pipeline(
             clone_stack_lengths,
             clone_stack_sitewise_transmat,
             stack_tumor_prop,
-        ) = clone_stack_obs(X, base_nb_mean, total_bb_RD, lengths, log_sitewise_transmat, tumor_prop)
-        
+        ) = clone_stack_obs(
+            X, base_nb_mean, total_bb_RD, lengths, log_sitewise_transmat, tumor_prop
+        )
+
         # NB max not mean.
         param_diffs = [
-            "ARI with last assignment",
-            adjusted_rand_score(last_assignment, res["new_assignment"]),
+            (
+                "ARI to last assignment",
+                adjusted_rand_score(last_assignment, res["new_assignment"]),
+            )
         ]
 
         if "m" in params:

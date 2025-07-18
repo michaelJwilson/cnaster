@@ -317,7 +317,7 @@ def plot_phylogeny(tree, ellipses, cnas, outdir):
     axes[1].text(
         0.05,
         0.0,
-        f"Normal",
+        "Normal",
         fontsize=8,
         va="bottom",
         ha="left",

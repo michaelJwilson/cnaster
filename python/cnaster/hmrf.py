@@ -3,11 +3,10 @@ import logging
 
 import numpy as np
 import scipy.special
-from sklearn.metrics import adjusted_rand_score
-
 from cnaster.hmm import initialization_by_gmm, pipeline_baum_welch
 from cnaster.hmm_sitewise import hmm_sitewise
 from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
+from sklearn.metrics import adjusted_rand_score
 
 logger = logging.getLogger(__name__)
 

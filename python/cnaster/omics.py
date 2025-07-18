@@ -98,7 +98,7 @@ def summarize_block_ids(block_ids):
     ids, cnts = np.unique(block_ids, return_counts=True)
     ids, cnts = np.unique(cnts, return_counts=True)
 
-    logger.info(f"Breakdown of snps per block:")
+    logger.info("Breakdown of snps per block:")
 
     print("# SNPs/block\t# occurrences")
 
@@ -194,7 +194,7 @@ def assign_initial_blocks(
     for i, x in enumerate(block_ranges):
         df_gene_snp.iloc[x[0] : x[1], -1] = i
 
-    logger.info(f"Initialized block assignment based on gene overlap")
+    logger.info("Initialized block assignment based on gene overlap")
 
     summarize_block_ids(df_gene_snp["initial_block_id"])
 
@@ -287,7 +287,7 @@ def assign_initial_blocks(
         df_gene_snp.iloc[x[0] : x[1], -1] = i
 
     logger.info(
-        f"Updating block assignment based on input phased genotypes and min. SNP-covering UMI threshold"
+        "Updating block assignment based on input phased genotypes and min. SNP-covering UMI threshold"
     )
 
     summarize_block_ids(df_gene_snp["block_id"])

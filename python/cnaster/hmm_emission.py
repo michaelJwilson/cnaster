@@ -1,14 +1,12 @@
 import logging
-import warnings
 import time
+import warnings
 
 import numpy as np
 import scipy.stats
 from cnaster.config import get_global_config
 from cnaster.hmm_utils import convert_params
-from statsmodels.base.model import ValueWarning
-from statsmodels.base.model import GenericLikelihoodModel
-
+from statsmodels.base.model import GenericLikelihoodModel, ValueWarning
 
 logger = logging.getLogger(__name__)
 

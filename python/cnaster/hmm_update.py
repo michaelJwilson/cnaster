@@ -3,9 +3,9 @@ import logging
 
 import numpy as np
 import scipy
+from cnaster.config import get_global_config
 from cnaster.hmm_emission import Weighted_BetaBinom
 from cnaster.hmm_utils import mylogsumexp, mylogsumexp_ax_keep
-from cnaster.config import get_global_config
 from numba import njit
 
 logger = logging.getLogger(__name__)

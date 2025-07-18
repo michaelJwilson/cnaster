@@ -1,29 +1,24 @@
 import logging
+
 import numpy as np
-from numba import njit
 import scipy.special
 from cnaster.hmm_update import (
-    update_startprob_sitewise,
-    update_emission_params_bb_sitewise_uniqvalues,
-    update_emission_params_bb_sitewise_uniqvalues_mix,
-    update_emission_params_nb_sitewise_uniqvalues,
-    update_emission_params_nb_sitewise_uniqvalues_mix,
-    update_startprob_nophasing,
     update_emission_params_bb_nophasing_uniqvalues,
     update_emission_params_bb_nophasing_uniqvalues_mix,
     update_emission_params_nb_nophasing_uniqvalues,
     update_emission_params_nb_nophasing_uniqvalues_mix,
+    update_startprob_nophasing,
     update_transition_nophasing,
 )
 from cnaster.hmm_utils import (
     compute_posterior_obs,
-    compute_posterior_transition_sitewise,
     compute_posterior_transition_nophasing,
     construct_unique_matrix,
     convert_params,
     mylogsumexp,
     np_sum_ax_squeeze,
 )
+from numba import njit
 
 """
 Joint NB-BB HMM that accounts for tumor/normal genome proportions.
@@ -402,7 +397,7 @@ class hmm_nophasing(object):
                 )
             else:
                 # NB compute mu as adjusted RDR;
-                if ((not log_gamma is None) or (r > 0)) and ("m" in self.params):
+                if ((log_gamma is not None) or (r > 0)) and ("m" in self.params):
                     logmu_shift = []
 
                     for c in range(len(kwargs["sample_length"])):

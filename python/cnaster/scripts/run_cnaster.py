@@ -1,11 +1,13 @@
+import argparse
 import copy
 import logging
-import argparse
 
 import numpy as np
 import pandas as pd
 import scipy
 from cnaster.config import YAMLConfig, set_global_config
+from cnaster.hmm_nophasing import hmm_nophasing
+from cnaster.hmrf import hmrfmix_concatenate_pipeline
 from cnaster.io import load_input_data
 from cnaster.omics import (
     assign_initial_blocks,
@@ -21,8 +23,6 @@ from cnaster.spatial import (
     multislice_adjacency,
     rectangle_initialize_initial_clone,
 )
-from cnaster.hmrf import hmrfmix_concatenate_pipeline
-from cnaster.hmm_nophasing import hmm_nophasing
 
 logging.basicConfig(
     level=logging.INFO,

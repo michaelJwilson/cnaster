@@ -41,7 +41,7 @@ class JSONConfig:
 
     @classmethod
     def from_file(cls, path):
-        with open(path, "r") as f:
+        with Path.open(path, "r") as f:
             # Remove comments if present (JSON standard does not allow them)
             lines = [line for line in f if not line.strip().startswith("//")]
             d = json.loads("".join(lines))
@@ -82,7 +82,7 @@ class YAMLConfig:
 
     @classmethod
     def from_file(cls, config_path: Union[str, Path]) -> YAMLConfig:
-        with open(config_path, "r") as f:
+        with Path.open(config_path, "r") as f:
             config_dict = yaml.safe_load(f)
 
         config = cls(config_dict)

@@ -1,5 +1,6 @@
 import copy
 import logging
+import argparse
 
 import numpy as np
 import pandas as pd
@@ -32,9 +33,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def main():
-    # HACK
-    config_path = f"/u/mw9568/research/repos/cnaster/config_turing.yaml"
+def run_cnaster(config_path):
     config = YAMLConfig.from_file(config_path)
 
     (
@@ -238,3 +237,20 @@ def main():
     )
 
     logger.info("Done.\n\n")
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Run CNAster pipeline")
+    parser.add_argument(
+        "config_path", 
+        type=str, 
+        help="Path to the YAML configuration file"
+    )
+    
+    args = parser.parse_args()
+    
+    run_cnaster(args.config_path)
+
+
+if __name__ == "__main__":
+    main()

@@ -462,9 +462,9 @@ def load_input_data(
             
             outlier_genes_info.sort(key=lambda x: x[2], reverse=True)
             
-            logger.info("Top 10 outlier genes removed:")
+            logger.info("Top 25 outlier genes removed:")
 
-            for i, (gene_name, gene_umis, gene_pct) in enumerate(outlier_genes_info[:10]):
+            for i, (gene_name, gene_umis, gene_pct) in enumerate(outlier_genes_info[:25]):
                 logger.info(f"  {i+1}. {gene_name}: {gene_pct:.3f}% UMIs")
 
         # NB zero count of outlier genes.

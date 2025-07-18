@@ -372,9 +372,7 @@ class hmm_sitewise(object):
             log_mu: size of n_states. Log of mean/exposure/base_prob of each HMM state.
             alpha: size of n_states. Dispersioon parameter of each HMM state.
         """
-        n_obs = X.shape[0]
-        n_comp = X.shape[1]
-        n_spots = X.shape[2]
+        n_obs, n_comp, n_spots = X.shape
 
         assert n_comp == 2
 
@@ -394,20 +392,19 @@ class hmm_sitewise(object):
             0.1 * np.ones((n_states, n_spots)) if init_alphas is None else init_alphas
         )
 
-        taus = 30 * np.ones((n_states, n_spots)) if init_taus is None else init_taus
+        taus = 30. * np.ones((n_states, n_spots)) if init_taus is None else init_taus
 
         log_startprob = np.log(np.ones(n_states) / n_states)
 
         if n_states > 1:
             transmat = np.ones((n_states, n_states)) * (1.0 - self.t) / (n_states - 1.0)
-
             np.fill_diagonal(transmat, self.t)
-
             log_transmat = np.log(transmat)
         else:
             log_transmat = np.zeros((1, 1))
 
-        # a trick to speed up BetaBinom optimization: taking only unique values of (B allele count, total SNP covering read count)
+        # NB a trick to speed up BetaBinom optimization: taking only unique values of
+        #   e.g. (B allele count, total SNP covering read count)
         unique_values_nb, mapping_matrices_nb = construct_unique_matrix(
             X[:, 0, :], base_nb_mean
         )

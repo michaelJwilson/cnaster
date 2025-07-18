@@ -287,9 +287,6 @@ def hmrfmix_concatenate_pipeline(
     tmp_map_index = {unique_sample_ids[i]: i for i in range(len(unique_sample_ids))}
     sample_ids = np.array([tmp_map_index[x] for x in sample_ids])
 
-    # NB inertia to spot clone change.
-    log_persample_weights = np.ones((n_clones, n_samples)) * (-np.log(n_clones))
-
     # TODO BUG? baseline expression by summing over all clones; relative to genome-wide.
     # NB not applicable for BAF only.
     lambd = np.sum(single_base_nb_mean, axis=1) / np.sum(single_base_nb_mean)
@@ -335,6 +332,9 @@ def hmrfmix_concatenate_pipeline(
     for c, idx in enumerate(initial_clone_index):
         last_assignment[idx] = c
 
+    # NB inertia to spot clone change.                                                                                                                                                                                                           
+    log_persample_weights = np.ones((n_clones, n_samples)) * (-np.log(n_clones))
+        
     for r in range(max_iter_outer):
         logger.info(
             f"----  Solving iteration {r} of copy number state fitting & clone assignment (HMM + HMRF) ----"

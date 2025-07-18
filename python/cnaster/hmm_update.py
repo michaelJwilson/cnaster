@@ -57,12 +57,12 @@ def update_transition_nophasing(log_xi, is_diag=False):
     """
     n_states = log_xi.shape[0]
     n_obs = log_xi.shape[2]
-    # initialize log_transmat
+
     log_transmat = np.zeros((n_states, n_states))
     for i in np.arange(n_states):
         for j in np.arange(n_states):
             log_transmat[i, j] = scipy.special.logsumexp(log_xi[i, j, :])
-    # row normalize log_transmat
+
     if not is_diag:
         for i in np.arange(n_states):
             rowsum = scipy.special.logsumexp(log_transmat[i, :])
@@ -184,9 +184,11 @@ def update_emission_params_nb_sitewise_uniqvalues(
 
     if fix_NB_dispersion:
         new_log_mu = np.zeros((n_states, n_spots))
+
         for s in range(n_spots):
             tmp = (scipy.sparse.csr_matrix(gamma) @ mapping_matrices[s]).toarray()
             idx_nonzero = np.where(unique_values[s][:, 1] > 0)[0]
+
             for i in range(n_states):
                 model = sm.GLM(
                     unique_values[s][idx_nonzero, 0],
@@ -197,6 +199,7 @@ def update_emission_params_nb_sitewise_uniqvalues(
                 )
                 res = model.fit(disp=0, maxiter=1500, xtol=1e-4, ftol=1e-4)
                 new_log_mu[i, s] = res.params[0]
+
                 if not (start_log_mu is None):
                     res2 = model.fit(
                         disp=0,
@@ -324,6 +327,7 @@ def update_emission_params_nb_sitewise_uniqvalues(
                         new_log_mu[idx_state_posweight, s] = res2.params[l1:l2]
                     if res2.params[-1] > 0:
                         new_alphas[:, :] = res2.params[-1]
+
     new_log_mu[new_log_mu > max_log_rdr] = max_log_rdr
     new_log_mu[new_log_mu < min_log_rdr] = min_log_rdr
 

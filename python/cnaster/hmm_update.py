@@ -92,7 +92,7 @@ def update_startprob_sitewise(lengths, log_gamma):
     Output
         log_startprob: n_states. Start probability after log transformation.
     """
-    logger.debug("Updating (phasing) start probability given gamma.")
+    # logger.debug("Updating (phasing) start probability given gamma.")
 
     n_states = int(log_gamma.shape[0] / 2)
     n_obs = log_gamma.shape[1]
@@ -133,7 +133,7 @@ def update_startprob_nophasing(lengths, log_gamma):
     Output
         log_startprob: n_states. Start probability after loog transformation.
     """
-    logger.debug("Updating (no phasing) start probability given gamma.")
+    # logger.debug("Updating (no phasing) start probability given gamma.")
 
     n_states = log_gamma.shape[0]
     n_obs = log_gamma.shape[1]

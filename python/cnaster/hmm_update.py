@@ -6,8 +6,8 @@ import scipy
 import statsmodels as sm
 from cnaster.hmm_emission import (
     Weighted_BetaBinom,
-    Weighted_BetaBinom_fixdispersion,
-    Weighted_BetaBinom_fixdispersion_mix,
+    # Weighted_BetaBinom_fixdispersion,
+    # Weighted_BetaBinom_fixdispersion_mix,
     Weighted_BetaBinom_mix,
     Weighted_NegativeBinomial,
     Weighted_NegativeBinomial_mix,

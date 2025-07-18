@@ -28,13 +28,13 @@ def get_aggregated_barcodes(barcode_file):
 
     # NB per-slice Visium 10x defined barcode.
     df_barcode["barcode"] = [
-        x.split("_")[0] for x in df_barcode.combined_barcode.values
+        x.split("_")[0] for x in df_barcode.combined_barcode.to_numpy()
     ]
 
     # NB user specified sample_id per bam.
     # TODO define sample_id if it does not exist.
     df_barcode["sample_id"] = [
-        x.split("_")[-1] for x in df_barcode.combined_barcode.values
+        x.split("_")[-1] for x in df_barcode.combined_barcode.to_numpy()
     ]
 
     # TODO sample ids currently slice, e.g. U1;
@@ -147,8 +147,8 @@ def get_alignments(alignment_files, df_meta, df_agg_barcode, significance=1.0e-6
         pi = pi / np.max(np.append(np.sum(pi, axis=0), np.sum(pi, axis=1)))
 
         # NB assumes alignments ordered by df_meta sample_ids.
-        sname1 = df_meta.sample_id.values[i]
-        sname2 = df_meta.sample_id.values[i + 1]
+        sname1 = df_meta.sample_id.to_numpy()[i]
+        sname2 = df_meta.sample_id.to_numpy()[i + 1]
 
         assert pi.shape[0] == np.sum(df_agg_barcode["sample_id"] == sname1)
         assert pi.shape[1] == np.sum(df_agg_barcode["sample_id"] == sname2)
@@ -212,7 +212,7 @@ def load_input_data(
 
     # TODO HACK
     sample_id_patcher = {
-        sample_id.split("-")[1]: sample_id for sample_id in df_meta.sample_id.values
+        sample_id.split("-")[1]: sample_id for sample_id in df_meta.sample_id.to_numpy()
     }
 
     df_agg_barcode["sample_id"] = df_agg_barcode["sample_id"].map(sample_id_patcher)
@@ -232,7 +232,7 @@ def load_input_data(
     adata = None
 
     # NB df_meta provides the sample_ids, one per bam.
-    for i, sname in enumerate(df_meta.sample_id.values):
+    for i, sname in enumerate(df_meta.sample_id.to_numpy()):
         logger.info(f"Solving for spaceranger sample {sname}.")
 
         # NB barcodes for this sample + slice.
@@ -293,7 +293,7 @@ def load_input_data(
     # NB shared barcodes between adata and SNPs.
     shared_barcodes = set(list(snp_barcodes.barcodes)) & set(list(adata.obs.index))
 
-    isin = snp_barcodes.barcodes.isin(shared_barcodes).values
+    isin = snp_barcodes.barcodes.isin(shared_barcodes).to_numpy()
 
     logger.info(
         f"Retaining {100.0 * np.mean(isin):.3f}% of SNP barcodes (shared between UMIs and SNPs)."
@@ -372,7 +372,7 @@ def load_input_data(
     )
 
     if filter_gene_file is not None:
-        genes_to_filter = get_filter_genes(filter_gene_file).iloc[:, 0].values
+        genes_to_filter = get_filter_genes(filter_gene_file).iloc[:, 0].to_numpy()
         indicator_filter = ~np.isin(adata.var.index, genes_to_filter)
 
         logger.info(f"Removing genes based on input ranges ({filter_gene_file}):")
@@ -403,19 +403,19 @@ def load_input_data(
 
             # NB fast forward genomic position
             while j < num_ranges and (
-                (ranges.Chr.values[j] < this_chr)
+                (ranges.Chr.to_numpy()[j] < this_chr)
                 or (
-                    (ranges.Chr.values[j] == this_chr)
-                    and (ranges.End.values[j] <= this_pos)
+                    (ranges.Chr.to_numpy()[j] == this_chr)
+                    and (ranges.End.to_numpy()[j] <= this_pos)
                 )
             ):
                 j += 1
 
             if (
                 j < num_ranges
-                and (ranges.Chr.values[j] == this_chr)
-                and (ranges.Start.values[j] <= this_pos)
-                and (ranges.End.values[j] > this_pos)
+                and (ranges.Chr.to_numpy()[j] == this_chr)
+                and (ranges.Start.to_numpy()[j] <= this_pos)
+                and (ranges.End.to_numpy()[j] > this_pos)
             ):
                 indicator_filter[i] = False
 
@@ -480,7 +480,7 @@ def load_input_data(
         # NB zero count of outlier genes.
         adata.layers["count"][:, to_zero] = 0
     if normal_idx_file is not None:
-        normal_barcodes = pd.read_csv(normalidx_file, header=None).iloc[:, 0].values
+        normal_barcodes = pd.read_csv(normalidx_file, header=None).iloc[:, 0].to_numpy()
         adata.obs["tumor_annotation"] = "tumor"
         adata.obs["tumor_annotation"][adata.obs.index.isin(normal_barcodes)] = "normal"
 

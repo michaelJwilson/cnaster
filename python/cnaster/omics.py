@@ -18,11 +18,11 @@ def form_gene_snp_table(unique_snp_ids, hgtable_file, adata):
     # a data frame including both gene and SNP info: CHR, START, END, snp_id, gene, is_interval
     df_gene_snp = pd.DataFrame(
         {
-            "CHR": [int(x[3:]) for x in df_hgtable.chrom.values],
-            "START": df_hgtable.cdsStart.values,
-            "END": df_hgtable.cdsEnd.values,
+            "CHR": [int(x[3:]) for x in df_hgtable.chrompython/cnaster/omics.py],
+            "START": df_hgtable.cdsStartpython/cnaster/omics.py,
+            "END": df_hgtable.cdsEndpython/cnaster/omics.py,
             "snp_id": None,
-            "gene": df_hgtable.name2.values,
+            "gene": df_hgtable.name2python/cnaster/omics.py,
             "is_interval": True,
         }
     )
@@ -52,11 +52,11 @@ def form_gene_snp_table(unique_snp_ids, hgtable_file, adata):
 
     # NB assign genes to each SNP:  for each SNP (with not null snp_id), find the previous gene (is_interval == True)
     #    such that the SNP start position is within the gene start & end interval.
-    vec_is_interval = df_gene_snp.is_interval.values
+    vec_is_interval = df_gene_snp.is_intervalpython/cnaster/omics.py
 
-    vec_chr = df_gene_snp.CHR.values
-    vec_start = df_gene_snp.START.values
-    vec_end = df_gene_snp.END.values
+    vec_chr = df_gene_snp.CHRpython/cnaster/omics.py
+    vec_start = df_gene_snp.STARTpython/cnaster/omics.py
+    vec_end = df_gene_snp.ENDpython/cnaster/omics.py
 
     for i in np.where(df_gene_snp.gene.isnull())[0]:
         # TODO first SNP has no gene.
@@ -131,9 +131,9 @@ def assign_initial_blocks(
     # TODO UGH.
     tmp_block_genome_intervals = list(
         zip(
-            df_gene_snp[is_interval].CHR.values,
-            df_gene_snp[is_interval].START.values,
-            df_gene_snp[is_interval].END.values,
+            df_gene_snp[is_interval].CHRpython/cnaster/omics.py,
+            df_gene_snp[is_interval].STARTpython/cnaster/omics.py,
+            df_gene_snp[is_interval].ENDpython/cnaster/omics.py,
         )
     )
 
@@ -171,10 +171,10 @@ def assign_initial_blocks(
     for x in block_genome_intervals:
         # NB overlap of df_gene_snp with block interval.
         indexes = np.where(
-            (df_gene_snp.CHR.values == x[0])
+            (df_gene_snp.CHRpython/cnaster/omics.py == x[0])
             & (
-                np.maximum(df_gene_snp.START.values, x[1])
-                < np.minimum(df_gene_snp.END.values, x[2])
+                np.maximum(df_gene_snp.STARTpython/cnaster/omics.py, x[1])
+                < np.minimum(df_gene_snp.ENDpython/cnaster/omics.py, x[2])
             )
         )[0]
 
@@ -201,7 +201,7 @@ def assign_initial_blocks(
     # NB second level: group the first level blocks into "haplotype blocks" such that the minimum SNP-covering UMI counts >= initial_min_umi.
     # TODO requires PHASE SET / PS tag?
     map_snp_index = {x: i for i, x in enumerate(unique_snp_ids)}
-    initial_block_chr = df_gene_snp.CHR.values[np.array([x[0] for x in block_ranges])]
+    initial_block_chr = df_gene_snp.CHRpython/cnaster/omics.py[np.array([x[0] for x in block_ranges])]
     block_ranges_new = []
     s = 0
 
@@ -224,7 +224,7 @@ def assign_initial_blocks(
             ].snp_id
 
             # NB drop genes.
-            involved_snps_ids = involved_snps_ids[~involved_snps_ids.isnull()].values
+            involved_snps_ids = involved_snps_ids[~involved_snps_ids.isnull()]python/cnaster/omics.py
             involved_snp_idx = np.array([map_snp_index[x] for x in involved_snps_ids])
 
             # NB num. of snp-covering umis for initial block ids s to t.
@@ -247,7 +247,7 @@ def assign_initial_blocks(
                 ]
                 involved_snps_ids = involved_snps_ids[
                     ~involved_snps_ids.isnull()
-                ].values
+                ]python/cnaster/omics.py
 
                 involved_snp_idx = np.array(
                     [map_snp_index[x] for x in involved_snps_ids]
@@ -342,7 +342,7 @@ def summarize_counts_for_blocks(
     for b in range(df_block_contents.shape[0]):
         # BAF (SNPs)
         involved_snps_ids = [
-            x for x in df_block_contents.snp_id.values[b] if x is not None
+            x for x in df_block_contents.snp_idpython/cnaster/omics.py[b] if x is not None
         ]
 
         involved_snp_idx = np.array([map_snp_index[x] for x in involved_snps_ids])
@@ -358,7 +358,7 @@ def summarize_counts_for_blocks(
 
         # RDR (genes)
         involved_genes = list(
-            set([x for x in df_block_contents.gene.values[b] if x is not None])
+            set([x for x in df_block_contents.genepython/cnaster/omics.py[b] if x is not None])
         )
 
         if len(involved_genes) > 0:
@@ -392,7 +392,7 @@ def get_sitewise_transmat(df_gene_snp, geneticmap_file, nu, logphase_shift):
     )
 
     sorted_chr_pos_first = list(
-        zip(sorted_chr_pos_first.CHR.values, sorted_chr_pos_first.START.values)
+        zip(sorted_chr_pos_first.CHRpython/cnaster/omics.py, sorted_chr_pos_first.STARTpython/cnaster/omics.py)
     )
 
     sorted_chr_pos_last = df_gene_snp.groupby("block_id").agg(
@@ -400,7 +400,7 @@ def get_sitewise_transmat(df_gene_snp, geneticmap_file, nu, logphase_shift):
     )
 
     sorted_chr_pos_last = list(
-        zip(sorted_chr_pos_last.CHR.values, sorted_chr_pos_last.END.values)
+        zip(sorted_chr_pos_last.CHRpython/cnaster/omics.py, sorted_chr_pos_last.ENDpython/cnaster/omics.py)
     )
 
     tmp_sorted_chr_pos = [
@@ -499,7 +499,7 @@ def create_bin_ranges(
         {"CHR": "first", "START": "first", "END": "last"}
     )
 
-    block_lengths = sorted_chr_pos_both.END.values - sorted_chr_pos_both.START.values
+    block_lengths = sorted_chr_pos_both.ENDpython/cnaster/omics.py - sorted_chr_pos_both.STARTpython/cnaster/omics.py
     n_blocks = len(block_lengths)
 
     # NB? summed across spots.
@@ -602,7 +602,7 @@ def summarize_counts_for_bins(
     for b in range(df_bin_contents.shape[0]):
         # BAF (SNPs)
         involved_blocks = [
-            x for x in df_bin_contents.block_id.values[b] if x is not None
+            x for x in df_bin_contents.block_idpython/cnaster/omics.py[b] if x is not None
         ]
 
         this_phased = np.where(
@@ -617,7 +617,7 @@ def summarize_counts_for_bins(
         )
 
         # RDR (genes)
-        involved_genes = [x for x in df_bin_contents.gene.values[b] if x is not None]
+        involved_genes = [x for x in df_bin_contents.genepython/cnaster/omics.py[b] if x is not None]
         bin_single_X[b, 0, :] = np.sum(
             adata.layers["count"][:, adata.var.index.isin(involved_genes)], axis=1
         )
@@ -637,7 +637,7 @@ def summarize_counts_for_bins(
     )
 
     sorted_chr_pos_first = list(
-        zip(sorted_chr_pos_first.CHR.values, sorted_chr_pos_first.START.values)
+        zip(sorted_chr_pos_first.CHRpython/cnaster/omics.py, sorted_chr_pos_first.STARTpython/cnaster/omics.py)
     )
 
     sorted_chr_pos_last = df_gene_snp.groupby("bin_id").agg(
@@ -645,7 +645,7 @@ def summarize_counts_for_bins(
     )
 
     sorted_chr_pos_last = list(
-        zip(sorted_chr_pos_last.CHR.values, sorted_chr_pos_last.END.values)
+        zip(sorted_chr_pos_last.CHRpython/cnaster/omics.py, sorted_chr_pos_last.ENDpython/cnaster/omics.py)
     )
 
     tmp_sorted_chr_pos = [

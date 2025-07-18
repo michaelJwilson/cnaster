@@ -24,8 +24,8 @@ def initialization_by_gmm(
     min_binom_prob=0.1,
     max_binom_prob=0.9,
 ):
-    logger.debug("Solving GMM.")
-
+    logger.info(f"Initializing HMM emission with Gaussian mixture model")
+    
     X_gmm_rdr, X_gmm_baf = None, None
 
     if "m" in params:
@@ -142,8 +142,6 @@ def pipeline_baum_welch(
     if ((init_log_mu is None) and ("m" in params)) or (
         (init_p_binom is None) and ("p" in params)
     ):
-        logger.info(f"Initializing HMM emission with Gaussian mixture model")
-
         tmp_log_mu, tmp_p_binom = initialization_by_gmm(
             n_states,
             X,

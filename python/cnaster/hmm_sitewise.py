@@ -392,7 +392,7 @@ class hmm_sitewise(object):
             0.1 * np.ones((n_states, n_spots)) if init_alphas is None else init_alphas
         )
 
-        taus = 30. * np.ones((n_states, n_spots)) if init_taus is None else init_taus
+        taus = 30.0 * np.ones((n_states, n_spots)) if init_taus is None else init_taus
 
         log_startprob = np.log(np.ones(n_states) / n_states)
 

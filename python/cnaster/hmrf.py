@@ -332,9 +332,9 @@ def hmrfmix_concatenate_pipeline(
     for c, idx in enumerate(initial_clone_index):
         last_assignment[idx] = c
 
-    # NB inertia to spot clone change.                                                                                                                                                                                                           
+    # NB inertia to spot clone change.
     log_persample_weights = np.ones((n_clones, n_samples)) * (-np.log(n_clones))
-        
+
     for r in range(max_iter_outer):
         logger.info(
             f"----  Solving iteration {r} of copy number state fitting & clone assignment (HMM + HMRF) ----"
@@ -447,9 +447,11 @@ def hmrfmix_concatenate_pipeline(
         state_counts = np.bincount(pred, minlength=n_states)
         state_usage = state_counts / len(pred)
 
-        # NB max not mean.    
-        logger.info(f"ARI to last assignment: {adjusted_rand_score(last_assignment, res["new_assignment"]):.4f}")
-        logger.info("Copy number state usage [%]: {100. * state_usage}")
+        # NB max not mean.
+        logger.info(
+            f"ARI to last assignment: {adjusted_rand_score(last_assignment, res["new_assignment"]):.4f}"
+        )
+        logger.info(f"Copy number state usage [%]: {100. * state_usage}")
 
         if (
             adjusted_rand_score(last_assignment, res["new_assignment"]) > 0.99

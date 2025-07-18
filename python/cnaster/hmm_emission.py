@@ -4,6 +4,7 @@ import time
 
 import numpy as np
 import scipy.stats
+from cnaster.config import YAMLConfig
 from cnaster.hmm_utils import convert_params
 from statsmodels.base.model import ValueWarning
 from statsmodels.base.model import GenericLikelihoodModel
@@ -13,6 +14,10 @@ logger = logging.getLogger(__name__)
 
 # TODO
 warnings.filterwarnings("ignore", category=UserWarning, module="statsmodels")
+
+# TODO HACK
+config_path = f"/u/mw9568/research/repos/cnaster/config_turing.yaml"
+config = YAMLConfig.from_file(config_path)
 
 
 class Weighted_NegativeBinomial(GenericLikelihoodModel):
@@ -37,7 +42,7 @@ class Weighted_NegativeBinomial(GenericLikelihoodModel):
 
     def __init__(self, endog, exog, weights, exposure, seed=0, **kwds):
         super(Weighted_NegativeBinomial, self).__init__(endog, exog, **kwds)
-        
+
         self.weights = weights
         self.exposure = exposure
         self.seed = seed
@@ -45,9 +50,9 @@ class Weighted_NegativeBinomial(GenericLikelihoodModel):
     def nloglikeobs(self, params):
         nb_mean = np.exp(self.exog @ params[:-1]) * self.exposure
         nb_std = np.sqrt(nb_mean + params[-1] * nb_mean**2)
-        
+
         n, p = convert_params(nb_mean, nb_std)
-        
+
         llf = scipy.stats.nbinom.logpmf(self.endog, n, p)
 
         return -llf.dot(self.weights)
@@ -60,18 +65,20 @@ class Weighted_NegativeBinomial(GenericLikelihoodModel):
             else:
                 start_params = np.append(0.1 * np.ones(self.nparams), 0.01)
 
-        logger.info(f"Fitting Weighted_NegativeBinomial ({len(start_params)} {'default' if using_default_params else 'custom'} params)")
         start_time = time.time()
         result = super(Weighted_NegativeBinomial, self).fit(
             start_params=start_params, maxiter=maxiter, maxfun=maxfun, **kwds
         )
         runtime = time.time() - start_time
-        
-        logger.info(f"Weighted_NegativeBinomial done: {runtime:.2f}s, "
-                   f"{result.mle_retvals.get('iterations', 'N/A')} iter, "
-                   f"converged: {result.mle_retvals.get('converged', 'N/A')}, "
-                   f"llf: {result.llf:.6e}")
-        
+
+        logger.info(
+            f"Weighted_NegativeBinomial done: {runtime:.2f}s, "
+            f"{len(start_params)} {'default' if using_default_params else 'custom'} params, "
+            f"{result.mle_retvals.get('iterations', 'N/A')} iter, "
+            f"converged: {result.mle_retvals.get('converged', 'N/A')}, "
+            f"llf: {result.llf:.6e}"
+        )
+
         return result
 
 
@@ -89,9 +96,9 @@ class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
             self.tumor_prop * np.exp(self.exog @ params[:-1]) + 1 - self.tumor_prop
         )
         nb_std = np.sqrt(nb_mean + params[-1] * nb_mean**2)
-        
+
         n, p = convert_params(nb_mean, nb_std)
-        
+
         llf = scipy.stats.nbinom.logpmf(self.endog, n, p)
 
         return -llf.dot(self.weights)
@@ -103,19 +110,21 @@ class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
                 start_params = self.start_params
             else:
                 start_params = np.append(0.1 * np.ones(self.nparams), 0.01)
-        
-        logger.info(f"Fitting Weighted_NegativeBinomial_mix ({len(start_params)} {'default' if using_default_params else 'custom'} params)")
+
         start_time = time.time()
         result = super(Weighted_NegativeBinomial_mix, self).fit(
             start_params=start_params, maxiter=maxiter, maxfun=maxfun, **kwds
         )
         runtime = time.time() - start_time
-        
-        logger.info(f"Weighted_NegativeBinomial_mix done: {runtime:.2f}s, "
-                   f"{result.mle_retvals.get('iterations', 'N/A')} iter, "
-                   f"converged: {result.mle_retvals.get('converged', 'N/A')}, "
-                   f"llf: {result.llf:.6e}")
-        
+
+        logger.info(
+            f"Weighted_NegativeBinomial_mix done: {runtime:.2f}s, "
+            f"{len(start_params)} {'default' if using_default_params else 'custom'} params, "
+            f"{result.mle_retvals.get('iterations', 'N/A')} iter, "
+            f"converged: {result.mle_retvals.get('converged', 'N/A')}, "
+            f"llf: {result.llf:.6e}"
+        )
+
         return result
 
 
@@ -147,9 +156,9 @@ class Weighted_BetaBinom(GenericLikelihoodModel):
     def nloglikeobs(self, params):
         a = (self.exog @ params[:-1]) * params[-1]
         b = (1 - self.exog @ params[:-1]) * params[-1]
-        
+
         llf = scipy.stats.betabinom.logpmf(self.endog, self.exposure, a, b)
-        
+
         return -llf.dot(self.weights)
 
     def fit(self, start_params=None, maxiter=10000, maxfun=5000, **kwds):
@@ -161,19 +170,21 @@ class Weighted_BetaBinom(GenericLikelihoodModel):
                 start_params = np.append(
                     0.5 / np.sum(self.exog.shape[1]) * np.ones(self.nparams), 1
                 )
-        
-        logger.info(f"Fitting Weighted_BetaBinom ({len(start_params)} {'default' if using_default_params else 'custom'} params)")
+
         start_time = time.time()
         result = super(Weighted_BetaBinom, self).fit(
             start_params=start_params, maxiter=maxiter, maxfun=maxfun, **kwds
         )
         runtime = time.time() - start_time
-        
-        logger.info(f"Weighted_BetaBinom done: {runtime:.2f}s, "
-                   f"{result.mle_retvals.get('iterations', 'N/A')} iter, "
-                   f"converged: {result.mle_retvals.get('converged', 'N/A')}, "
-                   f"llf: {result.llf:.6e}")
-        
+
+        logger.info(
+            f"Weighted_BetaBinom done: {runtime:.2f}s, "
+            f"{len(start_params)} {'default' if using_default_params else 'custom'} params, "
+            f"{result.mle_retvals.get('iterations', 'N/A')} iter, "
+            f"converged: {result.mle_retvals.get('converged', 'N/A')}, "
+            f"llf: {result.llf:.6e}"
+        )
+
         return result
 
 
@@ -192,7 +203,7 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
             (1 - self.exog @ params[:-1]) * self.tumor_prop
             + 0.5 * (1 - self.tumor_prop)
         ) * params[-1]
-        
+
         llf = scipy.stats.betabinom.logpmf(self.endog, self.exposure, a, b)
 
         return -llf.dot(self.weights)
@@ -206,17 +217,19 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
                 start_params = np.append(
                     0.5 / np.sum(self.exog.shape[1]) * np.ones(self.nparams), 1
                 )
-        
-        logger.info(f"Fitting Weighted_BetaBinom_mix ({len(start_params)} {'default' if using_default_params else 'custom'} params)")
+
         start_time = time.time()
         result = super(Weighted_BetaBinom_mix, self).fit(
             start_params=start_params, maxiter=maxiter, maxfun=maxfun, **kwds
         )
         runtime = time.time() - start_time
-        
-        logger.info(f"Weighted_BetaBinom_mix done: {runtime:.2f}s, "
-                   f"{result.mle_retvals.get('iterations', 'N/A')} iter, "
-                   f"converged: {result.mle_retvals.get('converged', 'N/A')}, "
-                   f"llf: {result.llf:.6e}")
-        
+
+        logger.info(
+            f"Weighted_BetaBinom_mix done: {runtime:.2f}s, "
+            f"{len(start_params)} {'default' if using_default_params else 'custom'} params, "
+            f"{result.mle_retvals.get('iterations', 'N/A')} iter, "
+            f"converged: {result.mle_retvals.get('converged', 'N/A')}, "
+            f"llf: {result.llf:.6e}"
+        )
+
         return result

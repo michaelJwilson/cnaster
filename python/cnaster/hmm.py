@@ -204,8 +204,10 @@ def pipeline_baum_welch(
         **remain_kwargs,
     )
 
-    to_log = [f"Solved for best emission parameters with {hmm_model.__class__.__name__}:"]
-    
+    to_log = [
+        f"Solved for best emission parameters with {hmm_model.__class__.__name__}:"
+    ]
+
     if "m" in params and new_log_mu is not None:
         to_log.append(f"log_mu=\n{new_log_mu}")
 

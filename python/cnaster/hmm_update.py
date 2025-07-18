@@ -9,6 +9,7 @@ from numba import njit
 
 logger = logging.getLogger(__name__)
 
+
 def update_transition_sitewise(log_xi, is_diag=False):
     """
     Input
@@ -227,7 +228,9 @@ def update_emission_params_nb_sitewise_uniqvalues(
                     )
     else:
         if not shared_NB_dispersion:
-            logger.info("Updating (phasing) NB emission parameters with free dispersion.")
+            logger.info(
+                "Updating (phasing) NB emission parameters with free dispersion."
+            )
 
             for s in range(n_spots):
                 tmp = (scipy.sparse.csr_matrix(gamma) @ mapping_matrices[s]).toarray()
@@ -266,7 +269,9 @@ def update_emission_params_nb_sitewise_uniqvalues(
                             else res2.params[-1]
                         )
         else:
-            logger.info("Updating (phasing) NB emission parameters with shared dispersion.")
+            logger.info(
+                "Updating (phasing) NB emission parameters with shared dispersion."
+            )
 
             exposure = []
             y = []
@@ -385,7 +390,9 @@ def update_emission_params_nb_nophasing_uniqvalues(
     new_alphas = copy.copy(alphas)
     # expression signal by NB distribution
     if fix_NB_dispersion:
-        logger.info("Updating (no phasing) NB emission parameters with fixed dispersion.")
+        logger.info(
+            "Updating (no phasing) NB emission parameters with fixed dispersion."
+        )
 
         new_log_mu = np.zeros((n_states, n_spots))
         for s in range(n_spots):
@@ -416,7 +423,9 @@ def update_emission_params_nb_nophasing_uniqvalues(
                     )
     else:
         if not shared_NB_dispersion:
-            logger.info("Updating (no phasing) NB emission parameters with free dispersion.")
+            logger.info(
+                "Updating (no phasing) NB emission parameters with free dispersion."
+            )
 
             for s in range(n_spots):
                 tmp = (scipy.sparse.csr_matrix(gamma) @ mapping_matrices[s]).toarray()
@@ -455,7 +464,9 @@ def update_emission_params_nb_nophasing_uniqvalues(
                             else res2.params[-1]
                         )
         else:
-            logger.info("Updating (no phasing) NB emission parameters with shared dispersion.")
+            logger.info(
+                "Updating (no phasing) NB emission parameters with shared dispersion."
+            )
 
             exposure = []
             y = []
@@ -571,7 +582,9 @@ def update_emission_params_nb_sitewise_uniqvalues_mix(
 
     # expression signal by NB distribution
     if fix_NB_dispersion:
-        logger.info("Updating (phasing, tumor mix) NB emission parameters with fixed dispersion.")
+        logger.info(
+            "Updating (phasing, tumor mix) NB emission parameters with fixed dispersion."
+        )
 
         new_log_mu = np.zeros((n_states, n_spots))
         for s in range(n_spots):
@@ -602,7 +615,9 @@ def update_emission_params_nb_sitewise_uniqvalues_mix(
                     )
     else:
         if not shared_NB_dispersion:
-            logger.info("Updating (phasing, tumor mix) NB emission parameters with free dispersion.")
+            logger.info(
+                "Updating (phasing, tumor mix) NB emission parameters with free dispersion."
+            )
 
             for s in range(n_spots):
                 tmp = (scipy.sparse.csr_matrix(gamma) @ mapping_matrices[s]).toarray()
@@ -647,7 +662,9 @@ def update_emission_params_nb_sitewise_uniqvalues_mix(
                             else res2.params[-1]
                         )
         else:
-            logger.info("Updating (phasing, tumor mix) NB emission parameters with shared dispersion.")
+            logger.info(
+                "Updating (phasing, tumor mix) NB emission parameters with shared dispersion."
+            )
 
             exposure = []
             y = []
@@ -783,7 +800,9 @@ def update_emission_params_nb_nophasing_uniqvalues_mix(
     new_alphas = copy.copy(alphas)
     # expression signal by NB distribution
     if fix_NB_dispersion:
-        logger.info("Updating (no phasing, tumor mix) NB emission parameters with fixed dispersion.")
+        logger.info(
+            "Updating (no phasing, tumor mix) NB emission parameters with fixed dispersion."
+        )
 
         new_log_mu = np.zeros((n_states, n_spots))
         for s in range(n_spots):
@@ -814,7 +833,9 @@ def update_emission_params_nb_nophasing_uniqvalues_mix(
                     )
     else:
         if not shared_NB_dispersion:
-            logger.info("Updating (no phasing, tumor mix) NB emission parameters with free dispersion.")
+            logger.info(
+                "Updating (no phasing, tumor mix) NB emission parameters with free dispersion."
+            )
 
             for s in range(n_spots):
                 tmp = (scipy.sparse.csr_matrix(gamma) @ mapping_matrices[s]).toarray()
@@ -859,7 +880,9 @@ def update_emission_params_nb_nophasing_uniqvalues_mix(
                             else res2.params[-1]
                         )
         else:
-            logger.info("Updating (no phasing, tumor mix) NB emission parameters with shared dispersion.")
+            logger.info(
+                "Updating (no phasing, tumor mix) NB emission parameters with shared dispersion."
+            )
 
             exposure = []
             y = []
@@ -907,7 +930,7 @@ def update_emission_params_nb_nophasing_uniqvalues_mix(
                 )
                 state_posweights.append(idx_state_posweight)
                 tp.append(this_tp[idx_row_posweight])
-                
+
             exposure = np.concatenate(exposure)
             y = np.concatenate(y)
             weights = np.concatenate(weights)
@@ -1036,7 +1059,9 @@ def update_emission_params_bb_sitewise_uniqvalues(
                         )
     else:
         if not shared_BB_dispersion:
-            logger.info("Updating (phasing) BAF emission parameters with free dispersion.")
+            logger.info(
+                "Updating (phasing) BAF emission parameters with free dispersion."
+            )
 
             for s in np.arange(len(unique_values)):
                 tmp = (scipy.sparse.csr_matrix(gamma) @ mapping_matrices[s]).toarray()
@@ -1089,7 +1114,9 @@ def update_emission_params_bb_sitewise_uniqvalues(
                                 else res2.params[-1]
                             )
         else:
-            logger.info("Updating (phasing) BAF emission parameters with shared dispersion.")
+            logger.info(
+                "Updating (phasing) BAF emission parameters with shared dispersion."
+            )
 
             exposure = []
             y = []
@@ -1217,7 +1244,9 @@ def update_emission_params_bb_nophasing_uniqvalues(
     new_taus = copy.copy(taus)
 
     if fix_BB_dispersion:
-        logger.info("Updating (no phasing) BB emission parameters with fixed dispersion.")
+        logger.info(
+            "Updating (no phasing) BB emission parameters with fixed dispersion."
+        )
 
         for s in np.arange(len(unique_values)):
             tmp = (scipy.sparse.csr_matrix(gamma) @ mapping_matrices[s]).toarray()
@@ -1250,7 +1279,9 @@ def update_emission_params_bb_nophasing_uniqvalues(
                         )
     else:
         if not shared_BB_dispersion:
-            logger.info("Updating (no phasing) BB emission parameters with free dispersion.")
+            logger.info(
+                "Updating (no phasing) BB emission parameters with free dispersion."
+            )
 
             for s in np.arange(len(unique_values)):
                 tmp = (scipy.sparse.csr_matrix(gamma) @ mapping_matrices[s]).toarray()
@@ -1290,7 +1321,9 @@ def update_emission_params_bb_nophasing_uniqvalues(
                                 else res2.params[-1]
                             )
         else:
-            logger.info("Updating (no phasing) BB emission parameters with shared dispersion.")
+            logger.info(
+                "Updating (no phasing) BB emission parameters with shared dispersion."
+            )
 
             exposure = []
             y = []
@@ -1405,7 +1438,9 @@ def update_emission_params_bb_sitewise_uniqvalues_mix(
     new_taus = copy.copy(taus)
 
     if fix_BB_dispersion:
-        logger.info("Updating (phasing, tumor mix) BAF emission parameters with fixed dispersion.")
+        logger.info(
+            "Updating (phasing, tumor mix) BAF emission parameters with fixed dispersion."
+        )
 
         for s in np.arange(n_spots):
             tmp = (scipy.sparse.csr_matrix(gamma) @ mapping_matrices[s]).toarray()
@@ -1458,7 +1493,9 @@ def update_emission_params_bb_sitewise_uniqvalues_mix(
                         )
     else:
         if not shared_BB_dispersion:
-            logger.info("Updating (phasing, tumor mix) BAF emission parameters with free dispersion.")
+            logger.info(
+                "Updating (phasing, tumor mix) BAF emission parameters with free dispersion."
+            )
 
             for s in np.arange(n_spots):
                 tmp = (scipy.sparse.csr_matrix(gamma) @ mapping_matrices[s]).toarray()
@@ -1519,7 +1556,9 @@ def update_emission_params_bb_sitewise_uniqvalues_mix(
                                 else res2.params[-1]
                             )
         else:
-            logger.info("Updating (phasing, tumor mix) BAF emission parameters with shared dispersion.")
+            logger.info(
+                "Updating (phasing, tumor mix) BAF emission parameters with shared dispersion."
+            )
 
             exposure = []
             y = []
@@ -1663,7 +1702,9 @@ def update_emission_params_bb_nophasing_uniqvalues_mix(
     )
     new_taus = copy.copy(taus)
     if fix_BB_dispersion:
-        logger.info("Updating (no phasing, tumor mix) BAF emission parameters with fixed dispersion.")
+        logger.info(
+            "Updating (no phasing, tumor mix) BAF emission parameters with fixed dispersion."
+        )
 
         for s in np.arange(n_spots):
             tmp = (scipy.sparse.csr_matrix(gamma) @ mapping_matrices[s]).toarray()
@@ -1704,7 +1745,9 @@ def update_emission_params_bb_nophasing_uniqvalues_mix(
                         )
     else:
         if not shared_BB_dispersion:
-            logger.info("Updating (no phasing, tumor mix) BAF emission parameters with free dispersion.")
+            logger.info(
+                "Updating (no phasing, tumor mix) BAF emission parameters with free dispersion."
+            )
 
             for s in np.arange(n_spots):
                 tmp = (scipy.sparse.csr_matrix(gamma) @ mapping_matrices[s]).toarray()
@@ -1752,7 +1795,9 @@ def update_emission_params_bb_nophasing_uniqvalues_mix(
                                 else res2.params[-1]
                             )
         else:
-            logger.info("Updating (no phasing, tumor mix) BAF emission parameters with shared dispersion.")
+            logger.info(
+                "Updating (no phasing, tumor mix) BAF emission parameters with shared dispersion."
+            )
 
             exposure = []
             y = []
@@ -1839,5 +1884,5 @@ def update_emission_params_bb_nophasing_uniqvalues_mix(
                         new_taus[:, :] = res2.params[-1]
     new_p_binom[new_p_binom < min_binom_prob] = min_binom_prob
     new_p_binom[new_p_binom > max_binom_prob] = max_binom_prob
-    
+
     return new_p_binom, new_taus

@@ -449,7 +449,7 @@ def hmrfmix_concatenate_pipeline(
 
         # NB max not mean.    
         logger.info(f"ARI to last assignment: {adjusted_rand_score(last_assignment, res["new_assignment"]):.4f}")
-        logger.info("Copy number state usage [%]: %s", 100. * state_usage)
+        logger.info("Copy number state usage [%]: {100. * state_usage}")
 
         if (
             adjusted_rand_score(last_assignment, res["new_assignment"]) > 0.99

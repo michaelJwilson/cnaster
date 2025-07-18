@@ -1,5 +1,6 @@
 import logging
 import warnings
+import time
 
 import numpy as np
 import scipy.stats
@@ -52,20 +53,24 @@ class Weighted_NegativeBinomial(GenericLikelihoodModel):
         return -llf.dot(self.weights)
 
     def fit(self, start_params=None, maxiter=10000, maxfun=5000, **kwds):
+        using_default_params = start_params is None
         if start_params is None:
             if hasattr(self, "start_params"):
                 start_params = self.start_params
             else:
                 start_params = np.append(0.1 * np.ones(self.nparams), 0.01)
 
-        logger.info(f"Starting Weighted_NegativeBinomial fit with {len(start_params)} parameters")
+        logger.info(f"Fitting Weighted_NegativeBinomial ({len(start_params)} {'default' if using_default_params else 'custom'} params)")
+        start_time = time.time()
         result = super(Weighted_NegativeBinomial, self).fit(
             start_params=start_params, maxiter=maxiter, maxfun=maxfun, **kwds
         )
+        runtime = time.time() - start_time
         
-        logger.info(f"Weighted_NegativeBinomial fit completed - Iterations: {result.mle_retvals.get('iterations', 'N/A')}, "
-                   f"Converged: {result.mle_retvals.get('converged', 'N/A')}, "
-                   f"Function evaluations: {result.mle_retvals.get('funcalls', 'N/A')}")
+        logger.info(f"Weighted_NegativeBinomial done: {runtime:.2f}s, "
+                   f"{result.mle_retvals.get('iterations', 'N/A')} iter, "
+                   f"converged: {result.mle_retvals.get('converged', 'N/A')}, "
+                   f"llf: {result.llf:.6e}")
         
         return result
 
@@ -92,20 +97,24 @@ class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
         return -llf.dot(self.weights)
 
     def fit(self, start_params=None, maxiter=10000, maxfun=5000, **kwds):
+        using_default_params = start_params is None
         if start_params is None:
             if hasattr(self, "start_params"):
                 start_params = self.start_params
             else:
                 start_params = np.append(0.1 * np.ones(self.nparams), 0.01)
         
-        logger.info(f"Starting Weighted_NegativeBinomial_mix fit with {len(start_params)} parameters")
+        logger.info(f"Fitting Weighted_NegativeBinomial_mix ({len(start_params)} {'default' if using_default_params else 'custom'} params)")
+        start_time = time.time()
         result = super(Weighted_NegativeBinomial_mix, self).fit(
             start_params=start_params, maxiter=maxiter, maxfun=maxfun, **kwds
         )
+        runtime = time.time() - start_time
         
-        logger.info(f"Weighted_NegativeBinomial_mix fit completed - Iterations: {result.mle_retvals.get('iterations', 'N/A')}, "
-                   f"Converged: {result.mle_retvals.get('converged', 'N/A')}, "
-                   f"Function evaluations: {result.mle_retvals.get('funcalls', 'N/A')}")
+        logger.info(f"Weighted_NegativeBinomial_mix done: {runtime:.2f}s, "
+                   f"{result.mle_retvals.get('iterations', 'N/A')} iter, "
+                   f"converged: {result.mle_retvals.get('converged', 'N/A')}, "
+                   f"llf: {result.llf:.6e}")
         
         return result
 
@@ -144,6 +153,7 @@ class Weighted_BetaBinom(GenericLikelihoodModel):
         return -llf.dot(self.weights)
 
     def fit(self, start_params=None, maxiter=10000, maxfun=5000, **kwds):
+        using_default_params = start_params is None
         if start_params is None:
             if hasattr(self, "start_params"):
                 start_params = self.start_params
@@ -152,14 +162,17 @@ class Weighted_BetaBinom(GenericLikelihoodModel):
                     0.5 / np.sum(self.exog.shape[1]) * np.ones(self.nparams), 1
                 )
         
-        logger.info(f"Starting Weighted_BetaBinom fit with {len(start_params)} parameters")
+        logger.info(f"Fitting Weighted_BetaBinom ({len(start_params)} {'default' if using_default_params else 'custom'} params)")
+        start_time = time.time()
         result = super(Weighted_BetaBinom, self).fit(
             start_params=start_params, maxiter=maxiter, maxfun=maxfun, **kwds
         )
+        runtime = time.time() - start_time
         
-        logger.info(f"Weighted_BetaBinom fit completed - Iterations: {result.mle_retvals.get('iterations', 'N/A')}, "
-                   f"Converged: {result.mle_retvals.get('converged', 'N/A')}, "
-                   f"Function evaluations: {result.mle_retvals.get('funcalls', 'N/A')}")
+        logger.info(f"Weighted_BetaBinom done: {runtime:.2f}s, "
+                   f"{result.mle_retvals.get('iterations', 'N/A')} iter, "
+                   f"converged: {result.mle_retvals.get('converged', 'N/A')}, "
+                   f"llf: {result.llf:.6e}")
         
         return result
 
@@ -185,6 +198,7 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
         return -llf.dot(self.weights)
 
     def fit(self, start_params=None, maxiter=10000, maxfun=5000, **kwds):
+        using_default_params = start_params is None
         if start_params is None:
             if hasattr(self, "start_params"):
                 start_params = self.start_params
@@ -193,13 +207,16 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
                     0.5 / np.sum(self.exog.shape[1]) * np.ones(self.nparams), 1
                 )
         
-        logger.info(f"Starting Weighted_BetaBinom_mix fit with {len(start_params)} parameters")
+        logger.info(f"Fitting Weighted_BetaBinom_mix ({len(start_params)} {'default' if using_default_params else 'custom'} params)")
+        start_time = time.time()
         result = super(Weighted_BetaBinom_mix, self).fit(
             start_params=start_params, maxiter=maxiter, maxfun=maxfun, **kwds
         )
+        runtime = time.time() - start_time
         
-        logger.info(f"Weighted_BetaBinom_mix fit completed - Iterations: {result.mle_retvals.get('iterations', 'N/A')}, "
-                   f"Converged: {result.mle_retvals.get('converged', 'N/A')}, "
-                   f"Function evaluations: {result.mle_retvals.get('funcalls', 'N/A')}")
+        logger.info(f"Weighted_BetaBinom_mix done: {runtime:.2f}s, "
+                   f"{result.mle_retvals.get('iterations', 'N/A')} iter, "
+                   f"converged: {result.mle_retvals.get('converged', 'N/A')}, "
+                   f"llf: {result.llf:.6e}")
         
         return result

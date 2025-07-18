@@ -21,7 +21,7 @@ config = YAMLConfig.from_file(config_path)
 
 SOLVER = config.hmm.solver 
 
-known_solvers = ()"newton", "bfgs", "lbfgs", "powell", "nm", "cg", "ncg")
+known_solvers = ("newton", "bfgs", "lbfgs", "powell", "nm", "cg", "ncg")
 
 assert SOLVER in known_solvers, f"Unknown solver: {SOLVER}. Supported solvers: {known_solvers}"
 

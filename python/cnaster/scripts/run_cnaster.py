@@ -246,7 +246,6 @@ def main():
         "config_path", 
         type=str, 
         help="Path to the YAML configuration file",
-        required=True,
     )
     
     args = parser.parse_args()

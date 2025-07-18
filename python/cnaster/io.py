@@ -8,6 +8,7 @@ import pandas as pd
 import scanpy as sc
 import scipy.sparse
 from cnaster.filter import get_filter_genes, get_filter_ranges
+from cnaster.reference import exp_cancer_gene
 from sklearn.neighbors import LocalOutlierFactor
 
 logger = logging.getLogger(__name__)
@@ -465,8 +466,8 @@ def load_input_data(
             logger.info("Top 25 outlier genes removed:")
 
             for i, (gene_name, gene_umis, gene_pct) in enumerate(outlier_genes_info[:25]):
-                if gene_name in ["TMSB10", "S100A6", "RPL41", ""]:
-                    warning = "WARNING known of cancer" else ""
+                # NB altered mitochondrial metabolism (Warburg effect) in cancer;
+                warning = "WARNING known of cancer" if exp_cancer_gene(gene_name) else ""
                 
                 logger.info(f"  {i+1:2d}. {gene_name:<20} {gene_pct:6.3f}% UMIs {warning}")
 

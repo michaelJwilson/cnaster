@@ -44,10 +44,12 @@ class Weighted_NegativeBinomial(GenericLikelihoodModel):
     def nloglikeobs(self, params):
         nb_mean = np.exp(self.exog @ params[:-1]) * self.exposure
         nb_std = np.sqrt(nb_mean + params[-1] * nb_mean**2)
+        
         n, p = convert_params(nb_mean, nb_std)
+        
         llf = scipy.stats.nbinom.logpmf(self.endog, n, p)
-        neg_sum_llf = -llf.dot(self.weights)
-        return neg_sum_llf
+
+        return -llf.dot(self.weights)
 
     def fit(self, start_params=None, maxiter=10000, maxfun=5000, **kwds):
         if start_params is None:
@@ -75,10 +77,12 @@ class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
             self.tumor_prop * np.exp(self.exog @ params[:-1]) + 1 - self.tumor_prop
         )
         nb_std = np.sqrt(nb_mean + params[-1] * nb_mean**2)
+        
         n, p = convert_params(nb_mean, nb_std)
+        
         llf = scipy.stats.nbinom.logpmf(self.endog, n, p)
-        neg_sum_llf = -llf.dot(self.weights)
-        return neg_sum_llf
+
+        return -llf.dot(self.weights)
 
     def fit(self, start_params=None, maxiter=10000, maxfun=5000, **kwds):
         if start_params is None:
@@ -119,9 +123,10 @@ class Weighted_BetaBinom(GenericLikelihoodModel):
     def nloglikeobs(self, params):
         a = (self.exog @ params[:-1]) * params[-1]
         b = (1 - self.exog @ params[:-1]) * params[-1]
+        
         llf = scipy.stats.betabinom.logpmf(self.endog, self.exposure, a, b)
-        neg_sum_llf = -llf.dot(self.weights)
-        return neg_sum_llf
+        
+        return -llf.dot(self.weights)
 
     def fit(self, start_params=None, maxiter=10000, maxfun=5000, **kwds):
         if start_params is None:
@@ -151,9 +156,10 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
             (1 - self.exog @ params[:-1]) * self.tumor_prop
             + 0.5 * (1 - self.tumor_prop)
         ) * params[-1]
+        
         llf = scipy.stats.betabinom.logpmf(self.endog, self.exposure, a, b)
-        neg_sum_llf = -llf.dot(self.weights)
-        return neg_sum_llf
+
+        return -llf.dot(self.weights)
 
     def fit(self, start_params=None, maxiter=10000, maxfun=5000, **kwds):
         if start_params is None:

@@ -7,19 +7,21 @@ logger = logging.getLogger(__name__)
 
 
 cancer_gene_patterns = (
-    r"^MT-",      # Mitochondrial genes
+    r"^MT-",  # Mitochondrial genes
     r"^S100A6$",  # Exact match for S100A6
-    r"^B2M$",     # Exact match for B2M
-    r"^HLA-B$",   # Exact match for HLA-B
-    r"^TPT1$",    # Exact match for TPT1
-    r"^FTL$",     # Exact match for FTL
-    r"^FTH1$",    # Exact match for FTH1
-    r"^RPL",      # Ribosomal protein L genes
-    r"^RPS"       # Ribosomal protein S genes
+    r"^B2M$",  # Exact match for B2M
+    r"^HLA-B$",  # Exact match for HLA-B
+    r"^TPT1$",  # Exact match for TPT1
+    r"^FTL$",  # Exact match for FTL
+    r"^FTH1$",  # Exact match for FTH1
+    r"^RPL",  # Ribosomal protein L genes
+    r"^RPS",  # Ribosomal protein S genes
 )
+
 
 def exp_cancer_gene(gene_name):
     return any(re.match(pattern, gene_name) for pattern in cancer_gene_patterns)
+
 
 def get_reference_genes(hgtable_file):
     # NB read gene info and keep only chr1-chr22 and genes appearing in adata
@@ -28,15 +30,16 @@ def get_reference_genes(hgtable_file):
 
     return df_hgtable
 
+
 def get_reference_genes(hgtable_file):
     df_hgtable = pd.read_csv(hgtable_file, header=0, index_col=0, sep="\t")
-    
+
     original_contigs = set(df_hgtable.chrom.unique())
-    
+
     target_chroms = [f"chr{i}" for i in range(1, 23)]
 
     df_hgtable = df_hgtable[df_hgtable.chrom.isin(target_chroms)]
-    
+
     kept_contigs = set(df_hgtable.chrom.unique())
     dropped_contigs = original_contigs - kept_contigs
 

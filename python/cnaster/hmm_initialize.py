@@ -11,6 +11,7 @@ from sklearn.mixture import GaussianMixture
 
 logger = logging.getLogger(__name__)
 
+
 def initialization_by_gmm(
     n_states,
     X,
@@ -85,7 +86,9 @@ def initialization_by_gmm(
     # TODO check? score() returns per-sample log-likelihood
     gmm_log_likelihood = gmm.score(X_gmm) * X_gmm.shape[0]
 
-    logger.info(f"GMM: log-likelihood={gmm_log_likelihood:.6f}, converged={gmm.converged_}, iterations={gmm.n_iter_}")
+    logger.info(
+        f"GMM: log-likelihood={gmm_log_likelihood:.6f}, converged={gmm.converged_}, iterations={gmm.n_iter_}"
+    )
 
     # turn gmm fitted parameters to HMM log_mu and p_binom parameters
     if ("m" in params) and ("p" in params):

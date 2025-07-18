@@ -11,6 +11,7 @@ from sklearn.mixture import GaussianMixture
 
 logger = logging.getLogger(__name__)
 
+
 def pipeline_baum_welch(
     output_prefix,
     X,

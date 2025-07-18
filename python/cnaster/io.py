@@ -375,12 +375,10 @@ def load_input_data(
         genes_to_filter = get_filter_genes(filter_gene_file).iloc[:, 0].values
         indicator_filter = ~np.isin(adata.var.index, genes_to_filter)
 
-        logger.info(
-            f"Removing genes based on input ranges ({filter_gene_file}):"
-        )
+        logger.info(f"Removing genes based on input ranges ({filter_gene_file}):")
 
         for to_print in genes_to_filter[np.isin(genes_to_filter, adata.var.index)]:
-            print(to_print) 
+            print(to_print)
 
         adata = adata[:, indicator_filter]
 
@@ -452,7 +450,7 @@ def load_input_data(
         if len(to_zero) > 0:
             gene_umi_counts = np.sum(adata.layers["count"], axis=0)
             total_umis = np.sum(adata.layers["count"])
-            
+
             outlier_genes_info = []
 
             for gene_idx in to_zero:
@@ -460,16 +458,24 @@ def load_input_data(
                 gene_umis = gene_umi_counts[gene_idx]
                 gene_pct = 100.0 * gene_umis / total_umis
                 outlier_genes_info.append((gene_name, gene_umis, gene_pct))
-            
+
             outlier_genes_info.sort(key=lambda x: x[2], reverse=True)
-            
+
             logger.info("Top 25 outlier genes removed:")
 
-            for i, (gene_name, gene_umis, gene_pct) in enumerate(outlier_genes_info[:25]):
+            for i, (gene_name, gene_umis, gene_pct) in enumerate(
+                outlier_genes_info[:25]
+            ):
                 # NB altered mitochondrial metabolism (Warburg effect) in cancer;
-                warning = "WARNING known to be cancerous" if exp_cancer_gene(gene_name) else ""
-                
-                logger.info(f"  {i+1:2d}. {gene_name:<20} {gene_pct:6.3f}% UMIs {warning}")
+                warning = (
+                    "WARNING known to be cancerous"
+                    if exp_cancer_gene(gene_name)
+                    else ""
+                )
+
+                logger.info(
+                    f"  {i+1:2d}. {gene_name:<20} {gene_pct:6.3f}% UMIs {warning}"
+                )
 
         # NB zero count of outlier genes.
         adata.layers["count"][:, to_zero] = 0

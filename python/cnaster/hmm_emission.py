@@ -73,11 +73,16 @@ class Weighted_NegativeBinomial(GenericLikelihoodModel):
 
         logger.info(
             f"Weighted_NegativeBinomial done: {runtime:.2f}s, "
-            f"{len(start_params)} {'default' if using_default_params else 'custom'} params, "
+            f"# params ({len(start_params)} {'default start' if using_default_params else 'custom start'}), "
             f"{result.mle_retvals.get('iterations', 'N/A')} iter, "
             f"method: {result.mle_retvals.get('method', 'Unknown')}, "
             f"converged: {result.mle_retvals.get('converged', 'N/A')}, "
             f"llf: {result.llf:.6e}"
+        )
+
+        logger.info(
+            f"Weighted_NegativeBinomial debug - mle_retvals: {result.mle_retvals}, "
+            f"mle_settings: {result.mle_settings}"
         )
 
         return result
@@ -120,11 +125,16 @@ class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
 
         logger.info(
             f"Weighted_NegativeBinomial_mix done: {runtime:.2f}s, "
-            f"{len(start_params)} {'default' if using_default_params else 'custom'} params, "
+            f"# params ({len(start_params)} {'default start' if using_default_params else 'custom start'}), "
             f"{result.mle_retvals.get('iterations', 'N/A')} iter, "
             f"method: {result.mle_retvals.get('method', 'Unknown')}, "
             f"converged: {result.mle_retvals.get('converged', 'N/A')}, "
             f"llf: {result.llf:.6e}"
+        )
+
+        logger.info(
+            f"Weighted_NegativeBinomial_mix debug - mle_retvals: {result.mle_retvals}, "
+            f"mle_settings: {result.mle_settings}"
         )
 
         return result
@@ -181,11 +191,16 @@ class Weighted_BetaBinom(GenericLikelihoodModel):
 
         logger.info(
             f"Weighted_BetaBinom done: {runtime:.2f}s, "
-            f"{len(start_params)} {'default' if using_default_params else 'custom'} params, "
+            f"# params ({len(start_params)} {'default start' if using_default_params else 'custom start'}), "
             f"{result.mle_retvals.get('iterations', 'N/A')} iter, "
             f"method: {result.mle_retvals.get('method', 'Unknown')}, "
             f"converged: {result.mle_retvals.get('converged', 'N/A')}, "
             f"llf: {result.llf:.6e}"
+        )
+
+        logger.info(
+            f"Weighted_BetaBinom debug - mle_retvals: {result.mle_retvals}, "
+            f"mle_settings: {result.mle_settings}"
         )
 
         return result
@@ -229,11 +244,16 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
 
         logger.info(
             f"Weighted_BetaBinom_mix done: {runtime:.2f}s, "
-            f"{len(start_params)} {'default' if using_default_params else 'custom'} params, "
+            f"# params ({len(start_params)} {'default start' if using_default_params else 'custom start'}), "
             f"{result.mle_retvals.get('iterations', 'N/A')} iter, "
             f"method: {result.mle_retvals.get('method', 'Unknown')}, "
             f"converged: {result.mle_retvals.get('converged', 'N/A')}, "
             f"llf: {result.llf:.6e}"
+        )
+
+        logger.info(
+            f"Weighted_BetaBinom_mix debug - mle_retvals: {result.mle_retvals}, "
+            f"mle_settings: {result.mle_settings}"
         )
 
         return result

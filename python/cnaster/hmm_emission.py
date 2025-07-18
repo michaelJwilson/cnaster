@@ -15,12 +15,18 @@ logger = logging.getLogger(__name__)
 # TODO
 warnings.filterwarnings("ignore", category=UserWarning, module="statsmodels")
 
-# TODO HACK
-SOLVER = get_global_config().hmm.solver
 
-known_solvers = ("newton", "bfgs", "lbfgs", "powell", "nm", "cg", "ncg")
+def get_solver():
+    known_solvers = ("newton", "bfgs", "lbfgs", "powell", "nm", "cg", "ncg")
 
-assert SOLVER in known_solvers, f"Unknown solver: {SOLVER}. Supported solvers: {known_solvers}"
+    name = get_global_config().hmm.solver
+
+    assert (
+        name in known_solvers
+    ), f"Unknown solver: {name}. Supported solvers: {known_solvers}"
+
+    return name
+
 
 class Weighted_NegativeBinomial(GenericLikelihoodModel):
     """
@@ -61,7 +67,7 @@ class Weighted_NegativeBinomial(GenericLikelihoodModel):
 
     def fit(self, start_params=None, maxiter=10000, maxfun=5000, **kwds):
         using_default_params = start_params is None
-        
+
         if start_params is None:
             if hasattr(self, "start_params"):
                 start_params = self.start_params
@@ -70,7 +76,11 @@ class Weighted_NegativeBinomial(GenericLikelihoodModel):
 
         start_time = time.time()
         result = super().fit(
-            start_params=start_params, maxiter=maxiter, maxfun=maxfun, method=SOLVER, **kwds
+            start_params=start_params,
+            maxiter=maxiter,
+            maxfun=maxfun,
+            method=get_solver(),
+            **kwds,
         )
         runtime = time.time() - start_time
 
@@ -123,7 +133,11 @@ class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
 
         start_time = time.time()
         result = super().fit(
-            start_params=start_params, maxiter=maxiter, maxfun=maxfun, method=SOLVER, **kwds
+            start_params=start_params,
+            maxiter=maxiter,
+            maxfun=maxfun,
+            method=get_solver(),
+            **kwds,
         )
         runtime = time.time() - start_time
 
@@ -190,7 +204,11 @@ class Weighted_BetaBinom(GenericLikelihoodModel):
 
         start_time = time.time()
         result = super().fit(
-            start_params=start_params, maxiter=maxiter, maxfun=maxfun, method=SOLVER, **kwds
+            start_params=start_params,
+            maxiter=maxiter,
+            maxfun=maxfun,
+            method=get_solver(),
+            **kwds,
         )
         runtime = time.time() - start_time
 
@@ -244,7 +262,11 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
 
         start_time = time.time()
         result = super().fit(
-            start_params=start_params, maxiter=maxiter, maxfun=maxfun, method=SOLVER, **kwds
+            start_params=start_params,
+            maxiter=maxiter,
+            maxfun=maxfun,
+            method=get_solver(),
+            **kwds,
         )
         runtime = time.time() - start_time
 

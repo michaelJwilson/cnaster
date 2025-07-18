@@ -445,7 +445,7 @@ def load_input_data(
 
         # TODO removed 235 outlier genes (51.310% of UMIs)!!
         logger.info(
-            f"Removed {len(to_zero)} outlier genes ({100.0 * ratio:.3f}% of UMIs)."
+            f"Removed {len(to_zero)} outlier genes ({100.0 * ratio:.3f}% of UMIs) based on {clf.__class__.__name__}."
         )
 
         if len(to_zero) > 0:
@@ -465,7 +465,7 @@ def load_input_data(
             logger.info("Top 10 outlier genes removed:")
 
             for i, (gene_name, gene_umis, gene_pct) in enumerate(outlier_genes_info[:10]):
-                logger.info(f"  {i+1}. {gene_name}: {gene_umis} UMIs ({gene_pct:.3f}%)")
+                logger.info(f"  {i+1}. {gene_name}: {gene_pct:.3f}% UMIs")
 
         # NB zero count of outlier genes.
         adata.layers["count"][:, to_zero] = 0

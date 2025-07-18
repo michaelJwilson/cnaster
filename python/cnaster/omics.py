@@ -84,7 +84,7 @@ def form_gene_snp_table(unique_snp_ids, hgtable_file, adata):
     isin = ~df_gene_snp.gene.isnull()
 
     logger.info(
-        f"Retaining {100.0 * np.mean(isin[~df_gene_snp.is_interval]):.3f}% of SNPs with no known gene (hgTable filtered by AnnData)."
+        f"Retaining {100.0 * np.mean(isin[~df_gene_snp.is_interval]):.3f}% of SNPs with known gene (given Gencode filtered by AnnData)."
     )
 
     df_gene_snp = df_gene_snp[isin]

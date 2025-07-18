@@ -408,7 +408,7 @@ def hmrfmix_concatenate_pipeline(
         )
 
         # TODO max not mean.
-        param_diffs = []
+        param_diffs = ["inter assignment ARI", adjusted_rand_score(last_assignment, res["new_assignment"])]
 
         if "m" in params:
             param_diffs.append(
@@ -433,14 +433,8 @@ def hmrfmix_concatenate_pipeline(
         if param_diffs:
             diff_strs = [f"{name}={diff}" for name, diff in param_diffs]
             logger.info(
-                "HMM+HMRF %d: parameter differences:\n%s", r, "\n".join(diff_strs)
+                "HMM+HMRF iteration %d:\n%s", r, "\n".join(diff_strs)
             )
-
-        logger.info(
-            "HMM+HMRF iteration %d: ARI between assignment = %f",
-            r,
-            adjusted_rand_score(last_assignment, res["new_assignment"]),
-        )
 
         if (
             adjusted_rand_score(last_assignment, res["new_assignment"]) > 0.99

@@ -583,15 +583,15 @@ class hmm_nophasing(object):
                 new_taus = taus
 
             logger.info(
-                f"Found new parameters @ HMM iteration {r}: log_mu and p_binom =\n{np.hstack([new_log_mu, new_p_binom])}",
+                f"HMM iteration {r} emission parameters: log_mu and p_binom =\n{np.hstack([new_log_mu, new_p_binom])}",
             )
 
             logger.info(
-                "Found mean parameter updates:\nstart prob.=%.6e\ntransfer matrix=%.6e\nlog_mu=%.6e\np_binom=%.6e",
-                np.mean(np.abs(np.exp(new_log_startprob) - np.exp(log_startprob))),
-                np.mean(np.abs(np.exp(new_log_transmat) - np.exp(log_transmat))),
-                np.mean(np.abs(new_log_mu - log_mu)),
-                np.mean(np.abs(new_p_binom - p_binom)),
+                "Found max HMM parameter updates:\nstart prob.=%.6e\ntransfer matrix=%.6e\nlog_mu=%.6e\np_binom=%.6e",
+                np.max(np.abs(np.exp(new_log_startprob) - np.exp(log_startprob))),
+                np.max(np.abs(np.exp(new_log_transmat) - np.exp(log_transmat))),
+                np.max(np.abs(new_log_mu - log_mu)),
+                np.max(np.abs(new_p_binom - p_binom)),
             )
 
             # TODO BUG? no check on start prob.

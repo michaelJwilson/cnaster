@@ -156,14 +156,16 @@ def pipeline_baum_welch(
 
         if (init_log_mu is None) and ("m" in params):
             init_log_mu = tmp_log_mu
+            logger.info(f"Initialized log_mu with GMM:\n{init_log_mu}")
 
         if (init_p_binom is None) and ("p" in params):
             init_p_binom = tmp_p_binom
-
-    if "m" in params:
-        logger.info(f"Initialized log_mu:\n{init_log_mu}")
-    if "p" in params:
-        logger.info(f"Initialized p_binom:\n{init_p_binom}")
+            logger.info(f"Initialized p_binom with GMM:\n{init_p_binom}")
+    else:
+        if "m" in params:
+            logger.info(f"Assumed initial log_mu:\n{init_log_mu}")
+        if "p" in params:
+            logger.info(f"Assumed initial p_binom:\n{init_p_binom}")
 
     hmm_model = hmmclass(params=params, t=t)
 
@@ -201,7 +203,7 @@ def pipeline_baum_welch(
         **remain_kwargs,
     )
 
-    to_log = [f"Solved for best state configuration with {hmm_model.__class__.__name__}:"]
+    to_log = [f"Solved for best emission parameters with {hmm_model.__class__.__name__}:"]
     
     if "m" in params and new_log_mu is not None:
         to_log.append(f"log_mu=\n{new_log_mu}")

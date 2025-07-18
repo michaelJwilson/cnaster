@@ -444,36 +444,12 @@ def hmrfmix_concatenate_pipeline(
             X, base_nb_mean, total_bb_RD, lengths, log_sitewise_transmat, tumor_prop
         )
 
-        # NB max not mean.
-        param_diffs = [
-            (
-                "ARI to last assignment",
-                adjusted_rand_score(last_assignment, res["new_assignment"]),
-            )
-        ]
-
-        if "m" in params:
-            param_diffs.append(
-                ("NB: log mu", np.max(np.abs(last_log_mu - res["new_log_mu"])))
-            )
-
-        if "p" in params:
-            param_diffs.append(
-                (
-                    "BetaBinom: p_binom",
-                    np.max(np.abs(last_p_binom - res["new_p_binom"])),
-                )
-            )
-
         state_counts = np.bincount(pred, minlength=n_states)
         state_usage = state_counts / len(pred)
-        param_diffs.append(
-            ("State usage", f"[{', '.join(f'{x:.3f}' for x in state_usage)}]")
-        )
 
-        if param_diffs:
-            diff_strs = [f"{name}={diff}" for name, diff in param_diffs]
-            logger.info("HMM+HMRF iteration %d:\n%s", r, "\n".join(diff_strs))
+        # NB max not mean.    
+        logger.info(f"ARI to last assignment: {adjusted_rand_score(last_assignment, res["new_assignment"]):.4f}")
+        logger.info("Copy number state usage [%]: %s", 100. * state_usage)
 
         if (
             adjusted_rand_score(last_assignment, res["new_assignment"]) > 0.99

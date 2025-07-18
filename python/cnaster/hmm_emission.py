@@ -58,9 +58,16 @@ class Weighted_NegativeBinomial(GenericLikelihoodModel):
             else:
                 start_params = np.append(0.1 * np.ones(self.nparams), 0.01)
 
-        return super(Weighted_NegativeBinomial, self).fit(
+        logger.info(f"Starting Weighted_NegativeBinomial fit with {len(start_params)} parameters")
+        result = super(Weighted_NegativeBinomial, self).fit(
             start_params=start_params, maxiter=maxiter, maxfun=maxfun, **kwds
         )
+        
+        logger.info(f"Weighted_NegativeBinomial fit completed - Iterations: {result.mle_retvals.get('iterations', 'N/A')}, "
+                   f"Converged: {result.mle_retvals.get('converged', 'N/A')}, "
+                   f"Function evaluations: {result.mle_retvals.get('funcalls', 'N/A')}")
+        
+        return result
 
 
 class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
@@ -90,9 +97,17 @@ class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
                 start_params = self.start_params
             else:
                 start_params = np.append(0.1 * np.ones(self.nparams), 0.01)
-        return super(Weighted_NegativeBinomial_mix, self).fit(
+        
+        logger.info(f"Starting Weighted_NegativeBinomial_mix fit with {len(start_params)} parameters")
+        result = super(Weighted_NegativeBinomial_mix, self).fit(
             start_params=start_params, maxiter=maxiter, maxfun=maxfun, **kwds
         )
+        
+        logger.info(f"Weighted_NegativeBinomial_mix fit completed - Iterations: {result.mle_retvals.get('iterations', 'N/A')}, "
+                   f"Converged: {result.mle_retvals.get('converged', 'N/A')}, "
+                   f"Function evaluations: {result.mle_retvals.get('funcalls', 'N/A')}")
+        
+        return result
 
 
 class Weighted_BetaBinom(GenericLikelihoodModel):
@@ -136,9 +151,17 @@ class Weighted_BetaBinom(GenericLikelihoodModel):
                 start_params = np.append(
                     0.5 / np.sum(self.exog.shape[1]) * np.ones(self.nparams), 1
                 )
-        return super(Weighted_BetaBinom, self).fit(
+        
+        logger.info(f"Starting Weighted_BetaBinom fit with {len(start_params)} parameters")
+        result = super(Weighted_BetaBinom, self).fit(
             start_params=start_params, maxiter=maxiter, maxfun=maxfun, **kwds
         )
+        
+        logger.info(f"Weighted_BetaBinom fit completed - Iterations: {result.mle_retvals.get('iterations', 'N/A')}, "
+                   f"Converged: {result.mle_retvals.get('converged', 'N/A')}, "
+                   f"Function evaluations: {result.mle_retvals.get('funcalls', 'N/A')}")
+        
+        return result
 
 
 class Weighted_BetaBinom_mix(GenericLikelihoodModel):
@@ -169,6 +192,14 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
                 start_params = np.append(
                     0.5 / np.sum(self.exog.shape[1]) * np.ones(self.nparams), 1
                 )
-        return super(Weighted_BetaBinom_mix, self).fit(
+        
+        logger.info(f"Starting Weighted_BetaBinom_mix fit with {len(start_params)} parameters")
+        result = super(Weighted_BetaBinom_mix, self).fit(
             start_params=start_params, maxiter=maxiter, maxfun=maxfun, **kwds
         )
+        
+        logger.info(f"Weighted_BetaBinom_mix fit completed - Iterations: {result.mle_retvals.get('iterations', 'N/A')}, "
+                   f"Converged: {result.mle_retvals.get('converged', 'N/A')}, "
+                   f"Function evaluations: {result.mle_retvals.get('funcalls', 'N/A')}")
+        
+        return result

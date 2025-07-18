@@ -28,6 +28,23 @@ def get_reference_genes(hgtable_file):
 
     return df_hgtable
 
+def get_reference_genes(hgtable_file):
+    df_hgtable = pd.read_csv(hgtable_file, header=0, index_col=0, sep="\t")
+    
+    original_contigs = set(df_hgtable.chrom.unique())
+    
+    target_chroms = [f"chr{i}" for i in range(1, 23)]
+
+    df_hgtable = df_hgtable[df_hgtable.chrom.isin(target_chroms)]
+    
+    kept_contigs = set(df_hgtable.chrom.unique())
+    dropped_contigs = original_contigs - kept_contigs
+
+    if dropped_contigs:
+        logger.info(f"Excluded Gencode contigs: {sorted(dropped_contigs)}")
+
+    return df_hgtable
+
 
 def get_reference_recomb_rates(geneticmap_file):
     """

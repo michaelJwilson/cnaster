@@ -467,7 +467,7 @@ def load_input_data(
 
             for i, (gene_name, gene_umis, gene_pct) in enumerate(outlier_genes_info[:25]):
                 # NB altered mitochondrial metabolism (Warburg effect) in cancer;
-                warning = "WARNING known of cancer" if exp_cancer_gene(gene_name) else ""
+                warning = "WARNING known to be cancerous" if exp_cancer_gene(gene_name) else ""
                 
                 logger.info(f"  {i+1:2d}. {gene_name:<20} {gene_pct:6.3f}% UMIs {warning}")
 

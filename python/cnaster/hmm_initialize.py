@@ -115,6 +115,6 @@ def initialization_by_gmm(
         gmm_p_binom = gmm.means_
 
         if only_minor:
-            gmm_p_binom = np.where(gmm_p_binom > 0.5, 1.0 - gmm_p_binom, gmm_p_binom)
+            gmm_p_binom = np.where(gmm_p_binom > 0.5, 1. - gmm_p_binom, gmm_p_binom)
 
     return gmm_log_mu, gmm_p_binom

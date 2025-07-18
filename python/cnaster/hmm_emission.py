@@ -36,6 +36,7 @@ class Weighted_NegativeBinomial(GenericLikelihoodModel):
 
     def __init__(self, endog, exog, weights, exposure, seed=0, **kwds):
         super(Weighted_NegativeBinomial, self).__init__(endog, exog, **kwds)
+        
         self.weights = weights
         self.exposure = exposure
         self.seed = seed
@@ -49,8 +50,6 @@ class Weighted_NegativeBinomial(GenericLikelihoodModel):
         return neg_sum_llf
 
     def fit(self, start_params=None, maxiter=10000, maxfun=5000, **kwds):
-        # self.exog_names.append("alpha")
-
         if start_params is None:
             if hasattr(self, "start_params"):
                 start_params = self.start_params
@@ -82,8 +81,6 @@ class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
         return neg_sum_llf
 
     def fit(self, start_params=None, maxiter=10000, maxfun=5000, **kwds):
-        # self.exog_names.append("alpha")
-
         if start_params is None:
             if hasattr(self, "start_params"):
                 start_params = self.start_params
@@ -127,7 +124,6 @@ class Weighted_BetaBinom(GenericLikelihoodModel):
         return neg_sum_llf
 
     def fit(self, start_params=None, maxiter=10000, maxfun=5000, **kwds):
-        # self.exog_names.append("tau")
         if start_params is None:
             if hasattr(self, "start_params"):
                 start_params = self.start_params
@@ -160,8 +156,6 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
         return neg_sum_llf
 
     def fit(self, start_params=None, maxiter=10000, maxfun=5000, **kwds):
-        # self.exog_names.append("tau")
-
         if start_params is None:
             if hasattr(self, "start_params"):
                 start_params = self.start_params

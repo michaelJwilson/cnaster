@@ -75,6 +75,7 @@ class Weighted_NegativeBinomial(GenericLikelihoodModel):
             f"Weighted_NegativeBinomial done: {runtime:.2f}s, "
             f"{len(start_params)} {'default' if using_default_params else 'custom'} params, "
             f"{result.mle_retvals.get('iterations', 'N/A')} iter, "
+            f"method: {result.mle_retvals.get('method', 'Unknown')}, "
             f"converged: {result.mle_retvals.get('converged', 'N/A')}, "
             f"llf: {result.llf:.6e}"
         )
@@ -121,6 +122,7 @@ class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
             f"Weighted_NegativeBinomial_mix done: {runtime:.2f}s, "
             f"{len(start_params)} {'default' if using_default_params else 'custom'} params, "
             f"{result.mle_retvals.get('iterations', 'N/A')} iter, "
+            f"method: {result.mle_retvals.get('method', 'Unknown')}, "
             f"converged: {result.mle_retvals.get('converged', 'N/A')}, "
             f"llf: {result.llf:.6e}"
         )
@@ -181,6 +183,7 @@ class Weighted_BetaBinom(GenericLikelihoodModel):
             f"Weighted_BetaBinom done: {runtime:.2f}s, "
             f"{len(start_params)} {'default' if using_default_params else 'custom'} params, "
             f"{result.mle_retvals.get('iterations', 'N/A')} iter, "
+            f"method: {result.mle_retvals.get('method', 'Unknown')}, "
             f"converged: {result.mle_retvals.get('converged', 'N/A')}, "
             f"llf: {result.llf:.6e}"
         )
@@ -228,6 +231,7 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
             f"Weighted_BetaBinom_mix done: {runtime:.2f}s, "
             f"{len(start_params)} {'default' if using_default_params else 'custom'} params, "
             f"{result.mle_retvals.get('iterations', 'N/A')} iter, "
+            f"method: {result.mle_retvals.get('method', 'Unknown')}, "
             f"converged: {result.mle_retvals.get('converged', 'N/A')}, "
             f"llf: {result.llf:.6e}"
         )

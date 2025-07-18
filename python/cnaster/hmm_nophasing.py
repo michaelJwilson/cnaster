@@ -28,7 +28,7 @@ Tumor genome proportion is weighted by mu in BB distribution.
 logger = logging.getLogger(__name__)
 
 
-class hmm_nophasing(object):
+class hmm_nophasing:
     def __init__(self, params="stmp", t=1 - 1e-4):
         self.params = params
         self.t = t

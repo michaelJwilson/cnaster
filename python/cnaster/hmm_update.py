@@ -4,7 +4,6 @@ import logging
 import numpy as np
 import scipy
 import statsmodels as sm
-from cnaster.config import get_global_config
 from cnaster.hmm_emission import (
     Weighted_BetaBinom,
     Weighted_BetaBinom_fixdispersion,

@@ -23,7 +23,7 @@ from numba import njit
 logger = logging.getLogger(__name__)
 
 
-class hmm_sitewise(object):
+class hmm_sitewise:
     def __init__(self, params="stmp", t=1.0 - 1.0e-4):
         self.params = params
         self.t = t

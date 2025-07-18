@@ -19,6 +19,7 @@ warnings.filterwarnings("ignore", category=UserWarning, module="statsmodels")
 config_path = f"/u/mw9568/research/repos/cnaster/config_turing.yaml"
 config = YAMLConfig.from_file(config_path)
 
+SOLVER = config.hmm.solver 
 
 class Weighted_NegativeBinomial(GenericLikelihoodModel):
     """
@@ -67,22 +68,24 @@ class Weighted_NegativeBinomial(GenericLikelihoodModel):
 
         start_time = time.time()
         result = super(Weighted_NegativeBinomial, self).fit(
-            start_params=start_params, maxiter=maxiter, maxfun=maxfun, **kwds
+            start_params=start_params, maxiter=maxiter, maxfun=maxfun, method=SOLVER, **kwds
         )
         runtime = time.time() - start_time
 
-        logger.info(
-            f"Weighted_NegativeBinomial done: {runtime:.2f}s, "
-            f"# params ({len(start_params)} {'default start' if using_default_params else 'custom start'}), "
-            f"{result.mle_retvals.get('iterations', 'N/A')} iter, "
-            f"method: {result.mle_retvals.get('method', 'Unknown')}, "
-            f"converged: {result.mle_retvals.get('converged', 'N/A')}, "
-            f"llf: {result.llf:.6e}"
+        logger.debug(
+            f"Weighted_NegativeBinomial debug - mle_retvals: {result.mle_retvals}, "
+            f"mle_settings: {result.mle_settings}"
         )
 
         logger.info(
-            f"Weighted_NegativeBinomial debug - mle_retvals: {result.mle_retvals}, "
-            f"mle_settings: {result.mle_settings}"
+            f"Weighted_NegativeBinomial done: {runtime:.2f}s, "
+            f"{len(start_params)} params ({'with default start' if using_default_params else 'with custom start'}), "
+            f"{result.mle_retvals.get('iterations', 'N/A')} iter, "
+            f"{result.mle_retvals.get('fcalls', 'N/A')} fcalls, "
+            f"optimizer: {result.mle_settings.get('optimizer', 'Unknown')}, "
+            f"method: {result.mle_retvals.get('method', 'Unknown')}, "
+            f"converged: {result.mle_retvals.get('converged', 'N/A')}, "
+            f"llf: {result.llf:.6e}"
         )
 
         return result
@@ -119,22 +122,24 @@ class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
 
         start_time = time.time()
         result = super(Weighted_NegativeBinomial_mix, self).fit(
-            start_params=start_params, maxiter=maxiter, maxfun=maxfun, **kwds
+            start_params=start_params, maxiter=maxiter, maxfun=maxfun, method=SOLVER, **kwds
         )
         runtime = time.time() - start_time
 
-        logger.info(
-            f"Weighted_NegativeBinomial_mix done: {runtime:.2f}s, "
-            f"# params ({len(start_params)} {'default start' if using_default_params else 'custom start'}), "
-            f"{result.mle_retvals.get('iterations', 'N/A')} iter, "
-            f"method: {result.mle_retvals.get('method', 'Unknown')}, "
-            f"converged: {result.mle_retvals.get('converged', 'N/A')}, "
-            f"llf: {result.llf:.6e}"
+        logger.debug(
+            f"Weighted_NegativeBinomial_mix debug - mle_retvals: {result.mle_retvals}, "
+            f"mle_settings: {result.mle_settings}"
         )
 
         logger.info(
-            f"Weighted_NegativeBinomial_mix debug - mle_retvals: {result.mle_retvals}, "
-            f"mle_settings: {result.mle_settings}"
+            f"Weighted_NegativeBinomial_mix done: {runtime:.2f}s, "
+            f"{len(start_params)} params ({'with default start' if using_default_params else 'with custom start'}), "
+            f"{result.mle_retvals.get('iterations', 'N/A')} iter, "
+            f"{result.mle_retvals.get('fcalls', 'N/A')} fcalls, "
+            f"optimizer: {result.mle_settings.get('optimizer', 'Unknown')}, "
+            f"method: {result.mle_retvals.get('method', 'Unknown')}, "
+            f"converged: {result.mle_retvals.get('converged', 'N/A')}, "
+            f"llf: {result.llf:.6e}"
         )
 
         return result
@@ -185,22 +190,24 @@ class Weighted_BetaBinom(GenericLikelihoodModel):
 
         start_time = time.time()
         result = super(Weighted_BetaBinom, self).fit(
-            start_params=start_params, maxiter=maxiter, maxfun=maxfun, **kwds
+            start_params=start_params, maxiter=maxiter, maxfun=maxfun, method=SOLVER, **kwds
         )
         runtime = time.time() - start_time
 
-        logger.info(
-            f"Weighted_BetaBinom done: {runtime:.2f}s, "
-            f"# params ({len(start_params)} {'default start' if using_default_params else 'custom start'}), "
-            f"{result.mle_retvals.get('iterations', 'N/A')} iter, "
-            f"method: {result.mle_retvals.get('method', 'Unknown')}, "
-            f"converged: {result.mle_retvals.get('converged', 'N/A')}, "
-            f"llf: {result.llf:.6e}"
+        logger.debug(
+            f"Weighted_BetaBinom debug - mle_retvals: {result.mle_retvals}, "
+            f"mle_settings: {result.mle_settings}"
         )
 
         logger.info(
-            f"Weighted_BetaBinom debug - mle_retvals: {result.mle_retvals}, "
-            f"mle_settings: {result.mle_settings}"
+            f"Weighted_BetaBinom done: {runtime:.2f}s, "
+            f"{len(start_params)} params ({'with default start' if using_default_params else 'with custom start'}), "
+            f"{result.mle_retvals.get('iterations', 'N/A')} iter, "
+            f"{result.mle_retvals.get('fcalls', 'N/A')} fcalls, "
+            f"optimizer: {result.mle_settings.get('optimizer', 'Unknown')}, "
+            f"method: {result.mle_retvals.get('method', 'Unknown')}, "
+            f"converged: {result.mle_retvals.get('converged', 'N/A')}, "
+            f"llf: {result.llf:.6e}"
         )
 
         return result
@@ -238,22 +245,24 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
 
         start_time = time.time()
         result = super(Weighted_BetaBinom_mix, self).fit(
-            start_params=start_params, maxiter=maxiter, maxfun=maxfun, **kwds
+            start_params=start_params, maxiter=maxiter, maxfun=maxfun, method=SOLVER, **kwds
         )
         runtime = time.time() - start_time
 
-        logger.info(
-            f"Weighted_BetaBinom_mix done: {runtime:.2f}s, "
-            f"# params ({len(start_params)} {'default start' if using_default_params else 'custom start'}), "
-            f"{result.mle_retvals.get('iterations', 'N/A')} iter, "
-            f"method: {result.mle_retvals.get('method', 'Unknown')}, "
-            f"converged: {result.mle_retvals.get('converged', 'N/A')}, "
-            f"llf: {result.llf:.6e}"
+        logger.debug(
+            f"Weighted_BetaBinom_mix debug - mle_retvals: {result.mle_retvals}, "
+            f"mle_settings: {result.mle_settings}"
         )
 
         logger.info(
-            f"Weighted_BetaBinom_mix debug - mle_retvals: {result.mle_retvals}, "
-            f"mle_settings: {result.mle_settings}"
+            f"Weighted_BetaBinom_mix done: {runtime:.2f}s, "
+            f"{len(start_params)} params ({'with default start' if using_default_params else 'with custom start'}), "
+            f"{result.mle_retvals.get('iterations', 'N/A')} iter, "
+            f"{result.mle_retvals.get('fcalls', 'N/A')} fcalls, "
+            f"optimizer: {result.mle_settings.get('optimizer', 'Unknown')}, "
+            f"method: {result.mle_retvals.get('method', 'Unknown')}, "
+            f"converged: {result.mle_retvals.get('converged', 'N/A')}, "
+            f"llf: {result.llf:.6e}"
         )
 
         return result

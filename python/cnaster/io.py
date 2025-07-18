@@ -374,8 +374,11 @@ def load_input_data(
         indicator_filter = ~np.isin(adata.var.index, genes_to_filter)
 
         logger.info(
-            f"Removing genes based on input:\n{genes_to_filter[np.isin(genes_to_filter, adata.var.index)]}."
+            f"Removing genes based on input:"
         )
+
+        for to_print in genes_to_filter[np.isin(genes_to_filter, adata.var.index)]:
+            print(to_print) 
 
         adata = adata[:, indicator_filter]
 

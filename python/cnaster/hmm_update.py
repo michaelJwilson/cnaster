@@ -188,7 +188,7 @@ def update_emission_params_nb_sitewise_uniqvalues(
 
     new_log_mu = (
         copy.copy(start_log_mu)
-        if not start_log_mu is None
+        if start_log_mu is not None
         else np.zeros((n_states, n_spots))
     )
     new_alphas = copy.copy(alphas)
@@ -213,7 +213,7 @@ def update_emission_params_nb_sitewise_uniqvalues(
                 res = model.fit(disp=0, maxiter=1500, xtol=1e-4, ftol=1e-4)
                 new_log_mu[i, s] = res.params[0]
 
-                if not (start_log_mu is None):
+                if start_log_mu is not None:
                     res2 = model.fit(
                         disp=0,
                         maxiter=1500,
@@ -246,7 +246,7 @@ def update_emission_params_nb_sitewise_uniqvalues(
                     res = model.fit(disp=0, maxiter=1500, xtol=1e-4, ftol=1e-4)
                     new_log_mu[i, s] = res.params[0]
                     new_alphas[i, s] = res.params[-1]
-                    if not (start_log_mu is None):
+                    if start_log_mu is not None:
                         res2 = model.fit(
                             disp=0,
                             maxiter=1500,
@@ -327,7 +327,7 @@ def update_emission_params_nb_sitewise_uniqvalues(
                 new_log_mu[idx_state_posweight, s] = res.params[l1:l2]
             if res.params[-1] > 0:
                 new_alphas[:, :] = res.params[-1]
-            if not (start_log_mu is None):
+            if start_log_mu is not None:
                 res2 = model.fit(
                     disp=0,
                     maxiter=1500,
@@ -384,7 +384,7 @@ def update_emission_params_nb_nophasing_uniqvalues(
     # initialization
     new_log_mu = (
         copy.copy(start_log_mu)
-        if not start_log_mu is None
+        if start_log_mu is not None
         else np.zeros((n_states, n_spots))
     )
     new_alphas = copy.copy(alphas)
@@ -408,7 +408,7 @@ def update_emission_params_nb_nophasing_uniqvalues(
                 )
                 res = model.fit(disp=0, maxiter=1500, xtol=1e-4, ftol=1e-4)
                 new_log_mu[i, s] = res.params[0]
-                if not (start_log_mu is None):
+                if start_log_mu is not None:
                     res2 = model.fit(
                         disp=0,
                         maxiter=1500,
@@ -441,7 +441,7 @@ def update_emission_params_nb_nophasing_uniqvalues(
                     res = model.fit(disp=0, maxiter=1500, xtol=1e-4, ftol=1e-4)
                     new_log_mu[i, s] = res.params[0]
                     new_alphas[i, s] = res.params[-1]
-                    if not (start_log_mu is None):
+                    if start_log_mu is not None:
                         res2 = model.fit(
                             disp=0,
                             maxiter=1500,
@@ -518,7 +518,7 @@ def update_emission_params_nb_nophasing_uniqvalues(
                 new_log_mu[idx_state_posweight, s] = res.params[l1:l2]
             if res.params[-1] > 0:
                 new_alphas[:, :] = res.params[-1]
-            if not (start_log_mu is None):
+            if start_log_mu is not None:
                 res2 = model.fit(
                     disp=0,
                     maxiter=1500,
@@ -575,7 +575,7 @@ def update_emission_params_nb_sitewise_uniqvalues_mix(
 
     new_log_mu = (
         copy.copy(start_log_mu)
-        if not start_log_mu is None
+        if start_log_mu is not None
         else np.zeros((n_states, n_spots))
     )
     new_alphas = copy.copy(alphas)
@@ -600,7 +600,7 @@ def update_emission_params_nb_sitewise_uniqvalues_mix(
                 )
                 res = model.fit(disp=0, maxiter=1500, xtol=1e-4, ftol=1e-4)
                 new_log_mu[i, s] = res.params[0]
-                if not (start_log_mu is None):
+                if start_log_mu is not None:
                     res2 = model.fit(
                         disp=0,
                         maxiter=1500,
@@ -639,7 +639,7 @@ def update_emission_params_nb_sitewise_uniqvalues_mix(
                     new_log_mu[i, s] = res.params[0]
                     new_alphas[i, s] = res.params[-1]
 
-                    if not (start_log_mu is None):
+                    if start_log_mu is not None:
                         res2 = model.fit(
                             disp=0,
                             maxiter=1500,
@@ -736,7 +736,7 @@ def update_emission_params_nb_sitewise_uniqvalues_mix(
                 new_log_mu[idx_state_posweight, s] = res.params[l1:l2]
             if res.params[-1] > 0:
                 new_alphas[:, :] = res.params[-1]
-            if not (start_log_mu is None):
+            if start_log_mu is not None:
                 res2 = model.fit(
                     disp=0,
                     maxiter=1500,
@@ -794,7 +794,7 @@ def update_emission_params_nb_nophasing_uniqvalues_mix(
     # initialization
     new_log_mu = (
         copy.copy(start_log_mu)
-        if not start_log_mu is None
+        if start_log_mu is not None
         else np.zeros((n_states, n_spots))
     )
     new_alphas = copy.copy(alphas)
@@ -818,7 +818,7 @@ def update_emission_params_nb_nophasing_uniqvalues_mix(
                 )
                 res = model.fit(disp=0, maxiter=1500, xtol=1e-4, ftol=1e-4)
                 new_log_mu[i, s] = res.params[0]
-                if not (start_log_mu is None):
+                if start_log_mu is not None:
                     res2 = model.fit(
                         disp=0,
                         maxiter=1500,
@@ -857,7 +857,7 @@ def update_emission_params_nb_nophasing_uniqvalues_mix(
                     res = model.fit(disp=0, maxiter=1500, xtol=1e-4, ftol=1e-4)
                     new_log_mu[i, s] = res.params[0]
                     new_alphas[i, s] = res.params[-1]
-                    if not (start_log_mu is None):
+                    if start_log_mu is not None:
                         res2 = model.fit(
                             disp=0,
                             maxiter=1500,
@@ -951,7 +951,7 @@ def update_emission_params_nb_nophasing_uniqvalues_mix(
                 new_log_mu[idx_state_posweight, s] = res.params[l1:l2]
             if res.params[-1] > 0:
                 new_alphas[:, :] = res.params[-1]
-            if not (start_log_mu is None):
+            if start_log_mu is not None:
                 res2 = model.fit(
                     disp=0,
                     maxiter=1500,
@@ -1008,7 +1008,7 @@ def update_emission_params_bb_sitewise_uniqvalues(
     # initialization
     new_p_binom = (
         copy.copy(start_p_binom)
-        if not start_p_binom is None
+        if start_p_binom is not None
         else np.ones((n_states, n_spots)) * 0.5
     )
     new_taus = copy.copy(taus)
@@ -1043,7 +1043,7 @@ def update_emission_params_bb_sitewise_uniqvalues(
                     )
                     res = model.fit(disp=0, maxiter=1500, xtol=1e-4, ftol=1e-4)
                     new_p_binom[i, s] = res.params[0]
-                    if not (start_p_binom is None):
+                    if start_p_binom is not None:
                         res2 = model.fit(
                             disp=0,
                             maxiter=1500,
@@ -1091,7 +1091,7 @@ def update_emission_params_bb_sitewise_uniqvalues(
                         res = model.fit(disp=0, maxiter=1500, xtol=1e-4, ftol=1e-4)
                         new_p_binom[i, s] = res.params[0]
                         new_taus[i, s] = res.params[-1]
-                        if not (start_p_binom is None):
+                        if start_p_binom is not None:
                             res2 = model.fit(
                                 disp=0,
                                 maxiter=1500,
@@ -1182,7 +1182,7 @@ def update_emission_params_bb_sitewise_uniqvalues(
                 new_p_binom[idx_state_posweight, s] = res.params[l1:l2]
             if res.params[-1] > 0:
                 new_taus[:, :] = res.params[-1]
-            if not (start_p_binom is None):
+            if start_p_binom is not None:
                 res2 = model.fit(
                     disp=0,
                     maxiter=1500,
@@ -1238,7 +1238,7 @@ def update_emission_params_bb_nophasing_uniqvalues(
     # initialization
     new_p_binom = (
         copy.copy(start_p_binom)
-        if not start_p_binom is None
+        if start_p_binom is not None
         else np.ones((n_states, n_spots)) * 0.5
     )
     new_taus = copy.copy(taus)
@@ -1263,7 +1263,7 @@ def update_emission_params_bb_nophasing_uniqvalues(
                     )
                     res = model.fit(disp=0, maxiter=1500, xtol=1e-4, ftol=1e-4)
                     new_p_binom[i, s] = res.params[0]
-                    if not (start_p_binom is None):
+                    if start_p_binom is not None:
                         res2 = model.fit(
                             disp=0,
                             maxiter=1500,
@@ -1298,7 +1298,7 @@ def update_emission_params_bb_nophasing_uniqvalues(
                         res = model.fit(disp=0, maxiter=1500, xtol=1e-4, ftol=1e-4)
                         new_p_binom[i, s] = res.params[0]
                         new_taus[i, s] = res.params[-1]
-                        if not (start_p_binom is None):
+                        if start_p_binom is not None:
                             res2 = model.fit(
                                 disp=0,
                                 maxiter=1500,
@@ -1373,7 +1373,7 @@ def update_emission_params_bb_nophasing_uniqvalues(
                 new_p_binom[idx_state_posweight, s] = res.params[l1:l2]
             if res.params[-1] > 0:
                 new_taus[:, :] = res.params[-1]
-            if not (start_p_binom is None):
+            if start_p_binom is not None:
                 res2 = model.fit(
                     disp=0,
                     maxiter=1500,
@@ -1432,7 +1432,7 @@ def update_emission_params_bb_sitewise_uniqvalues_mix(
 
     new_p_binom = (
         copy.copy(start_p_binom)
-        if not start_p_binom is None
+        if start_p_binom is not None
         else np.ones((n_states, n_spots)) * 0.5
     )
     new_taus = copy.copy(taus)
@@ -1477,7 +1477,7 @@ def update_emission_params_bb_sitewise_uniqvalues_mix(
 
                     res = model.fit(disp=0, maxiter=1500, xtol=1e-4, ftol=1e-4)
                     new_p_binom[i, s] = res.params[0]
-                    if not (start_p_binom is None):
+                    if start_p_binom is not None:
                         res2 = model.fit(
                             disp=0,
                             maxiter=1500,
@@ -1533,7 +1533,7 @@ def update_emission_params_bb_sitewise_uniqvalues_mix(
                         res = model.fit(disp=0, maxiter=1500, xtol=1e-4, ftol=1e-4)
                         new_p_binom[i, s] = res.params[0]
                         new_taus[i, s] = res.params[-1]
-                        if not (start_p_binom is None):
+                        if start_p_binom is not None:
                             res2 = model.fit(
                                 disp=0,
                                 maxiter=1500,
@@ -1638,7 +1638,7 @@ def update_emission_params_bb_sitewise_uniqvalues_mix(
                 new_p_binom[idx_state_posweight, s] = res.params[l1:l2]
             if res.params[-1] > 0:
                 new_taus[:, :] = res.params[-1]
-            if not (start_p_binom is None):
+            if start_p_binom is not None:
                 res2 = model.fit(
                     disp=0,
                     maxiter=1500,
@@ -1697,7 +1697,7 @@ def update_emission_params_bb_nophasing_uniqvalues_mix(
     # initialization
     new_p_binom = (
         copy.copy(start_p_binom)
-        if not start_p_binom is None
+        if start_p_binom is not None
         else np.ones((n_states, n_spots)) * 0.5
     )
     new_taus = copy.copy(taus)
@@ -1729,7 +1729,7 @@ def update_emission_params_bb_nophasing_uniqvalues_mix(
                     # tumor_prop=tumor_prop[s] )
                     res = model.fit(disp=0, maxiter=1500, xtol=1e-4, ftol=1e-4)
                     new_p_binom[i, s] = res.params[0]
-                    if not (start_p_binom is None):
+                    if start_p_binom is not None:
                         res2 = model.fit(
                             disp=0,
                             maxiter=1500,
@@ -1772,7 +1772,7 @@ def update_emission_params_bb_nophasing_uniqvalues_mix(
                         res = model.fit(disp=0, maxiter=1500, xtol=1e-4, ftol=1e-4)
                         new_p_binom[i, s] = res.params[0]
                         new_taus[i, s] = res.params[-1]
-                        if not (start_p_binom is None):
+                        if start_p_binom is not None:
                             res2 = model.fit(
                                 disp=0,
                                 maxiter=1500,
@@ -1861,7 +1861,7 @@ def update_emission_params_bb_nophasing_uniqvalues_mix(
                 new_p_binom[idx_state_posweight, s] = res.params[l1:l2]
             if res.params[-1] > 0:
                 new_taus[:, :] = res.params[-1]
-            if not (start_p_binom is None):
+            if start_p_binom is not None:
                 res2 = model.fit(
                     disp=0,
                     maxiter=1500,

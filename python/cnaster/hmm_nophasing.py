@@ -397,7 +397,7 @@ class hmm_nophasing(object):
                 )
             else:
                 # NB compute mu as adjusted RDR;
-                if ((not log_gamma is None) or (r > 0)) and ("m" in self.params):
+                if ((log_gamma is not None) or (r > 0)) and ("m" in self.params):
                     logmu_shift = []
 
                     for c in range(len(kwargs["sample_length"])):

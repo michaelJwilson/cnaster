@@ -224,7 +224,7 @@ def assign_initial_blocks(
             ].snp_id
 
             # NB drop genes.
-            involved_snps_ids = involved_snps_ids[~involved_snps_ids.isnull()]python/cnaster/omics.py
+            involved_snps_ids = involved_snps_ids[~involved_snps_ids.isnull()]
             involved_snp_idx = np.array([map_snp_index[x] for x in involved_snps_ids])
 
             # NB num. of snp-covering umis for initial block ids s to t.
@@ -247,7 +247,7 @@ def assign_initial_blocks(
                 ]
                 involved_snps_ids = involved_snps_ids[
                     ~involved_snps_ids.isnull()
-                ]python/cnaster/omics.py
+                ]
 
                 involved_snp_idx = np.array(
                     [map_snp_index[x] for x in involved_snps_ids]

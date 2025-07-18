@@ -335,6 +335,8 @@ def hmrfmix_concatenate_pipeline(
     # NB inertia to spot clone change.
     log_persample_weights = np.ones((n_clones, n_samples)) * (-np.log(n_clones))
 
+    res = {}
+
     for r in range(max_iter_outer):
         logger.info(
             f"----  Solving iteration {r} of copy number state fitting & clone assignment (HMM + HMRF) ----"
@@ -343,8 +345,10 @@ def hmrfmix_concatenate_pipeline(
         # NB [num_obs for each clone / sample].
         sample_length = np.ones(X.shape[2], dtype=int) * X.shape[0]
 
-        # TODO! remain_kwargs populated with previous round log_gamma.
         remain_kwargs = {"sample_length": sample_length, "lambd": lambd}
+
+        if "log_gamma" in res:
+            remain_kwargs["log_gamma"] = res["log_gamma"]
 
         res = pipeline_baum_welch(
             None,
@@ -451,7 +455,7 @@ def hmrfmix_concatenate_pipeline(
         logger.info(
             f"ARI to last assignment: {adjusted_rand_score(last_assignment, res["new_assignment"]):.4f}"
         )
-        logger.info(f"Copy number state usage [%]: {100. * state_usage}")
+        logger.info(f"Copy number state usage [%]:\n{100. * state_usage}")
 
         if (
             adjusted_rand_score(last_assignment, res["new_assignment"]) > 0.99

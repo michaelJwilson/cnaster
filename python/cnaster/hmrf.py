@@ -338,6 +338,8 @@ def hmrfmix_concatenate_pipeline(
     res = {}
 
     for r in range(max_iter_outer):
+        print("\n\n")
+        
         logger.info(
             f"----****  Solving iteration {r} of copy number state fitting & clone assignment (HMM + HMRF) ****----"
         )

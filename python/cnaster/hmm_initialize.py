@@ -6,6 +6,7 @@ import scipy.special
 import scipy.stats
 from cnaster.hmm_sitewise import hmm_sitewise
 from cnaster.hmm_utils import compute_posterior_obs
+from cnaster.config import get_global_config
 from sklearn.mixture import GaussianMixture
 
 logger = logging.getLogger(__name__)
@@ -71,12 +72,20 @@ def initialization_by_gmm(
 
     X_gmm = X_gmm[np.sum(np.isnan(X_gmm), axis=1) == 0, :]
 
+    max_iter = get_global_config().hmm.gmm_maxiter
+
+    # DEPRECATE if/else.
     if random_state is None:
-        gmm = GaussianMixture(n_components=n_states, max_iter=1).fit(X_gmm)
+        gmm = GaussianMixture(n_components=n_states, max_iter=max_iter).fit(X_gmm)
     else:
         gmm = GaussianMixture(
-            n_components=n_states, max_iter=1, random_state=random_state
+            n_components=n_states, max_iter=max_iter, random_state=random_state
         ).fit(X_gmm)
+
+    # TODO check? score() returns per-sample log-likelihood
+    gmm_log_likelihood = gmm.score(X_gmm) * X_gmm.shape[0]
+
+    logger.info(f"GMM: log-likelihood={gmm_log_likelihood:.6f}, converged={gmm.converged_}, iterations={gmm.n_iter_}")
 
     # turn gmm fitted parameters to HMM log_mu and p_binom parameters
     if ("m" in params) and ("p" in params):

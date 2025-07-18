@@ -15,7 +15,7 @@ def get_filter_ranges(filter_range_file):
     )
 
     if "chr" in ranges.Chr.iloc[0]:
-        ranges["Chr"] = [int(x[3:]) for x in ranges.Chr.values]
+        ranges["Chr"] = [int(x[3:]) for x in ranges.Chr.to_numpy()]
 
     ranges.sort_values(by=["Chr", "Start"], inplace=True)
 

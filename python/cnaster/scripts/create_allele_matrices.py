@@ -44,9 +44,9 @@ def cell_by_gene_lefthap_counts(cellsnp_folder, eagle_results_dir, barcode_list)
 
         this_snp_ids = (
             str(c) + "_" + tmpdf.POS.astype(str) + "_" + tmpdf.REF + "_" + tmpdf.ALT
-        ).values
+        ).to_numpy()
 
-        this_gt = tmpdf.PHASE.values
+        this_gt = tmpdf.PHASE.to_numpy()
 
         assert len(this_snp_ids) == len(this_gt)
 
@@ -79,14 +79,14 @@ def cell_by_gene_lefthap_counts(cellsnp_folder, eagle_results_dir, barcode_list)
     AD = scipy.io.mmread(cellsnp_folder + "/cellSNP.tag.AD.mtx").tocsr()
 
     # retain only SNPs that are phased
-    is_phased = (df_snp.snp_id.isin(snp_gt_map)).values
+    is_phased = (df_snp.snp_id.isin(snp_gt_map)).to_numpy()
     df_snp = df_snp[is_phased]
     df_snp["GT"] = [snp_gt_map[x] for x in df_snp.snp_id]
     DP = DP[is_phased, :]
     AD = AD[is_phased, :]
 
     # phasing
-    phased_AD = np.where((df_snp.GT.values == "0|1").reshape(-1, 1), AD.A, (DP - AD).A)
+    phased_AD = np.where((df_snp.GT.to_numpy() == "0|1").reshape(-1, 1), AD.A, (DP - AD).A)
     phased_AD = scipy.sparse.csr_matrix(phased_AD)
 
     # re-order based on barcode_list
@@ -95,7 +95,7 @@ def cell_by_gene_lefthap_counts(cellsnp_folder, eagle_results_dir, barcode_list)
     phased_AD = phased_AD[:, index]
 
     # returned matrix has shape (N_cells, N_snps), which is the transpose of the original matrix
-    return (DP - phased_AD).T, phased_AD.T, df_snp.snp_id.values
+    return (DP - phased_AD).T, phased_AD.T, df_snp.snp_id.to_numpy()
 
 
 def main():

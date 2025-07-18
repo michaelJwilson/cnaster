@@ -201,7 +201,9 @@ def assign_initial_blocks(
     # NB second level: group the first level blocks into "haplotype blocks" such that the minimum SNP-covering UMI counts >= initial_min_umi.
     # TODO requires PHASE SET / PS tag?
     map_snp_index = {x: i for i, x in enumerate(unique_snp_ids)}
-    initial_block_chr = df_gene_snp.CHR.to_numpy()[np.array([x[0] for x in block_ranges])]
+    initial_block_chr = df_gene_snp.CHR.to_numpy()[
+        np.array([x[0] for x in block_ranges])
+    ]
     block_ranges_new = []
     s = 0
 
@@ -245,9 +247,7 @@ def assign_initial_blocks(
                 involved_snps_ids = df_gene_snp.snp_id.iloc[
                     block_ranges[s][0] : block_ranges[t - 1][1]
                 ]
-                involved_snps_ids = involved_snps_ids[
-                    ~involved_snps_ids.isnull()
-                ]
+                involved_snps_ids = involved_snps_ids[~involved_snps_ids.isnull()]
 
                 involved_snp_idx = np.array(
                     [map_snp_index[x] for x in involved_snps_ids]
@@ -499,7 +499,9 @@ def create_bin_ranges(
         {"CHR": "first", "START": "first", "END": "last"}
     )
 
-    block_lengths = sorted_chr_pos_both.END.to_numpy() - sorted_chr_pos_both.START.to_numpy()
+    block_lengths = (
+        sorted_chr_pos_both.END.to_numpy() - sorted_chr_pos_both.START.to_numpy()
+    )
     n_blocks = len(block_lengths)
 
     # NB? summed across spots.
@@ -617,7 +619,9 @@ def summarize_counts_for_bins(
         )
 
         # RDR (genes)
-        involved_genes = [x for x in df_bin_contents.gene.to_numpy()[b] if x is not None]
+        involved_genes = [
+            x for x in df_bin_contents.gene.to_numpy()[b] if x is not None
+        ]
         bin_single_X[b, 0, :] = np.sum(
             adata.layers["count"][:, adata.var.index.isin(involved_genes)], axis=1
         )

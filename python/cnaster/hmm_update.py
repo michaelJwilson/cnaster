@@ -3,7 +3,14 @@ import logging
 
 import numpy as np
 import scipy
-from cnaster.hmm_emission import Weighted_BetaBinom
+import statsmodels as sm
+from cnaster.hmm_emission import (
+    Weighted_BetaBinom,
+    Weighted_NegativeBinomial_mix,
+    Weighted_NegativeBinomial,
+    Weighted_BetaBinom_fixdispersion,
+    Weighted_BetaBinom_fixdispersion_mix,
+)
 from cnaster.hmm_utils import mylogsumexp, mylogsumexp_ax_keep
 from cnaster.config import get_global_config
 from numba import njit

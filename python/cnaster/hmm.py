@@ -7,7 +7,6 @@ import scipy.stats
 from cnaster.hmm_initialize import initialization_by_gmm
 from cnaster.hmm_sitewise import hmm_sitewise
 from cnaster.hmm_utils import compute_posterior_obs
-from sklearn.mixture import GaussianMixture
 
 logger = logging.getLogger(__name__)
 

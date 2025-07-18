@@ -1,4 +1,5 @@
 import copy
+import logging
 
 import numpy as np
 import scipy
@@ -6,6 +7,7 @@ from cnaster.hmm_emission import Weighted_BetaBinom
 from cnaster.hmm_utils import mylogsumexp, mylogsumexp_ax_keep
 from numba import njit
 
+logger = logging.getLogger(__name__)
 
 def update_transition_sitewise(log_xi, is_diag=False):
     """

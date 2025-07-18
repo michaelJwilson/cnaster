@@ -98,8 +98,10 @@ def initialization_by_gmm(
             else np.log(gmm.means_[:, : X.shape[2]] * normalizetomax1 + offset)
         )
         gmm_p_binom = gmm.means_[:, X.shape[2] :]
+        
         if only_minor:
             gmm_p_binom = np.where(gmm_p_binom > 0.5, 1 - gmm_p_binom, gmm_p_binom)
+            
     elif "m" in params:
         gmm_log_mu = (
             gmm.means_ * normalizetomax1 + offset
@@ -107,6 +109,7 @@ def initialization_by_gmm(
             else np.log(gmm.means_[:, : X.shape[2]] * normalizetomax1 + offset)
         )
         gmm_p_binom = None
+        
     elif "p" in params:
         gmm_log_mu = None
         gmm_p_binom = gmm.means_

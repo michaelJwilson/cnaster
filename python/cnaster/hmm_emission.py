@@ -21,6 +21,10 @@ config = YAMLConfig.from_file(config_path)
 
 SOLVER = config.hmm.solver 
 
+known_solvers = ()"newton", "bfgs", "lbfgs", "powell", "nm", "cg", "ncg")
+
+assert SOLVER in known_solvers, f"Unknown solver: {SOLVER}. Supported solvers: {known_solvers}"
+
 class Weighted_NegativeBinomial(GenericLikelihoodModel):
     """
     Negative Binomial model endog ~ NB(exposure * exp(exog @ params[:-1]), params[-1]), where exog is the design matrix, and params[-1] is 1 / overdispersion.
@@ -42,7 +46,7 @@ class Weighted_NegativeBinomial(GenericLikelihoodModel):
     """
 
     def __init__(self, endog, exog, weights, exposure, seed=0, **kwds):
-        super(Weighted_NegativeBinomial, self).__init__(endog, exog, **kwds)
+        super().__init__(endog, exog, **kwds)
 
         self.weights = weights
         self.exposure = exposure
@@ -60,6 +64,7 @@ class Weighted_NegativeBinomial(GenericLikelihoodModel):
 
     def fit(self, start_params=None, maxiter=10000, maxfun=5000, **kwds):
         using_default_params = start_params is None
+        
         if start_params is None:
             if hasattr(self, "start_params"):
                 start_params = self.start_params
@@ -67,7 +72,7 @@ class Weighted_NegativeBinomial(GenericLikelihoodModel):
                 start_params = np.append(0.1 * np.ones(self.nparams), 0.01)
 
         start_time = time.time()
-        result = super(Weighted_NegativeBinomial, self).fit(
+        result = super().fit(
             start_params=start_params, maxiter=maxiter, maxfun=maxfun, method=SOLVER, **kwds
         )
         runtime = time.time() - start_time
@@ -83,7 +88,6 @@ class Weighted_NegativeBinomial(GenericLikelihoodModel):
             f"{result.mle_retvals.get('iterations', 'N/A')} iter, "
             f"{result.mle_retvals.get('fcalls', 'N/A')} fcalls, "
             f"optimizer: {result.mle_settings.get('optimizer', 'Unknown')}, "
-            f"method: {result.mle_retvals.get('method', 'Unknown')}, "
             f"converged: {result.mle_retvals.get('converged', 'N/A')}, "
             f"llf: {result.llf:.6e}"
         )
@@ -93,7 +97,7 @@ class Weighted_NegativeBinomial(GenericLikelihoodModel):
 
 class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
     def __init__(self, endog, exog, weights, exposure, tumor_prop, seed=0, **kwds):
-        super(Weighted_NegativeBinomial_mix, self).__init__(endog, exog, **kwds)
+        super().__init__(endog, exog, **kwds)
 
         self.weights = weights
         self.exposure = exposure
@@ -121,7 +125,7 @@ class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
                 start_params = np.append(0.1 * np.ones(self.nparams), 0.01)
 
         start_time = time.time()
-        result = super(Weighted_NegativeBinomial_mix, self).fit(
+        result = super().fit(
             start_params=start_params, maxiter=maxiter, maxfun=maxfun, method=SOLVER, **kwds
         )
         runtime = time.time() - start_time
@@ -137,7 +141,6 @@ class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
             f"{result.mle_retvals.get('iterations', 'N/A')} iter, "
             f"{result.mle_retvals.get('fcalls', 'N/A')} fcalls, "
             f"optimizer: {result.mle_settings.get('optimizer', 'Unknown')}, "
-            f"method: {result.mle_retvals.get('method', 'Unknown')}, "
             f"converged: {result.mle_retvals.get('converged', 'N/A')}, "
             f"llf: {result.llf:.6e}"
         )
@@ -166,7 +169,7 @@ class Weighted_BetaBinom(GenericLikelihoodModel):
     """
 
     def __init__(self, endog, exog, weights, exposure, **kwds):
-        super(Weighted_BetaBinom, self).__init__(endog, exog, **kwds)
+        super().__init__(endog, exog, **kwds)
         self.weights = weights
         self.exposure = exposure
 
@@ -189,7 +192,7 @@ class Weighted_BetaBinom(GenericLikelihoodModel):
                 )
 
         start_time = time.time()
-        result = super(Weighted_BetaBinom, self).fit(
+        result = super().fit(
             start_params=start_params, maxiter=maxiter, maxfun=maxfun, method=SOLVER, **kwds
         )
         runtime = time.time() - start_time
@@ -205,7 +208,6 @@ class Weighted_BetaBinom(GenericLikelihoodModel):
             f"{result.mle_retvals.get('iterations', 'N/A')} iter, "
             f"{result.mle_retvals.get('fcalls', 'N/A')} fcalls, "
             f"optimizer: {result.mle_settings.get('optimizer', 'Unknown')}, "
-            f"method: {result.mle_retvals.get('method', 'Unknown')}, "
             f"converged: {result.mle_retvals.get('converged', 'N/A')}, "
             f"llf: {result.llf:.6e}"
         )
@@ -215,7 +217,7 @@ class Weighted_BetaBinom(GenericLikelihoodModel):
 
 class Weighted_BetaBinom_mix(GenericLikelihoodModel):
     def __init__(self, endog, exog, weights, exposure, tumor_prop, **kwds):
-        super(Weighted_BetaBinom_mix, self).__init__(endog, exog, **kwds)
+        super().__init__(endog, exog, **kwds)
         self.weights = weights
         self.exposure = exposure
         self.tumor_prop = tumor_prop
@@ -244,7 +246,7 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
                 )
 
         start_time = time.time()
-        result = super(Weighted_BetaBinom_mix, self).fit(
+        result = super().fit(
             start_params=start_params, maxiter=maxiter, maxfun=maxfun, method=SOLVER, **kwds
         )
         runtime = time.time() - start_time
@@ -260,7 +262,6 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
             f"{result.mle_retvals.get('iterations', 'N/A')} iter, "
             f"{result.mle_retvals.get('fcalls', 'N/A')} fcalls, "
             f"optimizer: {result.mle_settings.get('optimizer', 'Unknown')}, "
-            f"method: {result.mle_retvals.get('method', 'Unknown')}, "
             f"converged: {result.mle_retvals.get('converged', 'N/A')}, "
             f"llf: {result.llf:.6e}"
         )

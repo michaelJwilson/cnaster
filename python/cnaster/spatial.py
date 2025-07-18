@@ -96,7 +96,7 @@ def initialize_clones(
 
     return initial_clone_index
 
-
+# TODO!!  spatially contigous clones? 
 def rectangle_initialize_initial_clone(coords, n_clones, random_state=0):
     np.random.seed(random_state)
 

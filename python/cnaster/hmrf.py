@@ -341,7 +341,7 @@ def hmrfmix_concatenate_pipeline(
         print("\n\n")
 
         logger.info(
-            f"----****  Solving iteration {r} of copy number state fitting & clone assignment (HMM + HMRF) ****----"
+            f"----****  Solving iteration {r}/{max_iter_outer} of copy number state fitting & clone assignment (HMM + HMRF) ****----"
         )
 
         # NB [num_obs for each clone / sample].

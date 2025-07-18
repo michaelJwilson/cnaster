@@ -41,7 +41,7 @@ def get_reference_genes(hgtable_file):
     df_hgtable = df_hgtable[df_hgtable.chrom.isin(target_chroms)]
 
     kept_contigs = set(df_hgtable.chrom.unique())
-    dropped_contigs = original_contigs - kept_contigs
+    dropped_contigs = [xx for xx in original_contigs - kept_contigs if "chr" in xx]
 
     if dropped_contigs:
         logger.info(f"Excluded Gencode contigs: {sorted(dropped_contigs)}")

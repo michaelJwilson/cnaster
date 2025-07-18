@@ -117,6 +117,8 @@ def main():
         y_part=config.phasing.npart_phasing,
     )
 
+    logger.warning("Assuming 5 BAF states for phasing.")
+
     # TODO updates mu? as initialization?
     phase_indicator, refined_lengths = initial_phase_given_partition(
         single_X,

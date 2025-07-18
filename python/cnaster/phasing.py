@@ -59,6 +59,7 @@ def initial_phase_given_partition(
             baf_profiles[i, :] = 0.5
         else:
             prefix = None
+            
             res = pipeline_baum_welch(
                 prefix,
                 X[:, :, i : (i + 1)],

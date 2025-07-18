@@ -339,7 +339,7 @@ def hmrfmix_concatenate_pipeline(
 
     for r in range(max_iter_outer):
         logger.info(
-            f"----  Solving iteration {r} of copy number state fitting & clone assignment (HMM + HMRF) ----"
+            f"----****  Solving iteration {r} of copy number state fitting & clone assignment (HMM + HMRF) ****----"
         )
 
         # NB [num_obs for each clone / sample].
@@ -455,7 +455,9 @@ def hmrfmix_concatenate_pipeline(
         logger.info(
             f"ARI to last assignment: {adjusted_rand_score(last_assignment, res["new_assignment"]):.4f}"
         )
-        logger.info(f"Copy number state usage [%]:\n{100. * state_usage}")
+
+        with np.printoptions(linewidth=np.inf):
+            logger.info(f"Copy number state usage [%]:\n{100. * state_usage}")
 
         if (
             # TODO config.hmrf.assignment_ari_tolerance: 0.9?

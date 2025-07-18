@@ -216,7 +216,7 @@ def choose_adjacency_by_readcounts(
 
     s_ratio = 0
 
-    for ratio in range(0, 10):
+    for ratio in range(10):
         smooth_mat = compute_adjacency_mat_v2(
             coords, unit_xsquared, unit_ysquared, ratio * base_ratio
         )

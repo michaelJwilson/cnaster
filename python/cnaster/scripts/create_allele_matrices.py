@@ -13,7 +13,7 @@ def cell_by_gene_lefthap_counts(cellsnp_folder, eagle_results_dir, barcode_list)
     for c in range(1, 23):
         fname = [
             str(x)
-            for x in Path(eagle_results_dir).glob("*chr{}.phased.vcf.gz".format(c))
+            for x in Path(eagle_results_dir).glob(f"*chr{c}.phased.vcf.gz")
         ]
 
         assert len(fname) > 0

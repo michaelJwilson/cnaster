@@ -11,7 +11,7 @@ DEFAULT_PHY_ID = 0
 
 class Clone:
     def __init__(self, fpath, x0=None):
-        with open(fpath, "r") as f:
+        with open(fpath) as f:
             data = json.load(f)
 
         center = np.array(data["center"]).reshape(2, 1)

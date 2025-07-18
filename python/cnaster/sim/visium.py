@@ -22,7 +22,7 @@ def generate_fake_barcodes(num_spots):
 
 def assign_counts_to_segments(total, weights):
     num_segments = len(weights)
-    choices = np.random.choice(num_segments, size=int(round(total)), p=weights)
+    choices = np.random.choice(num_segments, size=round(total), p=weights)
 
     # TODO HACK
     return np.bincount(choices, minlength=1 + num_segments)
@@ -145,7 +145,7 @@ def gen_visium(sample_dir, config, name):
     opath = Path(sample_dir) / "meta" / f"{name}.tsv.gz"
     opath.parent.mkdir(parents=True, exist_ok=True)
 
-    logger.info(f"Writing metadata to {str(opath)}")
+    logger.info(f"Writing metadata to {opath!s}")
 
     with gzip.open(opath, "wt") as f:
         f.write(f"# {meta.columns.to_list()}\n")
@@ -160,7 +160,7 @@ def gen_visium(sample_dir, config, name):
     opath = Path(sample_dir) / "truth" / f"{name}.tsv.gz"
     opath.parent.mkdir(parents=True, exist_ok=True)
 
-    logger.info(f"Writing truthdata to {str(opath)}")
+    logger.info(f"Writing truthdata to {opath!s}")
 
     with gzip.open(opath, "wt") as f:
         f.write(f"# {truth.columns.to_list()}\n")
@@ -174,7 +174,7 @@ def gen_visium(sample_dir, config, name):
 
     opath = Path(sample_dir) / f"{name}_umis.npy"
 
-    logger.info(f"Writing umis to {str(opath)}")
+    logger.info(f"Writing umis to {opath!s}")
 
     np.save(opath, result)
 

@@ -16,10 +16,7 @@ logger = logging.getLogger(__name__)
 warnings.filterwarnings("ignore", category=UserWarning, module="statsmodels")
 
 # TODO HACK
-config_path = f"/u/mw9568/research/repos/cnaster/config_turing.yaml"
-config = YAMLConfig.from_file(config_path)
-
-SOLVER = config.hmm.solver 
+SOLVER = get_global_config().hmm.solver
 
 known_solvers = ("newton", "bfgs", "lbfgs", "powell", "nm", "cg", "ncg")
 

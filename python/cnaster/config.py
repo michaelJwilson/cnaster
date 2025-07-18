@@ -81,7 +81,7 @@ class YAMLConfig:
         return ",\n".join(items)
 
     @classmethod
-    def from_file(cls, config_path: Union[str, Path]) -> YAMLConfig:
+    def from_file(cls, config_path: str | Path) -> YAMLConfig:
         with Path.open(config_path, "r") as f:
             config_dict = yaml.safe_load(f)
 

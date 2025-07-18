@@ -374,7 +374,7 @@ class hmm_nophasing(object):
         else:
             log_transmat = np.zeros((1, 1))
 
-        log_gamma = kwargs["log_gamma"] if "log_gamma" in kwargs else None
+        log_gamma = kwargs.get("log_gamma", None)
 
         logger.info(f"Assumed initial log_gamma?  {log_gamma is not None}")
 

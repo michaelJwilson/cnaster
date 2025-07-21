@@ -409,7 +409,7 @@ def run_cnaster(config_path):
     single_X[:, 0, :] = copy_single_X_rdr
     single_base_nb_mean = copy_single_base_nb_mean
     n_obs = single_X.shape[0]
-
+    
     for bafc in range(n_baf_clones):
         logger.info("Solving for BAF clone {bafc}/{n_baf_clones}.")
 
@@ -428,7 +428,7 @@ def run_cnaster(config_path):
             config.hmrf.n_clones_rdr,
             random_state=0, # TODO HACK.
         )
-
+        """
         # HMRF + HMM using RDR data.
         copy_slice_sample_ids = copy.copy(sample_ids[idx_spots])
         
@@ -462,6 +462,7 @@ def run_cnaster(config_path):
             spatial_weight=config.hmrf.spatial_weight,
             tumorprop_threshold=config.hmrf.tumorprop_threshold,
         )
+        """
 
     logger.info("Done.\n\n")
 

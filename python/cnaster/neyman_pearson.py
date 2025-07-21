@@ -220,7 +220,7 @@ def neyman_pearson_similarity(
                         res,
                         p,
                     )
-                logger.info(f"Evaluated Neyman-Pearson for {c1},{c2} with p={p} and t={t_neymanpearson}")
+                logger.info(f"Evaluated Neyman-Pearson for {c1},{c2} with p={p} and t={t_neymanpearson:+.4f}")
                 all_test_statistics.append([c1, c2, p, t_neymanpearson])
                 if len(bidx) >= minlength:
                     list_t_neymanpearson.append(t_neymanpearson)

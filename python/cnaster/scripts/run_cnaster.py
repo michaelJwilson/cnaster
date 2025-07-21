@@ -421,6 +421,7 @@ def run_cnaster(config_path):
 
         # NB min. b-allele read count on pseudobulk to split clones
         if np.sum(single_total_bb_RD[:, idx_spots]) < 20 * single_X.shape[0]:
+            logger.warning(f"TODO")
             continue
 
         # TODO tumor_prop

@@ -420,20 +420,14 @@ def run_cnaster(config_path):
         ):
             continue
 
-        if config.preprocessing.tumorprop_file is None:
-            initial_clone_index = rectangle_initialize_initial_clone(
-                coords[idx_spots],
-                config["n_clones_rdr"],
-                random_state=r_hmrf_initialization,
-            )
-        else:
-            initial_clone_index = rectangle_initialize_initial_clone_mix(
-                coords[idx_spots],
-                config["n_clones_rdr"],
-                single_tumor_prop[idx_spots],
-                threshold=config["tumorprop_threshold"],
-                random_state=r_hmrf_initialization,
-            )
+        # TODO tumor_prop
+        initial_clone_index = rectangle_initialize_initial_clone_mix(
+            coords[idx_spots],
+            config["n_clones_rdr"],
+            single_tumor_prop[idx_spots],
+            threshold=config["tumorprop_threshold"],
+            random_state=r_hmrf_initialization,
+        )
             
         if not Path(f"{outdir}/{prefix}_nstates{config['n_states']}_smp.npz").exists():
             initial_assignment = np.zeros(len(idx_spots), dtype=int)

@@ -257,20 +257,19 @@ def run_cnaster(config_path):
     # TODO
     if tumor_prop is not None:
         tumor_prop = np.repeat(tumor_prop, X.shape[0]).reshape(-1, 1)
-    """
+
     merging_groups, merged_res = neyman_pearson_similarity(
         X,
         base_nb_mean,
         total_bb_RD,
         res,
-        threshold=config["np_threshold"],
-        minlength=config["np_eventminlen"],
+        threshold=config.hmm.np_threshold,
+        minlength=config.hmm.np_eventminlen,
         params="sp",
         tumor_prop=tumor_prop,
-        hmmclass=hmm_nophasing_v2,
+        hmmclass=hmm_nophasing,
     )
     """
-
     # NB adjust phasing
     n_baf_clones = len(merging_groups)
     n_obs = single_X.shape[0]
@@ -296,7 +295,7 @@ def run_cnaster(config_path):
             for c in range(n_baf_clones)
         ]
     )
-
+    """
     logger.info("Done.\n\n")
 
 

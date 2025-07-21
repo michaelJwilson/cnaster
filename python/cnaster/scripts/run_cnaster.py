@@ -251,7 +251,7 @@ def run_cnaster(config_path):
             for c in np.sort(np.unique(res["new_assignment"]))
         ],
         single_tumor_prop,
-        threshold=config["tumorprop_threshold"],
+        threshold=config.hmrf.tumorprop_threshold,
     )
 
     # TODO

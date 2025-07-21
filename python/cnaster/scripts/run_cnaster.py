@@ -7,7 +7,7 @@ import pandas as pd
 import scipy
 from cnaster.config import YAMLConfig, set_global_config
 from cnaster.hmm_nophasing import hmm_nophasing
-from cnaster.hmrf import hmrfmix_concatenate_pipeline
+from cnaster.hmrf import hmrfmix_concatenate_pipeline, merge_by_minspots
 from cnaster.io import load_input_data
 from cnaster.omics import (
     assign_initial_blocks,
@@ -240,6 +240,7 @@ def run_cnaster(config_path):
         tumorprop_threshold=config.hmrf.tumorprop_threshold,
     )
 
+    # TODO HACK
     n_obs = single_X.shape[0]
 
     X, base_nb_mean, total_bb_RD, tumor_prop = merge_pseudobulk_by_index_mix(
@@ -269,6 +270,17 @@ def run_cnaster(config_path):
         tumor_prop=tumor_prop,
         hmmclass=hmm_nophasing,
     )
+
+    merging_groups, merged_res = merge_by_minspots(
+        merged_res["new_assignment"],
+        merged_res,
+        single_total_bb_RD,
+        min_spots_thresholds=config.hmrf.min_spots_per_clone,
+        min_umicount_thresholds=n_obs * config.hmrf.min_avgumi_per_clone,
+        single_tumor_prop=single_tumor_prop,
+        threshold=config.hmrf.tumorprop_threshold,
+    )
+
     """
     # NB adjust phasing
     n_baf_clones = len(merging_groups)

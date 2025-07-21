@@ -294,9 +294,9 @@ def run_cnaster(config_path):
     merged_baf_profiles = np.array(
         [
             np.where(
-                pred[c, :] < config["n_states"],
-                merged_res["new_p_binom"][pred[c, :] % config["n_states"], 0],
-                1. - merged_res["new_p_binom"][pred[c, :] % config["n_states"], 0],
+                pred[c, :] < config.hmm.n_states,
+                merged_res["new_p_binom"][pred[c, :] % config.hmm.n_states, 0],
+                1. - merged_res["new_p_binom"][pred[c, :] % config.hmm.n_states, 0],
             )
             for c in range(n_baf_clones)
         ]

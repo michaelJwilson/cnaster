@@ -267,7 +267,7 @@ def run_cnaster(config_path):
         minlength=config["np_eventminlen"],
         params="sp",
         tumor_prop=tumor_prop,
-        hmmclass=hmm_nophasing_v2,
+        hmmclass=hmm_nophasing,
     )
     """
     # NB adjust phasing

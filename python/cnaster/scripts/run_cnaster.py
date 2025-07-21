@@ -420,94 +420,57 @@ def run_cnaster(config_path):
         ):
             continue
 
-        if config.preprocessing.tumorprop_file is None:
-            initial_clone_index = rectangle_initialize_initial_clone(
-                coords[idx_spots],
-                config["n_clones_rdr"],
-                random_state=r_hmrf_initialization,
-            )
-        else:
-            initial_clone_index = rectangle_initialize_initial_clone_mix(
-                coords[idx_spots],
-                config["n_clones_rdr"],
-                single_tumor_prop[idx_spots],
-                threshold=config["tumorprop_threshold"],
-                random_state=r_hmrf_initialization,
-            )
+        # TODO tumor_prop
+        initial_clone_index = rectangle_initialize_initial_clone(
+            coords[idx_spots],
+            config.hmrf.n_clones_rdr,
+            random_state=0, # TODO HACK.
+        )
             
-        if not Path(f"{outdir}/{prefix}_nstates{config['n_states']}_smp.npz").exists():
-            initial_assignment = np.zeros(len(idx_spots), dtype=int)
-            for c, idx in enumerate(initial_clone_index):
-                initial_assignment[idx] = c
-            allres = {
-                "barcodes": barcodes[idx_spots],
-                "num_iterations": 0,
-                "round-1_assignment": initial_assignment,
-            }
+        initial_assignment = np.zeros(len(idx_spots), dtype=int)
+        
+        for c, idx in enumerate(initial_clone_index):
+            initial_assignment[idx] = c
+            
+        allres = {
+            "barcodes": barcodes[idx_spots],
+            "num_iterations": 0,
+            "round-1_assignment": initial_assignment,
+        }
 
         # HMRF + HMM using RDR data.
         copy_slice_sample_ids = copy.copy(sample_ids[idx_spots])
         
-        if config["tumorprop_file"] is None:
-            hmrf_concatenate_pipeline(
-                outdir,
-                prefix,
-                single_X[:, :, idx_spots],
-                lengths,
-                single_base_nb_mean[:, idx_spots],
-                single_total_bb_RD[:, idx_spots],
-                initial_clone_index,
-                n_states=config["n_states"],
-                log_sitewise_transmat=log_sitewise_transmat,
-                smooth_mat=smooth_mat[np.ix_(idx_spots, idx_spots)],
-                adjacency_mat=adjacency_mat[np.ix_(idx_spots, idx_spots)],
-                sample_ids=copy_slice_sample_ids,
-                max_iter_outer=10,
-                nodepotential=config["nodepotential"],
-                hmmclass=hmm_nophasing_v2,
-                params="smp",
-                t=config["t"],
-                random_state=config["gmm_random_state"],
-                fix_NB_dispersion=config["fix_NB_dispersion"],
-                shared_NB_dispersion=config["shared_NB_dispersion"],
-                fix_BB_dispersion=config["fix_BB_dispersion"],
-                shared_BB_dispersion=config["shared_BB_dispersion"],
-                is_diag=True,
-                max_iter=config["max_iter"],
-                tol=config["tol"],
-                spatial_weight=config["spatial_weight"],
-            )
-        else:
-            hmrfmix_concatenate_pipeline(
-                outdir,
-                prefix,
-                single_X[:, :, idx_spots],
-                lengths,
-                single_base_nb_mean[:, idx_spots],
-                single_total_bb_RD[:, idx_spots],
-                single_tumor_prop[idx_spots],
-                initial_clone_index,
-                n_states=config["n_states"],
-                log_sitewise_transmat=log_sitewise_transmat,
-                smooth_mat=smooth_mat[np.ix_(idx_spots, idx_spots)],
-                adjacency_mat=adjacency_mat[np.ix_(idx_spots, idx_spots)],
-                sample_ids=copy_slice_sample_ids,
-                max_iter_outer=10,
-                nodepotential=config["nodepotential"],
-                hmmclass=hmm_nophasing_v2,
-                params="smp",
-                t=config["t"],
-                random_state=config["gmm_random_state"],
-                fix_NB_dispersion=config["fix_NB_dispersion"],
-                shared_NB_dispersion=config["shared_NB_dispersion"],
-                fix_BB_dispersion=config["fix_BB_dispersion"],
-                shared_BB_dispersion=config["shared_BB_dispersion"],
-                is_diag=True,
-                max_iter=config["max_iter"],
-                tol=config["tol"],
-                spatial_weight=config["spatial_weight"],
-                tumorprop_threshold=config["tumorprop_threshold"],
-            )
+        hmrfmix_concatenate_pipeline(
+            outdir,
+            prefix,
+            single_X[:, :, idx_spots],
+            lengths,
+            single_base_nb_mean[:, idx_spots],
+            single_total_bb_RD[:, idx_spots],
+            single_tumor_prop[idx_spots],
+            initial_clone_index,
+            n_states=config["n_states"],
+            log_sitewise_transmat=log_sitewise_transmat,
+            smooth_mat=smooth_mat[np.ix_(idx_spots, idx_spots)],
+            adjacency_mat=adjacency_mat[np.ix_(idx_spots, idx_spots)],
+            sample_ids=copy_slice_sample_ids,
+            max_iter_outer=10,
+            nodepotential=config["nodepotential"],
+            hmmclass=hmm_nophasing_v2,
+            params="smp",
+            t=config["t"],
+            random_state=config["gmm_random_state"],
+            fix_NB_dispersion=config["fix_NB_dispersion"],
+            shared_NB_dispersion=config["shared_NB_dispersion"],
+            fix_BB_dispersion=config["fix_BB_dispersion"],
+            shared_BB_dispersion=config["shared_BB_dispersion"],
+            is_diag=True,
+            max_iter=config["max_iter"],
+            tol=config["tol"],
+            spatial_weight=config["spatial_weight"],
+            tumorprop_threshold=config["tumorprop_threshold"],
+        )
 
     logger.info("Done.\n\n")
 

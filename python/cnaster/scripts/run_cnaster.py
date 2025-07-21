@@ -25,6 +25,7 @@ from cnaster.spatial import (
 )
 from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
 from cnaster.neyman_pearson import neyman_pearson_similarity
+from cnaster.normal_spot import normal_baf_bin_filter
 
 logging.basicConfig(
     level=logging.INFO,
@@ -360,15 +361,15 @@ def run_cnaster(config_path):
         single_total_bb_RD,
         log_sitewise_transmat,
         df_gene_snp,
-    ) = bin_selection_basedon_normal(
+    ) = normal_baf_bin_filter(
         df_gene_snp,
         single_X,
         single_base_nb_mean,
         single_total_bb_RD,
-        config["nu"],
-        config["logphase_shift"],
+        config.phasing.nu,
+        config.phasing.logphase_shift,
         index_normal,
-        config["geneticmap_file"],
+        config.references.geneticmap_file,
     )
 
     logger.info("Done.\n\n")

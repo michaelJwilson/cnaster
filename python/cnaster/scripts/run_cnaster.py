@@ -281,16 +281,10 @@ def run_cnaster(config_path):
         threshold=config.hmrf.tumorprop_threshold,
     )
 
-    """
-    # NB adjust phasing
-    n_baf_clones = len(merging_groups)
+    # TODO
+    # NB re-phase
     n_obs = single_X.shape[0]
-    merged_res = dict(
-        np.load(
-            f"{outdir}/mergedallspots_nstates{config['n_states']}_sp.npz",
-            allow_pickle=True,
-        )
-    )
+
     merged_baf_assignment = copy.copy(merged_res["new_assignment"])
     n_baf_clones = len(np.unique(merged_baf_assignment))
     pred = np.argmax(merged_res["log_gamma"], axis=0)
@@ -302,12 +296,12 @@ def run_cnaster(config_path):
             np.where(
                 pred[c, :] < config["n_states"],
                 merged_res["new_p_binom"][pred[c, :] % config["n_states"], 0],
-                1 - merged_res["new_p_binom"][pred[c, :] % config["n_states"], 0],
+                1. - merged_res["new_p_binom"][pred[c, :] % config["n_states"], 0],
             )
             for c in range(n_baf_clones)
         ]
     )
-    """
+    
     logger.info("Done.\n\n")
 
 

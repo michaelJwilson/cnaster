@@ -124,6 +124,8 @@ def filter_normal_diffexp(
         )
         agg_counts = agg_counts / np.sum(agg_counts, axis=1, keepdims=True) * 1e6
         geneumis = np.array([map_gene_umi[x] for x in tmpadata.var.index])
+
+        # TODO divide-by-zero errors >>>>
         logfc_u = np.where(
             ((agg_counts[1, :] == 0) | (agg_counts[0, :] == 0)),
             10,
@@ -134,6 +136,7 @@ def filter_normal_diffexp(
             10,
             np.log2(agg_counts[2, :] / agg_counts[0, :]),
         )
+        # <<<<<
         this_filtered_out_set = set(
             list(
                 tmpadata.var.index[
@@ -148,7 +151,8 @@ def filter_normal_diffexp(
             )
         )
         filtered_out_set = filtered_out_set | this_filtered_out_set
-        print(f"Filter out {len(filtered_out_set)} DE genes")
+        
+        logger.info(f"Removed {len(filtered_out_set)} genes with differential expression based on normal spots.")
 
     new_single_X_rdr = np.zeros((df_bininfo.shape[0], adata.shape[0]))
 

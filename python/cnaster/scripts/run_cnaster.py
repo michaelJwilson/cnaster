@@ -409,6 +409,8 @@ def run_cnaster(config_path):
     single_X[:, 0, :] = copy_single_X_rdr
     single_base_nb_mean = copy_single_base_nb_mean
     n_obs = single_X.shape[0]
+
+    logger.info(f"Finding refinement of {n_baf_clones} BAF-identified clones.")
     
     for bafc in range(n_baf_clones):
         logger.info(f"Solving for BAF clone {bafc}/{n_baf_clones}.")
@@ -439,7 +441,7 @@ def run_cnaster(config_path):
             lengths,
             single_base_nb_mean[:, idx_spots],
             single_total_bb_RD[:, idx_spots],
-            single_tumor_prop[idx_spots],
+            single_tumor_prop[idx_spots] if single_tumor_prop is not None else None,
             initial_clone_index,
             n_states=config.hmm.n_states,
             log_sitewise_transmat=log_sitewise_transmat,

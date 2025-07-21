@@ -411,7 +411,7 @@ def run_cnaster(config_path):
     n_obs = single_X.shape[0]
 
     logger.info(f"Finding refinement of {n_baf_clones} BAF-identified clones.")
-    
+
     for bafc in range(n_baf_clones):
         logger.info(f"Solving for BAF clone {bafc}/{n_baf_clones}.")
 
@@ -419,21 +419,20 @@ def run_cnaster(config_path):
         idx_spots = np.where(merged_baf_assignment == bafc)[0]
 
         # NB min. b-allele read count on pseudobulk to split clones
-        if (
-            np.sum(single_total_bb_RD[:, idx_spots]) < 20 * single_X.shape[0]
-        ):
+        if np.sum(single_total_bb_RD[:, idx_spots]) < 20 * single_X.shape[0]:
+            logger.warning(f"TODO")
             continue
 
         # TODO tumor_prop
         initial_clone_index = rectangle_initialize_initial_clone(
             coords[idx_spots],
             config.hmrf.n_clones_rdr,
-            random_state=0, # TODO HACK.
+            random_state=0,  # TODO HACK.
         )
 
         # HMRF + HMM using RDR data.
         copy_slice_sample_ids = copy.copy(sample_ids[idx_spots])
-        
+
         hmrfmix_concatenate_pipeline(
             None,
             None,
@@ -448,7 +447,7 @@ def run_cnaster(config_path):
             smooth_mat=smooth_mat[np.ix_(idx_spots, idx_spots)],
             adjacency_mat=adjacency_mat[np.ix_(idx_spots, idx_spots)],
             sample_ids=copy_slice_sample_ids,
-            max_iter_outer=config.hmrf.max_iter_outer, # TODO MAGIC 10
+            max_iter_outer=config.hmrf.max_iter_outer,  # TODO MAGIC 10
             nodepotential=config.hmrf.nodepotential,
             hmmclass=hmm_nophasing,
             params="smp",

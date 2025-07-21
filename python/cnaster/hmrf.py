@@ -489,3 +489,5 @@ def hmrfmix_concatenate_pipeline(
             log_persample_weights[:, sidx] = log_persample_weights[
                 :, sidx
             ] - scipy.special.logsumexp(log_persample_weights[:, sidx])
+
+    return res

@@ -23,6 +23,8 @@ from cnaster.spatial import (
     multislice_adjacency,
     rectangle_initialize_initial_clone,
 )
+from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
+from cnaster.neyman_pearson import neyman_pearson_similarity
 
 logging.basicConfig(
     level=logging.INFO,
@@ -31,6 +33,7 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
+
 
 def run_cnaster(config_path):
     config = YAMLConfig.from_file(config_path)
@@ -205,7 +208,7 @@ def run_cnaster(config_path):
     initial_clone_index = rectangle_initialize_initial_clone(
         coords, config.hmrf.n_clones, random_state=0
     )
-    
+
     hmrfmix_concatenate_pipeline(
         None,
         None,
@@ -237,17 +240,49 @@ def run_cnaster(config_path):
         tumorprop_threshold=config.hmrf.tumorprop_threshold,
     )
 
+    n_obs = single_X.shape[0]
+
+    X, base_nb_mean, total_bb_RD, tumor_prop = merge_pseudobulk_by_index_mix(
+        single_X,
+        single_base_nb_mean,
+        single_total_bb_RD,
+        [
+            np.where(res["new_assignment"] == c)[0]
+            for c in np.sort(np.unique(res["new_assignment"]))
+        ],
+        single_tumor_prop,
+        threshold=config["tumorprop_threshold"],
+    )
+
+    if tumor_prop is not None:
+        tumor_prop = np.repeat(tumor_prop, X.shape[0]).reshape(-1, 1)
+
+    merging_groups, merged_res = neyman_pearson_similarity(
+        X,
+        base_nb_mean,
+        total_bb_RD,
+        res,
+        threshold=config["np_threshold"],
+        minlength=config["np_eventminlen"],
+        params="sp",
+        tumor_prop=tumor_prop,
+        hmmclass=hmm_nophasing_v2,
+    )
+    
+    logger.info(f"BAF clone merging after comparing similarity: {merging_groups}")
+
     logger.info("Done.\n\n")
+
 
 # NB run_cnaster config_turing.yaml
 def main():
     parser = argparse.ArgumentParser(description="Run CNAster pipeline")
     parser.add_argument(
-        "config_path", 
-        type=str, 
+        "config_path",
+        type=str,
         help="Path to the YAML configuration file",
     )
-    
+
     args = parser.parse_args()
 
     run_cnaster(args.config_path)

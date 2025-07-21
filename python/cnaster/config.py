@@ -53,6 +53,8 @@ class YAMLConfig:
         for key, value in config_dict.items():
             if isinstance(value, dict):
                 setattr(self, key, YAMLConfig(value))
+            elif isinstance(value, str) and value.lower() == 'none':
+                setattr(self, key, None)
             else:
                 setattr(self, key, value)
 

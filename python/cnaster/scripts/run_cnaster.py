@@ -296,12 +296,81 @@ def run_cnaster(config_path):
             np.where(
                 pred[c, :] < config.hmm.n_states,
                 merged_res["new_p_binom"][pred[c, :] % config.hmm.n_states, 0],
-                1. - merged_res["new_p_binom"][pred[c, :] % config.hmm.n_states, 0],
+                1.0 - merged_res["new_p_binom"][pred[c, :] % config.hmm.n_states, 0],
             )
             for c in range(n_baf_clones)
         ]
     )
-    
+
+    # NB refine BAF-identified clones
+    if (config.preprocessing.normalidx_file is None) and (
+        config.preprocessing.tumorprop_file is None
+    ):
+        EPS_BAF = 0.05  # MAGIC
+        PERCENT_NORMAL = 40  # MAGIC
+
+        logger.info(f"Identifying normal spots based on estimated BAF.")
+
+        vec_stds = np.std(np.log1p(copy_single_X_rdr @ smooth_mat), axis=0)
+        id_nearnormal_clone = np.argmin(
+            np.sum(np.maximum(np.abs(merged_baf_profiles - 0.5) - EPS_BAF, 0), axis=1)
+        )
+
+        while True:
+            stdthreshold = np.percentile(
+                vec_stds[merged_res["new_assignment"] == id_nearnormal_clone],
+                PERCENT_NORMAL,
+            )
+            normal_candidate = (vec_stds < stdthreshold) & (
+                merged_res["new_assignment"] == id_nearnormal_clone
+            )
+            if (
+                np.sum(copy_single_X_rdr[:, (normal_candidate == True)])
+                > single_X.shape[0] * 200
+                or PERCENT_NORMAL == 100
+            ):
+                break
+            PERCENT_NORMAL += 10
+
+    elif config.preprocessing.normalidx_file is not None:
+        # single_base_nb_mean has already been added in loading data step.
+        if config.preprocessing.tumorprop_file is not None:
+            logger.warning(
+                f"Found mixed sources for normal spot definition, assuming {config.preprocessing.normalidx_file}."
+            )
+    else:
+        logger.info(f"Identifying normal spots based on provided tumor proportion.")
+
+        for prop_threshold in np.arange(0.05, 0.6, 0.05):
+            normal_candidate = single_tumor_prop < prop_threshold
+
+            # TODO
+            if (
+                np.sum(copy_single_X_rdr[:, (normal_candidate == True)])
+                > single_X.shape[0] * 200
+            ):
+                break
+
+    index_normal = np.where(normal_candidate)[0]
+
+    (
+        lengths,
+        single_X,
+        single_base_nb_mean,
+        single_total_bb_RD,
+        log_sitewise_transmat,
+        df_gene_snp,
+    ) = bin_selection_basedon_normal(
+        df_gene_snp,
+        single_X,
+        single_base_nb_mean,
+        single_total_bb_RD,
+        config["nu"],
+        config["logphase_shift"],
+        index_normal,
+        config["geneticmap_file"],
+    )
+
     logger.info("Done.\n\n")
 
 

@@ -491,3 +491,88 @@ def hmrfmix_concatenate_pipeline(
             ] - scipy.special.logsumexp(log_persample_weights[:, sidx])
 
     return res
+
+
+def merge_by_minspots(
+    assignment,
+    res,
+    single_total_bb_RD,
+    min_spots_thresholds=50,
+    min_umicount_thresholds=0,
+    single_tumor_prop=None,
+    threshold=0.5,
+):
+    n_clones = len(np.unique(assignment))
+    if n_clones == 1:
+        merged_groups = [[assignment[0]]]
+        return merged_groups, res
+
+    n_obs = int(len(res["pred_cnv"]) / n_clones)
+    new_assignment = copy.copy(assignment)
+    if single_tumor_prop is None:
+        tmp_single_tumor_prop = np.array([1] * len(assignment))
+    else:
+        tmp_single_tumor_prop = single_tumor_prop
+    unique_assignment = np.unique(new_assignment)
+    # NB find entries in unique_assignment such that either: i) min_spots_thresholds ii) min_umicount_thresholds are not satisfied
+    failed_clones = [
+        c
+        for c in unique_assignment
+        if (
+            np.sum(new_assignment[tmp_single_tumor_prop > threshold] == c)
+            < min_spots_thresholds
+        )
+        or (
+            np.sum(
+                single_total_bb_RD[
+                    :, (new_assignment == c) & (tmp_single_tumor_prop > threshold)
+                ]
+            )
+            < min_umicount_thresholds
+        )
+    ]
+    logger.info(f"Found {len(failed_clones)} new clones failing thresholds on min. spots or min. umis.")
+    
+    # NB find the remaining unique_assigment that satisfies both thresholds
+    successful_clones = [c for c in unique_assignment if not c in failed_clones]
+    # NB initial merging groups: each successful clone is its own group
+    merging_groups = [[i] for i in successful_clones]
+    # NB for each failed clone, assign them to the 'closest' successful clone
+    if len(failed_clones) > 0:
+        for c in failed_clones:
+            # NB selects new clone with largest RD amongst those viable.
+            idx_max = np.argmax(
+                [
+                    np.sum(
+                        single_total_bb_RD[
+                            :,
+                            (new_assignment == c_prime)
+                            & (tmp_single_tumor_prop > threshold),
+                        ]
+                    )
+                    for c_prime in successful_clones
+                ]
+            )
+            merging_groups[idx_max].append(c)
+    map_clone_id = {}
+    for i, x in enumerate(merging_groups):
+        for z in x:
+            map_clone_id[z] = i
+    new_assignment = np.array([map_clone_id[x] for x in new_assignment])
+
+    merged_res = copy.copy(res)
+    merged_res["new_assignment"] = new_assignment
+    merged_res["total_llf"] = np.NAN
+    merged_res["pred_cnv"] = np.concatenate(
+        [
+            res["pred_cnv"][(c[0] * n_obs) : (c[0] * n_obs + n_obs)]
+            for c in merging_groups
+        ]
+    )
+    merged_res["log_gamma"] = np.hstack(
+        [
+            res["log_gamma"][:, (c[0] * n_obs) : (c[0] * n_obs + n_obs)]
+            for c in merging_groups
+        ]
+    )
+    return merging_groups, merged_res

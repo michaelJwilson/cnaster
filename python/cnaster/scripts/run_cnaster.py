@@ -271,6 +271,32 @@ def run_cnaster(config_path):
     )
     """
 
+    # NB adjust phasing
+    n_baf_clones = len(merging_groups)
+    n_obs = single_X.shape[0]
+    merged_res = dict(
+        np.load(
+            f"{outdir}/mergedallspots_nstates{config['n_states']}_sp.npz",
+            allow_pickle=True,
+        )
+    )
+    merged_baf_assignment = copy.copy(merged_res["new_assignment"])
+    n_baf_clones = len(np.unique(merged_baf_assignment))
+    pred = np.argmax(merged_res["log_gamma"], axis=0)
+    pred = np.array(
+        [pred[(c * n_obs) : (c * n_obs + n_obs)] for c in range(n_baf_clones)]
+    )
+    merged_baf_profiles = np.array(
+        [
+            np.where(
+                pred[c, :] < config["n_states"],
+                merged_res["new_p_binom"][pred[c, :] % config["n_states"], 0],
+                1 - merged_res["new_p_binom"][pred[c, :] % config["n_states"], 0],
+            )
+            for c in range(n_baf_clones)
+        ]
+    )
+
     logger.info("Done.\n\n")
 
 

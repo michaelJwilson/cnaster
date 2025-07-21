@@ -371,7 +371,7 @@ def run_cnaster(config_path):
         index_normal,
         config.references.geneticmap_file,
     )
-
+    """
     df_bininfo = genesnp_to_bininfo(df_gene_snp)
 
     copy_single_X_rdr = copy.copy(single_X[:, 0, :])
@@ -384,7 +384,7 @@ def run_cnaster(config_path):
         sample_list=sample_list,
         sample_ids=sample_ids,
     )
-
+    """
     logger.info("Done.\n\n")
 
 

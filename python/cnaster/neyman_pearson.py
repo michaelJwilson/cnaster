@@ -1,6 +1,7 @@
 import logging
 import numpy as np
 import networkx as nx
+from cnaster.hmm_sitewise import hmm_sitewise
 
 logger = logging.getLogger(__name__)
 

@@ -94,6 +94,8 @@ def neyman_pearson_similarity(
     hmmclass=hmm_sitewise,
     **kwargs,
 ):
+    logger.info("Solving for Neyman-Pearson similiarity.")
+    
     n_obs = X.shape[0]
     n_clones = X.shape[2]
     n_states = res["new_p_binom"].shape[0]

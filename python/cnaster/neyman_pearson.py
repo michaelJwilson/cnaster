@@ -98,7 +98,7 @@ def neyman_pearson_similarity(
     **kwargs,
 ):
     logger.info("Solving for Neyman-Pearson similiarity.")
-    
+
     n_obs = X.shape[0]
     n_clones = X.shape[2]
     n_states = res["new_p_binom"].shape[0]
@@ -220,7 +220,9 @@ def neyman_pearson_similarity(
                         res,
                         p,
                     )
-                logger.info(f"Evaluated Neyman-Pearson for ({c1},{c2}) with p={p} and t={t_neymanpearson:+.4f}")
+                logger.info(
+                    f"Evaluated Neyman-Pearson for ({c1},{c2}) with p={p} and t={t_neymanpearson:+.4f}"
+                )
                 all_test_statistics.append([c1, c2, p, t_neymanpearson])
                 if len(bidx) >= minlength:
                     list_t_neymanpearson.append(t_neymanpearson)
@@ -279,5 +281,5 @@ def neyman_pearson_similarity(
 
     # TODO
     logger.info(f"BAF clone merging after comparing similarity: {merging_groups}")
-    
+
     return merging_groups, merged_res

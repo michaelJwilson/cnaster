@@ -11,10 +11,7 @@ def cell_by_gene_lefthap_counts(cellsnp_folder, eagle_results_dir, barcode_list)
     snp_gt_map = {}
 
     for c in range(1, 23):
-        fname = [
-            str(x)
-            for x in Path(eagle_results_dir).glob(f"*chr{c}.phased.vcf.gz")
-        ]
+        fname = [str(x) for x in Path(eagle_results_dir).glob(f"*chr{c}.phased.vcf.gz")]
 
         assert len(fname) > 0
 
@@ -86,7 +83,9 @@ def cell_by_gene_lefthap_counts(cellsnp_folder, eagle_results_dir, barcode_list)
     AD = AD[is_phased, :]
 
     # phasing
-    phased_AD = np.where((df_snp.GT.to_numpy() == "0|1").reshape(-1, 1), AD.A, (DP - AD).A)
+    phased_AD = np.where(
+        (df_snp.GT.to_numpy() == "0|1").reshape(-1, 1), AD.A, (DP - AD).A
+    )
     phased_AD = scipy.sparse.csr_matrix(phased_AD)
 
     # re-order based on barcode_list

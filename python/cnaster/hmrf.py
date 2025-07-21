@@ -531,8 +531,10 @@ def merge_by_minspots(
             < min_umicount_thresholds
         )
     ]
-    logger.info(f"Found {len(failed_clones)} new clones failing thresholds on min. spots or min. umis.")
-    
+    logger.info(
+        f"Found {len(failed_clones)} new clones failing thresholds on min. spots or min. umis."
+    )
+
     # NB find the remaining unique_assigment that satisfies both thresholds
     successful_clones = [c for c in unique_assignment if not c in failed_clones]
     # NB initial merging groups: each successful clone is its own group

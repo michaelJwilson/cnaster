@@ -479,9 +479,11 @@ def load_input_data(
 
         # NB zero count of outlier genes.
         adata.layers["count"][:, to_zero] = 0
-        
+
     if normal_idx_file is not None:
-        normal_barcodes = pd.read_csv(normal_idx_file, header=None).iloc[:, 0].to_numpy()
+        normal_barcodes = (
+            pd.read_csv(normal_idx_file, header=None).iloc[:, 0].to_numpy()
+        )
         adata.obs["tumor_annotation"] = "tumor"
         adata.obs["tumor_annotation"][adata.obs.index.isin(normal_barcodes)] = "normal"
 

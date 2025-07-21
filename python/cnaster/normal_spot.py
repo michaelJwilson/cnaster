@@ -151,8 +151,10 @@ def filter_normal_diffexp(
             )
         )
         filtered_out_set = filtered_out_set | this_filtered_out_set
-        
-        logger.info(f"Removed {len(filtered_out_set)} genes with differential expression based on normal spots.")
+
+        logger.info(
+            f"Removed {len(filtered_out_set)} genes with differential expression based on normal spots."
+        )
 
     new_single_X_rdr = np.zeros((df_bininfo.shape[0], adata.shape[0]))
 

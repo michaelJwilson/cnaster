@@ -33,7 +33,7 @@ def prep_snps(cellsnplite_results_dir, output_dir, vaf_threshold=0.1):
             (df_snp.AD >= 2)  # at least two alternative counts.
             & (df_snp.DP - df_snp.AD >= 2)  # at least two reference alleles.
             & (df_snp.AD / df_snp.DP >= vaf_threshold)
-            & (df_snp.AD / df_snp.DP <= 1. - vaf_threshold)
+            & (df_snp.AD / df_snp.DP <= 1.0 - vaf_threshold)
         )
         | ((df_snp.AD == df_snp.DP) & (df_snp.DP >= 10))
         | ((df_snp.AD == 0) & (df_snp.DP >= 10))

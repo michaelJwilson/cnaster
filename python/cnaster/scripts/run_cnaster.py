@@ -411,12 +411,14 @@ def run_cnaster(config_path):
     n_obs = single_X.shape[0]
 
     for bafc in range(n_baf_clones):
+        logger.info("Solving for BAF clone {bafc}/{n_baf_clones}.")
+
         prefix = f"clone{bafc}"
         idx_spots = np.where(merged_baf_assignment == bafc)[0]
 
         # NB min. b-allele read count on pseudobulk to split clones
         if (
-            np.sum(single_total_bb_RD[:, idx_spots]) < single_X.shape[0] * 20
+            np.sum(single_total_bb_RD[:, idx_spots]) < 20 * single_X.shape[0]
         ):
             continue
 
@@ -426,17 +428,6 @@ def run_cnaster(config_path):
             config.hmrf.n_clones_rdr,
             random_state=0, # TODO HACK.
         )
-            
-        initial_assignment = np.zeros(len(idx_spots), dtype=int)
-        
-        for c, idx in enumerate(initial_clone_index):
-            initial_assignment[idx] = c
-            
-        allres = {
-            "barcodes": barcodes[idx_spots],
-            "num_iterations": 0,
-            "round-1_assignment": initial_assignment,
-        }
 
         # HMRF + HMM using RDR data.
         copy_slice_sample_ids = copy.copy(sample_ids[idx_spots])

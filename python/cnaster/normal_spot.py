@@ -1,5 +1,10 @@
 import logging
 import scipy
+import scipy.stats
+import anndata
+import numpy as np
+import scanpy as sc
+from sklearn.cluster import KMeans
 
 from cnaster.hmm_emission import Weighted_BetaBinom
 from cnaster.reference import get_reference_recomb_rates
@@ -7,6 +12,122 @@ from cnaster.recomb import assign_centiMorgans, compute_numbat_phase_switch_prob
 
 
 logger = logging.getLogger(__name__)
+
+
+def filter_de_genes_tri(
+    exp_counts,
+    df_bininfo,
+    normal_candidate,
+    sample_list=None,
+    sample_ids=None,
+    logfcthreshold_u=2,
+    logfcthreshold_t=4,
+    quantile_threshold=80,
+):
+    """
+    Attributes
+    ----------
+    df_bininfo : pd.DataFrame
+        Contains columns ['CHR', 'START', 'END', 'INCLUDED_GENES', 'INCLUDED_SNP_IDS'], 'INCLUDED_GENES' contains space-delimited gene names.
+    """
+    adata = anndata.AnnData(exp_counts)
+    adata.layers["count"] = exp_counts.values
+    adata.obs["normal_candidate"] = normal_candidate
+
+    map_gene_adatavar, map_gene_umi = {}, {}
+    list_gene_umi = np.sum(adata.layers["count"], axis=0)
+
+    for i, x in enumerate(adata.var.index):
+        map_gene_adatavar[x] = i
+        map_gene_umi[x] = list_gene_umi[i]
+
+    if sample_list is None:
+        sample_list = [None]
+
+    filtered_out_set = set()
+
+    for s, sname in enumerate(sample_list):
+        if sname is None:
+            index = np.arange(adata.shape[0])
+        else:
+            index = np.where(sample_ids == s)[0]
+        tmpadata = adata[index, :].copy()
+        if (
+            np.sum(tmpadata.layers["count"][tmpadata.obs["normal_candidate"], :])
+            < tmpadata.shape[1] * 10
+        ):
+            continue
+
+        umi_threshold = np.percentile(
+            np.sum(tmpadata.layers["count"], axis=0), quantile_threshold
+        )
+
+        sc.pp.filter_genes(tmpadata, min_cells=10)
+        med = np.median(np.sum(tmpadata.layers["count"], axis=1))
+
+        sc.pp.normalize_total(tmpadata, target_sum=med)
+        sc.pp.log1p(tmpadata)
+
+        sc.pp.pca(tmpadata, n_comps=4)
+        kmeans = KMeans(n_clusters=2, random_state=0).fit(tmpadata.obsm["X_pca"])
+        kmeans_labels = kmeans.predict(tmpadata.obsm["X_pca"])
+        idx_kmeans_label = np.argmax(
+            np.bincount(kmeans_labels[tmpadata.obs["normal_candidate"]], minlength=2)
+        )
+        clone = np.array(["normal"] * tmpadata.shape[0])
+        clone[
+            (kmeans_labels != idx_kmeans_label) & (~tmpadata.obs["normal_candidate"])
+        ] = "tumor"
+
+        clone[
+            (kmeans_labels == idx_kmeans_label) & (~tmpadata.obs["normal_candidate"])
+        ] = "unsure"
+        tmpadata.obs["clone"] = clone
+
+        agg_counts = np.vstack(
+            [
+                np.sum(tmpadata.layers["count"][tmpadata.obs["clone"] == c, :], axis=0)
+                for c in ["normal", "unsure", "tumor"]
+            ]
+        )
+        agg_counts = agg_counts / np.sum(agg_counts, axis=1, keepdims=True) * 1e6
+        geneumis = np.array([map_gene_umi[x] for x in tmpadata.var.index])
+        logfc_u = np.where(
+            ((agg_counts[1, :] == 0) | (agg_counts[0, :] == 0)),
+            10,
+            np.log2(agg_counts[1, :] / agg_counts[0, :]),
+        )
+        logfc_t = np.where(
+            ((agg_counts[2, :] == 0) | (agg_counts[0, :] == 0)),
+            10,
+            np.log2(agg_counts[2, :] / agg_counts[0, :]),
+        )
+        this_filtered_out_set = set(
+            list(
+                tmpadata.var.index[
+                    (np.abs(logfc_u) > logfcthreshold_u) & (geneumis > umi_threshold)
+                ]
+            )
+        ) | set(
+            list(
+                tmpadata.var.index[
+                    (np.abs(logfc_t) > logfcthreshold_t) & (geneumis > umi_threshold)
+                ]
+            )
+        )
+        filtered_out_set = filtered_out_set | this_filtered_out_set
+        print(f"Filter out {len(filtered_out_set)} DE genes")
+
+    new_single_X_rdr = np.zeros((df_bininfo.shape[0], adata.shape[0]))
+
+    for b, genestr in enumerate(df_bininfo.INCLUDED_GENES.values):
+        # RDR (genes)
+        involved_genes = set(genestr.split(" ")) - filtered_out_set
+        new_single_X_rdr[b, :] = np.sum(
+            adata.layers["count"][:, adata.var.index.isin(involved_genes)], axis=1
+        )
+
+    return new_single_X_rdr, filtered_out_set
 
 
 def normal_baf_bin_filter(
@@ -96,9 +217,10 @@ def normal_baf_bin_filter(
 
     position_cM = assign_centiMorgans(tmp_sorted_chr_pos, ref_positions_cM)
 
-    phase_switch_prob = compute_phase_switch_probability_position(
+    phase_switch_prob = compute_numbat_phase_switch_prob(
         position_cM, tmp_sorted_chr_pos, nu
     )
+    
     log_sitewise_transmat = np.minimum(
         np.log(0.5), np.log(phase_switch_prob) - logphase_shift
     )

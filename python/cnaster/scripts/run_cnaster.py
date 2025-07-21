@@ -372,6 +372,19 @@ def run_cnaster(config_path):
         config.references.geneticmap_file,
     )
 
+    df_bininfo = genesnp_to_bininfo(df_gene_snp)
+
+    copy_single_X_rdr = copy.copy(single_X[:, 0, :])
+
+    # NB filter out high-UMI DE genes, which may bias RDR estimates
+    copy_single_X_rdr, _ = filter_de_genes_tri(
+        exp_counts,
+        df_bininfo,
+        normal_candidate,
+        sample_list=sample_list,
+        sample_ids=sample_ids,
+    )
+
     logger.info("Done.\n\n")
 
 

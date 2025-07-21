@@ -25,7 +25,11 @@ from cnaster.spatial import (
 )
 from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
 from cnaster.neyman_pearson import neyman_pearson_similarity
-from cnaster.normal_spot import normal_baf_bin_filter, filter_normal_diffexp, binned_gene_snp
+from cnaster.normal_spot import (
+    normal_baf_bin_filter,
+    filter_normal_diffexp,
+    binned_gene_snp,
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -385,6 +389,26 @@ def run_cnaster(config_path):
         sample_list=sample_list,
         sample_ids=sample_ids,
     )
+
+    MIN_NORMAL_COUNT_PERBIN = 20 # MAGIC
+    bidx_inconfident = np.where(
+        np.sum(copy_single_X_rdr[:, (normal_candidate == True)], axis=1)
+        < MIN_NORMAL_COUNT_PERBIN
+    )[0]
+    rdr_normal = np.sum(copy_single_X_rdr[:, (normal_candidate == True)], axis=1)
+    rdr_normal[bidx_inconfident] = 0
+    rdr_normal = rdr_normal / np.sum(rdr_normal)
+
+    # NB avoid ill-defined distributions if normal has 0 count in that bin.
+    copy_single_X_rdr[bidx_inconfident, :] = 0
+    copy_single_base_nb_mean = rdr_normal.reshape(-1, 1) @ np.sum(
+        copy_single_X_rdr, axis=0
+    ).reshape(1, -1)
+
+    # NB adding back RDR signal
+    single_X[:, 0, :] = copy_single_X_rdr
+    single_base_nb_mean = copy_single_base_nb_mean
+    n_obs = single_X.shape[0]
 
     logger.info("Done.\n\n")
 

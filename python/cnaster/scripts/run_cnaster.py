@@ -465,6 +465,9 @@ def run_cnaster(config_path):
             tumorprop_threshold=config.hmrf.tumorprop_threshold,
         )
 
+    # TODO HACK
+    return
+        
     # NB combine results across clones
     res_combine = {"prev_assignment": np.zeros(single_X.shape[2], dtype=int)}
     offset_clone = 0

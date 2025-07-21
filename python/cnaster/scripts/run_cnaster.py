@@ -451,7 +451,7 @@ def run_cnaster(config_path):
             single_tumor_prop[idx_spots],
             initial_clone_index,
             n_states=config.hmm.n_states,
-            log_sitewise_transmat,
+            log_sitewise_transmat=log_sitewise_transmat,
             smooth_mat=smooth_mat[np.ix_(idx_spots, idx_spots)],
             adjacency_mat=adjacency_mat[np.ix_(idx_spots, idx_spots)],
             sample_ids=copy_slice_sample_ids,

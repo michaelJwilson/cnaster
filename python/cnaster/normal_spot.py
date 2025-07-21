@@ -14,7 +14,39 @@ from cnaster.recomb import assign_centiMorgans, compute_numbat_phase_switch_prob
 logger = logging.getLogger(__name__)
 
 
-def filter_de_genes_tri(
+def binned_gene_snp(df_gene_snp):
+    # NB table with contig range + set of genes + snp_ids.
+    table_bininfo = (
+        df_gene_snp[~df_gene_snp.bin_id.isnull()]
+        .groupby("bin_id")
+        .agg(
+            {
+                "CHR": "first",
+                "START": "first",
+                "END": "last",
+                "gene": set,
+                "snp_id": set,
+            }
+        )
+        .reset_index()
+    )
+    table_bininfo["ARM"] = "."
+    table_bininfo["INCLUDED_GENES"] = [
+        " ".join([x for x in y if not x is None]) for y in table_bininfo.gene.values
+    ]
+    table_bininfo["INCLUDED_SNP_IDS"] = [
+        " ".join([x for x in y if not x is None]) for y in table_bininfo.snp_id.values
+    ]
+    table_bininfo["NORMAL_COUNT"] = np.nan
+    table_bininfo["N_SNPS"] = [
+        len([x for x in y if not x is None]) for y in table_bininfo.snp_id.values
+    ]
+
+    table_bininfo.drop(columns=["gene", "snp_id"], inplace=True)
+    return table_bininfo
+
+
+def filter_normal_diffexp(
     exp_counts,
     df_bininfo,
     normal_candidate,
@@ -220,7 +252,7 @@ def normal_baf_bin_filter(
     phase_switch_prob = compute_numbat_phase_switch_prob(
         position_cM, tmp_sorted_chr_pos, nu
     )
-    
+
     log_sitewise_transmat = np.minimum(
         np.log(0.5), np.log(phase_switch_prob) - logphase_shift
     )

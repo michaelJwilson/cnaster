@@ -25,7 +25,7 @@ from cnaster.spatial import (
 )
 from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
 from cnaster.neyman_pearson import neyman_pearson_similarity
-from cnaster.normal_spot import normal_baf_bin_filter
+from cnaster.normal_spot import normal_baf_bin_filter, filter_normal_diffexp, binned_gene_snp
 
 logging.basicConfig(
     level=logging.INFO,
@@ -372,12 +372,13 @@ def run_cnaster(config_path):
         config.references.geneticmap_file,
     )
 
-    df_bininfo = genesnp_to_bininfo(df_gene_snp)
+    # TODO HACK
+    df_bininfo = binned_gene_snp(df_gene_snp)
 
     copy_single_X_rdr = copy.copy(single_X[:, 0, :])
 
     # NB filter out high-UMI DE genes, which may bias RDR estimates
-    copy_single_X_rdr, _ = filter_de_genes_tri(
+    copy_single_X_rdr, _ = filter_normal_diffexp(
         exp_counts,
         df_bininfo,
         normal_candidate,

@@ -209,7 +209,7 @@ def run_cnaster(config_path):
         coords, config.hmrf.n_clones, random_state=0
     )
 
-    hmrfmix_concatenate_pipeline(
+    res = hmrfmix_concatenate_pipeline(
         None,
         None,
         single_X,
@@ -254,9 +254,10 @@ def run_cnaster(config_path):
         threshold=config["tumorprop_threshold"],
     )
 
+    # TODO
     if tumor_prop is not None:
         tumor_prop = np.repeat(tumor_prop, X.shape[0]).reshape(-1, 1)
-
+    """
     merging_groups, merged_res = neyman_pearson_similarity(
         X,
         base_nb_mean,
@@ -268,8 +269,7 @@ def run_cnaster(config_path):
         tumor_prop=tumor_prop,
         hmmclass=hmm_nophasing_v2,
     )
-    
-    logger.info(f"BAF clone merging after comparing similarity: {merging_groups}")
+    """
 
     logger.info("Done.\n\n")
 

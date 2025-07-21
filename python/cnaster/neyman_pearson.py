@@ -270,4 +270,8 @@ def neyman_pearson_similarity(
             for c in merging_groups
         ]
     )
+
+    # TODO
+    logger.info(f"BAF clone merging after comparing similarity: {merging_groups}")
+    
     return merging_groups, merged_res

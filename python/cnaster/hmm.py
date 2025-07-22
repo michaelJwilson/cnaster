@@ -214,7 +214,7 @@ def pipeline_baum_welch(
     pred_cnv = pred % n_states
 
     """
-    if not output_prefix is None:
+    if output_prefix is not None:
         tmp = np.log10(1. - t)
 
         np.savez(

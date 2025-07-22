@@ -72,7 +72,7 @@ def run_cnaster(config_path):
     # TODO CHECK
     barcodes = adata.obs.index
     coords = adata.obsm["X_pos"]
-
+    
     sample_list = [adata.obs["sample"].iloc[0]]
 
     for i in range(1, adata.shape[0]):

@@ -579,7 +579,8 @@ def merge_by_minspots(
     )
     return merging_groups, merged_res
 
-
+# NB point={aggr_hmrf_reassignment, aggr_hmrfmix_reassignment}; 
+#    posterior={hmrf_reassignment_posterior;; hmrfmix_reassignment_posterior}
 def aggr_hmrf_reassignment(
     single_X,
     single_base_nb_mean,
@@ -601,12 +602,12 @@ def aggr_hmrf_reassignment(
     n_states = res["new_p_binom"].shape[0]
     single_llf = np.zeros((N, n_clones))
     new_assignment = copy.copy(prev_assignment)
-    #
+    
     posterior = np.zeros((N, n_clones))
 
-    for i in trange(N):
+    for i in range(N):
         idx = smooth_mat[i, :].nonzero()[1]
-        # idx = np.append(idx, np.array([i]))
+        
         for c in range(n_clones):
             tmp_log_emission_rdr, tmp_log_emission_baf = (
                 hmmclass.compute_emission_probability_nb_betabinom(
@@ -628,7 +629,7 @@ def aggr_hmrf_reassignment(
                     * np.sum(single_total_bb_RD[:, idx] > 0)
                     / np.sum(single_base_nb_mean[:, idx] > 0)
                 )
-                # ratio_nonzeros = 1.0 * np.sum(np.sum(single_total_bb_RD[:,idx], axis=1) > 0) / np.sum(np.sum(single_base_nb_mean[:,idx], axis=1) > 0)
+                
                 single_llf[i, c] = ratio_nonzeros * np.sum(
                     tmp_log_emission_rdr[pred[:, c], np.arange(n_obs), 0]
                 ) + np.sum(tmp_log_emission_baf[pred[:, c], np.arange(n_obs), 0])
@@ -644,14 +645,14 @@ def aggr_hmrf_reassignment(
             if new_assignment[j] >= 0:
                 w_edge[new_assignment[j]] += adjacency_mat[i, j]
         new_assignment[i] = np.argmax(w_node + spatial_weight * w_edge)
-        #
+        
         posterior[i, :] = np.exp(
             w_node
             + spatial_weight * w_edge
             - scipy.special.logsumexp(w_node + spatial_weight * w_edge)
         )
 
-    # compute total log likelihood log P(X | Z) + log P(Z)
+    # NB compute total log likelihood: log P(X | Z) + log P(Z)
     total_llf = np.sum(single_llf[np.arange(N), new_assignment])
     for i in range(N):
         total_llf += np.sum(
@@ -689,7 +690,7 @@ def hmrf_reassignment_posterior(
 
     posterior = np.zeros((N, n_clones))
 
-    for i in trange(N):
+    for i in range(N):
         idx = smooth_mat[i, :].nonzero()[1]
 
         for c in range(n_clones):
@@ -794,7 +795,7 @@ def aggr_hmrfmix_reassignment(
 
     posterior = np.zeros((N, n_clones))
 
-    for i in trange(N):
+    for i in range(N):
         idx = smooth_mat[i, :].nonzero()[1]
         idx = idx[~np.isnan(single_tumor_prop[idx])]
         for c in range(n_clones):
@@ -897,7 +898,7 @@ def hmrfmix_reassignment_posterior(
     
     posterior = np.zeros((N, n_clones))
 
-    for i in trange(N):
+    for i in range(N):
         idx = smooth_mat[i, :].nonzero()[1]
         idx = idx[~np.isnan(single_tumor_prop[idx])]
         for c in range(n_clones):

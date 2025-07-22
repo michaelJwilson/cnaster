@@ -718,8 +718,8 @@ def run_cnaster(config_path):
         ] - scipy.special.logsumexp(log_persample_weights[:, sidx])
 
     # NB final re-assignment across all clones using estimated copy number states.
-    if config["tumorprop_file"] is None:
-        if config["nodepotential"] == "max":
+    if config.preprocessing.tumorprop_file is None:
+        if config.hmrf.nodepotential == "max":
             pred = np.vstack(
                 [
                     np.argmax(res_combine["log_gamma"][:, :, c], axis=0)
@@ -737,11 +737,11 @@ def run_cnaster(config_path):
                 res_combine["prev_assignment"],
                 copy.copy(sample_ids),
                 log_persample_weights,
-                spatial_weight=config["spatial_weight"],
-                hmmclass=hmm_nophasing_v2,
+                spatial_weight=config.hmrf.spatial_weight,
+                hmmclass=hmm_nophasing,
                 return_posterior=True,
             )
-        elif config["nodepotential"] == "weighted_sum":
+        elif config.hmrf.nodepotential == "weighted_sum":
             new_assignment, single_llf, total_llf, posterior = (
                 hmrf_reassignment_posterior(
                     single_X,
@@ -753,13 +753,13 @@ def run_cnaster(config_path):
                     res_combine["prev_assignment"],
                     copy.copy(sample_ids),
                     log_persample_weights,
-                    spatial_weight=config["spatial_weight"],
-                    hmmclass=hmm_nophasing_v2,
+                    spatial_weight=config.hmrf.spatial_weight,
+                    hmmclass=hmm_nophasing,
                     return_posterior=True,
                 )
             )
     else:
-        if config["nodepotential"] == "max":
+        if config.hmrf.nodepotential == "max":
             pred = np.vstack(
                 [
                     np.argmax(res_combine["log_gamma"][:, :, c], axis=0)
@@ -779,13 +779,13 @@ def run_cnaster(config_path):
                     res_combine["prev_assignment"],
                     copy.copy(sample_ids),
                     log_persample_weights,
-                    spatial_weight=config["spatial_weight"],
-                    hmmclass=hmm_nophasing_v2,
+                    spatial_weight=config.hmrf.spatial_weight,
+                    hmmclass=hmm_nophasing,
                     return_posterior=True,
                 )
             )
 
-        elif config["nodepotential"] == "weighted_sum":
+        elif config.hmrf.nodepotential == "weighted_sum":
             new_assignment, single_llf, total_llf, posterior = (
                 hmrfmix_reassignment_posterior(
                     single_X,
@@ -798,8 +798,8 @@ def run_cnaster(config_path):
                     res_combine["prev_assignment"],
                     copy.copy(sample_ids),
                     log_persample_weights,
-                    spatial_weight=config["spatial_weight"],
-                    hmmclass=hmm_nophasing_v2,
+                    spatial_weight=config.hmrf.spatial_weight,
+                    hmmclass=hmm_nophasing,
                     return_posterior=True,
                 )
             )

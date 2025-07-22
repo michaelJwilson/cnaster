@@ -413,6 +413,8 @@ def run_cnaster(config_path):
 
     logger.info(f"Finding refinement of {n_baf_clones} BAF-identified clones.")
 
+    clone_res = {}
+    
     for bafc in range(n_baf_clones):
         logger.info(f"Solving for BAF clone {bafc}/{n_baf_clones}.")
 
@@ -434,7 +436,7 @@ def run_cnaster(config_path):
         # HMRF + HMM using RDR data.
         copy_slice_sample_ids = copy.copy(sample_ids[idx_spots])
 
-        hmrfmix_concatenate_pipeline(
+        clone_res[prefix] = hmrfmix_concatenate_pipeline(
             None,
             None,
             single_X[:, :, idx_spots],
@@ -464,9 +466,6 @@ def run_cnaster(config_path):
             spatial_weight=config.hmrf.spatial_weight,
             tumorprop_threshold=config.hmrf.tumorprop_threshold,
         )
-
-    # TODO HACK
-    return
         
     # NB combine results across clones
     res_combine = {"prev_assignment": np.zeros(single_X.shape[2], dtype=int)}
@@ -482,7 +481,6 @@ def run_cnaster(config_path):
                 allow_pickle=True,
             )
         )
-        """
 
         # NB allres stores all iterations: find the total number and load the last one.
         r = allres["num_iterations"] - 1
@@ -500,7 +498,12 @@ def run_cnaster(config_path):
             "prev_assignment": allres[f"round{r-1}_assignment"],
             "new_assignment": allres[f"round{r}_assignment"],
         }
-        idx_spots = np.where(barcodes.isin(allres["barcodes"]))[0]
+        """
+
+        res = clone_res[prefix]
+
+        # TODO HACK?
+        idx_spots = np.where(barcodes.isin(res["barcodes"]))[0]
 
         # NB 
         if len(np.unique(res["new_assignment"])) == 1:
@@ -579,7 +582,7 @@ def run_cnaster(config_path):
                     threshold=config.hmrf.tumorprop_threshold,
                 )
             )
-            """
+
             # TODO clone stack.
             merged_res = pipeline_baum_welch(
                 None,
@@ -609,12 +612,12 @@ def run_cnaster(config_path):
                 init_p_binom=res["new_p_binom"],
                 init_alphas=res["new_alphas"],
                 init_taus=res["new_taus"],
-                max_iter=config["max_iter"],
-                tol=config["tol"],
+                max_iter=config.hmm.max_iter,
+                tol=config.hmm.tol,
                 lambd=np.sum(base_nb_mean, axis=1) / np.sum(base_nb_mean),
                 sample_length=np.ones(X.shape[2], dtype=int) * X.shape[0],
             )
-
+            """
             merged_res["new_assignment"] = copy.copy(tmp)
             merged_res = combine_similar_states_across_clones(
                 X,

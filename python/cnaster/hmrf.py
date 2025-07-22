@@ -493,6 +493,62 @@ def hmrfmix_concatenate_pipeline(
     return res
 
 
+def reindex_clones(res_combine, posterior, single_tumor_prop):
+    EPS_BAF = 0.05 # MAGIC
+    n_spots = posterior.shape[0]
+    n_obs = res_combine["pred_cnv"].shape[0]
+    n_states, n_clones = res_combine["new_p_binom"].shape
+    new_res_combine = copy.copy(res_combine)
+    new_posterior = copy.copy(posterior)
+    
+    if single_tumor_prop is None:
+        # NB select 'near-normal' clone and set to clone 0
+        pred_cnv = res_combine["pred_cnv"]
+        baf_profiles = np.array(
+            [res_combine["new_p_binom"][pred_cnv[:, c], c] for c in range(n_clones)]
+        )
+        cid_normal = np.argmin(
+            np.sum(np.maximum(np.abs(baf_profiles - 0.5) - EPS_BAF, 0), axis=1)
+        )
+        cid_rest = np.array([c for c in range(n_clones) if c != cid_normal]).astype(int)
+        reidx = np.append(cid_normal, cid_rest)
+        map_reidx = {cid: i for i, cid in enumerate(reidx)}
+        # NB re-order entries in res_combine
+        new_res_combine["new_assignment"] = np.array(
+            [map_reidx[c] for c in res_combine["new_assignment"]]
+        )
+        new_res_combine["new_log_mu"] = res_combine["new_log_mu"][:, reidx]
+        new_res_combine["new_alphas"] = res_combine["new_alphas"][:, reidx]
+        new_res_combine["new_p_binom"] = res_combine["new_p_binom"][:, reidx]
+        new_res_combine["new_taus"] = res_combine["new_taus"][:, reidx]
+        new_res_combine["log_gamma"] = res_combine["log_gamma"][:, :, reidx]
+        new_res_combine["pred_cnv"] = res_combine["pred_cnv"][:, reidx]
+        new_posterior = new_posterior[:, reidx]
+    else:
+        # NB add normal clone as clone 0
+        new_res_combine["new_assignment"] = new_res_combine["new_assignment"] + 1
+        new_res_combine["new_log_mu"] = np.hstack(
+            [np.zeros((n_states, 1)), res_combine["new_log_mu"]]
+        )
+        new_res_combine["new_alphas"] = np.hstack(
+            [np.zeros((n_states, 1)), res_combine["new_alphas"]]
+        )
+        new_res_combine["new_p_binom"] = np.hstack(
+            [0.5 * np.ones((n_states, 1)), res_combine["new_p_binom"]]
+        )
+        new_res_combine["new_taus"] = np.hstack(
+            [np.zeros((n_states, 1)), res_combine["new_taus"]]
+        )
+        new_res_combine["log_gamma"] = np.dstack(
+            [np.zeros((n_states, n_obs, 1)), res_combine["log_gamma"]]
+        )
+        new_res_combine["pred_cnv"] = np.hstack(
+            [np.zeros((n_obs, 1), dtype=int), res_combine["pred_cnv"]]
+        )
+        new_posterior = np.hstack([np.ones((n_spots, 1)) * np.nan, posterior])
+    return new_res_combine, new_posterior
+
+
 def merge_by_minspots(
     assignment,
     res,
@@ -578,6 +634,7 @@ def merge_by_minspots(
         ]
     )
     return merging_groups, merged_res
+
 
 """
 def compute_hmrf_assignment_likelihood(
@@ -770,6 +827,7 @@ def _get_mixture_emission_args(
 
         return base_args + (tumor_prop_arg, weighted_tp.reshape(-1, 1))
 """
+
 
 # NB point={aggr_hmrf_reassignment, aggr_hmrfmix_reassignment};
 #    posterior={hmrf_reassignment_posterior;; hmrfmix_reassignment_posterior}

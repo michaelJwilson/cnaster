@@ -14,6 +14,7 @@ from cnaster.hmrf import (
     hmrf_reassignment_posterior,
     aggr_hmrfmix_reassignment,
     hmrfmix_reassignment_posterior,
+    reindex_clones
 )
 from cnaster.io import load_input_data
 from cnaster.omics import (
@@ -808,8 +809,20 @@ def run_cnaster(config_path):
     res_combine["new_assignment"] = new_assignment
 
     # NB re-order clones such that normal clones are always clone 0.
-    # res_combine, posterior = reorder_results(res_combine, posterior, single_tumor_prop)
+    res_combine, posterior = reindex_clones(res_combine, posterior, single_tumor_prop)
 
+    df_clone_label = pd.DataFrame({"clone_label": res_combine["new_assignment"]}, index=barcodes)
+    
+    if config["tumorprop_file"] is not None:
+        df_clone_label["tumor_proportion"] = single_tumor_prop
+
+    opath = f"{config.output_dir}/clone_labels.tsv", header=True, index=True, sep="\t")
+
+    logger.info(f"Writing inferred clone labels to {opath}")
+
+    # TODO HACK
+    # df_clone_label.to_csv(f"{outdir}/clone_labels.tsv", header=True, index=True, sep="\t")
+    
     logger.info("Done.\n\n")
 
 

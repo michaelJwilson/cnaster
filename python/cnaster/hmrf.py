@@ -380,7 +380,7 @@ def hmrfmix_concatenate_pipeline(
 
         pred = np.argmax(res["log_gamma"], axis=0)
 
-        # NB 'max' clone assignment.
+        # NB TODO 'max' clone assignment.
         new_assignment, single_llf, total_llf = aggr_hmrfmix_reassignment_concatenate(
             single_X,
             single_base_nb_mean,

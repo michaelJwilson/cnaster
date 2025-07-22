@@ -59,6 +59,7 @@ def run_cnaster(config_path):
     )
 
     # TODO CHECK
+    barcodes = adata.obs.index
     coords = adata.obsm["X_pos"]
 
     sample_list = [adata.obs["sample"].iloc[0]]
@@ -426,17 +427,25 @@ def run_cnaster(config_path):
             logger.warning(f"TODO")
             continue
 
-        # TODO tumor_prop
+        # TODO tumor_prop, i.e. _mix.
         initial_clone_index = rectangle_initialize_initial_clone(
             coords[idx_spots],
             config.hmrf.n_clones_rdr,
             random_state=0,  # TODO HACK.
         )
 
+        initial_assignment = np.zeros(len(idx_spots), dtype=int)
+        
+        for c,idx in enumerate(initial_clone_index):
+            initial_assignment[idx] = c
+
+        # NB 
+        clone_res[prefix] = {"barcodes": barcodes[idx_spots], "num_iterations": 0, "round-1_assignment": initial_assignment}
+        
         # HMRF + HMM using RDR data.
         copy_slice_sample_ids = copy.copy(sample_ids[idx_spots])
 
-        clone_res[prefix] = hmrfmix_concatenate_pipeline(
+        clone_res[prefix] = clone_res[prefix] | hmrfmix_concatenate_pipeline(
             None,
             None,
             single_X[:, :, idx_spots],
@@ -444,7 +453,7 @@ def run_cnaster(config_path):
             single_base_nb_mean[:, idx_spots],
             single_total_bb_RD[:, idx_spots],
             single_tumor_prop[idx_spots] if single_tumor_prop is not None else None,
-            initial_clone_index,
+            initial_clone_index, # NB
             n_states=config.hmm.n_states,
             log_sitewise_transmat=log_sitewise_transmat,
             smooth_mat=smooth_mat[np.ix_(idx_spots, idx_spots)],
@@ -466,6 +475,8 @@ def run_cnaster(config_path):
             spatial_weight=config.hmrf.spatial_weight,
             tumorprop_threshold=config.hmrf.tumorprop_threshold,
         )
+
+    return 
         
     # NB combine results across clones
     res_combine = {"prev_assignment": np.zeros(single_X.shape[2], dtype=int)}
@@ -474,32 +485,6 @@ def run_cnaster(config_path):
     # NB Neyman-Pearson and min. spot merging across RDR redefined clones.
     for bafc in range(n_baf_clones):
         prefix = f"clone{bafc}"
-        """
-        allres = dict(
-            np.load(
-                f"{outdir}/{prefix}_nstates{config.hmm.n_states]}_smp.npz",
-                allow_pickle=True,
-            )
-        )
-
-        # NB allres stores all iterations: find the total number and load the last one.
-        r = allres["num_iterations"] - 1
-        res = {
-            "new_log_mu": allres[f"round{r}_new_log_mu"],
-            "new_alphas": allres[f"round{r}_new_alphas"],
-            "new_p_binom": allres[f"round{r}_new_p_binom"],
-            "new_taus": allres[f"round{r}_new_taus"],
-            "new_log_startprob": allres[f"round{r}_new_log_startprob"],
-            "new_log_transmat": allres[f"round{r}_new_log_transmat"],
-            "log_gamma": allres[f"round{r}_log_gamma"],
-            "pred_cnv": allres[f"round{r}_pred_cnv"],
-            "llf": allres[f"round{r}_llf"],
-            "total_llf": allres[f"round{r}_total_llf"],
-            "prev_assignment": allres[f"round{r-1}_assignment"],
-            "new_assignment": allres[f"round{r}_assignment"],
-        }
-        """
-
         res = clone_res[prefix]
 
         # TODO HACK?

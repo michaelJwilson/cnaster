@@ -693,9 +693,7 @@ def run_cnaster(config_path):
                 merged_res["new_assignment"] + offset_clone
             )
 
-            offset_clone += n_merged_clones
-
-    return 
+            offset_clone += n_merged_clones 
             
     # HACK assume dispersions are the same across all clones (max?)
     res_combine["new_alphas"][:, :] = np.max(res_combine["new_alphas"])

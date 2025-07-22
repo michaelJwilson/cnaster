@@ -24,7 +24,7 @@ from cnaster.spatial import (
     rectangle_initialize_initial_clone,
 )
 from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
-from cnaster.neyman_pearson import neyman_pearson_similarity
+from cnaster.neyman_pearson import neyman_pearson_similarity, combine_similar_states_across_clones
 from cnaster.normal_spot import (
     normal_baf_bin_filter,
     filter_normal_diffexp,
@@ -617,7 +617,7 @@ def run_cnaster(config_path):
                 lambd=np.sum(base_nb_mean, axis=1) / np.sum(base_nb_mean),
                 sample_length=np.ones(X.shape[2], dtype=int) * X.shape[0],
             )
-            """
+
             merged_res["new_assignment"] = copy.copy(tmp)
             merged_res = combine_similar_states_across_clones(
                 X,
@@ -633,7 +633,6 @@ def run_cnaster(config_path):
                 hmmclass=hmm_nophasing,
                 merge_threshold=0.1,
             )
-            """
 
     logger.info("Done.\n\n")
 

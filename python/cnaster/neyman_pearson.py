@@ -99,8 +99,7 @@ def neyman_pearson_similarity(
 ):
     logger.info("Solving for Neyman-Pearson similiarity.")
 
-    n_obs = X.shape[0]
-    n_clones = X.shape[2]
+    n_obs, _, n_clones = X.shape
     n_states = res["new_p_binom"].shape[0]
 
     G = nx.Graph()
@@ -420,10 +419,11 @@ def combine_similar_states_across_clones(
     merge_threshold=0.1,
     **kwargs,
 ):
-    n_clones = X.shape[2]
-    n_obs = X.shape[0]
+    n_obs, _, n_clones = X.shape
     n_states = res["new_p_binom"].shape[0]
     reshaped_pred = np.argmax(res["log_gamma"], axis=0).reshape((X.shape[2], -1))
+
+    # NB drop phasing information.
     reshaped_pred_cnv = reshaped_pred % n_states
 
     all_test_statistics = compute_neymanpearson_stats(

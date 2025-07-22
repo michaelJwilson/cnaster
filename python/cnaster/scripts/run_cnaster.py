@@ -810,7 +810,8 @@ def run_cnaster(config_path):
 
     # NB re-order clones such that normal clones are always clone 0.
     res_combine, posterior = reindex_clones(res_combine, posterior, single_tumor_prop)
-        
+
+    # TODO CHECK
     df_clone_label = pd.DataFrame({
         "x": coords[:, 0],
         "y": coords[:, 1]

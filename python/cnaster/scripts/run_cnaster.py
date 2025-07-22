@@ -767,6 +767,7 @@ def run_cnaster(config_path):
                     for c in range(res_combine["log_gamma"].shape[2])
                 ]
             ).T
+            
             new_assignment, single_llf, total_llf, posterior = (
                 aggr_hmrfmix_reassignment(
                     single_X,

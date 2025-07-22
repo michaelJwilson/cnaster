@@ -704,6 +704,8 @@ def run_cnaster(config_path):
 
     n_final_clones = len(np.unique(res_combine["prev_assignment"]))
 
+    logger.info(f"Inferred {n_final_clones} given BAF+RDR data.")
+    
     log_persample_weights = np.zeros((n_final_clones, len(sample_list)))
 
     for sidx in range(len(sample_list)):

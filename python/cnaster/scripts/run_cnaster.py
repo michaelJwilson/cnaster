@@ -813,12 +813,12 @@ def run_cnaster(config_path):
 
     df_clone_label = pd.DataFrame({"clone_label": res_combine["new_assignment"]}, index=barcodes)
     
-    if config["tumorprop_file"] is not None:
+    if config.preprocessing.tumorprop_file is not None:
         df_clone_label["tumor_proportion"] = single_tumor_prop
 
-    opath = f"{config.output_dir}/clone_labels.tsv", header=True, index=True, sep="\t")
+    opath = f"{config.paths.output_dir}/clone_labels.tsv"
 
-    logger.info(f"Writing inferred clone labels to {opath}")
+    logger.info(f"Writing inferred clone labels to {opath}:\n{df_clone_label.head()}")
 
     # TODO HACK
     # df_clone_label.to_csv(f"{outdir}/clone_labels.tsv", header=True, index=True, sep="\t")

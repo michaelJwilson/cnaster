@@ -810,11 +810,16 @@ def run_cnaster(config_path):
 
     # NB re-order clones such that normal clones are always clone 0.
     res_combine, posterior = reindex_clones(res_combine, posterior, single_tumor_prop)
+        
+    df_clone_label = pd.DataFrame({
+        "x": coords[:, 0],
+        "y": coords[:, 1]
+    }, index=barcodes)
 
-    df_clone_label = pd.DataFrame({"clone_label": res_combine["new_assignment"]}, index=barcodes)
-    
     if config.preprocessing.tumorprop_file is not None:
         df_clone_label["tumor_proportion"] = single_tumor_prop
+
+    df_clone_label["clone_label"] = res_combine["new_assignment"]
 
     opath = f"{config.paths.output_dir}/clone_labels.tsv"
 

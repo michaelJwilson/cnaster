@@ -24,7 +24,10 @@ from cnaster.spatial import (
     rectangle_initialize_initial_clone,
 )
 from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
-from cnaster.neyman_pearson import neyman_pearson_similarity, combine_similar_states_across_clones
+from cnaster.neyman_pearson import (
+    neyman_pearson_similarity,
+    combine_similar_states_across_clones,
+)
 from cnaster.normal_spot import (
     normal_baf_bin_filter,
     filter_normal_diffexp,
@@ -414,7 +417,7 @@ def run_cnaster(config_path):
     logger.info(f"Finding refinement of {n_baf_clones} BAF-identified clones.")
 
     clone_res = {}
-    
+
     for bafc in range(n_baf_clones):
         logger.info(f"Solving for BAF clone {bafc}/{n_baf_clones}.")
 
@@ -466,7 +469,7 @@ def run_cnaster(config_path):
             spatial_weight=config.hmrf.spatial_weight,
             tumorprop_threshold=config.hmrf.tumorprop_threshold,
         )
-        
+
     # NB combine results across clones
     res_combine = {"prev_assignment": np.zeros(single_X.shape[2], dtype=int)}
     offset_clone = 0
@@ -474,38 +477,12 @@ def run_cnaster(config_path):
     # NB Neyman-Pearson and min. spot merging across RDR redefined clones.
     for bafc in range(n_baf_clones):
         prefix = f"clone{bafc}"
-        """
-        allres = dict(
-            np.load(
-                f"{outdir}/{prefix}_nstates{config.hmm.n_states]}_smp.npz",
-                allow_pickle=True,
-            )
-        )
-
-        # NB allres stores all iterations: find the total number and load the last one.
-        r = allres["num_iterations"] - 1
-        res = {
-            "new_log_mu": allres[f"round{r}_new_log_mu"],
-            "new_alphas": allres[f"round{r}_new_alphas"],
-            "new_p_binom": allres[f"round{r}_new_p_binom"],
-            "new_taus": allres[f"round{r}_new_taus"],
-            "new_log_startprob": allres[f"round{r}_new_log_startprob"],
-            "new_log_transmat": allres[f"round{r}_new_log_transmat"],
-            "log_gamma": allres[f"round{r}_log_gamma"],
-            "pred_cnv": allres[f"round{r}_pred_cnv"],
-            "llf": allres[f"round{r}_llf"],
-            "total_llf": allres[f"round{r}_total_llf"],
-            "prev_assignment": allres[f"round{r-1}_assignment"],
-            "new_assignment": allres[f"round{r}_assignment"],
-        }
-        """
-
         res = clone_res[prefix]
 
         # TODO HACK?
         idx_spots = np.where(barcodes.isin(res["barcodes"]))[0]
 
-        # NB 
+        # NB
         if len(np.unique(res["new_assignment"])) == 1:
             n_merged_clones = 1
             c = res["new_assignment"][0]
@@ -525,18 +502,16 @@ def run_cnaster(config_path):
                 (-1, 1)
             )
         else:
-            X, base_nb_mean, total_bb_RD, tumor_prop = (
-                merge_pseudobulk_by_index_mix(
-                    single_X[:, :, idx_spots],
-                    single_base_nb_mean[:, idx_spots],
-                    single_total_bb_RD[:, idx_spots],
-                    [
-                        np.where(res["new_assignment"] == c)[0]
-                        for c in np.sort(np.unique(res["new_assignment"]))
-                    ],
-                    single_tumor_prop[idx_spots] if single_tumor_prop is not None else None,
-                    threshold=config.hmrf.tumorprop_threshold,
-                )
+            X, base_nb_mean, total_bb_RD, tumor_prop = merge_pseudobulk_by_index_mix(
+                single_X[:, :, idx_spots],
+                single_base_nb_mean[:, idx_spots],
+                single_total_bb_RD[:, idx_spots],
+                [
+                    np.where(res["new_assignment"] == c)[0]
+                    for c in np.sort(np.unique(res["new_assignment"]))
+                ],
+                single_tumor_prop[idx_spots] if single_tumor_prop is not None else None,
+                threshold=config.hmrf.tumorprop_threshold,
             )
 
             if tumor_prop is not None:
@@ -561,34 +536,36 @@ def run_cnaster(config_path):
                 single_total_bb_RD[:, idx_spots],
                 min_spots_thresholds=config.hmrf.min_spots_per_clone,
                 min_umicount_thresholds=n_obs * config.hmrf.min_avgumi_per_clone,
-                single_tumor_prop=single_tumor_prop[idx_spots] if single_tumor_prop is not None else None,
+                single_tumor_prop=(
+                    single_tumor_prop[idx_spots]
+                    if single_tumor_prop is not None
+                    else None
+                ),
                 threshold=config.hmrf.tumorprop_threshold,
             )
 
             # NB compute posterior using the newly merged pseudobulk
             n_merged_clones = len(merging_groups)
             tmp = copy.copy(merged_res["new_assignment"])
-            
-            X, base_nb_mean, total_bb_RD, tumor_prop = (
-                merge_pseudobulk_by_index_mix(
-                    single_X[:, :, idx_spots],
-                    single_base_nb_mean[:, idx_spots],
-                    single_total_bb_RD[:, idx_spots],
-                    [
-                        np.where(merged_res["new_assignment"] == c)[0]
-                        for c in range(n_merged_clones)
-                    ],
-                    single_tumor_prop[idx_spots] if single_tumor_prop is not None else None,
-                    threshold=config.hmrf.tumorprop_threshold,
-                )
+
+            X, base_nb_mean, total_bb_RD, tumor_prop = merge_pseudobulk_by_index_mix(
+                single_X[:, :, idx_spots],
+                single_base_nb_mean[:, idx_spots],
+                single_total_bb_RD[:, idx_spots],
+                [
+                    np.where(merged_res["new_assignment"] == c)[0]
+                    for c in range(n_merged_clones)
+                ],
+                single_tumor_prop[idx_spots] if single_tumor_prop is not None else None,
+                threshold=config.hmrf.tumorprop_threshold,
             )
 
             # TODO clone stack.
             merged_res = pipeline_baum_welch(
                 None,
-                np.vstack(
-                    [X[:, 0, :].flatten("F"), X[:, 1, :].flatten("F")]
-                ).T.reshape(-1, 2, 1),
+                np.vstack([X[:, 0, :].flatten("F"), X[:, 1, :].flatten("F")]).T.reshape(
+                    -1, 2, 1
+                ),
                 np.tile(lengths, X.shape[2]),
                 config.hmm.n_states,
                 base_nb_mean.flatten("F").reshape(-1, 1),
@@ -634,6 +611,183 @@ def run_cnaster(config_path):
                 merge_threshold=0.1,
             )
 
+            log_gamma = np.stack(
+                [
+                    merged_res["log_gamma"][:, (c * n_obs) : (c * n_obs + n_obs)]
+                    for c in range(n_merged_clones)
+                ],
+                axis=-1,
+            )
+            pred_cnv = np.vstack(
+                [
+                    merged_res["pred_cnv"][(c * n_obs) : (c * n_obs + n_obs)]
+                    for c in range(n_merged_clones)
+                ]
+            ).T
+
+            if len(res_combine) == 1:
+                res_combine.update(
+                    {
+                        "new_log_mu": np.hstack(
+                            n_merged_clones * [merged_res["new_log_mu"]]
+                        ),
+                        "new_alphas": np.hstack(
+                            n_merged_clones * [merged_res["new_alphas"]]
+                        ),
+                        "new_p_binom": np.hstack(
+                            n_merged_clones * [merged_res["new_p_binom"]]
+                        ),
+                        "new_taus": np.hstack(
+                            n_merged_clones * [merged_res["new_taus"]]
+                        ),
+                        "log_gamma": log_gamma,
+                        "pred_cnv": pred_cnv,
+                    }
+                )
+            else:
+                res_combine.update(
+                    {
+                        "new_log_mu": np.hstack(
+                            [res_combine["new_log_mu"]]
+                            + n_merged_clones * [merged_res["new_log_mu"]]
+                        ),
+                        "new_alphas": np.hstack(
+                            [res_combine["new_alphas"]]
+                            + n_merged_clones * [merged_res["new_alphas"]]
+                        ),
+                        "new_p_binom": np.hstack(
+                            [res_combine["new_p_binom"]]
+                            + n_merged_clones * [merged_res["new_p_binom"]]
+                        ),
+                        "new_taus": np.hstack(
+                            [res_combine["new_taus"]]
+                            + n_merged_clones * [merged_res["new_taus"]]
+                        ),
+                        "log_gamma": np.dstack([res_combine["log_gamma"], log_gamma]),
+                        "pred_cnv": np.hstack([res_combine["pred_cnv"], pred_cnv]),
+                    }
+                )
+
+            res_combine["prev_assignment"][idx_spots] = (
+                merged_res["new_assignment"] + offset_clone
+            )
+
+            offset_clone += n_merged_clones
+
+    # HACK assume dispersions are the same across all clones (max?)
+    res_combine["new_alphas"][:, :] = np.max(res_combine["new_alphas"])
+
+    # HACK BUG!? assume dispersions are the same across all clones (min??)
+    res_combine["new_taus"][:, :] = np.min(res_combine["new_taus"])
+
+    n_final_clones = len(np.unique(res_combine["prev_assignment"]))
+
+    log_persample_weights = np.zeros((n_final_clones, len(sample_list)))
+
+    for sidx in range(len(sample_list)):
+        index = np.where(sample_ids == sidx)[0]
+        this_persample_weight = np.bincount(
+            res_combine["prev_assignment"][index], minlength=n_final_clones
+        ) / len(index)
+        log_persample_weights[:, sidx] = np.where(
+            this_persample_weight > 0, np.log(this_persample_weight), -50
+        )
+        log_persample_weights[:, sidx] = log_persample_weights[
+            :, sidx
+        ] - scipy.special.logsumexp(log_persample_weights[:, sidx])
+
+    # NB final re-assignment across all clones using estimated copy number states.
+    if config["tumorprop_file"] is None:
+        if config["nodepotential"] == "max":
+            pred = np.vstack(
+                [
+                    np.argmax(res_combine["log_gamma"][:, :, c], axis=0)
+                    for c in range(res_combine["log_gamma"].shape[2])
+                ]
+            ).T
+            new_assignment, single_llf, total_llf, posterior = aggr_hmrf_reassignment(
+                single_X,
+                single_base_nb_mean,
+                single_total_bb_RD,
+                res_combine,
+                pred,
+                smooth_mat,
+                adjacency_mat,
+                res_combine["prev_assignment"],
+                copy.copy(sample_ids),
+                log_persample_weights,
+                spatial_weight=config["spatial_weight"],
+                hmmclass=hmm_nophasing_v2,
+                return_posterior=True,
+            )
+        elif config["nodepotential"] == "weighted_sum":
+            new_assignment, single_llf, total_llf, posterior = (
+                hmrf_reassignment_posterior(
+                    single_X,
+                    single_base_nb_mean,
+                    single_total_bb_RD,
+                    res_combine,
+                    smooth_mat,
+                    adjacency_mat,
+                    res_combine["prev_assignment"],
+                    copy.copy(sample_ids),
+                    log_persample_weights,
+                    spatial_weight=config["spatial_weight"],
+                    hmmclass=hmm_nophasing_v2,
+                    return_posterior=True,
+                )
+            )
+    else:
+        if config["nodepotential"] == "max":
+            pred = np.vstack(
+                [
+                    np.argmax(res_combine["log_gamma"][:, :, c], axis=0)
+                    for c in range(res_combine["log_gamma"].shape[2])
+                ]
+            ).T
+            new_assignment, single_llf, total_llf, posterior = (
+                aggr_hmrfmix_reassignment(
+                    single_X,
+                    single_base_nb_mean,
+                    single_total_bb_RD,
+                    single_tumor_prop,
+                    res_combine,
+                    pred,
+                    smooth_mat,
+                    adjacency_mat,
+                    res_combine["prev_assignment"],
+                    copy.copy(sample_ids),
+                    log_persample_weights,
+                    spatial_weight=config["spatial_weight"],
+                    hmmclass=hmm_nophasing_v2,
+                    return_posterior=True,
+                )
+            )
+        elif config["nodepotential"] == "weighted_sum":
+            new_assignment, single_llf, total_llf, posterior = (
+                hmrfmix_reassignment_posterior(
+                    single_X,
+                    single_base_nb_mean,
+                    single_total_bb_RD,
+                    single_tumor_prop,
+                    res_combine,
+                    smooth_mat,
+                    adjacency_mat,
+                    res_combine["prev_assignment"],
+                    copy.copy(sample_ids),
+                    log_persample_weights,
+                    spatial_weight=config["spatial_weight"],
+                    hmmclass=hmm_nophasing_v2,
+                    return_posterior=True,
+                )
+            )
+            
+    res_combine["total_llf"] = total_llf
+    res_combine["new_assignment"] = new_assignment
+    """
+    # NB re-order clones such that normal clones are always clone 0.
+    res_combine, posterior = reorder_results(res_combine, posterior, single_tumor_prop)
+    """
     logger.info("Done.\n\n")
 
 

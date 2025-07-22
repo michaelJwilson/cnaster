@@ -7,7 +7,14 @@ import pandas as pd
 import scipy
 from cnaster.config import YAMLConfig, set_global_config
 from cnaster.hmm_nophasing import hmm_nophasing
-from cnaster.hmrf import hmrfmix_concatenate_pipeline, merge_by_minspots
+from cnaster.hmrf import (
+    hmrfmix_concatenate_pipeline,
+    merge_by_minspots,
+    aggr_hmrf_reassignment,
+    hmrf_reassignment_posterior,
+    aggr_hmrfmix_reassignment,
+    hmrfmix_reassignment_posterior,
+)
 from cnaster.io import load_input_data
 from cnaster.omics import (
     assign_initial_blocks,
@@ -763,6 +770,7 @@ def run_cnaster(config_path):
                     return_posterior=True,
                 )
             )
+
         elif config["nodepotential"] == "weighted_sum":
             new_assignment, single_llf, total_llf, posterior = (
                 hmrfmix_reassignment_posterior(
@@ -781,13 +789,13 @@ def run_cnaster(config_path):
                     return_posterior=True,
                 )
             )
-            
+
     res_combine["total_llf"] = total_llf
     res_combine["new_assignment"] = new_assignment
-    """
+
     # NB re-order clones such that normal clones are always clone 0.
-    res_combine, posterior = reorder_results(res_combine, posterior, single_tumor_prop)
-    """
+    # res_combine, posterior = reorder_results(res_combine, posterior, single_tumor_prop)
+
     logger.info("Done.\n\n")
 
 

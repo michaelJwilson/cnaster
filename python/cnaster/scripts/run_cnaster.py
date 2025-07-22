@@ -665,7 +665,7 @@ def run_cnaster(config_path):
                         "log_gamma": log_gamma,
                         "pred_cnv": pred_cnv,
                     }
-                )
+                )                
             else:
                 res_combine.update(
                     {
@@ -704,6 +704,8 @@ def run_cnaster(config_path):
 
     n_final_clones = len(np.unique(res_combine["prev_assignment"]))
 
+    logger.info(f"Inferred {n_final_clones} given BAF+RDR data.")
+    
     log_persample_weights = np.zeros((n_final_clones, len(sample_list)))
 
     for sidx in range(len(sample_list)):
@@ -811,7 +813,12 @@ def run_cnaster(config_path):
 
     # NB re-order clones such that normal clones are always clone 0.
     res_combine, posterior = reindex_clones(res_combine, posterior, single_tumor_prop)
+
+    # TODO new_log_startprob - add to res_combine above.
+    for key in ["new_log_mu", "new_alphas", "new_p_binom", "new_taus", "pred_cnv"]:
+        logger.info(f"Solved for {key}:\n{res_combine[key]}")
         
+    # TODO CHECK
     df_clone_label = pd.DataFrame({
         "x": coords[:, 0],
         "y": coords[:, 1]
@@ -824,7 +831,7 @@ def run_cnaster(config_path):
 
     opath = f"{config.paths.output_dir}/clone_labels.tsv"
 
-    logger.info(f"Writing inferred clone labels to {opath}:\n{df_clone_label.head()}")
+    logger.info(f"Writing inferred clone labels to {opath},\n{df_clone_label.head()}")
 
     # TODO HACK
     # df_clone_label.to_csv(f"{outdir}/clone_labels.tsv", header=True, index=True, sep="\t")

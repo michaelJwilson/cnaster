@@ -46,8 +46,8 @@ class Weighted_NegativeBinomial(GenericLikelihoodModel):
         Multiplication constant outside the exponential term. In scRNA-seq or SRT data, this term is the total UMI count per cell/spot.
     """
 
-    def __init__(self, endog, exog, weights, exposure, seed=0, **kwds):
-        super().__init__(endog, exog, **kwds)
+    def __init__(self, endog, exog, weights, exposure, seed=0, **kwargs):
+        super().__init__(endog, exog, **kwargs)
 
         self.weights = weights
         self.exposure = exposure
@@ -59,11 +59,9 @@ class Weighted_NegativeBinomial(GenericLikelihoodModel):
 
         n, p = convert_params(nb_mean, nb_std)
 
-        llf = scipy.stats.nbinom.logpmf(self.endog, n, p)
+        return -scipy.stats.nbinom.logpmf(self.endog, n, p).dot(self.weights)
 
-        return -llf.dot(self.weights)
-
-    def fit(self, start_params=None, maxiter=10000, maxfun=5000, **kwds):
+    def fit(self, start_params=None, maxiter=10_000, maxfun=5_000, **kwargs):
         using_default_params = start_params is None
 
         if start_params is None:
@@ -78,7 +76,7 @@ class Weighted_NegativeBinomial(GenericLikelihoodModel):
             maxiter=maxiter,
             maxfun=maxfun,
             method=get_solver(),
-            **kwds,
+            **kwargs,
         )
         runtime = time.time() - start_time
 
@@ -101,8 +99,8 @@ class Weighted_NegativeBinomial(GenericLikelihoodModel):
 
 
 class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
-    def __init__(self, endog, exog, weights, exposure, tumor_prop, seed=0, **kwds):
-        super().__init__(endog, exog, **kwds)
+    def __init__(self, endog, exog, weights, exposure, tumor_prop, seed=0, **kwargs):
+        super().__init__(endog, exog, **kwargs)
 
         self.weights = weights
         self.exposure = exposure
@@ -111,17 +109,15 @@ class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
 
     def nloglikeobs(self, params):
         nb_mean = self.exposure * (
-            self.tumor_prop * np.exp(self.exog @ params[:-1]) + 1 - self.tumor_prop
+            self.tumor_prop * np.exp(self.exog @ params[:-1]) + (1. - self.tumor_prop)
         )
         nb_std = np.sqrt(nb_mean + params[-1] * nb_mean**2)
 
         n, p = convert_params(nb_mean, nb_std)
 
-        llf = scipy.stats.nbinom.logpmf(self.endog, n, p)
+        return -scipy.stats.nbinom.logpmf(self.endog, n, p).dot(self.weights)
 
-        return -llf.dot(self.weights)
-
-    def fit(self, start_params=None, maxiter=10000, maxfun=5000, **kwds):
+    def fit(self, start_params=None, maxiter=10_000, maxfun=5000, **kwargs):
         using_default_params = start_params is None
         if start_params is None:
             if hasattr(self, "start_params"):
@@ -135,7 +131,7 @@ class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
             maxiter=maxiter,
             maxfun=maxfun,
             method=get_solver(),
-            **kwds,
+            **kwargs,
         )
         runtime = time.time() - start_time
 
@@ -177,8 +173,8 @@ class Weighted_BetaBinom(GenericLikelihoodModel):
         Total number of trials. In BAF case, this is the total number of SNP-covering UMIs.
     """
 
-    def __init__(self, endog, exog, weights, exposure, **kwds):
-        super().__init__(endog, exog, **kwds)
+    def __init__(self, endog, exog, weights, exposure, **kwargs):
+        super().__init__(endog, exog, **kwargs)
         self.weights = weights
         self.exposure = exposure
 
@@ -190,7 +186,7 @@ class Weighted_BetaBinom(GenericLikelihoodModel):
 
         return -llf.dot(self.weights)
 
-    def fit(self, start_params=None, maxiter=10000, maxfun=5000, **kwds):
+    def fit(self, start_params=None, maxiter=10000, maxfun=5000, **kwargs):
         using_default_params = start_params is None
         if start_params is None:
             if hasattr(self, "start_params"):
@@ -206,7 +202,7 @@ class Weighted_BetaBinom(GenericLikelihoodModel):
             maxiter=maxiter,
             maxfun=maxfun,
             method=get_solver(),
-            **kwds,
+            **kwargs,
         )
         runtime = time.time() - start_time
 
@@ -229,8 +225,8 @@ class Weighted_BetaBinom(GenericLikelihoodModel):
 
 
 class Weighted_BetaBinom_mix(GenericLikelihoodModel):
-    def __init__(self, endog, exog, weights, exposure, tumor_prop, **kwds):
-        super().__init__(endog, exog, **kwds)
+    def __init__(self, endog, exog, weights, exposure, tumor_prop, **kwargs):
+        super().__init__(endog, exog, **kwargs)
         self.weights = weights
         self.exposure = exposure
         self.tumor_prop = tumor_prop
@@ -248,7 +244,7 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
 
         return -llf.dot(self.weights)
 
-    def fit(self, start_params=None, maxiter=10000, maxfun=5000, **kwds):
+    def fit(self, start_params=None, maxiter=10000, maxfun=5000, **kwargs):
         using_default_params = start_params is None
         if start_params is None:
             if hasattr(self, "start_params"):
@@ -264,7 +260,7 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
             maxiter=maxiter,
             maxfun=maxfun,
             method=get_solver(),
-            **kwds,
+            **kwargs,
         )
         runtime = time.time() - start_time
 

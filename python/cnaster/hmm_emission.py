@@ -4,9 +4,10 @@ import warnings
 
 import numpy as np
 import scipy.stats
+from functools import partial
 from cnaster.config import get_global_config
 from cnaster.hmm_utils import convert_params, get_solver
-from cnaster.deprecated.hmm_emission import Weighted_NegativeBinomial, Weighted_BetaBinom
+# from cnaster.deprecated.hmm_emission import Weighted_NegativeBinomial, Weighted_BetaBinom
 from statsmodels.base.model import GenericLikelihoodModel
 
 logger = logging.getLogger(__name__)
@@ -14,6 +15,8 @@ logger = logging.getLogger(__name__)
 # TODO
 warnings.filterwarnings("ignore", category=UserWarning, module="statsmodels")
 
+Weighted_NegativeBinomial = partial(Weighted_NegativeBinomial_mix, tumor_prop=None)
+Weighted_BetaBinom = partial(Weighted_BetaBinom_mix, tumor_prop=None)
 class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
     """
     Negative Binomial model endog ~ NB(exposure * exp(exog @ params[:-1]), params[-1]), where exog is the design matrix, and params[-1] is 1 / overdispersion.

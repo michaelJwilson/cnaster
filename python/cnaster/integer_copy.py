@@ -1,4 +1,41 @@
 import copy
+import numpy as np
+import logging
+
+logger = logging.getLogger(__name__)
+
+# TODO
+# DEFAULT_MAX_ALLELE_COPY = 5
+# DEFAULT_MAX_TOTAL_COPY = 6
+# DEFAULT_MAX_MEDPLOIDY = 4
+# DEFAULT_EPS_BAF = 0.05
+# DEFAULT_EPS_POINTS = 0.1
+# DEFAULT_MIN_PROP_THRESHOLD = 0.1
+
+# DEFAULT_MAX_HILL_CLIMB_ITER = 10
+# DEFAULT_RANDOM_RESTARTS = 20
+# DEFAULT_MU_THRESHOLD = 0.3
+
+
+def find_diploid_balanced_state(
+    new_log_mu, new_p_binom, pred_cnv, min_prop_threshold, EPS_BAF
+):
+    n_states = len(new_log_mu)
+    # NB find candidate diploid balanced state under the criteria that:
+    #    (1) #bins in that state > 0.1 * total #bins 
+    #    (2) BAF is close to 0.5 by EPS_BAF distance
+    candidate = np.where(
+        (
+            np.bincount(pred_cnv, minlength=n_states)
+            >= min_prop_threshold * len(pred_cnv)
+        )
+        & (np.abs(new_p_binom - 0.5) <= EPS_BAF)
+    )[0]
+    if len(candidate) == 0:
+        raise ValueError("No candidate diploid balanced state found!")
+    else:
+        # NB the diploid balanced states is the one in candidate with smallest new_log_mu
+        return candidate[np.argmin(new_log_mu[candidate])]
 
 
 def hill_climbing_integer_copynumber_oneclone(
@@ -16,7 +53,7 @@ def hill_climbing_integer_copynumber_oneclone(
     lambd = base_nb_mean / np.sum(base_nb_mean)
     weight_per_state = np.array([np.sum(lambd[pred_cnv == s]) for s in range(n_states)])
     mu = np.exp(new_log_mu)
-    #
+
     EPS_POINTS = 0.1
 
     def f(params, ploidy):
@@ -59,7 +96,6 @@ def hill_climbing_integer_copynumber_oneclone(
             + unbalanced_penalty * len(pred_cnv)
         )
         ### end temp penalty ###
-        # return np.abs(mu - frac_rdr).dot(points_per_state) + 5 * np.abs(new_p_binom - frac_baf).dot(points_per_state)
 
     def hill_climb(initial_params, ploidy, max_iter=10):
         best_obj = f(initial_params, ploidy)
@@ -76,7 +112,6 @@ def hill_climbing_integer_copynumber_oneclone(
                     params[k, :] = candi
                     obj = f(params, ploidy)
                     if obj < this_best_obj:
-                        # print(k, candi, obj, this_best_obj, ploidy+1, 0.1 * np.maximum(0, np.sum(params[k,:]) - ploidy-1) * np.sum(pred_cnv==k))
                         this_best_obj = obj
                         this_best_k = candi
                 increased = increased | (this_best_obj < best_obj)

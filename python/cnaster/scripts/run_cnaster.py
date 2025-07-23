@@ -5,6 +5,7 @@ import logging
 import numpy as np
 import pandas as pd
 import scipy
+import functools
 from cnaster.config import YAMLConfig, set_global_config
 from cnaster.hmm_nophasing import hmm_nophasing
 from cnaster.hmrf import (
@@ -848,9 +849,12 @@ def run_cnaster(config_path):
     medfix = ["", "_diploid", "_triploid", "_tetraploid"]
 
     for o, max_medploidy in enumerate([None, 2, 3, 4]):
+        logger.info(f"Solving integer copy number problem for max_medploidy={max_medploidy}")
+        
         # NB A/B integer copy number per bin and per state
         allele_specific_copy, state_cnv = [], []
-
+        df_genelevel_cnv = None
+        
         X, base_nb_mean, total_bb_RD, tumor_prop = merge_pseudobulk_by_index_mix(
             single_X,
             single_base_nb_mean,
@@ -941,28 +945,28 @@ def run_cnaster(config_path):
                 pd.DataFrame(
                     res_combine["new_log_mu"][:, s].reshape(-1, 1),
                     columns=[f"clone{cid} logmu"],
-                    index=np.arange(config["n_states"]),
+                    index=np.arange(config.hmm.n_states),
                 )
             )
             state_cnv.append(
                 pd.DataFrame(
                     res_combine["new_p_binom"][:, s].reshape(-1, 1),
                     columns=[f"clone{cid} p"],
-                    index=np.arange(config["n_states"]),
+                    index=np.arange(config.hmm.n_states),
                 )
             )
             state_cnv.append(
                 pd.DataFrame(
                     best_integer_copies[:, 0].reshape(-1, 1),
                     columns=[f"clone{cid} A"],
-                    index=np.arange(config["n_states"]),
+                    index=np.arange(config.hmm.n_states),
                 )
             )
             state_cnv.append(
                 pd.DataFrame(
                     best_integer_copies[:, 1].reshape(-1, 1),
                     columns=[f"clone{cid} B"],
-                    index=np.arange(config["n_states"]),
+                    index=np.arange(config.hmm.n_states),
                 )
             )
 
@@ -1007,7 +1011,7 @@ def run_cnaster(config_path):
         # )
 
         logger.info(
-            "Solved for integer copy numbers @ genes:\n{df_genelevel_cnv.head()}"
+            f"Solved for integer copy numbers @ genes:\n{df_genelevel_cnv.head()}"
         )
 
         # NB output segment-level copy number
@@ -1026,7 +1030,7 @@ def run_cnaster(config_path):
         # )
 
         logger.info(
-            "Solved for integer copy numbers @ segments:\n{df_seglevel_cnv.head()}"
+            f"Solved for integer copy numbers @ segments:\n{df_seglevel_cnv.head()}"
         )
 
         # NB output per-state copy number
@@ -1038,7 +1042,7 @@ def run_cnaster(config_path):
         )
 
         logger.info(
-            "Solved for integer copy numbers @ states:\n{state_cnv.head()}"
+            f"Solved for integer copy numbers @ states:\n{state_cnv}"
         )
 
         # state_cnv.to_csv(

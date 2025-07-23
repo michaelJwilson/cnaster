@@ -5,8 +5,7 @@ import warnings
 import numpy as np
 import scipy.stats
 from cnaster.config import get_global_config
-from cnaster.hmm_utils import convert_params
-from cnaster.hmm_emission import get_solver
+from cnaster.hmm_utils import convert_params, get_solver
 from statsmodels.base.model import GenericLikelihoodModel
 
 logger = logging.getLogger(__name__)

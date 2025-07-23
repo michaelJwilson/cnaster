@@ -871,8 +871,8 @@ def run_cnaster(config_path):
                 np.exp(res_combine["new_log_mu"][:, s])
                 / np.sum(np.exp(res_combine["new_log_mu"][this_pred_cnv, s]) * lambd)
             )
-            if not max_medploidy is None:
-                best_integer_copies, _ = hill_climbing_integer_copynumber_oneclone(
+            if max_medploidy is not None:
+                best_integer_copies, loss = hill_climbing_integer_copynumber_oneclone(
                     adjusted_log_mu,
                     base_nb_mean[:, s],
                     res_combine["new_p_binom"][:, s],
@@ -883,7 +883,7 @@ def run_cnaster(config_path):
                 try:
                     (
                         best_integer_copies,
-                        _,
+                        loss,
                     ) = hill_climbing_integer_copynumber_fixdiploid(
                         adjusted_log_mu,
                         base_nb_mean[:, s],
@@ -896,7 +896,7 @@ def run_cnaster(config_path):
                     try:
                         (
                             best_integer_copies,
-                            _,
+                            loss,
                         ) = hill_climbing_integer_copynumber_fixdiploid(
                             adjusted_log_mu,
                             base_nb_mean[:, s],
@@ -904,14 +904,14 @@ def run_cnaster(config_path):
                             this_pred_cnv,
                             nonbalance_bafdist=config.int_copy_num.nonbalance_bafdist,
                             nondiploid_rdrdist=config.int_copy_num.nondiploid_rdrdist,
-                            min_prop_threshold=0.02,
+                            min_prop_threshold=0.02, # MAGIC
                         )
                     except:
                         finding_distate_failed = True
                         continue
 
             logger.info(
-                f"max med ploidy = {max_medploidy}, clone {s}, integer copy inference loss = {_}"
+                f"Solved for (max. med ploidy, clone) = ({max_medploidy}, {s}) with integer copy number loss = {loss:.4e}"
             )
 
             allele_specific_copy.append(
@@ -998,9 +998,11 @@ def run_cnaster(config_path):
             continue
 
         # NB output gene-level copy number
-        df_genelevel_cnv.to_csv(
-            f"{outdir}/cnv{medfix[o]}_genelevel.tsv", header=True, index=True, sep="\t"
-        )
+        # df_genelevel_cnv.to_csv(
+        #    f"{outdir}/cnv{medfix[o]}_genelevel.tsv", header=True, index=True, sep="\t"
+        # )
+
+        logger.info("Solved for integer copy numbers @ genes:\n{df_genelevel_cnv.head()}")
 
         # NB output segment-level copy number
         allele_specific_copy = pd.concat(allele_specific_copy)
@@ -1012,10 +1014,13 @@ def run_cnaster(config_path):
             }
         )
         df_seglevel_cnv = df_seglevel_cnv.join(allele_specific_copy.T)
-        df_seglevel_cnv.to_csv(
-            f"{outdir}/cnv{medfix[o]}_seglevel.tsv", header=True, index=False, sep="\t"
-        )
+        
+        # df_seglevel_cnv.to_csv(
+        #    f"{outdir}/cnv{medfix[o]}_seglevel.tsv", header=True, index=False, sep="\t"
+        # )
 
+        logger.info("Solved for integer copy numbers @ segments:\n{df_seglevel_cnv.head()}")
+        
         # NB output per-state copy number
         state_cnv = functools.reduce(
             lambda left, right: pd.merge(
@@ -1023,9 +1028,12 @@ def run_cnaster(config_path):
             ),
             state_cnv,
         )
-        state_cnv.to_csv(
-            f"{outdir}/cnv{medfix[o]}_perstate.tsv", header=True, index=False, sep="\t"
-        )
+
+        logger.info("Solved for state integer copy numbers @ segments:\n{state_cnv.head()}")
+        
+        # state_cnv.to_csv(
+        # f"{outdir}/cnv{medfix[o]}_perstate.tsv", header=True, index=False, sep="\t"
+        # )
 
     # TODO new_log_startprob - add to res_combine above.
     for key in ["new_log_mu", "new_alphas", "new_p_binom", "new_taus", "pred_cnv"]:

@@ -941,28 +941,28 @@ def run_cnaster(config_path):
                 pd.DataFrame(
                     res_combine["new_log_mu"][:, s].reshape(-1, 1),
                     columns=[f"clone{cid} logmu"],
-                    index=np.arange(config["n_states"]),
+                    index=np.arange(config.hmm.n_states),
                 )
             )
             state_cnv.append(
                 pd.DataFrame(
                     res_combine["new_p_binom"][:, s].reshape(-1, 1),
                     columns=[f"clone{cid} p"],
-                    index=np.arange(config["n_states"]),
+                    index=np.arange(config.hmm.n_states),
                 )
             )
             state_cnv.append(
                 pd.DataFrame(
                     best_integer_copies[:, 0].reshape(-1, 1),
                     columns=[f"clone{cid} A"],
-                    index=np.arange(config["n_states"]),
+                    index=np.arange(config.hmm.n_states),
                 )
             )
             state_cnv.append(
                 pd.DataFrame(
                     best_integer_copies[:, 1].reshape(-1, 1),
                     columns=[f"clone{cid} B"],
-                    index=np.arange(config["n_states"]),
+                    index=np.arange(config.hmm.n_states),
                 )
             )
 

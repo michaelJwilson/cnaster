@@ -5,6 +5,7 @@ import logging
 import numpy as np
 import pandas as pd
 import scipy
+import functools
 from cnaster.config import YAMLConfig, set_global_config
 from cnaster.hmm_nophasing import hmm_nophasing
 from cnaster.hmrf import (
@@ -1010,7 +1011,7 @@ def run_cnaster(config_path):
         # )
 
         logger.info(
-            "Solved for integer copy numbers @ genes:\n{df_genelevel_cnv.head()}"
+            f"Solved for integer copy numbers @ genes:\n{df_genelevel_cnv.head()}"
         )
 
         # NB output segment-level copy number
@@ -1029,7 +1030,7 @@ def run_cnaster(config_path):
         # )
 
         logger.info(
-            "Solved for integer copy numbers @ segments:\n{df_seglevel_cnv.head()}"
+            f"Solved for integer copy numbers @ segments:\n{df_seglevel_cnv.head()}"
         )
 
         # NB output per-state copy number
@@ -1041,7 +1042,7 @@ def run_cnaster(config_path):
         )
 
         logger.info(
-            "Solved for state integer copy numbers @ segments:\n{state_cnv.head()}"
+            f"Solved for state integer copy numbers @ segments:\n{state_cnv.head()}"
         )
 
         # state_cnv.to_csv(

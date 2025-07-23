@@ -15,8 +15,6 @@ logger = logging.getLogger(__name__)
 # TODO
 warnings.filterwarnings("ignore", category=UserWarning, module="statsmodels")
 
-Weighted_NegativeBinomial = partial(Weighted_NegativeBinomial_mix, tumor_prop=None)
-Weighted_BetaBinom = partial(Weighted_BetaBinom_mix, tumor_prop=None)
 class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
     """
     Negative Binomial model endog ~ NB(exposure * exp(exog @ params[:-1]), params[-1]), where exog is the design matrix, and params[-1] is 1 / overdispersion.
@@ -172,3 +170,7 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
         )
 
         return result
+
+# LEGACY
+Weighted_NegativeBinomial = partial(Weighted_NegativeBinomial_mix, tumor_prop=None)
+Weighted_BetaBinom = partial(Weighted_BetaBinom_mix, tumor_prop=None)

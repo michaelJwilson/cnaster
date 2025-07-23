@@ -809,7 +809,7 @@ def update_emission_params_nb_nophasing_uniqvalues_mix(
                 new_log_mu[i, s] = res.params[0]
                 if start_log_mu is not None:
                     res2 = model.fit(
-                        **model_fit_params
+                        **model_fit_params,
                         start_params=np.array([start_log_mu[i, s]]),
                     )
                     new_log_mu[i, s] = (
@@ -1022,7 +1022,7 @@ def update_emission_params_bb_sitewise_uniqvalues(
                     new_p_binom[i, s] = res.params[0]
                     if start_p_binom is not None:
                         res2 = model.fit(
-                            **model_fit_params
+                            **model_fit_params,
                             start_params=np.array(start_p_binom[i, s]),
                         )
                         new_p_binom[i, s] = (
@@ -1067,7 +1067,7 @@ def update_emission_params_bb_sitewise_uniqvalues(
                         new_taus[i, s] = res.params[-1]
                         if start_p_binom is not None:
                             res2 = model.fit(
-                                **model_fit_params
+                                **model_fit_params,
                                 start_params=np.append(
                                     [start_p_binom[i, s]], [taus[i, s]]
                                 ),
@@ -1231,7 +1231,7 @@ def update_emission_params_bb_nophasing_uniqvalues(
                     new_p_binom[i, s] = res.params[0]
                     if start_p_binom is not None:
                         res2 = model.fit(
-                            **model_fit_params
+                            **model_fit_params,
                             start_params=np.array(start_p_binom[i, s]),
                         )
                         new_p_binom[i, s] = (
@@ -1263,7 +1263,7 @@ def update_emission_params_bb_nophasing_uniqvalues(
                         new_taus[i, s] = res.params[-1]
                         if start_p_binom is not None:
                             res2 = model.fit(
-                                **model_fit_params
+                                **model_fit_params,
                                 start_params=np.append(
                                     [start_p_binom[i, s]], [taus[i, s]]
                                 ),
@@ -1434,7 +1434,7 @@ def update_emission_params_bb_sitewise_uniqvalues_mix(
                     new_p_binom[i, s] = res.params[0]
                     if start_p_binom is not None:
                         res2 = model.fit(
-                            **model_fit_params
+                            **model_fit_params,
                             start_params=np.array(start_p_binom[i, s]),
                         )
                         new_p_binom[i, s] = (
@@ -1487,7 +1487,7 @@ def update_emission_params_bb_sitewise_uniqvalues_mix(
                         new_taus[i, s] = res.params[-1]
                         if start_p_binom is not None:
                             res2 = model.fit(
-                                **model_fit_params
+                                **model_fit_params,
                                 start_params=np.append(
                                     [start_p_binom[i, s]], [taus[i, s]]
                                 ),
@@ -1674,7 +1674,7 @@ def update_emission_params_bb_nophasing_uniqvalues_mix(
                     new_p_binom[i, s] = res.params[0]
                     if start_p_binom is not None:
                         res2 = model.fit(
-                            **model_fit_params
+                            **model_fit_params,
                             start_params=np.array(start_p_binom[i, s]),
                         )
                         new_p_binom[i, s] = (

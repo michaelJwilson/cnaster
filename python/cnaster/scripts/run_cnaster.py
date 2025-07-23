@@ -848,9 +848,12 @@ def run_cnaster(config_path):
     medfix = ["", "_diploid", "_triploid", "_tetraploid"]
 
     for o, max_medploidy in enumerate([None, 2, 3, 4]):
+        logger.info(f"Solving integer copy number problem for max_medploidy={max_medploidy}")
+        
         # NB A/B integer copy number per bin and per state
         allele_specific_copy, state_cnv = [], []
-
+        df_genelevel_cnv = None
+        
         X, base_nb_mean, total_bb_RD, tumor_prop = merge_pseudobulk_by_index_mix(
             single_X,
             single_base_nb_mean,

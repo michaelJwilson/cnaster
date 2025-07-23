@@ -914,6 +914,119 @@ def run_cnaster(config_path):
                 f"max med ploidy = {max_medploidy}, clone {s}, integer copy inference loss = {_}"
             )
 
+            allele_specific_copy.append(
+                pd.DataFrame(
+                    best_integer_copies[res_combine["pred_cnv"][:, s], 0].reshape(
+                        1, -1
+                    ),
+                    index=[f"clone{cid} A"],
+                    columns=np.arange(n_obs),
+                )
+            )
+            allele_specific_copy.append(
+                pd.DataFrame(
+                    best_integer_copies[res_combine["pred_cnv"][:, s], 1].reshape(
+                        1, -1
+                    ),
+                    index=[f"clone{cid} B"],
+                    columns=np.arange(n_obs),
+                )
+            )
+
+            state_cnv.append(
+                pd.DataFrame(
+                    res_combine["new_log_mu"][:, s].reshape(-1, 1),
+                    columns=[f"clone{cid} logmu"],
+                    index=np.arange(config["n_states"]),
+                )
+            )
+            state_cnv.append(
+                pd.DataFrame(
+                    res_combine["new_p_binom"][:, s].reshape(-1, 1),
+                    columns=[f"clone{cid} p"],
+                    index=np.arange(config["n_states"]),
+                )
+            )
+            state_cnv.append(
+                pd.DataFrame(
+                    best_integer_copies[:, 0].reshape(-1, 1),
+                    columns=[f"clone{cid} A"],
+                    index=np.arange(config["n_states"]),
+                )
+            )
+            state_cnv.append(
+                pd.DataFrame(
+                    best_integer_copies[:, 1].reshape(-1, 1),
+                    columns=[f"clone{cid} B"],
+                    index=np.arange(config["n_states"]),
+                )
+            )
+
+            bin_Acopy_mappers = {
+                i: x
+                for i, x in enumerate(
+                    best_integer_copies[res_combine["pred_cnv"][:, s], 0]
+                )
+            }
+            bin_Bcopy_mappers = {
+                i: x
+                for i, x in enumerate(
+                    best_integer_copies[res_combine["pred_cnv"][:, s], 1]
+                )
+            }
+            tmpdf = pd.DataFrame(
+                {
+                    "gene": df_gene_snp[df_gene_snp.is_interval].gene,
+                    f"clone{s} A": df_gene_snp[df_gene_snp.is_interval]["bin_id"].map(
+                        bin_Acopy_mappers
+                    ),
+                    f"clone{s} B": df_gene_snp[df_gene_snp.is_interval]["bin_id"].map(
+                        bin_Bcopy_mappers
+                    ),
+                }
+            ).set_index("gene")
+            if df_genelevel_cnv is None:
+                df_genelevel_cnv = copy.copy(
+                    tmpdf[~tmpdf[f"clone{s} A"].isnull()].astype(int)
+                )
+            else:
+                df_genelevel_cnv = df_genelevel_cnv.join(
+                    tmpdf[~tmpdf[f"clone{s} A"].isnull()].astype(int)
+                )
+
+        if len(state_cnv) == 0:
+            continue
+
+        # NB output gene-level copy number
+        df_genelevel_cnv.to_csv(
+            f"{outdir}/cnv{medfix[o]}_genelevel.tsv", header=True, index=True, sep="\t"
+        )
+
+        # NB output segment-level copy number
+        allele_specific_copy = pd.concat(allele_specific_copy)
+        df_seglevel_cnv = pd.DataFrame(
+            {
+                "CHR": df_bininfo.CHR.values,
+                "START": df_bininfo.START.values,
+                "END": df_bininfo.END.values,
+            }
+        )
+        df_seglevel_cnv = df_seglevel_cnv.join(allele_specific_copy.T)
+        df_seglevel_cnv.to_csv(
+            f"{outdir}/cnv{medfix[o]}_seglevel.tsv", header=True, index=False, sep="\t"
+        )
+
+        # NB output per-state copy number
+        state_cnv = functools.reduce(
+            lambda left, right: pd.merge(
+                left, right, left_index=True, right_index=True, how="inner"
+            ),
+            state_cnv,
+        )
+        state_cnv.to_csv(
+            f"{outdir}/cnv{medfix[o]}_perstate.tsv", header=True, index=False, sep="\t"
+        )
+
     # TODO new_log_startprob - add to res_combine above.
     for key in ["new_log_mu", "new_alphas", "new_p_binom", "new_taus", "pred_cnv"]:
         logger.info(f"Solved for {key}:\n{res_combine[key]}")

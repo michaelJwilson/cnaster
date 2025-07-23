@@ -7,6 +7,7 @@ import scipy.stats
 from functools import partial
 from cnaster.config import get_global_config
 from cnaster.hmm_utils import convert_params, get_solver
+
 # from cnaster.deprecated.hmm_emission import Weighted_NegativeBinomial, Weighted_BetaBinom
 from statsmodels.base.model import GenericLikelihoodModel
 
@@ -17,6 +18,8 @@ warnings.filterwarnings("ignore", category=UserWarning, module="statsmodels")
 
 Weighted_NegativeBinomial = partial(Weighted_NegativeBinomial_mix, tumor_prop=None)
 Weighted_BetaBinom = partial(Weighted_BetaBinom_mix, tumor_prop=None)
+
+
 class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
     """
     Negative Binomial model endog ~ NB(exposure * exp(exog @ params[:-1]), params[-1]), where exog is the design matrix, and params[-1] is 1 / overdispersion.
@@ -36,7 +39,10 @@ class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
     exposure : array, (n_samples,)
         Multiplication constant outside the exponential term. In scRNA-seq or SRT data, this term is the total UMI count per cell/spot.
     """
-    def __init__(self, endog, exog, weights, exposure, tumor_prop=None, seed=0, **kwargs):
+
+    def __init__(
+        self, endog, exog, weights, exposure, tumor_prop=None, seed=0, **kwargs
+    ):
         super().__init__(endog, exog, **kwargs)
 
         self.weights = weights
@@ -49,7 +55,8 @@ class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
             nb_mean = np.exp(self.exog @ params[:-1]) * self.exposure
         else:
             nb_mean = self.exposure * (
-                self.tumor_prop * np.exp(self.exog @ params[:-1]) + (1. - self.tumor_prop)
+                self.tumor_prop * np.exp(self.exog @ params[:-1])
+                + (1.0 - self.tumor_prop)
             )
 
         nb_std = np.sqrt(nb_mean + params[-1] * nb_mean**2)
@@ -64,7 +71,7 @@ class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
             if hasattr(self, "start_params"):
                 start_params = self.start_params
             else:
-                start_params = np.append(0.1 * np.ones(self.nparams), 1.e-2)
+                start_params = np.append(0.1 * np.ones(self.nparams), 1.0e-2)
 
         start_time = time.time()
         result = super().fit(
@@ -113,6 +120,7 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
     exposure : array, (n_samples,)
         Total number of trials. In BAF case, this is the total number of SNP-covering UMIs.
     """
+
     def __init__(self, endog, exog, weights, exposure, tumor_prop=None, **kwargs):
         super().__init__(endog, exog, **kwargs)
 
@@ -125,16 +133,16 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
 
         if self.tumor_prop is None:
             a = p * params[-1]
-            b = (1. - p) * params[-1]
+            b = (1.0 - p) * params[-1]
         else:
-            a = (
-                p * self.tumor_prop + 0.5 * (1. - self.tumor_prop)
-            ) * params[-1]
-            b = (
-                (1. - p) * self.tumor_prop + 0.5 * (1. - self.tumor_prop)
-            ) * params[-1]
+            a = (p * self.tumor_prop + 0.5 * (1.0 - self.tumor_prop)) * params[-1]
+            b = ((1.0 - p) * self.tumor_prop + 0.5 * (1.0 - self.tumor_prop)) * params[
+                -1
+            ]
 
-        return -scipy.stats.betabinom.logpmf(self.endog, self.exposure, a, b).dot(self.weights)
+        return -scipy.stats.betabinom.logpmf(self.endog, self.exposure, a, b).dot(
+            self.weights
+        )
 
     def fit(self, start_params=None, maxiter=10_000, maxfun=5_000, **kwargs):
         using_default_params = start_params is None

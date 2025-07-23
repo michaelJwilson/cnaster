@@ -92,7 +92,15 @@ def convert_params(mean, std):
     return n, p
 
 
-def construct_unique_matrix(obs_count, total_count):
+def calc_sparsity(csr_matrix):
+    total_elements = csr_matrix.shape[0] * csr_matrix.shape[1]
+    non_zero_elements = csr_matrix.nnz
+    sparsity = (total_elements - non_zero_elements) / total_elements
+
+    return sparsity
+
+
+def construct_unique_matrix(obs_count, total_count, decimals=4):
     """
     Attributes
     ----------
@@ -107,19 +115,21 @@ def construct_unique_matrix(obs_count, total_count):
 
     unique_values, mapping_matrices = [], []
 
+    mean_sparsity = 0.0
+
     for s in range(n_spots):
-        if total_count.dtype == int:
-            pairs = np.unique(np.vstack([obs_count[:, s], total_count[:, s]]).T, axis=0)
-        else:
-            pairs = np.unique(
-                np.vstack([obs_count[:, s], total_count[:, s]]).T.round(decimals=4),
-                axis=0,
-            )
+        counts = np.vstack([obs_count[:, s], total_count[:, s]]).T
+
+        # TODO BUG uint?
+        if total_count.dtype != int:
+            counts = counts.round(decimals=decimals)
+
+        pairs = np.unique(counts, axis=0)
 
         unique_values.append(pairs)
         pair_index = {(pairs[i, 0], pairs[i, 1]): i for i in range(pairs.shape[0])}
 
-        # construct mapping matrix
+        # NB construct mapping matrix
         mat_row = np.arange(n_obs)
         mat_col = np.zeros(n_obs, dtype=int)
 
@@ -132,9 +142,19 @@ def construct_unique_matrix(obs_count, total_count):
                 ]
             mat_col[i] = tmpidx
 
-        mapping_matrices.append(
-            scipy.sparse.csr_matrix((np.ones(len(mat_row)), (mat_row, mat_col)))
+        csr_matrix = scipy.sparse.csr_matrix(
+            (np.ones(len(mat_row)), (mat_row, mat_col))
         )
+
+        mean_sparsity += calc_sparsity(csr_matrix)
+
+        mapping_matrices.append(csr_matrix)
+
+    mean_sparsity /= n_spots
+
+    logger.info(
+        f"Calculated unique emission values for {n_spots} spots with mean sparsity: {mean_sparsity:.2f}%"
+    )
 
     return unique_values, mapping_matrices
 

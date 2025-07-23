@@ -494,13 +494,13 @@ def hmrfmix_concatenate_pipeline(
 
 
 def reindex_clones(res_combine, posterior, single_tumor_prop):
-    EPS_BAF = 0.05 # MAGIC
+    EPS_BAF = 0.05  # MAGIC
     n_spots = posterior.shape[0]
     n_obs = res_combine["pred_cnv"].shape[0]
     n_states, n_clones = res_combine["new_p_binom"].shape
     new_res_combine = copy.copy(res_combine)
     new_posterior = copy.copy(posterior)
-    
+
     if single_tumor_prop is None:
         # NB select 'near-normal' clone and set to clone 0
         pred_cnv = res_combine["pred_cnv"]

@@ -285,7 +285,8 @@ def update_emission_params_nb_sitewise_uniqvalues(
             logger.info(
                 "Updating (phasing) NB emission parameters with shared dispersion."
             )
-
+            
+            # DEPRECATE
             exposure, y, weights, features, state_posweights = [], [], [], [], []
 
             for s in range(n_spots):
@@ -317,18 +318,22 @@ def update_emission_params_nb_sitewise_uniqvalues(
                 idx_row_posweight = np.concatenate(
                     [np.where(this_features[:, k] == 1)[0] for k in idx_state_posweight]
                 )
+
+                # DEPRECATE
                 y.append(this_y[idx_row_posweight])
                 exposure.append(this_exposure[idx_row_posweight])
                 weights.append(this_weights[idx_row_posweight])
                 features.append(
-                    this_features[idx_row_posweight, :][:, idx_state_posweight]
+                     this_features[idx_row_posweight, :][:, idx_state_posweight]
                 )
                 state_posweights.append(idx_state_posweight)
 
             exposure = np.concatenate(exposure)
             y = np.concatenate(y)
             weights = np.concatenate(weights)
+
             features = scipy.linalg.block_diag(*features)
+
             model = Weighted_NegativeBinomial(
                 y, features, weights=weights, exposure=exposure
             )
@@ -809,7 +814,7 @@ def update_emission_params_nb_nophasing_uniqvalues_mix(
                 new_log_mu[i, s] = res.params[0]
                 if start_log_mu is not None:
                     res2 = model.fit(
-                        **model_fit_params
+                        **model_fit_params,
                         start_params=np.array([start_log_mu[i, s]]),
                     )
                     new_log_mu[i, s] = (
@@ -980,7 +985,7 @@ def update_emission_params_bb_sitewise_uniqvalues(
     n_spots = len(unique_values)
     n_states = int(log_gamma.shape[0] / 2)
     gamma = np.exp(log_gamma)
-    # initialization
+    
     new_p_binom = (
         copy.copy(start_p_binom)
         if start_p_binom is not None
@@ -1041,7 +1046,8 @@ def update_emission_params_bb_sitewise_uniqvalues(
                 tmp = (scipy.sparse.csr_matrix(gamma) @ mapping_matrices[s]).toarray()
                 idx_nonzero = np.where(unique_values[s][:, 1] > 0)[0]
                 for i in range(n_states):
-                    # only optimize for BAF only when the posterior probability >= 0.1 (at least 1 SNP is under this state)
+                    # NB only optimize for BAF when the posterior probability >= 0.1,
+                    #    i.e. at least 1 SNP is under this state.
                     if (
                         np.sum(tmp[i, idx_nonzero])
                         + np.sum(tmp[i + n_states, idx_nonzero])
@@ -1086,13 +1092,18 @@ def update_emission_params_bb_sitewise_uniqvalues(
                             )
         else:
             logger.info(
-                "Updating (phasing) BAF emission parameters with shared dispersion."
+                "Constructing input for (phasing) BAF emission parameters with shared dispersion."
             )
 
             exposure, y, weights, features, state_posweights = [], [], [], [], []
 
+            # NB unique_values contains the unique pairs (ALT, TOTAL) allele counts
+            #    for each spot.
             for s in np.arange(len(unique_values)):
+                # NB non-zero TOTAL allele counts for this spot.
                 idx_nonzero = np.where(unique_values[s][:, 1] > 0)[0]
+
+                # NB replicate for (no-)phasing unique values for each state.
                 this_exposure = np.tile(
                     np.append(
                         unique_values[s][idx_nonzero, 1],
@@ -1100,6 +1111,7 @@ def update_emission_params_bb_sitewise_uniqvalues(
                     ),
                     n_states,
                 )
+                # NB a-allele and b-allele counts for each state.
                 this_y = np.tile(
                     np.append(
                         unique_values[s][idx_nonzero, 0],
@@ -1108,6 +1120,8 @@ def update_emission_params_bb_sitewise_uniqvalues(
                     ),
                     n_states,
                 )
+
+                # NB sum posterior probabilites across compressed observations
                 tmp = (scipy.sparse.csr_matrix(gamma) @ mapping_matrices[s]).toarray()
                 this_weights = np.concatenate(
                     [
@@ -1115,12 +1129,14 @@ def update_emission_params_bb_sitewise_uniqvalues(
                         for i in range(n_states)
                     ]
                 )
+                # NB design matrix of one-hot encoding for each copy-number state for
+                #    each observation.
                 this_features = np.zeros((2 * n_states * len(idx_nonzero), n_states))
                 for i in np.arange(n_states):
                     this_features[
                         (i * 2 * len(idx_nonzero)) : ((i + 1) * 2 * len(idx_nonzero)), i
                     ] = 1
-                # only optimize for states where at least 1 SNP belongs to
+                # NB only optimize for states where at least 1 SNP belongs to
                 idx_state_posweight = np.array(
                     [
                         i
@@ -1142,6 +1158,11 @@ def update_emission_params_bb_sitewise_uniqvalues(
             y = np.concatenate(y)
             weights = np.concatenate(weights)
             features = scipy.linalg.block_diag(*features)
+
+            logger.info(
+                "Updating (phasing) BAF emission parameters with shared dispersion."
+            )
+
             model = Weighted_BetaBinom(y, features, weights=weights, exposure=exposure)
             res = model.fit(**model_fit_params)
             for s, idx_state_posweight in enumerate(state_posweights):

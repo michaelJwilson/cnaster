@@ -22,7 +22,7 @@ def find_diploid_balanced_state(
 ):
     n_states = len(new_log_mu)
     # NB find candidate diploid balanced state under the criteria that:
-    #    (1) #bins in that state > 0.1 * total #bins 
+    #    (1) #bins in that state > 0.1 * total #bins
     #    (2) BAF is close to 0.5 by EPS_BAF distance
     candidate = np.where(
         (

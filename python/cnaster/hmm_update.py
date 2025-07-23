@@ -243,6 +243,8 @@ def update_emission_params_nb_sitewise_uniqvalues(
             for s in range(n_spots):
                 tmp = (scipy.sparse.csr_matrix(gamma) @ mapping_matrices[s]).toarray()
                 idx_nonzero = np.where(unique_values[s][:, 1] > 0)[0]
+
+                # NB dispersion varies between states.
                 for i in range(n_states):
                     model = Weighted_NegativeBinomial(
                         unique_values[s][idx_nonzero, 0],
@@ -302,7 +304,8 @@ def update_emission_params_nb_sitewise_uniqvalues(
                     this_features[
                         (i * len(idx_nonzero)) : ((i + 1) * len(idx_nonzero)), i
                     ] = 1
-                # only optimize for states where at least 1 SNP belongs to
+
+                # NB only optimize for states where at least 1 SNP belongs to
                 idx_state_posweight = np.array(
                     [
                         i
@@ -321,6 +324,7 @@ def update_emission_params_nb_sitewise_uniqvalues(
                     this_features[idx_row_posweight, :][:, idx_state_posweight]
                 )
                 state_posweights.append(idx_state_posweight)
+
             exposure = np.concatenate(exposure)
             y = np.concatenate(y)
             weights = np.concatenate(weights)

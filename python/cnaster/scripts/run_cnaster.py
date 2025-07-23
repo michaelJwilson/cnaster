@@ -14,7 +14,7 @@ from cnaster.hmrf import (
     hmrf_reassignment_posterior,
     aggr_hmrfmix_reassignment,
     hmrfmix_reassignment_posterior,
-    reindex_clones
+    reindex_clones,
 )
 from cnaster.io import load_input_data
 from cnaster.omics import (
@@ -42,6 +42,10 @@ from cnaster.normal_spot import (
     binned_gene_snp,
 )
 from cnaster.hmm import pipeline_baum_welch
+from cnaster.integer_copy import (
+    hill_climbing_integer_copynumber_oneclone,
+    hill_climbing_integer_copynumber_fixdiploid,
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -72,7 +76,7 @@ def run_cnaster(config_path):
     # TODO CHECK
     barcodes = adata.obs.index
     coords = adata.obsm["X_pos"]
-    
+
     sample_list = [adata.obs["sample"].iloc[0]]
 
     for i in range(1, adata.shape[0]):
@@ -446,13 +450,17 @@ def run_cnaster(config_path):
         )
 
         initial_assignment = np.zeros(len(idx_spots), dtype=int)
-        
-        for c,idx in enumerate(initial_clone_index):
+
+        for c, idx in enumerate(initial_clone_index):
             initial_assignment[idx] = c
 
-        # NB 
-        clone_res[prefix] = {"barcodes": barcodes[idx_spots], "num_iterations": 0, "round-1_assignment": initial_assignment}
-        
+        # NB
+        clone_res[prefix] = {
+            "barcodes": barcodes[idx_spots],
+            "num_iterations": 0,
+            "round-1_assignment": initial_assignment,
+        }
+
         # HMRF + HMM using RDR data.
         copy_slice_sample_ids = copy.copy(sample_ids[idx_spots])
 
@@ -464,7 +472,7 @@ def run_cnaster(config_path):
             single_base_nb_mean[:, idx_spots],
             single_total_bb_RD[:, idx_spots],
             single_tumor_prop[idx_spots] if single_tumor_prop is not None else None,
-            initial_clone_index, # NB
+            initial_clone_index,  # NB
             n_states=config.hmm.n_states,
             log_sitewise_transmat=log_sitewise_transmat,
             smooth_mat=smooth_mat[np.ix_(idx_spots, idx_spots)],
@@ -505,7 +513,7 @@ def run_cnaster(config_path):
         if len(np.unique(res["new_assignment"])) == 1:
             # TODO HACK
             logger.warning(f"Found a single clone.")
-            
+
             n_merged_clones = 1
             c = res["new_assignment"][0]
             merged_res = copy.copy(res)
@@ -665,7 +673,7 @@ def run_cnaster(config_path):
                         "log_gamma": log_gamma,
                         "pred_cnv": pred_cnv,
                     }
-                )                
+                )
             else:
                 res_combine.update(
                     {
@@ -694,8 +702,8 @@ def run_cnaster(config_path):
                 merged_res["new_assignment"] + offset_clone
             )
 
-            offset_clone += n_merged_clones 
-            
+            offset_clone += n_merged_clones
+
     # HACK assume dispersions are the same across all clones (max?)
     res_combine["new_alphas"][:, :] = np.max(res_combine["new_alphas"])
 
@@ -705,7 +713,7 @@ def run_cnaster(config_path):
     n_final_clones = len(np.unique(res_combine["prev_assignment"]))
 
     logger.info(f"Inferred {n_final_clones} given BAF+RDR data.")
-    
+
     log_persample_weights = np.zeros((n_final_clones, len(sample_list)))
 
     for sidx in range(len(sample_list)):
@@ -745,21 +753,24 @@ def run_cnaster(config_path):
                 return_posterior=True,
             )
         elif config.hmrf.nodepotential == "weighted_sum":
-            new_assignment, single_llf, total_llf, posterior = (
-                hmrf_reassignment_posterior(
-                    single_X,
-                    single_base_nb_mean,
-                    single_total_bb_RD,
-                    res_combine,
-                    smooth_mat,
-                    adjacency_mat,
-                    res_combine["prev_assignment"],
-                    copy.copy(sample_ids),
-                    log_persample_weights,
-                    spatial_weight=config.hmrf.spatial_weight,
-                    hmmclass=hmm_nophasing,
-                    return_posterior=True,
-                )
+            (
+                new_assignment,
+                single_llf,
+                total_llf,
+                posterior,
+            ) = hmrf_reassignment_posterior(
+                single_X,
+                single_base_nb_mean,
+                single_total_bb_RD,
+                res_combine,
+                smooth_mat,
+                adjacency_mat,
+                res_combine["prev_assignment"],
+                copy.copy(sample_ids),
+                log_persample_weights,
+                spatial_weight=config.hmrf.spatial_weight,
+                hmmclass=hmm_nophasing,
+                return_posterior=True,
             )
     else:
         if config.hmrf.nodepotential == "max":
@@ -769,43 +780,49 @@ def run_cnaster(config_path):
                     for c in range(res_combine["log_gamma"].shape[2])
                 ]
             ).T
-            
-            new_assignment, single_llf, total_llf, posterior = (
-                aggr_hmrfmix_reassignment(
-                    single_X,
-                    single_base_nb_mean,
-                    single_total_bb_RD,
-                    single_tumor_prop,
-                    res_combine,
-                    pred,
-                    smooth_mat,
-                    adjacency_mat,
-                    res_combine["prev_assignment"],
-                    copy.copy(sample_ids),
-                    log_persample_weights,
-                    spatial_weight=config.hmrf.spatial_weight,
-                    hmmclass=hmm_nophasing,
-                    return_posterior=True,
-                )
+
+            (
+                new_assignment,
+                single_llf,
+                total_llf,
+                posterior,
+            ) = aggr_hmrfmix_reassignment(
+                single_X,
+                single_base_nb_mean,
+                single_total_bb_RD,
+                single_tumor_prop,
+                res_combine,
+                pred,
+                smooth_mat,
+                adjacency_mat,
+                res_combine["prev_assignment"],
+                copy.copy(sample_ids),
+                log_persample_weights,
+                spatial_weight=config.hmrf.spatial_weight,
+                hmmclass=hmm_nophasing,
+                return_posterior=True,
             )
 
         elif config.hmrf.nodepotential == "weighted_sum":
-            new_assignment, single_llf, total_llf, posterior = (
-                hmrfmix_reassignment_posterior(
-                    single_X,
-                    single_base_nb_mean,
-                    single_total_bb_RD,
-                    single_tumor_prop,
-                    res_combine,
-                    smooth_mat,
-                    adjacency_mat,
-                    res_combine["prev_assignment"],
-                    copy.copy(sample_ids),
-                    log_persample_weights,
-                    spatial_weight=config.hmrf.spatial_weight,
-                    hmmclass=hmm_nophasing,
-                    return_posterior=True,
-                )
+            (
+                new_assignment,
+                single_llf,
+                total_llf,
+                posterior,
+            ) = hmrfmix_reassignment_posterior(
+                single_X,
+                single_base_nb_mean,
+                single_total_bb_RD,
+                single_tumor_prop,
+                res_combine,
+                smooth_mat,
+                adjacency_mat,
+                res_combine["prev_assignment"],
+                copy.copy(sample_ids),
+                log_persample_weights,
+                spatial_weight=config.hmrf.spatial_weight,
+                hmmclass=hmm_nophasing,
+                return_posterior=True,
             )
 
     res_combine["total_llf"] = total_llf
@@ -814,15 +831,111 @@ def run_cnaster(config_path):
     # NB re-order clones such that normal clones are always clone 0.
     res_combine, posterior = reindex_clones(res_combine, posterior, single_tumor_prop)
 
+    # NB infer integer allele-specific copy number
+    final_clone_ids = np.sort(np.unique(res_combine["new_assignment"]))
+
+    nonempty_clone_ids = copy.copy(final_clone_ids)
+
+    # NB add normal clone as 0 if not present
+    if 0 not in final_clone_ids:
+        final_clone_ids = np.append(0, final_clone_ids)
+
+    # NB ploidy
+    medfix = ["", "_diploid", "_triploid", "_tetraploid"]
+
+    for o, max_medploidy in enumerate([None, 2, 3, 4]):
+        # NB A/B integer copy number per bin and per state
+        allele_specific_copy, state_cnv = [], []
+
+        # df_genelevel_cnv = None
+
+        # TODO DEPRECATE mix
+        if config.preprocessing.tumorprop_file is None:
+            X, base_nb_mean, total_bb_RD = merge_pseudobulk_by_index(
+                single_X,
+                single_base_nb_mean,
+                single_total_bb_RD,
+                [
+                    np.where(res_combine["new_assignment"] == cid)[0]
+                    for cid in final_clone_ids
+                ],
+            )
+        else:
+            X, base_nb_mean, total_bb_RD, tumor_prop = merge_pseudobulk_by_index_mix(
+                single_X,
+                single_base_nb_mean,
+                single_total_bb_RD,
+                [
+                    np.where(res_combine["new_assignment"] == cid)[0]
+                    for cid in final_clone_ids
+                ],
+                single_tumor_prop,
+                threshold=config.hmrf.tumorprop_threshold,
+            )
+
+        for s, cid in enumerate(final_clone_ids):
+            if np.sum(base_nb_mean[:, s]) == 0:
+                logger.warning("TODO")
+                continue
+
+            # NB adjust log_mu such that sum_bin lambda * np.exp(log_mu) = 1.
+            lambd = base_nb_mean[:, s] / np.sum(base_nb_mean[:, s])
+            this_pred_cnv = res_combine["pred_cnv"][:, s]
+            adjusted_log_mu = np.log(
+                np.exp(res_combine["new_log_mu"][:, s])
+                / np.sum(np.exp(res_combine["new_log_mu"][this_pred_cnv, s]) * lambd)
+            )
+            if not max_medploidy is None:
+                best_integer_copies, _ = hill_climbing_integer_copynumber_oneclone(
+                    adjusted_log_mu,
+                    base_nb_mean[:, s],
+                    res_combine["new_p_binom"][:, s],
+                    this_pred_cnv,
+                    max_medploidy=max_medploidy,
+                )
+            else:
+                try:
+                    (
+                        best_integer_copies,
+                        _,
+                    ) = hill_climbing_integer_copynumber_fixdiploid(
+                        adjusted_log_mu,
+                        base_nb_mean[:, s],
+                        res_combine["new_p_binom"][:, s],
+                        this_pred_cnv,
+                        nonbalance_bafdist=config.int_copy_num.nonbalance_bafdist,
+                        nondiploid_rdrdist=config.int_copy_num.nondiploid_rdrdist,
+                    )
+                except:
+                    try:
+                        (
+                            best_integer_copies,
+                            _,
+                        ) = hill_climbing_integer_copynumber_fixdiploid(
+                            adjusted_log_mu,
+                            base_nb_mean[:, s],
+                            res_combine["new_p_binom"][:, s],
+                            this_pred_cnv,
+                            nonbalance_bafdist=config.int_copy_num.nonbalance_bafdist,
+                            nondiploid_rdrdist=config.int_copy_num.nondiploid_rdrdist,
+                            min_prop_threshold=0.02,
+                        )
+                    except:
+                        finding_distate_failed = True
+                        continue
+
+            logger.info(
+                f"max med ploidy = {max_medploidy}, clone {s}, integer copy inference loss = {_}"
+            )
+
     # TODO new_log_startprob - add to res_combine above.
     for key in ["new_log_mu", "new_alphas", "new_p_binom", "new_taus", "pred_cnv"]:
         logger.info(f"Solved for {key}:\n{res_combine[key]}")
-        
+
     # TODO CHECK
-    df_clone_label = pd.DataFrame({
-        "x": coords[:, 0],
-        "y": coords[:, 1]
-    }, index=barcodes)
+    df_clone_label = pd.DataFrame(
+        {"x": coords[:, 0], "y": coords[:, 1]}, index=barcodes
+    )
 
     if config.preprocessing.tumorprop_file is not None:
         df_clone_label["tumor_proportion"] = single_tumor_prop
@@ -835,7 +948,7 @@ def run_cnaster(config_path):
 
     # TODO HACK
     # df_clone_label.to_csv(f"{outdir}/clone_labels.tsv", header=True, index=True, sep="\t")
-    
+
     logger.info("Done.\n\n")
 
 

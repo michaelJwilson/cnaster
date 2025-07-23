@@ -129,7 +129,7 @@ def construct_unique_matrix(obs_count, total_count, decimals=4):
         unique_values.append(pairs)
         pair_index = {(pairs[i, 0], pairs[i, 1]): i for i in range(pairs.shape[0])}
 
-        # NB construct mapping matrix
+        # NB construct mapping matrix:
         mat_row = np.arange(n_obs)
         mat_col = np.zeros(n_obs, dtype=int)
 

@@ -1042,7 +1042,7 @@ def run_cnaster(config_path):
         )
 
         logger.info(
-            f"Solved for integer copy numbers @ states:\n{state_cnv.head()}"
+            f"Solved for integer copy numbers @ states:\n{state_cnv}"
         )
 
         # state_cnv.to_csv(

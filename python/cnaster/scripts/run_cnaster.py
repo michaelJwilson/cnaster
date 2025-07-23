@@ -847,31 +847,17 @@ def run_cnaster(config_path):
         # NB A/B integer copy number per bin and per state
         allele_specific_copy, state_cnv = [], []
 
-        # df_genelevel_cnv = None
-
-        # TODO DEPRECATE mix
-        if config.preprocessing.tumorprop_file is None:
-            X, base_nb_mean, total_bb_RD = merge_pseudobulk_by_index(
-                single_X,
-                single_base_nb_mean,
-                single_total_bb_RD,
-                [
-                    np.where(res_combine["new_assignment"] == cid)[0]
-                    for cid in final_clone_ids
-                ],
-            )
-        else:
-            X, base_nb_mean, total_bb_RD, tumor_prop = merge_pseudobulk_by_index_mix(
-                single_X,
-                single_base_nb_mean,
-                single_total_bb_RD,
-                [
-                    np.where(res_combine["new_assignment"] == cid)[0]
-                    for cid in final_clone_ids
-                ],
-                single_tumor_prop,
-                threshold=config.hmrf.tumorprop_threshold,
-            )
+        X, base_nb_mean, total_bb_RD, tumor_prop = merge_pseudobulk_by_index_mix(
+            single_X,
+            single_base_nb_mean,
+            single_total_bb_RD,
+            [
+                np.where(res_combine["new_assignment"] == cid)[0]
+                for cid in final_clone_ids
+            ],
+            single_tumor_prop,
+            threshold=config.hmrf.tumorprop_threshold,
+        )
 
         for s, cid in enumerate(final_clone_ids):
             if np.sum(base_nb_mean[:, s]) == 0:

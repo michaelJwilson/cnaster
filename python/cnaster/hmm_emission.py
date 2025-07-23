@@ -5,7 +5,7 @@ import warnings
 import numpy as np
 import scipy.stats
 from cnaster.config import get_global_config
-from cnaster.hmm_utils import convert_params
+from cnaster.hmm_utils import convert_params, get_solver
 from cnaster.deprecated.hmm_emission import Weighted_NegativeBinomial, Weighted_BetaBinom
 from statsmodels.base.model import GenericLikelihoodModel
 
@@ -13,19 +13,6 @@ logger = logging.getLogger(__name__)
 
 # TODO
 warnings.filterwarnings("ignore", category=UserWarning, module="statsmodels")
-
-
-def get_solver():
-    known_solvers = ("newton", "bfgs", "lbfgs", "powell", "nm", "cg", "ncg")
-
-    name = get_global_config().hmm.solver
-
-    assert (
-        name in known_solvers
-    ), f"Unknown solver: {name}. Supported solvers: {known_solvers}"
-
-    return name
-
 
 class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
     """

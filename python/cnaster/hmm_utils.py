@@ -3,6 +3,7 @@ import logging
 import numpy as np
 import scipy
 from numba import njit
+from cnaster.config import get_global_config
 
 logger = logging.getLogger(__name__)
 
@@ -224,3 +225,15 @@ def compute_posterior_transition_nophasing(
     for t in np.arange(n_obs - 1):
         log_xi[:, :, t] -= mylogsumexp(log_xi[:, :, t])
     return log_xi
+
+
+def get_solver():
+    known_solvers = ("newton", "bfgs", "lbfgs", "powell", "nm", "cg", "ncg")
+
+    name = get_global_config().hmm.solver
+
+    assert (
+        name in known_solvers
+    ), f"Unknown solver: {name}. Supported solvers: {known_solvers}"
+
+    return name

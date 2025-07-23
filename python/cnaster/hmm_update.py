@@ -13,10 +13,18 @@ from cnaster.hmm_emission import (
     Weighted_NegativeBinomial_mix,
 )
 from cnaster.hmm_utils import mylogsumexp, mylogsumexp_ax_keep
+from cnaster.config import get_global_config
 from numba import njit
 
 logger = logging.getLogger(__name__)
 
+def get_em_solver_params():
+    """
+    Get the parameters for the emission solver.
+    """
+    config = get_global_config()
+
+    return {k.replace("em_",""): getattr(config.hmm, k) for k in ("em_maxiter", "em_xtol", "em_ftol", "disp")}
 
 def update_transition_sitewise(log_xi, is_diag=False):
     """
@@ -200,6 +208,7 @@ def update_emission_params_nb_sitewise_uniqvalues(
         else np.zeros((n_states, n_spots))
     )
     new_alphas = copy.copy(alphas)
+    model_fit_params = get_em_solver_params()
 
     if fix_NB_dispersion:
         logger.info("Updating (phasing) NB emission parameters with fixed dispersion.")
@@ -218,16 +227,13 @@ def update_emission_params_nb_sitewise_uniqvalues(
                     exposure=unique_values[s][idx_nonzero, 1],
                     var_weights=tmp[i, idx_nonzero] + tmp[i + n_states, idx_nonzero],
                 )
-                res = model.fit(disp=0, maxiter=1500, xtol=1e-4, ftol=1e-4)
+                res = model.fit(**model_fit_params)
                 new_log_mu[i, s] = res.params[0]
 
                 if start_log_mu is not None:
                     res2 = model.fit(
-                        disp=0,
-                        maxiter=1500,
+                        **model_fit_params,
                         start_params=np.array([start_log_mu[i, s]]),
-                        xtol=1e-4,
-                        ftol=1e-4,
                     )
                     new_log_mu[i, s] = (
                         res.params[0]
@@ -253,18 +259,15 @@ def update_emission_params_nb_sitewise_uniqvalues(
                         exposure=unique_values[s][idx_nonzero, 1],
                         penalty=0,
                     )
-                    res = model.fit(disp=0, maxiter=1500, xtol=1e-4, ftol=1e-4)
+                    res = model.fit(**model_fit_params)
                     new_log_mu[i, s] = res.params[0]
                     new_alphas[i, s] = res.params[-1]
                     if start_log_mu is not None:
                         res2 = model.fit(
-                            disp=0,
-                            maxiter=1500,
+                            **model_fit_params,
                             start_params=np.append(
                                 [start_log_mu[i, s]], [alphas[i, s]]
                             ),
-                            xtol=1e-4,
-                            ftol=1e-4,
                         )
                         new_log_mu[i, s] = (
                             res.params[0]
@@ -283,11 +286,8 @@ def update_emission_params_nb_sitewise_uniqvalues(
                 "Updating (phasing) NB emission parameters with shared dispersion."
             )
 
-            exposure = []
-            y = []
-            weights = []
-            features = []
-            state_posweights = []
+            exposure, y, weights, features, state_posweights = [], [], [], [], []
+
             for s in range(n_spots):
                 idx_nonzero = np.where(unique_values[s][:, 1] > 0)[0]
                 this_exposure = np.tile(unique_values[s][idx_nonzero, 1], n_states)
@@ -332,7 +332,7 @@ def update_emission_params_nb_sitewise_uniqvalues(
             model = Weighted_NegativeBinomial(
                 y, features, weights=weights, exposure=exposure
             )
-            res = model.fit(disp=0, maxiter=1500, xtol=1e-4, ftol=1e-4)
+            res = model.fit(**model_fit_params)
             for s, idx_state_posweight in enumerate(state_posweights):
                 l1 = int(np.sum([len(x) for x in state_posweights[:s]]))
                 l2 = int(np.sum([len(x) for x in state_posweights[: (s + 1)]]))
@@ -341,8 +341,7 @@ def update_emission_params_nb_sitewise_uniqvalues(
                 new_alphas[:, :] = res.params[-1]
             if start_log_mu is not None:
                 res2 = model.fit(
-                    disp=0,
-                    maxiter=1500,
+                    **model_fit_params,
                     start_params=np.concatenate(
                         [
                             start_log_mu[idx_state_posweight, s]
@@ -350,8 +349,6 @@ def update_emission_params_nb_sitewise_uniqvalues(
                         ]
                         + [np.ones(1) * alphas[0, s]]
                     ),
-                    xtol=1e-4,
-                    ftol=1e-4,
                 )
                 if model.nloglikeobs(res2.params) < model.nloglikeobs(res.params):
                     for s, idx_state_posweight in enumerate(state_posweights):
@@ -400,7 +397,9 @@ def update_emission_params_nb_nophasing_uniqvalues(
         else np.zeros((n_states, n_spots))
     )
     new_alphas = copy.copy(alphas)
-    # expression signal by NB distribution
+    
+    model_fit_params = get_em_solver_params()
+
     if fix_NB_dispersion:
         logger.info(
             "Updating (no phasing) NB emission parameters with fixed dispersion."
@@ -418,15 +417,12 @@ def update_emission_params_nb_nophasing_uniqvalues(
                     exposure=unique_values[s][idx_nonzero, 1],
                     var_weights=tmp[i, idx_nonzero],
                 )
-                res = model.fit(disp=0, maxiter=1500, xtol=1e-4, ftol=1e-4)
+                res = model.fit(**model_fit_params)
                 new_log_mu[i, s] = res.params[0]
                 if start_log_mu is not None:
                     res2 = model.fit(
-                        disp=0,
-                        maxiter=1500,
+                        **model_fit_params,
                         start_params=np.array([start_log_mu[i, s]]),
-                        xtol=1e-4,
-                        ftol=1e-4,
                     )
                     new_log_mu[i, s] = (
                         res.params[0]
@@ -450,18 +446,15 @@ def update_emission_params_nb_nophasing_uniqvalues(
                         exposure=unique_values[s][idx_nonzero, 1],
                         penalty=0,
                     )
-                    res = model.fit(disp=0, maxiter=1500, xtol=1e-4, ftol=1e-4)
+                    res = model.fit(**model_fit_params)
                     new_log_mu[i, s] = res.params[0]
                     new_alphas[i, s] = res.params[-1]
                     if start_log_mu is not None:
                         res2 = model.fit(
-                            disp=0,
-                            maxiter=1500,
+                            **model_fit_params,
                             start_params=np.append(
                                 [start_log_mu[i, s]], [alphas[i, s]]
                             ),
-                            xtol=1e-4,
-                            ftol=1e-4,
                         )
                         new_log_mu[i, s] = (
                             res.params[0]
@@ -480,11 +473,8 @@ def update_emission_params_nb_nophasing_uniqvalues(
                 "Updating (no phasing) NB emission parameters with shared dispersion."
             )
 
-            exposure = []
-            y = []
-            weights = []
-            features = []
-            state_posweights = []
+            exposure, y, weights, features, state_posweights = [], [], [], [], []
+
             for s in range(n_spots):
                 idx_nonzero = np.where(unique_values[s][:, 1] > 0)[0]
                 this_exposure = np.tile(unique_values[s][idx_nonzero, 1], n_states)
@@ -523,7 +513,7 @@ def update_emission_params_nb_nophasing_uniqvalues(
             model = Weighted_NegativeBinomial(
                 y, features, weights=weights, exposure=exposure
             )
-            res = model.fit(disp=0, maxiter=1500, xtol=1e-4, ftol=1e-4)
+            res = model.fit(**model_fit_params)
             for s, idx_state_posweight in enumerate(state_posweights):
                 l1 = int(np.sum([len(x) for x in state_posweights[:s]]))
                 l2 = int(np.sum([len(x) for x in state_posweights[: (s + 1)]]))
@@ -532,8 +522,7 @@ def update_emission_params_nb_nophasing_uniqvalues(
                 new_alphas[:, :] = res.params[-1]
             if start_log_mu is not None:
                 res2 = model.fit(
-                    disp=0,
-                    maxiter=1500,
+                    **model_fit_params,
                     start_params=np.concatenate(
                         [
                             start_log_mu[idx_state_posweight, s]
@@ -541,8 +530,6 @@ def update_emission_params_nb_nophasing_uniqvalues(
                         ]
                         + [np.ones(1) * alphas[0, s]]
                     ),
-                    xtol=1e-4,
-                    ftol=1e-4,
                 )
                 if model.nloglikeobs(res2.params) < model.nloglikeobs(res.params):
                     for s, idx_state_posweight in enumerate(state_posweights):

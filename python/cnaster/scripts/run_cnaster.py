@@ -831,7 +831,11 @@ def run_cnaster(config_path):
     # NB re-order clones such that normal clones are always clone 0.
     res_combine, posterior = reindex_clones(res_combine, posterior, single_tumor_prop)
 
-    # NB infer integer allele-specific copy number
+    # TODO new_log_startprob - add to res_combine above.                                                                                                                                                                            
+    for key in ["new_log_mu", "new_alphas", "new_p_binom", "new_taus", "pred_cnv"]:
+        logger.info(f"Solved for {key}:\n{res_combine[key]}")
+    
+    # NB ----  infer integer allele-specific copy number  ----
     final_clone_ids = np.sort(np.unique(res_combine["new_assignment"]))
 
     nonempty_clone_ids = copy.copy(final_clone_ids)
@@ -1040,10 +1044,6 @@ def run_cnaster(config_path):
         # state_cnv.to_csv(
         # f"{outdir}/cnv{medfix[o]}_perstate.tsv", header=True, index=False, sep="\t"
         # )
-
-    # TODO new_log_startprob - add to res_combine above.
-    for key in ["new_log_mu", "new_alphas", "new_p_binom", "new_taus", "pred_cnv"]:
-        logger.info(f"Solved for {key}:\n{res_combine[key]}")
 
     # TODO CHECK
     df_clone_label = pd.DataFrame(

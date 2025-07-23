@@ -18,13 +18,18 @@ from numba import njit
 
 logger = logging.getLogger(__name__)
 
+
 def get_em_solver_params():
     """
     Get the parameters for the emission solver.
     """
     config = get_global_config()
 
-    return {k.replace("em_",""): getattr(config.hmm, k) for k in ("em_maxiter", "em_xtol", "em_ftol", "disp")}
+    return {
+        k.replace("em_", ""): float(getattr(config.hmm, f"em_{k}"))
+        for k in ("maxiter", "xtol", "ftol", "disp")
+    }
+
 
 def update_transition_sitewise(log_xi, is_diag=False):
     """
@@ -397,7 +402,7 @@ def update_emission_params_nb_nophasing_uniqvalues(
         else np.zeros((n_states, n_spots))
     )
     new_alphas = copy.copy(alphas)
-    
+
     model_fit_params = get_em_solver_params()
 
     if fix_NB_dispersion:
@@ -661,7 +666,14 @@ def update_emission_params_nb_sitewise_uniqvalues_mix(
                 "Updating (phasing, tumor mix) NB emission parameters with shared dispersion."
             )
 
-            exposure, y, weights, features, state_posweights, tp = [], [], [], [], [], []
+            exposure, y, weights, features, state_posweights, tp = (
+                [],
+                [],
+                [],
+                [],
+                [],
+                [],
+            )
 
             for s in range(n_spots):
                 idx_nonzero = np.where(unique_values[s][:, 1] > 0)[0]
@@ -866,7 +878,14 @@ def update_emission_params_nb_nophasing_uniqvalues_mix(
                 "Updating (no phasing, tumor mix) NB emission parameters with shared dispersion."
             )
 
-            exposure, y, weights, features, state_posweights, tp = [], [], [], [], [], []
+            exposure, y, weights, features, state_posweights, tp = (
+                [],
+                [],
+                [],
+                [],
+                [],
+                [],
+            )
 
             for s in range(n_spots):
                 idx_nonzero = np.where(unique_values[s][:, 1] > 0)[0]
@@ -1509,7 +1528,14 @@ def update_emission_params_bb_sitewise_uniqvalues_mix(
                 "Updating (phasing, tumor mix) BAF emission parameters with shared dispersion."
             )
 
-            exposure, y, weights, features, state_posweights, tp = [], [], [], [], [], []
+            exposure, y, weights, features, state_posweights, tp = (
+                [],
+                [],
+                [],
+                [],
+                [],
+                [],
+            )
 
             for s in np.arange(n_spots):
                 idx_nonzero = np.where(unique_values[s][:, 1] > 0)[0]
@@ -1735,7 +1761,14 @@ def update_emission_params_bb_nophasing_uniqvalues_mix(
                 "Updating (no phasing, tumor mix) BAF emission parameters with shared dispersion."
             )
 
-            exposure, y, weights, features, state_posweights, tp = [], [], [], [], [], []
+            exposure, y, weights, features, state_posweights, tp = (
+                [],
+                [],
+                [],
+                [],
+                [],
+                [],
+            )
 
             for s in np.arange(n_spots):
                 idx_nonzero = np.where(unique_values[s][:, 1] > 0)[0]
@@ -1777,7 +1810,7 @@ def update_emission_params_bb_nophasing_uniqvalues_mix(
                 )
                 state_posweights.append(idx_state_posweight)
                 tp.append(this_tp[idx_row_posweight])
-                
+
             exposure = np.concatenate(exposure)
             y = np.concatenate(y)
             weights = np.concatenate(weights)

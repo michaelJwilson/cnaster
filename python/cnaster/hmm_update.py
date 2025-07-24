@@ -1062,25 +1062,28 @@ def update_emission_params_bb_sitewise_uniqvalues(
             )
 
             for s in np.arange(len(unique_values)):
+                # NB map posterior to the compressed space.
                 tmp = (scipy.sparse.csr_matrix(gamma) @ mapping_matrices[s]).toarray()
+
+                # TODO design to be always true of compression?
                 idx_nonzero = np.where(unique_values[s][:, 1] > 0)[0]
                 for i in range(n_states):
                     # NB only optimize for BAF when the posterior probability >= 0.1,
-                    #    i.e. at least 1 SNP is under this state.
+                    #    i.e. at least 1 SNP is under this state (considering phasing).
                     if (
                         np.sum(tmp[i, idx_nonzero])
-                        + np.sum(tmp[i + n_states, idx_nonzero])
-                        >= 0.1
+                        + np.sum(tmp[i + n_states, idx_nonzero]) # NB posterior on phase flip
+                        >= 0.1 # MAGIC
                     ):
                         model = Weighted_BetaBinom(
                             np.append(
-                                unique_values[s][idx_nonzero, 0],
-                                unique_values[s][idx_nonzero, 1]
+                                unique_values[s][idx_nonzero, 0], # NB a-allele counts
+                                unique_values[s][idx_nonzero, 1] # NB b-allele counts
                                 - unique_values[s][idx_nonzero, 0],
                             ),
-                            np.ones(2 * len(idx_nonzero)).reshape(-1, 1),
+                            np.ones(2 * len(idx_nonzero)).reshape(-1, 1), # NB one-hot design matrix
                             weights=np.append(
-                                tmp[i, idx_nonzero], tmp[i + n_states, idx_nonzero]
+                                tmp[i, idx_nonzero], tmp[i + n_states, idx_nonzero] # NB current posterior.
                             ),
                             exposure=np.append(
                                 unique_values[s][idx_nonzero, 1],
@@ -1116,13 +1119,12 @@ def update_emission_params_bb_sitewise_uniqvalues(
 
             exposure, y, weights, features, state_posweights = [], [], [], [], []
 
-            # NB unique_values contains the unique pairs (ALT, TOTAL) allele counts
-            #    for each spot.
+            # NB loop over the unique pairs for the compressed observations.
             for s in np.arange(len(unique_values)):
-                # NB non-zero TOTAL allele counts for this spot.
+                # NB non-zero total counts for this unique obs.
                 idx_nonzero = np.where(unique_values[s][:, 1] > 0)[0]
 
-                # NB replicate for (no-)phasing unique values for each state.
+                # NB replicate total count for b and (1-b) for each state.
                 this_exposure = np.tile(
                     np.append(
                         unique_values[s][idx_nonzero, 1],
@@ -1140,8 +1142,10 @@ def update_emission_params_bb_sitewise_uniqvalues(
                     n_states,
                 )
 
-                # NB sum posterior probabilites across compressed observations
+                # NB map posterior to the compressed space.
                 tmp = (scipy.sparse.csr_matrix(gamma) @ mapping_matrices[s]).toarray()
+
+                # NB EM posterior weight.
                 this_weights = np.concatenate(
                     [
                         np.append(tmp[i, idx_nonzero], tmp[i + n_states, idx_nonzero])
@@ -1166,6 +1170,8 @@ def update_emission_params_bb_sitewise_uniqvalues(
                 idx_row_posweight = np.concatenate(
                     [np.where(this_features[:, k] == 1)[0] for k in idx_state_posweight]
                 )
+
+                # CHECK? aggregates unique obs. per spot.
                 y.append(this_y[idx_row_posweight])
                 exposure.append(this_exposure[idx_row_posweight])
                 weights.append(this_weights[idx_row_posweight])

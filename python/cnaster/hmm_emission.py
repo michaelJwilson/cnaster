@@ -35,12 +35,12 @@ class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
     exposure : array, (n_samples,)
         Multiplication constant outside the exponential term. In scRNA-seq or SRT data, this term is the total UMI count per cell/spot.
     """
-
     def __init__(
         self, endog, exog, weights, exposure, tumor_prop=None, seed=0, **kwargs
     ):
         super().__init__(endog, exog, **kwargs)
 
+        # NB EM-based posterior weights.
         self.weights = weights
         self.exposure = exposure
         self.seed = seed
@@ -116,13 +116,26 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
     exposure : array, (n_samples,)
         Total number of trials. In BAF case, this is the total number of SNP-covering UMIs.
     """
-
     def __init__(self, endog, exog, weights, exposure, tumor_prop=None, **kwargs):
         super().__init__(endog, exog, **kwargs)
 
+        # NB EM-based posterior weights.
         self.weights = weights
         self.exposure = exposure
         self.tumor_prop = tumor_prop
+
+        # NB log mean compression for unique(endog, exposure) pairs.
+        counts = np.vstack([endog, exposure]).T
+
+        # TODO BUG type guard for np types.
+        if exposure.dtype != int:
+            counts = counts.round(decimals=decimals)
+
+        pairs = np.unique(counts, axis=0)
+        
+        logger.warning(f"Further achievable compression: {100. * (1. - len(pairs) / len(endog))}")
+
+        exit(0)
 
     def nloglikeobs(self, params):
         p = self.exog @ params[:-1]

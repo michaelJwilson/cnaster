@@ -15,6 +15,6 @@ NOTES.md
 # HACK
 sample_sheet.tsv
 config_turing.yaml
-cnaster.log
+cnaster.log*
 
 *.pyc

@@ -16,17 +16,25 @@ logger = logging.getLogger(__name__)
 # TODO
 warnings.filterwarnings("ignore", category=UserWarning, module="statsmodels")
 
-def get_nbinom_start_params:
+def get_nbinom_start_params(legacy=False):
     config = get_global_config()
-    params = config.nbinom.start_params.split(",") + [config.nbinom.start_tau]
+    
+    if legacy:
+        return 0.1 * np.ones(config.hmm.n_states), 1.0e-2
+    
+    ms = config.nbinom.start_params.split(",")
 
-    return np.array(params)
+    return np.array(ms).astype(float), config.nbinom.start_disp
 
-def get_betabinom_start_params:
+def get_betabinom_start_params(legacy=False, exog=None):
     config = get_global_config()
-    params = config.betabinom.start_params.split(",") + [config.nbinom.start_tau]
+    
+    if legacy:
+        return (0.5 / exog.shape[1]) * np.ones(config.hmm.n_states), 1.0
+    
+    ps = config.betabinom.start_params.split(",")
 
-    return np.array(params)
+    return np.array(ps).astype(float), config.nbinom.start_disp
 
 class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
     """
@@ -59,6 +67,7 @@ class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
         self.seed = seed
         self.tumor_prop = tumor_prop
         self.compress = compress
+        self.num_states	= self.exog.shape[1]
 
         if tumor_prop is not None:
             logger.warning(
@@ -113,15 +122,19 @@ class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
 
         return -scipy.stats.nbinom.logpmf(self.endog, n, p).dot(self.weights)
 
-    def fit(self, start_params=None, maxiter=10_000, maxfun=5_000, **kwargs):
+    def fit(self, start_params=None, maxiter=10_000, maxfun=5_000, legacy=True, **kwargs):
+        # assert self.nparams == (1 + self.exog.shape[1]), f"Found nparams={self.nparams}, expected={self.exog.shape[1]}"
+        
         using_default_params = start_params is None
+        
         if start_params is None:
             if hasattr(self, "start_params"):
                 start_params = self.start_params
             else:
                 # TODO BUG? self.nparams??
                 # start_params = np.append(0.1 * np.ones(self.nparams), 1.0e-2)
-                start_params = get_nbinom_start_params()
+                ms, disp = get_nbinom_start_params(legacy=legacy, exog=self.exog)
+                start_params = np.concatenate([ms[:self.num_states], np.array([disp])])
 
         start_time = time.time()
 
@@ -184,7 +197,8 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
         self.exposure = exposure
         self.tumor_prop = tumor_prop
         self.compress = compress
-
+        self.num_states = self.exog.shape[1]
+        
         if tumor_prop is not None:
             logger.warning(
                 f"{self.__class__} compression is not supported for tumor_prop != None."
@@ -243,7 +257,9 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
             self.weights
         )
 
-    def fit(self, start_params=None, maxiter=10_000, maxfun=5_000, **kwargs):
+    def fit(self, start_params=None, maxiter=10_000, maxfun=5_000, legacy=True, **kwargs):
+        # assert self.nparams == (1 + self.exog.shape[1]), f"Found nparams={self.nparams}, expected={self.exog.shape[1]}"
+        
         using_default_params = start_params is None
         if start_params is None:
             if hasattr(self, "start_params"):
@@ -255,7 +271,8 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
                     0.5 / self.exog.shape[1] * np.ones(self.nparams), 1.0
                 )
                 """
-                start_params = get_betabinom_start_params()
+                ps, disp = get_betabinom_start_params(legacy=legacy, exog=self.exog)
+                start_params = np.concatenate([ps[:self.num_states], np.array([disp])])
 
         start_time = time.time()
 

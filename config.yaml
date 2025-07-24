@@ -1,8 +1,8 @@
 paths:
-  spaceranger_dir : <Replace with Spaceranger directory>
-  snp_dir : <Replace with output directory of preprocessing>
-  output_dir : <Replace with output directory, must be existing>
-
+  sample_sheet: /u/mw9568/research/repos/cnaster/sample_sheet.tsv
+  output_dir : /n/fs/scratch/mw9568/cnaster
+  cache_dir : /n/fs/scratch/mw9568/cnaster/.cache
+  
 preprocessing:
   normalidx_file : None
   tumorprop_file : None
@@ -11,19 +11,21 @@ run:
   bafonly : False
 
 references:
-  geneticmap_file : <Replace with CalicoST directory>/GRCh38_resources/genetic_map_GRCh38_merged.tab.gz
-  hgtable_file : <Replace with CalicoST directory>/GRCh38_resources/hgTables_hg38_gencode.txt
-  filtergenelist_file : <Replace with CalicoST directory>/GRCh38_resources/ig_gene_list.txt
-  filterregion_file : <Replace with CalicoST directory>/GRCh38_resources/HLA_regions.bed
+  geneticmap_file : /u/mw9568/research/data/references/genetic_map_GRCh38_merged.tab.gz
+  hgtable_file : /u/mw9568/research/data/references/hgTables_hg38_gencode.txt
+  filtergenelist_file : /u/mw9568/research/data/references/ig_gene_list.txt
+  filterregion_file : /u/mw9568/research/data/references/HLA_regions.bed
 
 quality:
   secondary_min_umi : 300
 
+# TODO HACK npart_phasing : 3 -> 1
 phasing:
   nu : 1.0
   logphase_shift : -2.0
-  npart_phasing : 3
+  npart_phasing : 1
 
+# TODO HACK max_iter_outer : 20 -> 
 hmrf:
   n_clones : 3
   n_clones_rdr : 2
@@ -31,8 +33,8 @@ hmrf:
   min_avgumi_per_clone : 10
   maxspots_pooling : 7
   tumorprop_threshold : 0.5
-  max_iter_outer : 20
-  nodepotential : weighted_sum
+  max_iter_outer : 1
+  nodepotential : max
   initialization_method : rectangle
   num_hmrf_initialization_start : 0
   num_hmrf_initialization_end : 1
@@ -40,17 +42,38 @@ hmrf:
   construct_adjacency_method : hexagon
   construct_adjacency_w : 1.0
 
+# TODO HACK max_iter : 30 -> 
 hmm:
+  solver: nm
   n_states : 7
   params : smp
-  t : 1-1e-5
+  t : 0.99999
   t_phaseing : 0.9999
   fix_NB_dispersion : False
   shared_NB_dispersion : True
   fix_BB_dispersion : False
   shared_BB_dispersion : True
-  max_iter : 30
+  compression_decimals: 3
+  max_iter : 1
   tol : 0.0001
   gmm_random_state : 0
+  gmm_maxiter: 30
   np_threshold : 1.0
   np_eventminlen : 10
+  em_maxiter: 1500
+  em_xtol: 1e-4
+  em_ftol: 1e-4
+  em_disp: 0
+
+# NB N sub-set of states will use the first N
+nbinom:
+  start_params: 0.1,0.1,0.1,0.1,0.1,0.1,0.1
+  start_disp: 1.0e-2
+
+betabinom:
+  start_params: 0.5,0.5,0.5,0.5,0.5,0.5,0.5
+  start_disp: 1.0
+
+int_copy_num:
+  nonbalance_bafdist : 1.0
+  nondiploid_rdrdist : 10.0

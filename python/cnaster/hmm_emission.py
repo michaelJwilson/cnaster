@@ -129,7 +129,8 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
 
         # TODO BUG type guard for np types.
         if exposure.dtype != int:
-            counts = counts.round(decimals=decimals)
+            # TODO HACK decimals
+            counts = counts.round(decimals=4)
 
         pairs = np.unique(counts, axis=0)
         

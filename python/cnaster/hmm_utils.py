@@ -99,7 +99,7 @@ def calc_sparsity(csr_matrix):
     return (total_elements - non_zero_elements) / total_elements
 
 
-def construct_unique_matrix(obs_count, total_count, decimals=4):
+def construct_unique_matrix(obs_count, total_count):
     """
     Attributes
     ----------
@@ -111,6 +111,7 @@ def construct_unique_matrix(obs_count, total_count, decimals=4):
     """
     n_obs = obs_count.shape[0]
     n_spots = obs_count.shape[1]
+    decimals = name = get_global_config().hmm.compression_decimals
 
     unique_values, mapping_matrices = [], []
 

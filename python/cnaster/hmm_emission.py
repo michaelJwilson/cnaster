@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 # TODO
 warnings.filterwarnings("ignore", category=UserWarning, module="statsmodels")
 
+
 class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
     """
     Negative Binomial model endog ~ NB(exposure * exp(exog @ params[:-1]), params[-1]), where exog is the design matrix, and params[-1] is 1 / overdispersion.
@@ -35,6 +36,7 @@ class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
     exposure : array, (n_samples,)
         Multiplication constant outside the exponential term. In scRNA-seq or SRT data, this term is the total UMI count per cell/spot.
     """
+
     def __init__(
         self, endog, exog, weights, exposure, tumor_prop=None, seed=0, **kwargs
     ):
@@ -131,13 +133,54 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
     exposure : array, (n_samples,)
         Total number of trials. In BAF case, this is the total number of SNP-covering UMIs.
     """
-    def __init__(self, endog, exog, weights, exposure, tumor_prop=None, **kwargs):
+
+    def __init__(
+        self, endog, exog, weights, exposure, tumor_prop=None, compress=False, **kwargs
+    ):
         super().__init__(endog, exog, **kwargs)
 
         # NB EM-based posterior weights.
         self.weights = weights
         self.exposure = exposure
         self.tumor_prop = tumor_prop
+
+        if compress:
+            if tumor_prop is not None:
+                logger.warning(
+                    f"{self.__class__} compression is not supported for tumor_prop != None."
+                )
+                raise RuntimeError()
+
+            cls = np.argmax(self.exog, axis=1)
+            counts = np.vstack([self.endog, self.exposure, cls]).T
+
+            if counts.dtype != int:
+                counts = counts.round(decimals=4)
+
+            # NB see https://numpy.org/doc/stable/reference/generated/numpy.unique.html
+            unique_pairs, unique_idx, unique_inv = np.unique(
+                counts, return_index=True, return_inverse=True, axis=0
+            )
+            mean_compression = 1.0 - len(unique_pairs) / len(self.endog)
+
+            logger.warning(
+                f"TODO: {self.__class__.__name__} achievable compression: {100. * mean_compression:.4f}"
+            )
+
+            # NB update self.endog, self.exposure, self.exog, self.weights for unique_pairs compression:
+            self.endog = unique_pairs[:, 0]
+            self.exposure = unique_pairs[:, 1]
+
+            # NB one-hot encoded design matrix of class labels
+            self.exog = self.exog[unique_idx, :]
+
+            # TODO HACK
+            # NB sum self.weights
+            transfer = np.zeros((len(unique_pairs), len(self.endog)), dtype=int)
+            for i in range(len(unique_pairs)):
+                transfer[i, unique_inv == i] = 1
+
+            self.weights = transfer @ self.weights
 
     def nloglikeobs(self, params):
         p = self.exog @ params[:-1]
@@ -162,10 +205,16 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
                 start_params = self.start_params
             else:
                 start_params = np.append(
-                    0.5 / np.sum(self.exog.shape[1]) * np.ones(self.nparams), 1
+                    0.5 / self.exog.shape[1] * np.ones(self.nparams), 1.0
                 )
 
         start_time = time.time()
+
+        # NB log initial start params and initial likelihood:
+        logger.info(f"Weighted_BetaBinom_mix initial likelihood={self.nloglikeobs(start_params):.6e} @ start_params: {start_params}")
+        
+        exit(0)
+
         result = super().fit(
             start_params=start_params,
             maxiter=maxiter,
@@ -191,6 +240,7 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
         )
 
         return result
+
 
 # LEGACY
 Weighted_NegativeBinomial = partial(Weighted_NegativeBinomial_mix, tumor_prop=None)

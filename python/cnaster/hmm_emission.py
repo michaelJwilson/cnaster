@@ -124,20 +124,6 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
         self.exposure = exposure
         self.tumor_prop = tumor_prop
 
-        # NB log mean compression for unique(endog, exposure) pairs.
-        counts = np.vstack([endog, exposure]).T
-
-        # TODO BUG type guard for np types.
-        if exposure.dtype != int:
-            # TODO HACK decimals
-            counts = counts.round(decimals=4)
-
-        pairs = np.unique(counts, axis=0)
-        
-        logger.warning(f"Further achievable compression: {100. * (1. - len(pairs) / len(endog))}")
-
-        exit(0)
-
     def nloglikeobs(self, params):
         p = self.exog @ params[:-1]
 
@@ -150,6 +136,20 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
                 -1
             ]
 
+        # TODO HACK
+        counts = np.vstack([self.endog, self.exposure, a, b]).T
+
+        if self.exposure.dtype != int:
+            counts = counts.round(decimals=4)
+
+        pairs = np.unique(counts, axis=0)
+
+        mean_compression = (1. - len(pairs) / len(self.endog))
+
+        if mean_compression > 0.1:
+            logger.warning(f"TODO: {self.__class__.__name__} achievable compression: {100. * mean_compression}")
+            exit(0)
+            
         return -scipy.stats.betabinom.logpmf(self.endog, self.exposure, a, b).dot(
             self.weights
         )

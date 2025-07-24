@@ -136,7 +136,8 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
                 -1
             ]
 
-        # TODO HACK
+        """
+        # TODO HACK Weighted_BetaBinom_mix achievable compression: 82.22 as not spot aggregated.
         counts = np.vstack([self.endog, self.exposure, a, b]).T
 
         if self.exposure.dtype != int:
@@ -148,7 +149,7 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
 
         if mean_compression > 0.1:
             logger.warning(f"TODO: {self.__class__.__name__} achievable compression: {100. * mean_compression}")
-
+        """            
         return -scipy.stats.betabinom.logpmf(self.endog, self.exposure, a, b).dot(
             self.weights
         )

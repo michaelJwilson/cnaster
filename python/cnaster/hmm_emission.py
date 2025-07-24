@@ -135,7 +135,7 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
     """
 
     def __init__(
-        self, endog, exog, weights, exposure, tumor_prop=None, compress=True, **kwargs
+        self, endog, exog, weights, exposure, tumor_prop=None, compress=False, **kwargs
     ):
         super().__init__(endog, exog, **kwargs)
 

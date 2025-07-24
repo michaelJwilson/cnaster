@@ -38,7 +38,7 @@ class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
     """
 
     def __init__(
-        self, endog, exog, weights, exposure, tumor_prop=None, seed=0, **kwargs
+        self, endog, exog, weights, exposure, tumor_prop=None, compress=False, seed=0, **kwargs
     ):
         super().__init__(endog, exog, **kwargs)
 
@@ -47,6 +47,45 @@ class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
         self.exposure = exposure
         self.seed = seed
         self.tumor_prop = tumor_prop
+
+        if tumor_prop is not None:
+            logger.warning(
+                f"{self.__class__.__name__} compression is not supported for tumor_prop != None."
+            )
+            self.compress = False
+            return
+
+        cls = np.argmax(self.exog, axis=1)
+        counts = np.vstack([self.endog, self.exposure, cls]).T
+
+        # TODO HACK decimals
+        if counts.dtype != int:
+            counts = counts.round(decimals=4)
+
+        # NB see https://numpy.org/doc/stable/reference/generated/numpy.unique.html
+        unique_pairs, unique_idx, unique_inv = np.unique(
+            counts, return_index=True, return_inverse=True, axis=0
+        )
+
+        mean_compression = 1.0 - len(unique_pairs) / len(self.endog)
+
+        logger.warning(
+            f"{self.__class__.__name__} has further achievable compression: {100. * mean_compression:.4f}%"
+        )
+
+        if compress:
+            transfer = np.zeros((len(unique_pairs), len(self.endog)), dtype=int)
+
+            for i in range(len(unique_pairs)):
+                transfer[i, unique_inv == i] = 1
+
+            self.weights = transfer @ self.weights
+
+            self.endog = unique_pairs[:, 0]
+            self.exposure = unique_pairs[:, 1]
+
+            self.exog = self.exog[unique_idx, :]
+            self.compress = True
 
     def nloglikeobs(self, params):
         if self.tumor_prop is None:
@@ -60,21 +99,6 @@ class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
         nb_std = np.sqrt(nb_mean + params[-1] * nb_mean**2)
 
         n, p = convert_params(nb_mean, nb_std)
-        """
-        # TODO HACK Weighted_NegativeBinomial_mix achievable compression: 80.00 as not spot aggregated.
-        counts = np.vstack([self.endog, n, p]).T
-
-        if counts.dtype != int:
-            counts = counts.round(decimals=4)
-
-        pairs = np.unique(counts, axis=0)
-
-        mean_compression = (1. - len(pairs) / len(self.endog))
-
-        if mean_compression > 0.1:
-            logger.warning(f"TODO: {self.__class__.__name__} achievable compression: {100. * mean_compression:.4f}")
-            exit(0)
-        """
 
         return -scipy.stats.nbinom.logpmf(self.endog, n, p).dot(self.weights)
 
@@ -87,6 +111,9 @@ class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
                 start_params = np.append(0.1 * np.ones(self.nparams), 1.0e-2)
 
         start_time = time.time()
+
+        logger.info(f"Weighted_NegativeBinomial_mix (compress={self.compress}) initial likelihood={self.nloglikeobs(start_params):.6e} @ start_params: {start_params}")
+
         result = super().fit(
             start_params=start_params,
             maxiter=maxiter,
@@ -155,6 +182,7 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
         cls = np.argmax(self.exog, axis=1)
         counts = np.vstack([self.endog, self.exposure, cls]).T
 
+        # TODO HACK decimals
         if counts.dtype != int:
             counts = counts.round(decimals=4)
 
@@ -162,9 +190,6 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
         unique_pairs, unique_idx, unique_inv = np.unique(
             counts, return_index=True, return_inverse=True, axis=0
         )
-
-        assert len(unique_idx) == len(unique_pairs), f"{unique_idx.shape}"
-        assert len(unique_inv) == len(self.endog), f"{unique_inv.shape}"
 
         mean_compression = 1.0 - len(unique_pairs) / len(self.endog)
 

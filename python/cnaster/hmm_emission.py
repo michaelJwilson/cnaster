@@ -16,6 +16,17 @@ logger = logging.getLogger(__name__)
 # TODO
 warnings.filterwarnings("ignore", category=UserWarning, module="statsmodels")
 
+def get_nbinom_start_params:
+    config = get_global_config()
+    params = config.nbinom.start_params.split(",") + [config.nbinom.start_tau]
+
+    return np.array(params)
+
+def get_betabinom_start_params:
+    config = get_global_config()
+    params = config.betabinom.start_params.split(",") + [config.nbinom.start_tau]
+
+    return np.array(params)
 
 class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
     """
@@ -108,7 +119,9 @@ class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
             if hasattr(self, "start_params"):
                 start_params = self.start_params
             else:
-                start_params = np.append(0.1 * np.ones(self.nparams), 1.0e-2)
+                # TODO BUG? self.nparams??
+                # start_params = np.append(0.1 * np.ones(self.nparams), 1.0e-2)
+                start_params = get_nbinom_start_params()
 
         start_time = time.time()
 
@@ -236,9 +249,13 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
             if hasattr(self, "start_params"):
                 start_params = self.start_params
             else:
+                """
+                # TODO BUG? self.nparams??
                 start_params = np.append(
                     0.5 / self.exog.shape[1] * np.ones(self.nparams), 1.0
                 )
+                """
+                start_params = get_betabinom_start_params()
 
         start_time = time.time()
 

@@ -94,10 +94,9 @@ def convert_params(mean, std):
 
 def calc_sparsity(csr_matrix):
     total_elements = csr_matrix.shape[0] * csr_matrix.shape[1]
-    non_zero_elements = csr_matrix.nnz
-    sparsity = (total_elements - non_zero_elements) / total_elements
+    non_zero_elements = csr_matrix.size
 
-    return sparsity
+    return (total_elements - non_zero_elements) / total_elements
 
 
 def construct_unique_matrix(obs_count, total_count, decimals=4):
@@ -127,7 +126,7 @@ def construct_unique_matrix(obs_count, total_count, decimals=4):
 
         pairs = np.unique(counts, axis=0)
 
-        mean_compression += pairs.shape[0] / len(counts)
+        mean_compression += (1. - len(pairs) / n_obs)
 
         unique_values.append(pairs)
         pair_index = {(pairs[i, 0], pairs[i, 1]): i for i in range(pairs.shape[0])}
@@ -146,13 +145,13 @@ def construct_unique_matrix(obs_count, total_count, decimals=4):
                 ]
             mat_col[i] = tmpidx
 
-        mean_sparsity += calc_sparsity(csr_matrix)
-
         # NB num. columns set by max(mat_col).
         csr_matrix = scipy.sparse.csr_matrix(
             (np.ones(len(mat_row)), (mat_row, mat_col))
         )
 
+        mean_sparsity += calc_sparsity(csr_matrix)
+        
         # Example usage:
         #   e.g.  convert posteriors from observation space to the compressed space
         # .        tmp = (scipy.sparse.csr_matrix(gamma) @ mapping_matrices[s]).toarray()
@@ -162,7 +161,7 @@ def construct_unique_matrix(obs_count, total_count, decimals=4):
     mean_sparsity /= n_spots
 
     logger.info(
-        f"Constructed unique count compression with mean rate: {100. * mean_compression:.4f}%, as represented by {n_spots} sparse matrices with sparsity {100. * mean_sparsity:.2f}%."
+        f"Constructed unique count compression with mean rate: {100. * mean_compression:.4f}%, as represented by {n_spots} sparse matrices with mean sparsity {100. * mean_sparsity:.2f}%."
     )
 
     return unique_values, mapping_matrices

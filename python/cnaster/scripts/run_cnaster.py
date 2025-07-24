@@ -168,6 +168,8 @@ def run_cnaster(config_path):
         threshold=config.hmrf.tumorprop_threshold,
     )
 
+    exit(0)
+    
     df_gene_snp["phase"] = np.where(
         df_gene_snp.snp_id.isnull(),
         None,

@@ -167,8 +167,6 @@ def run_cnaster(config_path):
         1.0e-3,  # MAGIC tol
         threshold=config.hmrf.tumorprop_threshold,
     )
-
-    exit(0)
     
     df_gene_snp["phase"] = np.where(
         df_gene_snp.snp_id.isnull(),

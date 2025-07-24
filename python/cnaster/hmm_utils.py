@@ -115,21 +115,25 @@ def construct_unique_matrix(obs_count, total_count, decimals=4):
 
     unique_values, mapping_matrices = [], []
 
+    mean_compression = 0.0
     mean_sparsity = 0.0
 
     for s in range(n_spots):
         counts = np.vstack([obs_count[:, s], total_count[:, s]]).T
 
-        # TODO BUG uint?
+        # TODO BUG fails for numpy cases; not np.issubdtype(total_count.dtype, np.integer)
         if total_count.dtype != int:
             counts = counts.round(decimals=decimals)
 
         pairs = np.unique(counts, axis=0)
 
+        mean_compression += pairs.shape[0] / len(counts)
+
         unique_values.append(pairs)
         pair_index = {(pairs[i, 0], pairs[i, 1]): i for i in range(pairs.shape[0])}
 
-        # NB construct mapping matrix:
+        # NB construct mapping matrix with shape (n_obs, n_unique_pairs);
+        #    one-hot of obs. to compressed.
         mat_row = np.arange(n_obs)
         mat_col = np.zeros(n_obs, dtype=int)
 
@@ -138,22 +142,27 @@ def construct_unique_matrix(obs_count, total_count, decimals=4):
                 tmpidx = pair_index[(obs_count[i, s], total_count[i, s])]
             else:
                 tmpidx = pair_index[
-                    (obs_count[i, s], total_count[i, s].round(decimals=4))
+                    (obs_count[i, s], total_count[i, s].round(decimals=decimals))
                 ]
             mat_col[i] = tmpidx
 
+        mean_sparsity += calc_sparsity(csr_matrix)
+
+        # NB num. columns set by max(mat_col).
         csr_matrix = scipy.sparse.csr_matrix(
             (np.ones(len(mat_row)), (mat_row, mat_col))
         )
 
-        mean_sparsity += calc_sparsity(csr_matrix)
-
+        # Example usage:
+        #   e.g.  convert posteriors from observation space to the compressed space
+        # .        tmp = (scipy.sparse.csr_matrix(gamma) @ mapping_matrices[s]).toarray()
         mapping_matrices.append(csr_matrix)
 
+    mean_compression /= n_spots
     mean_sparsity /= n_spots
 
     logger.info(
-        f"Calculated unique emission values for {n_spots} spots with mean sparsity: {mean_sparsity:.2f}%"
+        f"Constructed unique count compression with mean rate: {100. * mean_compression:.4f}%, as represented by {n_spots} sparse matrices with sparsity {100. * mean_sparsity:.2f}%."
     )
 
     return unique_values, mapping_matrices

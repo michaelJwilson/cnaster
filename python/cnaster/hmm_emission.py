@@ -135,7 +135,7 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
     """
 
     def __init__(
-        self, endog, exog, weights, exposure, tumor_prop=None, compress=False, **kwargs
+        self, endog, exog, weights, exposure, tumor_prop=None, compress=True, **kwargs
     ):
         super().__init__(endog, exog, **kwargs)
 
@@ -145,34 +145,34 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
         self.tumor_prop = tumor_prop
         self.compress = compress
 
-        if compress:
-            if tumor_prop is not None:
-                logger.warning(
-                    f"{self.__class__} compression is not supported for tumor_prop != None."
-                )
-                self.compress = False
-                return
-
-            cls = np.argmax(self.exog, axis=1)
-            counts = np.vstack([self.endog, self.exposure, cls]).T
-
-            if counts.dtype != int:
-                counts = counts.round(decimals=4)
-
-            # NB see https://numpy.org/doc/stable/reference/generated/numpy.unique.html
-            unique_pairs, unique_idx, unique_inv = np.unique(
-                counts, return_index=True, return_inverse=True, axis=0
-            )
-
-            assert len(unique_idx) == len(unique_pairs), f"{unique_idx.shape}"
-            assert len(unique_inv) == len(self.endog), f"{unique_inv.shape}"
-
-            mean_compression = 1.0 - len(unique_pairs) / len(self.endog)
-
+        if tumor_prop is not None:
             logger.warning(
-                f"TODO: {self.__class__.__name__} achievable compression: {100. * mean_compression:.4f}"
+                f"{self.__class__} compression is not supported for tumor_prop != None."
             )
+            self.compress = False
+            return
 
+        cls = np.argmax(self.exog, axis=1)
+        counts = np.vstack([self.endog, self.exposure, cls]).T
+
+        if counts.dtype != int:
+            counts = counts.round(decimals=4)
+
+        # NB see https://numpy.org/doc/stable/reference/generated/numpy.unique.html
+        unique_pairs, unique_idx, unique_inv = np.unique(
+            counts, return_index=True, return_inverse=True, axis=0
+        )
+
+        assert len(unique_idx) == len(unique_pairs), f"{unique_idx.shape}"
+        assert len(unique_inv) == len(self.endog), f"{unique_inv.shape}"
+
+        mean_compression = 1.0 - len(unique_pairs) / len(self.endog)
+
+        logger.warning(
+            f"TODO: {self.__class__.__name__} achievable compression: {100. * mean_compression:.4f}"
+        )
+
+        if compress:
             # TODO HACK                                                                                                                                                                                  
             # NB sum self.weights - relies on original self.endog length                                                                                                                                 
             transfer = np.zeros((len(unique_pairs), len(self.endog)), dtype=int)

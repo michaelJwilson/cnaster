@@ -167,13 +167,6 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
                 f"TODO: {self.__class__.__name__} achievable compression: {100. * mean_compression:.4f}"
             )
 
-            # NB update self.endog, self.exposure, self.exog, self.weights for unique_pairs compression:
-            self.endog = unique_pairs[:, 0]
-            self.exposure = unique_pairs[:, 1]
-
-            # NB one-hot encoded design matrix of class labels
-            self.exog = self.exog[unique_idx, :]
-
             # TODO HACK
             # NB sum self.weights
             transfer = np.zeros((len(unique_pairs), len(self.endog)), dtype=int)
@@ -181,6 +174,13 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
                 transfer[i, unique_inv == i] = 1
 
             self.weights = transfer @ self.weights
+
+            # NB update self.endog, self.exposure, self.exog, self.weights for unique_pairs compression:
+            self.endog = unique_pairs[:, 0]
+            self.exposure = unique_pairs[:, 1]
+
+            # NB one-hot encoded design matrix of class labels
+            self.exog = self.exog[unique_idx, :]
 
     def nloglikeobs(self, params):
         p = self.exog @ params[:-1]

@@ -47,6 +47,7 @@ class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
         self.exposure = exposure
         self.seed = seed
         self.tumor_prop = tumor_prop
+        self.compress = compress
 
         if tumor_prop is not None:
             logger.warning(
@@ -72,7 +73,7 @@ class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
         logger.warning(
             f"{self.__class__.__name__} has further achievable compression: {100. * mean_compression:.4f}%"
         )
-
+        
         if compress:
             transfer = np.zeros((len(unique_pairs), len(self.endog)), dtype=int)
 
@@ -85,7 +86,6 @@ class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
             self.exposure = unique_pairs[:, 1]
 
             self.exog = self.exog[unique_idx, :]
-            self.compress = True
 
     def nloglikeobs(self, params):
         if self.tumor_prop is None:
@@ -213,7 +213,6 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
 
             # NB one-hot encoded design matrix of class labels
             self.exog = self.exog[unique_idx, :]
-            self.compress = True
 
     def nloglikeobs(self, params):
         p = self.exog @ params[:-1]

@@ -244,8 +244,6 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
             f"converged: {result.mle_retvals.get('converged', 'N/A')}, "
             f"llf: {result.llf:.6e}"
         )
-
-        exit(0)
         
         return result
 

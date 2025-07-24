@@ -170,7 +170,7 @@ def run_cnaster(config_path):
         1.0e-3,  # MAGIC tol
         threshold=config.hmrf.tumorprop_threshold,
     )
-    
+    """
     df_gene_snp["phase"] = np.where(
         df_gene_snp.snp_id.isnull(),
         None,
@@ -1070,7 +1070,7 @@ def run_cnaster(config_path):
 
     # TODO HACK
     # df_clone_label.to_csv(f"{outdir}/clone_labels.tsv", header=True, index=True, sep="\t")
-
+    """
     logger.info(f"Done in {time.time() - start_time:.2f} seconds.")
 
 

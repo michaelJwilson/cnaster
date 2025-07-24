@@ -59,6 +59,20 @@ class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
 
         n, p = convert_params(nb_mean, nb_std)
 
+        # TODO HACK Weighted_NegativeBinomial_mix achievable compression: ??? as not spot aggregated.
+        counts = np.vstack([self.endog, n, p]).T
+
+        if counts.dtype != int:
+            counts = counts.round(decimals=4)
+
+        pairs = np.unique(counts, axis=0)
+
+        mean_compression = (1. - len(pairs) / len(self.endog))
+
+        if mean_compression > 0.1:
+            logger.warning(f"TODO: {self.__class__.__name__} achievable compression: {100. * mean_compression}")
+            exit(0)
+
         return -scipy.stats.nbinom.logpmf(self.endog, n, p).dot(self.weights)
 
     def fit(self, start_params=None, maxiter=10_000, maxfun=5_000, **kwargs):
@@ -140,7 +154,7 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
         # TODO HACK Weighted_BetaBinom_mix achievable compression: 82.22 as not spot aggregated.
         counts = np.vstack([self.endog, self.exposure, a, b]).T
 
-        if self.exposure.dtype != int:
+        if counts.dtype != int:
             counts = counts.round(decimals=4)
 
         pairs = np.unique(counts, axis=0)

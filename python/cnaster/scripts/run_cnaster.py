@@ -136,6 +136,7 @@ def run_cnaster(config_path):
         config.phasing.logphase_shift,
     )
 
+    # TODO
     initial_clone_for_phasing = initialize_clones(
         coords,
         sample_ids,
@@ -218,7 +219,8 @@ def run_cnaster(config_path):
         construct_adjacency_w=config.hmrf.construct_adjacency_w,
     )
 
-    n_pooled = np.median(np.sum(smooth_mat > 0, axis=0).A.flatten())
+    # DEPRECATE
+    # n_pooled = np.median(np.sum(smooth_mat > 0, axis=0).A.flatten())
 
     # TODO
     copy_single_X_rdr = copy.copy(single_X[:, 0, :])

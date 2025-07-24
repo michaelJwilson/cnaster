@@ -1246,7 +1246,7 @@ def update_emission_params_bb_nophasing_uniqvalues(
     n_spots = len(unique_values)
     n_states = log_gamma.shape[0]
     gamma = np.exp(log_gamma)
-    # initialization
+    
     new_p_binom = (
         copy.copy(start_p_binom)
         if start_p_binom is not None
@@ -1335,6 +1335,8 @@ def update_emission_params_bb_nophasing_uniqvalues(
 
             for s in np.arange(len(unique_values)):
                 idx_nonzero = np.where(unique_values[s][:, 1] > 0)[0]
+
+                
                 this_exposure = np.tile(unique_values[s][idx_nonzero, 1], n_states)
                 this_y = np.tile(unique_values[s][idx_nonzero, 0], n_states)
                 tmp = (scipy.sparse.csr_matrix(gamma) @ mapping_matrices[s]).toarray()
@@ -1346,7 +1348,7 @@ def update_emission_params_bb_nophasing_uniqvalues(
                     this_features[
                         (i * len(idx_nonzero)) : ((i + 1) * len(idx_nonzero)), i
                     ] = 1
-                # only optimize for states where at least 1 SNP belongs to
+                # NB only optimize for states where at least 1 SNP belongs to
                 idx_state_posweight = np.array(
                     [
                         i

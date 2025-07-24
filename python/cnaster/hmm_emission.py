@@ -149,7 +149,8 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
 
         if mean_compression > 0.1:
             logger.warning(f"TODO: {self.__class__.__name__} achievable compression: {100. * mean_compression}")
-        """            
+        """
+
         return -scipy.stats.betabinom.logpmf(self.endog, self.exposure, a, b).dot(
             self.weights
         )

@@ -1,5 +1,6 @@
 import argparse
 import copy
+import time
 import logging
 
 import numpy as np
@@ -58,6 +59,8 @@ logger = logging.getLogger(__name__)
 
 
 def run_cnaster(config_path):
+    start = time.time()
+
     config = YAMLConfig.from_file(config_path)
 
     set_global_config(config)
@@ -1068,7 +1071,7 @@ def run_cnaster(config_path):
     # TODO HACK
     # df_clone_label.to_csv(f"{outdir}/clone_labels.tsv", header=True, index=True, sep="\t")
 
-    logger.info("Done.\n\n")
+    logger.info(f"Done in {time.time() - start_time:.2f} seconds.")
 
 
 # NB run_cnaster config_turing.yaml

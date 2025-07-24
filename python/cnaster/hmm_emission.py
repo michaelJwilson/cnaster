@@ -48,18 +48,18 @@ class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
 
     def nloglikeobs(self, params):
         if self.tumor_prop is None:
-            nb_mean = np.exp(self.exog @ params[:-1]) * self.exposure
+            nb_mean = self.exog @ np.exp(params[:-1]) * self.exposure
         else:
             nb_mean = self.exposure * (
-                self.tumor_prop * np.exp(self.exog @ params[:-1])
+                self.tumor_prop * self.exog @ np.exp(params[:-1])
                 + (1.0 - self.tumor_prop)
             )
 
         nb_std = np.sqrt(nb_mean + params[-1] * nb_mean**2)
 
         n, p = convert_params(nb_mean, nb_std)
-
-        # TODO HACK Weighted_NegativeBinomial_mix achievable compression: ??? as not spot aggregated.
+        """
+        # TODO HACK Weighted_NegativeBinomial_mix achievable compression: 80.00 as not spot aggregated.
         counts = np.vstack([self.endog, n, p]).T
 
         if counts.dtype != int:
@@ -70,8 +70,9 @@ class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
         mean_compression = (1. - len(pairs) / len(self.endog))
 
         if mean_compression > 0.1:
-            logger.warning(f"TODO: {self.__class__.__name__} achievable compression: {100. * mean_compression}")
+            logger.warning(f"TODO: {self.__class__.__name__} achievable compression: {100. * mean_compression:.4f}")
             exit(0)
+        """
 
         return -scipy.stats.nbinom.logpmf(self.endog, n, p).dot(self.weights)
 
@@ -162,7 +163,7 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
         mean_compression = (1. - len(pairs) / len(self.endog))
 
         if mean_compression > 0.1:
-            logger.warning(f"TODO: {self.__class__.__name__} achievable compression: {100. * mean_compression}")
+            logger.warning(f"TODO: {self.__class__.__name__} achievable compression: {100. * mean_compression:.4f}")
         """
 
         return -scipy.stats.betabinom.logpmf(self.endog, self.exposure, a, b).dot(

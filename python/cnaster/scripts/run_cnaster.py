@@ -59,7 +59,7 @@ logger = logging.getLogger(__name__)
 
 
 def run_cnaster(config_path):
-    start = time.time()
+    start_time = time.time()
 
     config = YAMLConfig.from_file(config_path)
 

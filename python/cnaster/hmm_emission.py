@@ -169,7 +169,7 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
         mean_compression = 1.0 - len(unique_pairs) / len(self.endog)
 
         logger.warning(
-            f"TODO: {self.__class__.__name__} achievable compression: {100. * mean_compression:.4f}"
+            f"{self.__class__.__name__} has further achievable compression: {100. * mean_compression:.4f}"
         )
 
         if compress:

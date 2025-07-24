@@ -143,13 +143,15 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
         self.weights = weights
         self.exposure = exposure
         self.tumor_prop = tumor_prop
+        self.compress = compress
 
         if compress:
             if tumor_prop is not None:
                 logger.warning(
                     f"{self.__class__} compression is not supported for tumor_prop != None."
                 )
-                raise RuntimeError()
+                self.compress = False
+                return
 
             cls = np.argmax(self.exog, axis=1)
             counts = np.vstack([self.endog, self.exposure, cls]).T
@@ -161,11 +163,24 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
             unique_pairs, unique_idx, unique_inv = np.unique(
                 counts, return_index=True, return_inverse=True, axis=0
             )
+
+            assert len(unique_idx) == len(unique_pairs), f"{unique_idx.shape}"
+            assert len(unique_inv) == len(self.endog), f"{unique_inv.shape}"
+
             mean_compression = 1.0 - len(unique_pairs) / len(self.endog)
 
             logger.warning(
                 f"TODO: {self.__class__.__name__} achievable compression: {100. * mean_compression:.4f}"
             )
+
+            # TODO HACK                                                                                                                                                                                  
+            # NB sum self.weights - relies on original self.endog length                                                                                                                                 
+            transfer = np.zeros((len(unique_pairs), len(self.endog)), dtype=int)
+
+            for i in range(len(unique_pairs)):
+                transfer[i, unique_inv == i] = 1
+
+            self.weights = transfer @ self.weights
 
             # NB update self.endog, self.exposure, self.exog, self.weights for unique_pairs compression:
             self.endog = unique_pairs[:, 0]
@@ -173,15 +188,8 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
 
             # NB one-hot encoded design matrix of class labels
             self.exog = self.exog[unique_idx, :]
-
-            # TODO HACK
-            # NB sum self.weights
-            transfer = np.zeros((len(unique_pairs), len(self.endog)), dtype=int)
-            for i in range(len(unique_pairs)):
-                transfer[i, unique_inv == i] = 1
-
-            self.weights = transfer @ self.weights
-
+            self.compress = True
+            
     def nloglikeobs(self, params):
         p = self.exog @ params[:-1]
 
@@ -211,10 +219,8 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
         start_time = time.time()
 
         # NB log initial start params and initial likelihood:
-        logger.info(f"Weighted_BetaBinom_mix initial likelihood={self.nloglikeobs(start_params):.6e} @ start_params: {start_params}")
+        logger.info(f"Weighted_BetaBinom_mix (compress={self.compress}) initial likelihood={self.nloglikeobs(start_params):.6e} @ start_params: {start_params}")
         
-        exit(0)
-
         result = super().fit(
             start_params=start_params,
             maxiter=maxiter,
@@ -239,6 +245,8 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
             f"llf: {result.llf:.6e}"
         )
 
+        exit(0)
+        
         return result
 
 

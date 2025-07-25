@@ -168,7 +168,7 @@ def construct_unique_matrix(obs_count, total_count):
     mean_compression /= n_spots
     mean_sparsity /= n_spots
 
-    msg = f"Constructed unique count compression with mean validity: {100. * mean_validity}, mean compression rate (decimals={decimals}): {100. * mean_compression:.4f}%, "
+    msg = f"Constructed unique count compression with mean validity: {100. * mean_validity:.4f}, mean compression rate (decimals={decimals}): {100. * mean_compression:.4f}%, "
     msg += f"as represented by {n_spots} sparse matrices with mean sparsity {100. * mean_sparsity:.2f}%."
 
     logger.info(msg)

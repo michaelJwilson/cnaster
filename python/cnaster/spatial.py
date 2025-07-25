@@ -154,7 +154,7 @@ def rectangle_initialize_initial_clone(coords, n_clones, random_state=0):
         ):
             break
 
-    logger.info(f"Solved for initial {n_clones} clones.")
+    logger.info(f"Solved for clone initialization for {n_clones} clones.")
 
     return initial_clone_index
 

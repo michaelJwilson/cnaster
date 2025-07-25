@@ -461,6 +461,7 @@ def load_input_data(
 
             outlier_genes_info.sort(key=lambda x: x[2], reverse=True)
 
+            # TODO log chr, start, end.
             logger.info("Top 25 outlier genes removed:")
 
             for i, (gene_name, gene_umis, gene_pct) in enumerate(

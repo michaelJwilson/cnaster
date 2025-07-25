@@ -133,7 +133,9 @@ class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
 
         result = -scipy.stats.nbinom.logpmf(self.endog, n, p).dot(self.weights)
 
-        return result if np.isfinite(result) else np.inf
+        assert np.isnan(result), f"{params}: {result}"
+        
+        return result
 
     def fit(
         self, start_params=None, maxiter=10_000, maxfun=5_000, legacy=False, **kwargs
@@ -274,7 +276,9 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
             self.weights
         )
 
-        return result if np.isfinite(result) else np.inf
+        assert np.isnan(result), f"{params}: {result}"
+
+        return result
 
     def fit(
         self, start_params=None, maxiter=10_000, maxfun=5_000, legacy=False, **kwargs

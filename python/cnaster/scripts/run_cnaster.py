@@ -48,6 +48,7 @@ from cnaster.integer_copy import (
     hill_climbing_integer_copynumber_oneclone,
     hill_climbing_integer_copynumber_fixdiploid,
 )
+from cnaster.plotting import plot_rdr_baf
 
 logging.basicConfig(
     level=logging.INFO,
@@ -1074,6 +1075,24 @@ def run_cnaster(config_path):
 
     # TODO HACK
     # df_clone_label.to_csv(f"{outdir}/clone_labels.tsv", header=True, index=True, sep="\t")
+
+    plot_rdr_baf(
+        df_seglevel_cnv,
+        lengths,
+        single_X,
+        single_base_nb_mean,
+        single_total_bb_RD,
+        res_combine,
+        single_tumor_prop=single_tumor_prop,
+        clone_ids=None,
+        remove_xticks=True,
+        rdr_ylim=5,
+        chrtext_shift=-0.3,
+        base_height=3.2,
+        pointsize=15,
+        linewidth=1,
+        palette="chisel",
+    ) 
 
     logger.info(f"Done in {(time.time() - start_time)/60.:.2f} minutes.")
 

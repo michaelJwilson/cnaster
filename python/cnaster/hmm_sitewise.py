@@ -406,14 +406,14 @@ class hmm_sitewise:
 
         # NB a trick to speed up BetaBinom optimization: taking only unique values of
         #   e.g. (B allele count, total SNP covering read count)
-        logger.info("Constructing NB compression.")
+        logger.info("Constructing NB compression in (X[:, 0, :], base_nb_mean).")
 
         # NB latter is all zero for initial BAF only runs.
         unique_values_nb, mapping_matrices_nb = construct_unique_matrix(
             X[:, 0, :], base_nb_mean
         )
 
-        logger.info("Constructing BB compression.")
+        logger.info("Constructing BB compression in (X[:, 1, :], total_bb_RD).")
         
         unique_values_bb, mapping_matrices_bb = construct_unique_matrix(
             X[:, 1, :], total_bb_RD

@@ -53,8 +53,7 @@ def get_intervals(pred_cnv):
 
 
 def plot_rdr_baf(
-    config,
-    cn_file,
+    df_cnv,
     lengths,
     single_X,
     single_base_nb_mean,
@@ -62,7 +61,6 @@ def plot_rdr_baf(
     res_combine,
     single_tumor_prop=None,
     clone_ids=None,
-    clone_names=None,
     remove_xticks=True,
     rdr_ylim=5,
     chrtext_shift=-0.3,
@@ -75,7 +73,6 @@ def plot_rdr_baf(
     map_cn = {x: i for i, x in enumerate(ordered_acn)}
     colors = [chisel_palette[c] for c in ordered_acn]
     
-    df_cnv = pd.read_csv(cn_file, header=0, sep="\t")
     final_clone_ids = np.unique([x.split(" ")[0][5:] for x in df_cnv.columns[3:]])
     if "0" not in final_clone_ids:
         final_clone_ids = np.array(["0"] + list(final_clone_ids))
@@ -90,10 +87,10 @@ def plot_rdr_baf(
 
     clone_index = [
         np.where(res_combine["new_assignment"] == c)[0]
-        for c, cid in enumerate(final_clone_ids)
+        for c, _ in enumerate(final_clone_ids)
     ]
 
-    X, base_nb_mean, total_bb_RD, tumor_prop = merge_pseudobulk_by_index_mix(
+    X, base_nb_mean, total_bb_RD, _ = merge_pseudobulk_by_index_mix(
         single_X,
         single_base_nb_mean,
         single_total_bb_RD,
@@ -103,137 +100,142 @@ def plot_rdr_baf(
     n_obs = X.shape[0]
     nonempty_clones = np.where(np.sum(total_bb_RD, axis=0) > 0)[0]
 
-    if clone_ids is None:
-        fig, axes = plt.subplots(
-            2 * len(nonempty_clones),
-            1,
-            figsize=(20, base_height * len(nonempty_clones)),
-            dpi=200,
-            facecolor="white",
+    assert clone_ids is None
+
+    fig, axes = plt.subplots(
+        2 * len(nonempty_clones),
+        1,
+        figsize=(20, base_height * len(nonempty_clones)),
+        dpi=200,
+        facecolor="white",
+    )
+
+    for s, c in enumerate(nonempty_clones):
+        cid = final_clone_ids[c]
+
+        # NB major & minor allele copies give the hue
+        major = np.maximum(
+            df_cnv[f"clone{cid} A"].values, df_cnv[f"clone{cid} B"].values
         )
-        for s, c in enumerate(nonempty_clones):
-            cid = final_clone_ids[c]
-            # NB major & minor allele copies give the hue
-            major = np.maximum(
-                df_cnv[f"clone{cid} A"].values, df_cnv[f"clone{cid} B"].values
+        minor = np.minimum(
+            df_cnv[f"clone{cid} A"].values, df_cnv[f"clone{cid} B"].values
+        )
+
+        segments, labs = get_intervals(res_combine["pred_cnv"][:, c])
+
+        if palette == "chisel":
+            hue = pd.Categorical(
+                [map_cn[(major[i], minor[i])] for i in range(len(major))],
+                categories=np.arange(len(ordered_acn)),
+                ordered=True,
             )
-            minor = np.minimum(
-                df_cnv[f"clone{cid} A"].values, df_cnv[f"clone{cid} B"].values
+            palette = sns.color_palette(colors)
+        else:
+            hue = pd.Categorical(
+                res_combine["pred_cnv"][:, c],
+                categories=np.arange(n_states),
+                ordered=True,
             )
+            palette = palette
 
-            segments, labs = get_intervals(res_combine["pred_cnv"][:, c])
+        # NB plot RDR
+        sns.scatterplot(
+            x=np.arange(X[:, 1, c].shape[0]),
+            y=X[:, 0, c] / base_nb_mean[:, c],
+            hue=hue,
+            palette=palette,
+            s=pointsize,
+            edgecolor="black",
+            linewidth=linewidth,
+            alpha=1,
+            legend=False,
+            ax=axes[2 * s],
+        )
 
-            if palette == "chisel":
-                hue = pd.Categorical(
-                    [map_cn[(major[i], minor[i])] for i in range(len(major))],
-                    categories=np.arange(len(ordered_acn)),
-                    ordered=True,
-                )
-                palette = sns.color_palette(colors)
-            else:
-                hue = pd.Categorical(
-                    res_combine["pred_cnv"][:, c],
-                    categories=np.arange(n_states),
-                    ordered=True,
-                )
-                palette = palette
+        axes[2 * s].set_ylabel(f"clone {cid}\nRDR")
+        axes[2 * s].set_yticks(np.arange(1, rdr_ylim, 1))
+        axes[2 * s].set_ylim([0, rdr_ylim])
+        axes[2 * s].set_xlim([0, n_obs])
+        
+        if remove_xticks:
+            axes[2 * s].set_xticks([])
 
-            sns.scatterplot(
-                x=np.arange(X[:, 1, c].shape[0]),
-                y=X[:, 0, c] / base_nb_mean[:, c],
-                hue=hue,
-                palette=palette,
-                s=pointsize,
-                edgecolor="black",
-                linewidth=linewidth,
-                alpha=1,
-                legend=False,
-                ax=axes[2 * s],
+        if palette == "chisel":
+            hue = pd.Categorical(
+                [map_cn[(major[i], minor[i])] for i in range(len(major))],
+                categories=np.arange(len(ordered_acn)),
+                ordered=True,
             )
-
-            axes[2 * s].set_ylabel(f"clone {cid}\nRDR")
-            axes[2 * s].set_yticks(np.arange(1, rdr_ylim, 1))
-            axes[2 * s].set_ylim([0, rdr_ylim])
-            axes[2 * s].set_xlim([0, n_obs])
+            palette = sns.color_palette(colors)
+        else:
+            hue = pd.Categorical(
+                res_combine["pred_cnv"][:, c],
+                categories=np.arange(n_states),
+                ordered=True,
+            )
+            palette = palette
             
-            if remove_xticks:
-                axes[2 * s].set_xticks([])
+        # NB plot phased b-allele frequency
+        sns.scatterplot(
+            x=np.arange(X[:, 1, c].shape[0]),
+            y=X[:, 1, c] / total_bb_RD[:, c],
+            hue=hue,
+            palette=palette,
+            s=pointsize,
+            edgecolor="black",
+            alpha=0.8,
+            legend=False,
+            ax=axes[2 * s + 1],
+        )
 
-            if palette == "chisel":
-                hue = pd.Categorical(
-                    [map_cn[(major[i], minor[i])] for i in range(len(major))],
-                    categories=np.arange(len(ordered_acn)),
-                    ordered=True,
-                )
-                palette = sns.color_palette(colors)
-            else:
-                hue = pd.Categorical(
-                    res_combine["pred_cnv"][:, c],
-                    categories=np.arange(n_states),
-                    ordered=True,
-                )
-                palette = palette
-                
-            sns.scatterplot(
-                x=np.arange(X[:, 1, c].shape[0]),
-                y=X[:, 1, c] / total_bb_RD[:, c],
-                hue=hue,
-                palette=palette,
-                s=pointsize,
-                edgecolor="black",
-                alpha=0.8,
-                legend=False,
-                ax=axes[2 * s + 1],
+        axes[2 * s + 1].set_ylabel(f"clone {cid}\nphased AF")
+        axes[2 * s + 1].set_ylim([-0.1, 1.1])
+        axes[2 * s + 1].set_yticks([0, 0.5, 1])
+        axes[2 * s + 1].set_xlim([0, n_obs])
+        if remove_xticks:
+            axes[2 * s + 1].set_xticks([])
+        for i, seg in enumerate(segments):
+            axes[2 * s].plot(
+                seg,
+                [
+                    np.exp(res_combine["new_log_mu"][labs[i], c]),
+                    np.exp(res_combine["new_log_mu"][labs[i], c]),
+                ],
+                c="black",
+                linewidth=2,
+            )
+            axes[2 * s + 1].plot(
+                seg,
+                [
+                    res_combine["new_p_binom"][labs[i], c],
+                    res_combine["new_p_binom"][labs[i], c],
+                ],
+                c="black",
+                linewidth=2,
+            )
+            axes[2 * s + 1].plot(
+                seg,
+                [
+                    1. - res_combine["new_p_binom"][labs[i], c],
+                    1. - res_combine["new_p_binom"][labs[i], c],
+                ],
+                c="black",
+                linewidth=2,
             )
 
-            axes[2 * s + 1].set_ylabel(f"clone {cid}\nphased AF")
-            axes[2 * s + 1].set_ylim([-0.1, 1.1])
-            axes[2 * s + 1].set_yticks([0, 0.5, 1])
-            axes[2 * s + 1].set_xlim([0, n_obs])
-            if remove_xticks:
-                axes[2 * s + 1].set_xticks([])
-            for i, seg in enumerate(segments):
-                axes[2 * s].plot(
-                    seg,
-                    [
-                        np.exp(res_combine["new_log_mu"][labs[i], c]),
-                        np.exp(res_combine["new_log_mu"][labs[i], c]),
-                    ],
-                    c="black",
-                    linewidth=2,
-                )
-                axes[2 * s + 1].plot(
-                    seg,
-                    [
-                        res_combine["new_p_binom"][labs[i], c],
-                        res_combine["new_p_binom"][labs[i], c],
-                    ],
-                    c="black",
-                    linewidth=2,
-                )
-                axes[2 * s + 1].plot(
-                    seg,
-                    [
-                        1. - res_combine["new_p_binom"][labs[i], c],
-                        1. - res_combine["new_p_binom"][labs[i], c],
-                    ],
-                    c="black",
-                    linewidth=2,
-                )
-
-        for i in range(len(lengths)):
-            median_len = (
-                np.sum(lengths[:(i)]) * 0.55 + np.sum(lengths[: (i + 1)]) * 0.45
-            )
-            axes[-1].text(
-                median_len - 5,
-                chrtext_shift,
-                unique_chrs[i],
-                transform=axes[-1].get_xaxis_transform(),
-            )
-            for k in range(2 * len(nonempty_clones)):
-                axes[k].axvline(x=np.sum(lengths[:(i)]), c="grey", linewidth=1)
-                
-        fig.tight_layout()
+    for i in range(len(lengths)):
+        median_len = (
+            np.sum(lengths[:(i)]) * 0.55 + np.sum(lengths[: (i + 1)]) * 0.45
+        )
+        axes[-1].text(
+            median_len - 5,
+            chrtext_shift,
+            unique_chrs[i],
+            transform=axes[-1].get_xaxis_transform(),
+        )
+        for k in range(2 * len(nonempty_clones)):
+            axes[k].axvline(x=np.sum(lengths[:(i)]), c="grey", linewidth=1)
+            
+    fig.tight_layout()
 
     return fig

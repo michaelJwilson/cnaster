@@ -1,4 +1,8 @@
-import sns as sns
+import seaborn as sns
+import numpy as np
+import matplotlib.pyplot as plt
+import pandas as pd
+
 import logging
 from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
 

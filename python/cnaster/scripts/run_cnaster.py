@@ -48,7 +48,7 @@ from cnaster.integer_copy import (
     hill_climbing_integer_copynumber_oneclone,
     hill_climbing_integer_copynumber_fixdiploid,
 )
-from cnaster.plotting import plot_rdr_baf
+from cnaster.plotting import plot_rdr_baf, plot_clones_spatial
 
 logging.basicConfig(
     level=logging.INFO,
@@ -1076,11 +1076,7 @@ def run_cnaster(config_path):
     # TODO HACK
     # df_clone_label.to_csv(f"{outdir}/clone_labels.tsv", header=True, index=True, sep="\t")
 
-<<<<<<< HEAD
     rdr_baf_fig = plot_clones_genomic(
-=======
-    rdr_baf_fig = plot_rdr_baf(
->>>>>>> 785d518faecc7628332cf331191dbe1392c663c2
         df_seglevel_cnv,
         lengths,
         single_X,
@@ -1098,12 +1094,13 @@ def run_cnaster(config_path):
         palette="chisel",
     )
 
-<<<<<<< HEAD
+    # TODO                                                                                                                                                                                                                
+    # rdr_baf_fig.savefig(f"{config.paths.output_dir}/plots/rdr_baf.pdf", transparent=True, bbox_inches="tight") 
+
     clones_fig = plot_clones_spatial(coords, assignment, single_tumor_prop=None, sample_list=None, sample_ids=None, base_width=4, base_height=3, palette="Set2") 
-=======
+
     # TODO
-    # rdr_baf_fig.savefig(f"{config.paths.output_dir}/plots/rdr_baf.pdf", transparent=True, bbox_inches="tight")
->>>>>>> 785d518faecc7628332cf331191dbe1392c663c2
+    # clones_fig.savefig(f"{config.paths.output_dir}/plots/clone_spatial.pdf", transparent=True, bbox_inches="tight")
 
     logger.info(f"Done in {(time.time() - start_time)/60.:.2f} minutes.")
 

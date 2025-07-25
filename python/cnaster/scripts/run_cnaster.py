@@ -112,14 +112,20 @@ def run_cnaster(config_path):
         single_tumor_prop = adata.obs["tumor_proportion"]
     """
 
+    logger.info(f"Forming gene & snp meta.")
+    
     df_gene_snp = form_gene_snp_table(
         unique_snp_ids, config.references.hgtable_file, adata
     )
-
+    
+    logger.info(f"Assigning initial blocks")
+    
     df_gene_snp = assign_initial_blocks(
         df_gene_snp, adata, cell_snp_Aallele, cell_snp_Ballele, unique_snp_ids
     )
 
+    logger.info(f"Summarizing counts for blocks")
+    
     (
         lengths,
         single_X,
@@ -173,12 +179,16 @@ def run_cnaster(config_path):
         threshold=config.hmrf.tumorprop_threshold,
     )
 
+    logger.info(f"Solved for initial phase given Eagle & BAF.")
+    
     df_gene_snp["phase"] = np.where(
         df_gene_snp.snp_id.isnull(),
         None,
         df_gene_snp.block_id.map({i: x for i, x in enumerate(phase_indicator)}),
     )
 
+    logger.info(f"Recalculating blocks given new phasing")
+    
     df_gene_snp = create_bin_ranges(
         df_gene_snp,
         single_total_bb_RD,
@@ -186,6 +196,8 @@ def run_cnaster(config_path):
         config.quality.secondary_min_umi,
     )
 
+    logger.info(f"Recalculating counts given new blocks")
+    
     # TODO separate transmat.
     (
         lengths,
@@ -211,6 +223,8 @@ def run_cnaster(config_path):
         columns=adata.var.index,
     )
 
+    logger.info("Solving for multislice_adjaceny.")
+    
     # NB smooth & adjacency matrix for each sample
     adjacency_mat, smooth_mat = multislice_adjacency(
         sample_ids,
@@ -235,10 +249,14 @@ def run_cnaster(config_path):
     single_X[:, 0, :] = 0
     single_base_nb_mean[:, :] = 0
 
+    logger.info("Solving for multislice_adjaceny.")
+    
     initial_clone_index = rectangle_initialize_initial_clone(
         coords, config.hmrf.n_clones, random_state=0
     )
 
+    logger.info("Solving HMM+HMRF for copy state and clones.")
+    
     res = hmrfmix_concatenate_pipeline(
         None,
         None,
@@ -289,6 +307,8 @@ def run_cnaster(config_path):
     if tumor_prop is not None:
         tumor_prop = np.repeat(tumor_prop, X.shape[0]).reshape(-1, 1)
 
+    logger.info("Merging similar clones assuming Neyman-Pearson")
+
     merging_groups, merged_res = neyman_pearson_similarity(
         X,
         base_nb_mean,
@@ -332,6 +352,8 @@ def run_cnaster(config_path):
         ]
     )
 
+    logger.info(f"Refinining {n_baf_clones} BAF identified clones with RDR data assuming n_clones_rdr={config.hmrf.n_clones_rdr}")
+    
     # NB refine BAF-identified clones
     if (config.preprocessing.normalidx_file is None) and (
         config.preprocessing.tumorprop_file is None
@@ -434,8 +456,6 @@ def run_cnaster(config_path):
     single_X[:, 0, :] = copy_single_X_rdr
     single_base_nb_mean = copy_single_base_nb_mean
     n_obs = single_X.shape[0]
-
-    logger.info(f"Finding refinement of {n_baf_clones} BAF-identified clones.")
 
     clone_res = {}
 

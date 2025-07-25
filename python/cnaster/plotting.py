@@ -78,6 +78,8 @@ def plot_clones_genomic(
     linewidth=1,
     palette="chisel",
 ):
+    logger.info(f"Plotting inferred rdr+baf for all clones.")
+    
     chisel_palette, ordered_acn = get_full_palette()
     map_cn = {x: i for i, x in enumerate(ordered_acn)}
     colors = [chisel_palette[c] for c in ordered_acn]
@@ -258,6 +260,8 @@ def plot_clones_spatial(
     base_height=3,
     palette="Set2",
 ):
+    logger.info(f"Plotting inferred positions for all clones.")
+    
     # NB combine coordinates across samples
     shifted_coords = copy.copy(coords)
     if sample_ids is not None:

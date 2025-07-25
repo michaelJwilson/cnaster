@@ -1076,7 +1076,11 @@ def run_cnaster(config_path):
     # TODO HACK
     # df_clone_label.to_csv(f"{outdir}/clone_labels.tsv", header=True, index=True, sep="\t")
 
+<<<<<<< HEAD
     rdr_baf_fig = plot_clones_genomic(
+=======
+    rdr_baf_fig = plot_rdr_baf(
+>>>>>>> 785d518faecc7628332cf331191dbe1392c663c2
         df_seglevel_cnv,
         lengths,
         single_X,
@@ -1094,12 +1098,17 @@ def run_cnaster(config_path):
         palette="chisel",
     )
 
+<<<<<<< HEAD
     clones_fig = plot_clones_spatial(coords, assignment, single_tumor_prop=None, sample_list=None, sample_ids=None, base_width=4, base_height=3, palette="Set2") 
+=======
+    # TODO
+    # rdr_baf_fig.savefig(f"{config.paths.output_dir}/plots/rdr_baf.pdf", transparent=True, bbox_inches="tight")
+>>>>>>> 785d518faecc7628332cf331191dbe1392c663c2
 
     logger.info(f"Done in {(time.time() - start_time)/60.:.2f} minutes.")
 
 
-# NB run_cnaster config_turing.yaml
+# NB run_cnaster config.yaml
 def main():
     parser = argparse.ArgumentParser(description="Run CNAster pipeline")
     parser.add_argument(

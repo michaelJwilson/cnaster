@@ -48,7 +48,7 @@ from cnaster.integer_copy import (
     hill_climbing_integer_copynumber_oneclone,
     hill_climbing_integer_copynumber_fixdiploid,
 )
-from cnaster.plotting import plot_rdr_baf, plot_clones_spatial
+from cnaster.plotting import plot_clones_genomic, plot_clones_spatial
 
 logging.basicConfig(
     level=logging.INFO,

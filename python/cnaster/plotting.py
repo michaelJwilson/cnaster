@@ -1,11 +1,12 @@
 import copy
-import sns as sns
+import seaborn as sns
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 import pandas as pd
 
 import logging
+from matplotlib.lines import Line2D
 from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
 
 logger = logging.getLogger(__name__)

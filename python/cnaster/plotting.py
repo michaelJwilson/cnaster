@@ -1,6 +1,8 @@
 import sns as sns
+import logging
 from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
 
+logger = logging.getLogger(__name__)
 
 def get_full_palette():
     palette = {}

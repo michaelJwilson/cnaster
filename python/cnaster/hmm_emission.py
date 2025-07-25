@@ -134,7 +134,7 @@ class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
         return -scipy.stats.nbinom.logpmf(self.endog, n, p).dot(self.weights)
 
     def fit(
-        self, start_params=None, maxiter=10_000, maxfun=5_000, legacy=False, **kwargs
+        self, start_params=None, bounds=None, maxiter=10_000, maxfun=5_000, legacy=False, **kwargs
     ):
         # assert self.nparams == (1 + self.exog.shape[1]), f"Found nparams={self.nparams}, expected={self.exog.shape[1]}"
 
@@ -148,7 +148,7 @@ class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
                 # start_params = np.append(0.1 * np.ones(self.nparams), 1.0e-2)
                 ms, disp = get_nbinom_start_params(legacy=legacy)
                 start_params = np.concatenate([ms[: self.num_states], np.array([disp])])
-
+                
         start_time = time.time()
 
         logger.info(
@@ -157,6 +157,7 @@ class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
 
         result = super().fit(
             start_params=start_params,
+            bounds=bounds,
             maxiter=maxiter,
             maxfun=maxfun,
             method=get_solver(),
@@ -273,7 +274,7 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
         )
 
     def fit(
-        self, start_params=None, maxiter=10_000, maxfun=5_000, legacy=False, **kwargs
+        self, start_params=None, bounds=None, maxiter=10_000, maxfun=5_000, legacy=False, **kwargs
     ):
         # assert self.nparams == (1 + self.exog.shape[1]), f"Found nparams={self.nparams}, expected={self.exog.shape[1]}"
 
@@ -300,6 +301,7 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
 
         result = super().fit(
             start_params=start_params,
+            bounds=bounds,
             maxiter=maxiter,
             maxfun=maxfun,
             method=get_solver(),

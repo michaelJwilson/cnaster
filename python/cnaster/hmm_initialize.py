@@ -19,7 +19,9 @@ def initialization_by_gmm(
     min_binom_prob=0.1,
     max_binom_prob=0.9,
 ):
-    logger.info(f"Initializing HMM emission with Gaussian Mixture Model assuming only_minor={only_minor}.")
+    logger.info(
+        f"Initializing HMM emission with Gaussian Mixture Model assuming only_minor={only_minor}."
+    )
 
     X_gmm_rdr, X_gmm_baf = None, None
 
@@ -33,7 +35,9 @@ def initialization_by_gmm(
             offset = np.mean(X_gmm_rdr[valid])
             normalizetomax1 = np.max(X_gmm_rdr[valid]) - np.min(X_gmm_rdr[valid])
 
-            logger.info(f"Assuming log-space RDR wih offset and normalization: {offset:.4f}, {normalizetomax1:.4f}")
+            logger.info(
+                f"Assuming log-space RDR wih offset and normalization: {offset:.4f}, {normalizetomax1:.4f}"
+            )
         else:
             X_gmm_rdr = np.vstack(
                 [X[:, 0, s] / base_nb_mean[:, s] for s in range(X.shape[2])]
@@ -45,8 +49,10 @@ def initialization_by_gmm(
             # NB TODO? assumes X_gmm_rdr.min() = 0.
             normalizetomax1 = np.max(X_gmm_rdr[valid])
 
-            logger.info(f"Assuming linear-space RDR wih offset and normalization: {offset:.4f}, {normalizetomax1:.4f}") 
-                   
+            logger.info(
+                f"Assuming linear-space RDR wih offset and normalization: {offset:.4f}, {normalizetomax1:.4f}"
+            )
+
         X_gmm_rdr = (X_gmm_rdr - offset) / normalizetomax1
 
     if "p" in params:
@@ -56,7 +62,9 @@ def initialization_by_gmm(
 
         clipped = (X_gmm_baf < min_binom_prob) | (X_gmm_baf > max_binom_prob)
 
-        logger.warning(f"Clipping {np.mean(clipped):.4f} of BAF values to [{min_binom_prob}, {max_binom_prob}].")
+        logger.warning(
+            f"Clipping {np.mean(clipped):.4f} of BAF values to [{min_binom_prob}, {max_binom_prob}]."
+        )
 
         X_gmm_baf[X_gmm_baf < min_binom_prob] = min_binom_prob
         X_gmm_baf[X_gmm_baf > max_binom_prob] = max_binom_prob
@@ -80,7 +88,9 @@ def initialization_by_gmm(
             elif not np.isnan(X_gmm[i, k]):
                 last_idx_notna = i
 
-    logger.info(f"Patched {num_patched/X_gmm.shape[1]:.4f} values with NaNs in input data.")
+    logger.info(
+        f"Patched {num_patched/X_gmm.shape[1]:.4f} values with NaNs in input data."
+    )
 
     valid = np.sum(np.isnan(X_gmm), axis=1) == 0
     X_gmm = X_gmm[valid, :]
@@ -112,7 +122,7 @@ def initialization_by_gmm(
         gmm_p_binom = gmm.means_[:, X.shape[2] :]
 
         if only_minor:
-            gmm_p_binom = np.where(gmm_p_binom > 0.5, 1. - gmm_p_binom, gmm_p_binom)
+            gmm_p_binom = np.where(gmm_p_binom > 0.5, 1.0 - gmm_p_binom, gmm_p_binom)
 
     elif "m" in params:
         gmm_log_mu = (
@@ -128,5 +138,9 @@ def initialization_by_gmm(
 
         if only_minor:
             gmm_p_binom = np.where(gmm_p_binom > 0.5, 1.0 - gmm_p_binom, gmm_p_binom)
+
+    logger.info(
+        f"Solved for GMM initialized parameters:\n{np.hstack([gmm_log_mu, gmm_p_binom])}"
+    )
 
     return gmm_log_mu, gmm_p_binom

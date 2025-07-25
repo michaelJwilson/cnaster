@@ -288,8 +288,17 @@ def hmrfmix_concatenate_pipeline(
 
     # TODO BUG? baseline expression by summing over all clones; relative to genome-wide.
     # NB not applicable for BAF only.
-    lambd = np.sum(single_base_nb_mean, axis=1) / np.sum(single_base_nb_mean)
+    norm = np.sum(single_base_nb_mean)
 
+    # DEPRECATE
+    assert np.isscalar(norm)
+    
+    if norm == 0.0:
+        logger.warning(f"Found nb_mean=0 across all spots,segments.")
+
+    with np.errstate(divide='ignore', invalid='ignore'):
+        lambd = np.sum(single_base_nb_mean, axis=1) / norm
+        
     X, base_nb_mean, total_bb_RD, tumor_prop = merge_pseudobulk_by_index_mix(
         single_X,
         single_base_nb_mean,

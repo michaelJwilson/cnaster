@@ -56,7 +56,7 @@ def initialization_by_gmm(
 
         clipped = (X_gmm_baf < min_binom_prob) | (X_gmm_baf > max_binom_prob)
 
-        logger.warning(f"Clipping {np.mean(clipped)} of BAF values to [{min_binom_prob}, {max_binom_prob}].")
+        logger.warning(f"Clipping {np.mean(clipped):.4f} of BAF values to [{min_binom_prob}, {max_binom_prob}].")
 
         X_gmm_baf[X_gmm_baf < min_binom_prob] = min_binom_prob
         X_gmm_baf[X_gmm_baf > max_binom_prob] = max_binom_prob

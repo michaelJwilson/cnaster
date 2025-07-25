@@ -1076,7 +1076,7 @@ def run_cnaster(config_path):
     # TODO HACK
     # df_clone_label.to_csv(f"{outdir}/clone_labels.tsv", header=True, index=True, sep="\t")
 
-    plot_rdr_baf(
+    rdr_baf_fig = plot_rdr_baf(
         df_seglevel_cnv,
         lengths,
         single_X,
@@ -1092,7 +1092,10 @@ def run_cnaster(config_path):
         pointsize=15,
         linewidth=1,
         palette="chisel",
-    ) 
+    )
+
+    # TODO
+    # rdr_baf_fig.savefig(f"{config.paths.output_dir}/plots/rdr_baf.pdf", transparent=True, bbox_inches="tight")
 
     logger.info(f"Done in {(time.time() - start_time)/60.:.2f} minutes.")
 

@@ -143,7 +143,7 @@ def initialization_by_gmm(
         logger.warning(f"GMM initialized p binom > 0.5, {gmm_p_binom[gmm_p_binom > 0.5]}")
 
     logger.info(
-        f"Solved for GMM initialized parameters:\n{np.hstack([gmm_log_mu, gmm_p_binom])}"
+        f"Solved for GMM initialized parameters:\n{gmm_log_mu}\n{gmm_p_binom}"
     )
 
     return gmm_log_mu, gmm_p_binom

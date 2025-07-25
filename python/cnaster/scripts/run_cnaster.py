@@ -112,7 +112,7 @@ def run_cnaster(config_path):
         single_tumor_prop = adata.obs["tumor_proportion"]
     """
 
-    logger.info(f"Forming gene & snp meta.")
+    logger.info(f"Forming gene & snp meta data.")
     
     df_gene_snp = form_gene_snp_table(
         unique_snp_ids, config.references.hgtable_file, adata

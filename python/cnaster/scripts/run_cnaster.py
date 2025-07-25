@@ -1092,7 +1092,9 @@ def run_cnaster(config_path):
     )
 
     # TODO
-    # rdr_baf_fig.savefig(f"{config.paths.output_dir}/plots/rdr_baf.pdf", transparent=True, bbox_inches="tight")
+    fig_path = f"{config.paths.output_dir}/plots/clones_genomic.pdf"
+    logger.info("Writing clones genomic fig. to {fig_path}")
+    # rdr_baf_fig.savefig(fig_path, transparent=True, bbox_inches="tight")
 
     assignment = pd.Series([f"clone {x}" for x in res_combine["new_assignment"]])
     clones_fig = plot_clones_spatial(
@@ -1107,7 +1109,9 @@ def run_cnaster(config_path):
     )
 
     # TODO
-    # clones_fig.savefig(f"{config.paths.output_dir}/plots/clone_spatial.pdf", transparent=True, bbox_inches="tight")
+    fig_path = f"{config.paths.output_dir}/plots/clones_spatial.pdf"
+    logger.info("Writing clones spatial fig. to {fig_path}")
+    # clones_fig.savefig(fig_path, transparent=True, bbox_inches="tight")
 
     logger.info(f"Done in {(time.time() - start_time)/60.:.2f} minutes.")
 

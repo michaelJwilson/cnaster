@@ -54,10 +54,7 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(filename)s:%(lineno)d - %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
-    handlers=[
-        logging.FileHandler("cnaster.log"),
-        logging.StreamHandler()
-    ]
+    handlers=[logging.FileHandler("cnaster.log"), logging.StreamHandler()],
 )
 
 logger = logging.getLogger(__name__)
@@ -842,10 +839,10 @@ def run_cnaster(config_path):
     # NB re-order clones such that normal clones are always clone 0.
     res_combine, posterior = reindex_clones(res_combine, posterior, single_tumor_prop)
 
-    # TODO new_log_startprob - add to res_combine above.                                                                                                                                                                            
+    # TODO new_log_startprob - add to res_combine above.
     for key in ["new_log_mu", "new_alphas", "new_p_binom", "new_taus", "pred_cnv"]:
         logger.info(f"Solved for {key}:\n{res_combine[key]}")
-    
+
     # NB ----  infer integer allele-specific copy number  ----
     final_clone_ids = np.sort(np.unique(res_combine["new_assignment"]))
 
@@ -859,12 +856,14 @@ def run_cnaster(config_path):
     medfix = ["", "_diploid", "_triploid", "_tetraploid"]
 
     for o, max_medploidy in enumerate([None, 2, 3, 4]):
-        logger.info(f"Solving integer copy number problem for max_medploidy={max_medploidy}")
-        
+        logger.info(
+            f"Solving integer copy number problem for max_medploidy={max_medploidy}"
+        )
+
         # NB A/B integer copy number per bin and per state
         allele_specific_copy, state_cnv = [], []
         df_genelevel_cnv = None
-        
+
         X, base_nb_mean, total_bb_RD, tumor_prop = merge_pseudobulk_by_index_mix(
             single_X,
             single_base_nb_mean,
@@ -1051,9 +1050,7 @@ def run_cnaster(config_path):
             state_cnv,
         )
 
-        logger.info(
-            f"Solved for integer copy numbers @ states:\n{state_cnv}"
-        )
+        logger.info(f"Solved for integer copy numbers @ states:\n{state_cnv}")
 
         # state_cnv.to_csv(
         # f"{outdir}/cnv{medfix[o]}_perstate.tsv", header=True, index=False, sep="\t"
@@ -1094,10 +1091,20 @@ def run_cnaster(config_path):
         palette="chisel",
     )
 
-    # TODO                                                                                                                                                                                                                
-    # rdr_baf_fig.savefig(f"{config.paths.output_dir}/plots/rdr_baf.pdf", transparent=True, bbox_inches="tight") 
+    # TODO
+    # rdr_baf_fig.savefig(f"{config.paths.output_dir}/plots/rdr_baf.pdf", transparent=True, bbox_inches="tight")
 
-    clones_fig = plot_clones_spatial(coords, assignment, single_tumor_prop=None, sample_list=None, sample_ids=None, base_width=4, base_height=3, palette="Set2") 
+    assignment = pd.Series([f"clone {x}" for x in res_combine["new_assignment"]])
+    clones_fig = plot_clones_spatial(
+        coords,
+        assignment,
+        single_tumor_prop=single_tumor_prop,
+        sample_list=sample_list,
+        sample_ids=sample_ids,
+        base_width=4,
+        base_height=3,
+        palette="Set2",
+    )
 
     # TODO
     # clones_fig.savefig(f"{config.paths.output_dir}/plots/clone_spatial.pdf", transparent=True, bbox_inches="tight")

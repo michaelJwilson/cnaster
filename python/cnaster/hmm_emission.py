@@ -131,9 +131,11 @@ class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
 
         n, p = convert_params(nb_mean, nb_std)
 
-        result = -scipy.stats.nbinom.logpmf(self.endog, n, p).dot(self.weights)
+        result = -scipy.stats.nbinom.logpmf(self.endog, n, p)
+        result[np.isnan(result)] = np.inf
+        result = result.dot(self.weights)
 
-        assert np.isnan(result), f"{params}: {result}"
+        assert not np.isnan(result), f"{params}: {result}"
         
         return result
 
@@ -272,11 +274,11 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
                 -1
             ]
 
-        result = -scipy.stats.betabinom.logpmf(self.endog, self.exposure, a, b).dot(
-            self.weights
-        )
+        result = -scipy.stats.betabinom.logpmf(self.endog, self.exposure, a, b)
+        result[np.isnan(result)] = np.inf
+        result = result.dot(self.weights)
 
-        assert np.isnan(result), f"{params}: {result}"
+        assert not np.isnan(result), f"{params}: {result}"
 
         return result
 
@@ -306,6 +308,8 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
             f"Weighted_BetaBinom_mix (compress={self.compress}) initial likelihood={self.nloglikeobs(start_params):.6e} @ start_params: {start_params}"
         )
 
+        # TODO list of unsupported keyword arguments passed include: maxfun, xtol, ftol for bfgs.
+        #      bounds
         result = super().fit(
             start_params=start_params,
             maxiter=maxiter,

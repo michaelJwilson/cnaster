@@ -1076,7 +1076,7 @@ def run_cnaster(config_path):
     # TODO HACK
     # df_clone_label.to_csv(f"{outdir}/clone_labels.tsv", header=True, index=True, sep="\t")
 
-    plot_rdr_baf(
+    rdr_baf_fig = plot_clones_genomic(
         df_seglevel_cnv,
         lengths,
         single_X,
@@ -1092,7 +1092,9 @@ def run_cnaster(config_path):
         pointsize=15,
         linewidth=1,
         palette="chisel",
-    ) 
+    )
+
+    clones_fig = plot_clones_spatial(coords, assignment, single_tumor_prop=None, sample_list=None, sample_ids=None, base_width=4, base_height=3, palette="Set2") 
 
     logger.info(f"Done in {(time.time() - start_time)/60.:.2f} minutes.")
 

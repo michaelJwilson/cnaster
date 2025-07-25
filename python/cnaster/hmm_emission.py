@@ -16,25 +16,28 @@ logger = logging.getLogger(__name__)
 # TODO
 warnings.filterwarnings("ignore", category=UserWarning, module="statsmodels")
 
+
 def get_nbinom_start_params(legacy=False):
     config = get_global_config()
-    
+
     if legacy:
         return 0.1 * np.ones(config.hmm.n_states), 1.0e-2
-    
+
     ms = config.nbinom.start_params.split(",")
 
     return np.array(ms).astype(float), config.nbinom.start_disp
 
+
 def get_betabinom_start_params(legacy=False, exog=None):
     config = get_global_config()
-    
+
     if legacy:
         return (0.5 / exog.shape[1]) * np.ones(config.hmm.n_states), 1.0
-    
+
     ps = config.betabinom.start_params.split(",")
 
     return np.array(ps).astype(float), config.nbinom.start_disp
+
 
 class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
     """
@@ -57,7 +60,15 @@ class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
     """
 
     def __init__(
-        self, endog, exog, weights, exposure, tumor_prop=None, compress=False, seed=0, **kwargs
+        self,
+        endog,
+        exog,
+        weights,
+        exposure,
+        tumor_prop=None,
+        compress=False,
+        seed=0,
+        **kwargs,
     ):
         super().__init__(endog, exog, **kwargs)
 
@@ -67,7 +78,7 @@ class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
         self.seed = seed
         self.tumor_prop = tumor_prop
         self.compress = compress
-        self.num_states	= self.exog.shape[1]
+        self.num_states = self.exog.shape[1]
 
         if tumor_prop is not None:
             logger.warning(
@@ -93,7 +104,7 @@ class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
         logger.warning(
             f"{self.__class__.__name__} has further achievable compression: {100. * mean_compression:.4f}%"
         )
-        
+
         if compress:
             transfer = np.zeros((len(unique_pairs), len(self.endog)), dtype=int)
 
@@ -122,11 +133,13 @@ class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
 
         return -scipy.stats.nbinom.logpmf(self.endog, n, p).dot(self.weights)
 
-    def fit(self, start_params=None, maxiter=10_000, maxfun=5_000, legacy=False, **kwargs):
+    def fit(
+        self, start_params=None, maxiter=10_000, maxfun=5_000, legacy=False, **kwargs
+    ):
         # assert self.nparams == (1 + self.exog.shape[1]), f"Found nparams={self.nparams}, expected={self.exog.shape[1]}"
-        
+
         using_default_params = start_params is None
-        
+
         if start_params is None:
             if hasattr(self, "start_params"):
                 start_params = self.start_params
@@ -134,11 +147,13 @@ class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
                 # TODO BUG? self.nparams??
                 # start_params = np.append(0.1 * np.ones(self.nparams), 1.0e-2)
                 ms, disp = get_nbinom_start_params(legacy=legacy)
-                start_params = np.concatenate([ms[:self.num_states], np.array([disp])])
+                start_params = np.concatenate([ms[: self.num_states], np.array([disp])])
 
         start_time = time.time()
 
-        logger.info(f"Weighted_NegativeBinomial_mix (compress={self.compress}) initial likelihood={self.nloglikeobs(start_params):.6e} @ start_params: {start_params}")
+        logger.info(
+            f"Weighted_NegativeBinomial_mix (compress={self.compress}) initial likelihood={self.nloglikeobs(start_params):.6e} @ start_params: {start_params}"
+        )
 
         result = super().fit(
             start_params=start_params,
@@ -198,7 +213,7 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
         self.tumor_prop = tumor_prop
         self.compress = compress
         self.num_states = self.exog.shape[1]
-        
+
         if tumor_prop is not None:
             logger.warning(
                 f"{self.__class__} compression is not supported for tumor_prop != None."
@@ -225,8 +240,8 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
         )
 
         if compress:
-            # TODO HACK                                                                                                                                                                                  
-            # NB sum self.weights - relies on original self.endog length                                                                                                                                 
+            # TODO HACK
+            # NB sum self.weights - relies on original self.endog length
             transfer = np.zeros((len(unique_pairs), len(self.endog)), dtype=int)
 
             for i in range(len(unique_pairs)):
@@ -257,9 +272,11 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
             self.weights
         )
 
-    def fit(self, start_params=None, maxiter=10_000, maxfun=5_000, legacy=False, **kwargs):
+    def fit(
+        self, start_params=None, maxiter=10_000, maxfun=5_000, legacy=False, **kwargs
+    ):
         # assert self.nparams == (1 + self.exog.shape[1]), f"Found nparams={self.nparams}, expected={self.exog.shape[1]}"
-        
+
         using_default_params = start_params is None
         if start_params is None:
             if hasattr(self, "start_params"):
@@ -272,13 +289,15 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
                 )
                 """
                 ps, disp = get_betabinom_start_params(legacy=legacy, exog=self.exog)
-                start_params = np.concatenate([ps[:self.num_states], np.array([disp])])
+                start_params = np.concatenate([ps[: self.num_states], np.array([disp])])
 
         start_time = time.time()
 
         # NB log initial start params and initial likelihood:
-        logger.info(f"Weighted_BetaBinom_mix (compress={self.compress}) initial likelihood={self.nloglikeobs(start_params):.6e} @ start_params: {start_params}")
-        
+        logger.info(
+            f"Weighted_BetaBinom_mix (compress={self.compress}) initial likelihood={self.nloglikeobs(start_params):.6e} @ start_params: {start_params}"
+        )
+
         result = super().fit(
             start_params=start_params,
             maxiter=maxiter,
@@ -302,7 +321,7 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
             f"converged: {result.mle_retvals.get('converged', 'N/A')}, "
             f"llf: {result.llf:.6e}"
         )
-        
+
         return result
 
 

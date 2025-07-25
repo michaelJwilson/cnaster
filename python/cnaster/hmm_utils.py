@@ -122,16 +122,18 @@ def construct_unique_matrix(obs_count, total_count):
         counts = np.vstack([obs_count[:, s], total_count[:, s]]).T
 
         mean_validity += np.mean(valid)
-        
+
         # TODO BUG fails for numpy cases; not np.issubdtype(total_count.dtype, np.integer)
         if total_count.dtype != int:
             counts = counts.round(decimals=decimals)
 
         pairs = np.unique(counts, axis=0)
 
-        logger.info(f"Found {len(pairs)} unique pairs with {100. * np.mean(valid)}% valid:\n{pairs}")
-        
-        mean_compression += (1. - len(pairs) / n_obs)
+        logger.info(
+            f"Found {len(pairs)} unique pairs with {100. * np.mean(valid)}% valid:\n{pairs}"
+        )
+
+        mean_compression += 1.0 - len(pairs) / n_obs
 
         unique_values.append(pairs)
         pair_index = {(pairs[i, 0], pairs[i, 1]): i for i in range(pairs.shape[0])}
@@ -156,7 +158,7 @@ def construct_unique_matrix(obs_count, total_count):
         )
 
         mean_sparsity += calc_sparsity(csr_matrix)
-        
+
         # Example usage:
         #   e.g.  convert posteriors from observation space to the compressed space
         # .        tmp = (scipy.sparse.csr_matrix(gamma) @ mapping_matrices[s]).toarray()
@@ -168,7 +170,7 @@ def construct_unique_matrix(obs_count, total_count):
 
     msg = f"Constructed unique count compression with mean validity: {100. * mean_validity}, mean compression rate (decimals={decimals}): {100. * mean_compression:.4f}%, "
     msg += f"as represented by {n_spots} sparse matrices with mean sparsity {100. * mean_sparsity:.2f}%."
-    
+
     logger.info(msg)
 
     return unique_values, mapping_matrices

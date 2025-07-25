@@ -290,7 +290,7 @@ def update_emission_params_nb_sitewise_uniqvalues(
             logger.info(
                 "Updating (phasing) NB emission parameters with shared dispersion."
             )
-            
+
             # DEPRECATE
             exposure, y, weights, features, state_posweights = [], [], [], [], []
 
@@ -329,7 +329,7 @@ def update_emission_params_nb_sitewise_uniqvalues(
                 exposure.append(this_exposure[idx_row_posweight])
                 weights.append(this_weights[idx_row_posweight])
                 features.append(
-                     this_features[idx_row_posweight, :][:, idx_state_posweight]
+                    this_features[idx_row_posweight, :][:, idx_state_posweight]
                 )
                 state_posweights.append(idx_state_posweight)
 
@@ -1004,7 +1004,7 @@ def update_emission_params_bb_sitewise_uniqvalues(
     n_spots = len(unique_values)
     n_states = int(log_gamma.shape[0] / 2)
     gamma = np.exp(log_gamma)
-    
+
     new_p_binom = (
         copy.copy(start_p_binom)
         if start_p_binom is not None
@@ -1072,18 +1072,23 @@ def update_emission_params_bb_sitewise_uniqvalues(
                     #    i.e. at least 1 SNP is under this state (considering phasing).
                     if (
                         np.sum(tmp[i, idx_nonzero])
-                        + np.sum(tmp[i + n_states, idx_nonzero]) # NB posterior on phase flip
-                        >= 0.1 # MAGIC
+                        + np.sum(
+                            tmp[i + n_states, idx_nonzero]
+                        )  # NB posterior on phase flip
+                        >= 0.1  # MAGIC
                     ):
                         model = Weighted_BetaBinom(
                             np.append(
-                                unique_values[s][idx_nonzero, 0], # NB a-allele counts
-                                unique_values[s][idx_nonzero, 1] # NB b-allele counts
+                                unique_values[s][idx_nonzero, 0],  # NB a-allele counts
+                                unique_values[s][idx_nonzero, 1]  # NB b-allele counts
                                 - unique_values[s][idx_nonzero, 0],
                             ),
-                            np.ones(2 * len(idx_nonzero)).reshape(-1, 1), # NB one-hot design matrix
+                            np.ones(2 * len(idx_nonzero)).reshape(
+                                -1, 1
+                            ),  # NB one-hot design matrix
                             weights=np.append(
-                                tmp[i, idx_nonzero], tmp[i + n_states, idx_nonzero] # NB current posterior.
+                                tmp[i, idx_nonzero],
+                                tmp[i + n_states, idx_nonzero],  # NB current posterior.
                             ),
                             exposure=np.append(
                                 unique_values[s][idx_nonzero, 1],
@@ -1246,7 +1251,7 @@ def update_emission_params_bb_nophasing_uniqvalues(
     n_spots = len(unique_values)
     n_states = log_gamma.shape[0]
     gamma = np.exp(log_gamma)
-    
+
     new_p_binom = (
         copy.copy(start_p_binom)
         if start_p_binom is not None
@@ -1336,7 +1341,6 @@ def update_emission_params_bb_nophasing_uniqvalues(
             for s in np.arange(len(unique_values)):
                 idx_nonzero = np.where(unique_values[s][:, 1] > 0)[0]
 
-                
                 this_exposure = np.tile(unique_values[s][idx_nonzero, 1], n_states)
                 this_y = np.tile(unique_values[s][idx_nonzero, 0], n_states)
                 tmp = (scipy.sparse.csr_matrix(gamma) @ mapping_matrices[s]).toarray()

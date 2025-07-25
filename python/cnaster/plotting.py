@@ -10,6 +10,7 @@ from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
 
 logger = logging.getLogger(__name__)
 
+
 def get_full_palette():
     palette = {}
     palette.update({(0, 0): "darkblue"})
@@ -43,9 +44,9 @@ def get_full_palette():
 
 
 def get_intervals(pred_cnv):
-    intervals, labs = [],[]
+    intervals, labs = [], []
     s = 0
-    
+
     while s < len(pred_cnv):
         t = np.where(pred_cnv[s:] != pred_cnv[s])[0]
         if len(t) == 0:
@@ -80,7 +81,7 @@ def plot_clones_genomic(
     chisel_palette, ordered_acn = get_full_palette()
     map_cn = {x: i for i, x in enumerate(ordered_acn)}
     colors = [chisel_palette[c] for c in ordered_acn]
-    
+
     final_clone_ids = np.unique([x.split(" ")[0][5:] for x in df_cnv.columns[3:]])
     if "0" not in final_clone_ids:
         final_clone_ids = np.array(["0"] + list(final_clone_ids))
@@ -164,7 +165,7 @@ def plot_clones_genomic(
         axes[2 * s].set_yticks(np.arange(1, rdr_ylim, 1))
         axes[2 * s].set_ylim([0, rdr_ylim])
         axes[2 * s].set_xlim([0, n_obs])
-        
+
         if remove_xticks:
             axes[2 * s].set_xticks([])
 
@@ -182,7 +183,7 @@ def plot_clones_genomic(
                 ordered=True,
             )
             palette = palette
-            
+
         # NB plot phased b-allele frequency
         sns.scatterplot(
             x=np.arange(X[:, 1, c].shape[0]),
@@ -224,17 +225,15 @@ def plot_clones_genomic(
             axes[2 * s + 1].plot(
                 seg,
                 [
-                    1. - res_combine["new_p_binom"][labs[i], c],
-                    1. - res_combine["new_p_binom"][labs[i], c],
+                    1.0 - res_combine["new_p_binom"][labs[i], c],
+                    1.0 - res_combine["new_p_binom"][labs[i], c],
                 ],
                 c="black",
                 linewidth=2,
             )
 
     for i in range(len(lengths)):
-        median_len = (
-            np.sum(lengths[:(i)]) * 0.55 + np.sum(lengths[: (i + 1)]) * 0.45
-        )
+        median_len = np.sum(lengths[:(i)]) * 0.55 + np.sum(lengths[: (i + 1)]) * 0.45
         axes[-1].text(
             median_len - 5,
             chrtext_shift,
@@ -243,21 +242,31 @@ def plot_clones_genomic(
         )
         for k in range(2 * len(nonempty_clones)):
             axes[k].axvline(x=np.sum(lengths[:(i)]), c="grey", linewidth=1)
-            
+
     fig.tight_layout()
 
     return fig
 
-def plot_clones_spatial(coords, assignment, single_tumor_prop=None, sample_list=None, sample_ids=None, base_width=4, base_height=3, palette="Set2"):
+
+def plot_clones_spatial(
+    coords,
+    assignment,
+    single_tumor_prop=None,
+    sample_list=None,
+    sample_ids=None,
+    base_width=4,
+    base_height=3,
+    palette="Set2",
+):
     # NB combine coordinates across samples
     shifted_coords = copy.copy(coords)
     if sample_ids is not None:
         x_offset = 0
-        
-        for s,sname in enumerate(sample_list):
+
+        for s, sname in enumerate(sample_list):
             index = np.where(sample_ids == s)[0]
-            shifted_coords[index,0] = shifted_coords[index,0] + x_offset
-            x_offset += np.max(coords[index,0]) + 10
+            shifted_coords[index, 0] = shifted_coords[index, 0] + x_offset
+            x_offset += np.max(coords[index, 0]) + 10
 
     # NB number of clones and samples
     final_clone_ids = np.unique(assignment[~assignment.isnull()].values)
@@ -268,26 +277,79 @@ def plot_clones_spatial(coords, assignment, single_tumor_prop=None, sample_list=
     if single_tumor_prop is not None:
         copy_single_tumor_prop = copy.copy(single_tumor_prop)
         copy_single_tumor_prop[np.isnan(copy_single_tumor_prop)] = 0.5
-    
-    fig, axes = plt.subplots(1, 1, figsize=(base_width*n_samples, base_height), dpi=200, facecolor="white")
+
+    fig, axes = plt.subplots(
+        1, 1, figsize=(base_width * n_samples, base_height), dpi=200, facecolor="white"
+    )
     if "clone 0" in final_clone_ids:
-        colorlist = ['lightgrey'] + sns.color_palette("Set2", n_final_clones-1).as_hex()
+        colorlist = ["lightgrey"] + sns.color_palette(
+            "Set2", n_final_clones - 1
+        ).as_hex()
     else:
         colorlist = sns.color_palette("Set2", n_final_clones).as_hex()
 
-    for c,cid in enumerate(final_clone_ids):
-        idx = np.where( (assignment.values==cid) )[0]
+    for c, cid in enumerate(final_clone_ids):
+        idx = np.where((assignment.values == cid))[0]
         if single_tumor_prop is None:
-            sns.scatterplot(x=shifted_coords[idx,0], y=-shifted_coords[idx,1], s=10, color=colorlist[c], linewidth=0, legend=None, ax=axes)
+            sns.scatterplot(
+                x=shifted_coords[idx, 0],
+                y=-shifted_coords[idx, 1],
+                s=10,
+                color=colorlist[c],
+                linewidth=0,
+                legend=None,
+                ax=axes,
+            )
         else:
-            this_full_cmap = sns.color_palette(f"blend:lightgrey,{colorlist[c]}", as_cmap=True)
-            quantile_colors = this_full_cmap(np.array([0, np.min(copy_single_tumor_prop[idx]), np.max(copy_single_tumor_prop[idx]), 1]))
-            quantile_colors = [matplotlib.colors.rgb2hex(x) for x in quantile_colors[1:-1]]
-            this_cmap = sns.color_palette(f"blend:{quantile_colors[0]},{quantile_colors[-1]}", as_cmap=True)
-            sns.scatterplot(x=shifted_coords[idx,0], y=-shifted_coords[idx,1], s=10, hue=copy_single_tumor_prop[idx], palette=this_cmap, linewidth=0, legend=None, ax=axes)
+            this_full_cmap = sns.color_palette(
+                f"blend:lightgrey,{colorlist[c]}", as_cmap=True
+            )
+            quantile_colors = this_full_cmap(
+                np.array(
+                    [
+                        0,
+                        np.min(copy_single_tumor_prop[idx]),
+                        np.max(copy_single_tumor_prop[idx]),
+                        1,
+                    ]
+                )
+            )
+            quantile_colors = [
+                matplotlib.colors.rgb2hex(x) for x in quantile_colors[1:-1]
+            ]
+            this_cmap = sns.color_palette(
+                f"blend:{quantile_colors[0]},{quantile_colors[-1]}", as_cmap=True
+            )
+            sns.scatterplot(
+                x=shifted_coords[idx, 0],
+                y=-shifted_coords[idx, 1],
+                s=10,
+                hue=copy_single_tumor_prop[idx],
+                palette=this_cmap,
+                linewidth=0,
+                legend=None,
+                ax=axes,
+            )
 
-    legend_elements = [Line2D([0], [0], marker='o', color="w", markerfacecolor=colorlist[c], label=cid, markersize=10) for c,cid in enumerate(final_clone_ids)]
-    axes.legend(legend_elements, final_clone_ids, handlelength=0.1, loc="upper left", bbox_to_anchor=(1,1))
+    legend_elements = [
+        Line2D(
+            [0],
+            [0],
+            marker="o",
+            color="w",
+            markerfacecolor=colorlist[c],
+            label=cid,
+            markersize=10,
+        )
+        for c, cid in enumerate(final_clone_ids)
+    ]
+    axes.legend(
+        legend_elements,
+        final_clone_ids,
+        handlelength=0.1,
+        loc="upper left",
+        bbox_to_anchor=(1, 1),
+    )
     axes.axis("off")
 
     fig.tight_layout()

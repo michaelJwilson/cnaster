@@ -414,7 +414,7 @@ class hmm_sitewise:
         )
 
         logger.info("Constructing BB compression in (X[:, 1, :], total_bb_RD).")
-        
+
         unique_values_bb, mapping_matrices_bb = construct_unique_matrix(
             X[:, 1, :], total_bb_RD
         )

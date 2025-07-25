@@ -129,4 +129,7 @@ def initialization_by_gmm(
         if only_minor:
             gmm_p_binom = np.where(gmm_p_binom > 0.5, 1.0 - gmm_p_binom, gmm_p_binom)
 
+    if np.any(gmm_p_binom > 0.5):
+        logger.warning(f"GMM initialized p binom > 0.5, {gmm_p_binom[gmm_p_binom > 0.5]}")
+
     return gmm_log_mu, gmm_p_binom

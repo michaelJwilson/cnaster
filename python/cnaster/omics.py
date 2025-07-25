@@ -287,7 +287,7 @@ def assign_initial_blocks(
         df_gene_snp.iloc[x[0] : x[1], -1] = i
 
     logger.info(
-        "Updating block assignment based on input phased genotypes and min. SNP-covering UMI threshold"
+        "Updating block assignment based on input phased genotypes and min. snp-covering UMI threshold"
     )
 
     summarize_block_ids(df_gene_snp["block_id"])

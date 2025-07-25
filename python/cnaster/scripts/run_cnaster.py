@@ -1100,7 +1100,7 @@ def run_cnaster(config_path):
     logger.info(f"Done in {(time.time() - start_time)/60.:.2f} minutes.")
 
 
-# NB run_cnaster config_turing.yaml
+# NB run_cnaster config.yaml
 def main():
     parser = argparse.ArgumentParser(description="Run CNAster pipeline")
     parser.add_argument(

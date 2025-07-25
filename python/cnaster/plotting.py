@@ -1,5 +1,12 @@
-import sns as sns
+import seaborn as sns
+import numpy as np
+import matplotlib.pyplot as plt
+import pandas as pd
+
+import logging
 from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
+
+logger = logging.getLogger(__name__)
 
 
 def get_full_palette():
@@ -69,6 +76,8 @@ def plot_rdr_baf(
     linewidth=1,
     palette="chisel",
 ):
+    logger.info(f"Plotting final rdr+baf.")
+    
     chisel_palette, ordered_acn = get_full_palette()
     map_cn = {x: i for i, x in enumerate(ordered_acn)}
     colors = [chisel_palette[c] for c in ordered_acn]

@@ -131,9 +131,11 @@ class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
 
         n, p = convert_params(nb_mean, nb_std)
 
-        result = -scipy.stats.nbinom.logpmf(self.endog, n, p).dot(self.weights)
-
-        return result if np.isfinite(result) else np.inf
+        # Return per-observation negative log-likelihood weighted by weights
+        logpmf_values = scipy.stats.nbinom.logpmf(self.endog, n, p)
+        
+        # Handle non-finite values and apply weights
+        return np.where(np.isfinite(-logpmf_values * self.weights), -logpmf_values * self.weights, 1e10)
 
     def fit(
         self, start_params=None, maxiter=10_000, maxfun=5_000, legacy=False, **kwargs
@@ -270,11 +272,12 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
                 -1
             ]
 
-        result = -scipy.stats.betabinom.logpmf(self.endog, self.exposure, a, b).dot(
-            self.weights
-        )
-
-        return result if np.isfinite(result) else np.inf
+        # Return per-observation negative log-likelihood weighted by weights
+        logpmf_values = scipy.stats.betabinom.logpmf(self.endog, self.exposure, a, b)
+        result = -logpmf_values * self.weights
+        
+        # Handle non-finite values
+        return np.where(np.isfinite(result), result, 1e10)
 
     def fit(
         self, start_params=None, maxiter=10_000, maxfun=5_000, legacy=False, **kwargs

@@ -42,9 +42,10 @@ hmrf:
   construct_adjacency_method : hexagon
   construct_adjacency_w : 1.0
 
-# TODO HACK max_iter : 30 -> 
+# TODO HACK max_iter : 30 ->
+#           nm -> bfgs 
 hmm:
-  solver: nm
+  solver: bfgs
   n_states : 7
   params : smp
   t : 0.99999

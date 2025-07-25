@@ -131,11 +131,13 @@ class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
 
         n, p = convert_params(nb_mean, nb_std)
 
-        # Return per-observation negative log-likelihood weighted by weights
-        logpmf_values = scipy.stats.nbinom.logpmf(self.endog, n, p)
+        result = -scipy.stats.nbinom.logpmf(self.endog, n, p)
+        result[np.isnan(result)] = np.inf
+        result = result.dot(self.weights)
+
+        assert not np.isnan(result), f"{params}: {result}"
         
-        # Handle non-finite values and apply weights
-        return np.where(np.isfinite(-logpmf_values * self.weights), -logpmf_values * self.weights, 1e10)
+        return result
 
     def fit(
         self, start_params=None, maxiter=10_000, maxfun=5_000, legacy=False, **kwargs
@@ -272,12 +274,22 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
                 -1
             ]
 
+<<<<<<< HEAD
         # Return per-observation negative log-likelihood weighted by weights
         logpmf_values = scipy.stats.betabinom.logpmf(self.endog, self.exposure, a, b)
         result = -logpmf_values * self.weights
         
         # Handle non-finite values
         return np.where(np.isfinite(result), result, 1e10)
+=======
+        result = -scipy.stats.betabinom.logpmf(self.endog, self.exposure, a, b)
+        result[np.isnan(result)] = np.inf
+        result = result.dot(self.weights)
+
+        assert not np.isnan(result), f"{params}: {result}"
+
+        return result
+>>>>>>> 10a1e31f4644824aebeac6e4ea8e82d29943a067
 
     def fit(
         self, start_params=None, maxiter=10_000, maxfun=5_000, legacy=False, **kwargs
@@ -305,6 +317,8 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
             f"Weighted_BetaBinom_mix (compress={self.compress}) initial likelihood={self.nloglikeobs(start_params):.6e} @ start_params: {start_params}"
         )
 
+        # TODO list of unsupported keyword arguments passed include: maxfun, xtol, ftol for bfgs.
+        #      bounds
         result = super().fit(
             start_params=start_params,
             maxiter=maxiter,

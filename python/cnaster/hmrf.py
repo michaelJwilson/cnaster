@@ -327,8 +327,8 @@ def hmrfmix_concatenate_pipeline(
             clone_stack_total_bb_RD,
             params,
             random_state=random_state,
-            in_log_space=False,
-            only_minor=False,
+            in_log_space=False, # TODO BUG?
+            only_minor=False, # TODO BUG?
         )
 
     last_log_mu = init_log_mu if "m" in params else None

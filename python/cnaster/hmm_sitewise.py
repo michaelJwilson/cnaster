@@ -93,7 +93,7 @@ class hmm_sitewise:
                             X[idx_nonzero_baf, 1, s],
                             total_bb_RD[idx_nonzero_baf, s],
                             p_binom[i, s] * taus[i, s],
-                            (1 - p_binom[i, s]) * taus[i, s],
+                            (1. - p_binom[i, s]) * taus[i, s],
                         )
                     )
 
@@ -101,7 +101,7 @@ class hmm_sitewise:
                         scipy.stats.betabinom.logpmf(
                             X[idx_nonzero_baf, 1, s],
                             total_bb_RD[idx_nonzero_baf, s],
-                            (1 - p_binom[i, s]) * taus[i, s],
+                            (1. - p_binom[i, s]) * taus[i, s],
                             p_binom[i, s] * taus[i, s],
                         )
                     )

@@ -35,6 +35,7 @@ def cna_mixture_init():
     base_nb_mean,
     total_bb_RD,
     params,
+    hmm_class,
     random_state=None,
     in_log_space=True,
     only_minor=True,
@@ -86,7 +87,16 @@ def cna_mixture_init():
         # TODO
         X_gmm_rdr = interval_mean(X_gmm_rdr, eff_element, axis=-1)
 
-        
+        # TODO sample first state from data.
+
+        # NB returns log_likelihoods with shape (2*n_states, n_obs, n_spots).
+        log_emission_rdr, log_emission_baf = hmm_class.compute_emission_probability_nb_betabinom(
+            X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus
+        )
+
+        log_emission = log_emission_rdr + log_emission_baf
+
+        # TODO sample next state given log_emission.
         
 
 def gmm_init(

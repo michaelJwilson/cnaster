@@ -305,7 +305,7 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
 
         # NB log initial start params and initial likelihood:
         logger.info(
-            f"Weighted_BetaBinom_mix (compress={self.compress}) initial likelihood={self.nloglikeobs(start_params):.6e} @ start_params: {start_params}"
+            f"Weighted_BetaBinom_mix (compress={self.compress}) initial likelihood={self.nloglikeobs(start_params):.6e} @ start_params:\n{start_params}"
         )
 
         # TODO list of unsupported keyword arguments passed include: maxfun, xtol, ftol for bfgs.

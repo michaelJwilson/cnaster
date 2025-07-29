@@ -13,7 +13,7 @@ def get_eff_element(t, K, two_sided=True):
     result = 2.0 * result if two_sided else result
     return result
 
-@jit(nopython=True)
+@njit(nopython=True)
 def interval_mean(arr, N, axis=-1):
     num_groups = arr.shape[axis] // N
 
@@ -27,7 +27,7 @@ def interval_mean(arr, N, axis=-1):
             result[i, j] = np.mean(arr[i, start_idx:end_idx])
     
     return result
-
+"""
 def cna_mixture_init():
     n_states,
     t,
@@ -97,7 +97,7 @@ def cna_mixture_init():
         log_emission = log_emission_rdr + log_emission_baf
 
         # TODO sample next state given log_emission.
-        
+"""     
 
 def gmm_init(
     n_states,

@@ -2,6 +2,7 @@ import logging
 
 import numpy as np
 import scipy.stats
+from scipy.special import loggamma
 from cnaster.hmm_update import (
     update_emission_params_bb_sitewise_uniqvalues,
     update_emission_params_bb_sitewise_uniqvalues_mix,
@@ -21,6 +22,16 @@ from cnaster.hmm_utils import (
 from numba import njit
 
 logger = logging.getLogger(__name__)
+
+
+def switch_betabinom(original, bn, Sn, alpha, beta):
+    return (
+        original
+        + loggamma(bn + beta)
+        - loggamma(bn + alpha)
+        + loggamma(Sn - bn + alpha)
+        - loggamma(Sn - bn + beta)
+    )
 
 
 class hmm_sitewise:
@@ -93,11 +104,22 @@ class hmm_sitewise:
                             X[idx_nonzero_baf, 1, s],
                             total_bb_RD[idx_nonzero_baf, s],
                             p_binom[i, s] * taus[i, s],
-                            (1. - p_binom[i, s]) * taus[i, s],
+                            (1.0 - p_binom[i, s]) * taus[i, s],
                         )
                     )
 
                     log_emission_baf[i + n_states, idx_nonzero_baf, s] = (
+                        switch_betabinom(
+                            log_emission_baf[i, idx_nonzero_baf, s],
+                            X[idx_nonzero_baf, 1, s],
+                            total_bb_RD[idx_nonzero_baf, s],
+                            p_binom[i, s] * taus[i, s],
+                            (1.0 - p_binom[i, s]) * taus[i, s],
+			)
+                    )
+
+                    """
+                    exp = log_emission_baf[i + n_states, idx_nonzero_baf, s] = (
                         scipy.stats.betabinom.logpmf(
                             X[idx_nonzero_baf, 1, s],
                             total_bb_RD[idx_nonzero_baf, s],
@@ -105,6 +127,12 @@ class hmm_sitewise:
                             p_binom[i, s] * taus[i, s],
                         )
                     )
+
+                    logger.warning(f"Duplicated emission calc. in {self.__class__.__name__}")
+                    
+                    # TODO DEPRECATE
+                    np.testing.assert_allclose(log_emission_baf[i + n_states, idx_nonzero_baf, s], exp, rtol=1e-10, atol=1e-12)
+                    """
 
         return log_emission_rdr, log_emission_baf
 

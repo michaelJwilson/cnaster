@@ -117,7 +117,6 @@ class hmm_sitewise:
                             (1.0 - p_binom[i, s]) * taus[i, s],
 			)
                     )
-
                     """
                     exp = log_emission_baf[i + n_states, idx_nonzero_baf, s] = (
                         scipy.stats.betabinom.logpmf(
@@ -127,13 +126,10 @@ class hmm_sitewise:
                             p_binom[i, s] * taus[i, s],
                         )
                     )
-
-                    logger.warning(f"Duplicated emission calc. in {self.__class__.__name__}")
                     
                     # TODO DEPRECATE
                     np.testing.assert_allclose(log_emission_baf[i + n_states, idx_nonzero_baf, s], exp, rtol=1e-10, atol=1e-12)
                     """
-
         return log_emission_rdr, log_emission_baf
 
     @staticmethod

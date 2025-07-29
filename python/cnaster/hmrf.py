@@ -320,7 +320,7 @@ def hmrfmix_concatenate_pipeline(
     )
 
     if (init_log_mu is None) or (init_p_binom is None):
-        init_log_mu, init_p_binom = initialization_by_gmm(
+        init_log_mu, init_p_binom = gmm_init(
             n_states,
             clone_stack_X,
             clone_stack_base_nb_mean,

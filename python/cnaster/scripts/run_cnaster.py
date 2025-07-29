@@ -147,7 +147,7 @@ def run_cnaster(config_path):
         config.phasing.logphase_shift,
     )
 
-    # TODO
+    # TODO (requires paste).
     initial_clone_for_phasing = initialize_clones(
         coords,
         sample_ids,
@@ -180,6 +180,8 @@ def run_cnaster(config_path):
     )
 
     logger.info(f"Solved for initial phase given Eagle & BAF.")
+
+    exit(0)
     
     df_gene_snp["phase"] = np.where(
         df_gene_snp.snp_id.isnull(),

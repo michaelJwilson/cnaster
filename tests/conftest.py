@@ -16,6 +16,21 @@ def rdr_baf(rng):
     return 5 * (1.0 + rng.uniform(size=(3, 2)))
 
 
+@pytest.fixture
+def baf_emission_data():
+    # NB one typical phasing spot,
+    #    see https://numpy.org/doc/stable/reference/random/generated/numpy.random.randint.html
+    X = np.random.randint(low=0, high=20, size=((4494, 2, 1)))
+    total_bb_RD = 100 + X[:, 0, :]
+
+    p_binom, tau = 0.25, 25.0
+    alpha, beta = p_binom * tau, (1.0 - p_binom) * tau
+
+    bn, Sn = X[:, 1, :], total_bb_RD
+
+    return bn, Sn, alpha, beta
+
+
 def pytest_addoption(parser):
     parser.addoption(
         "--run_slow", action="store_true", default=False, help="run slow tests"

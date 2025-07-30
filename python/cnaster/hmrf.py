@@ -292,13 +292,13 @@ def hmrfmix_concatenate_pipeline(
 
     # DEPRECATE
     assert np.isscalar(norm)
-    
+
     if norm == 0.0:
         logger.warning(f"Found nb_mean=0 across all spots,segments.")
 
-    with np.errstate(divide='ignore', invalid='ignore'):
+    with np.errstate(divide="ignore", invalid="ignore"):
         lambd = np.sum(single_base_nb_mean, axis=1) / norm
-        
+
     X, base_nb_mean, total_bb_RD, tumor_prop = merge_pseudobulk_by_index_mix(
         single_X,
         single_base_nb_mean,
@@ -327,8 +327,8 @@ def hmrfmix_concatenate_pipeline(
             clone_stack_total_bb_RD,
             params,
             random_state=random_state,
-            in_log_space=False, # TODO BUG?
-            only_minor=False, # TODO BUG?
+            in_log_space=False,  # TODO BUG?
+            only_minor=False,  # TODO BUG?
         )
 
     last_log_mu = init_log_mu if "m" in params else None

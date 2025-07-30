@@ -115,9 +115,9 @@ class hmm_sitewise:
                             total_bb_RD[idx_nonzero_baf, s],
                             p_binom[i, s] * taus[i, s],
                             (1.0 - p_binom[i, s]) * taus[i, s],
-			)
+                        )
                     )
-                    
+
         return log_emission_rdr, log_emission_baf
 
     @staticmethod
@@ -174,7 +174,7 @@ class hmm_sitewise:
                 if len(idx_nonzero_rdr) > 0:
                     nb_mean = base_nb_mean[idx_nonzero_rdr, s] * (
                         tumor_prop[idx_nonzero_rdr, s] * np.exp(log_mu[i, s])
-                        + 1.
+                        + 1.0
                         - tumor_prop[idx_nonzero_rdr, s]
                     )
                     nb_std = np.sqrt(nb_mean + alphas[i, s] * nb_mean**2)

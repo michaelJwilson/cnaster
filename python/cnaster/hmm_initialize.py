@@ -110,15 +110,18 @@ def cna_mixture_init(
 
         all_group_nlls = np.column_stack(all_group_nlls).T
         best_group_nll = np.min(all_group_nlls, axis=0)
-        
+    
+        best_group_idx = np.argmin(all_group_nlls, axis=0)
+
+        print(states)
+        print(np.unique(best_group_idx, return_counts=True))
+
         # NB sample next state.
         ps = best_group_nll / best_group_nll.sum()
         idx = np.random.choice(range(len(ps)), p=ps)
 
         start_idx = idx * eff_element
         end_idx = start_idx + eff_element
-
-        print(ps.mean(), states)
     
 def gmm_init(
     n_states,

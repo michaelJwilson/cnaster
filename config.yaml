@@ -49,8 +49,8 @@ hmm:
   solver: lbfgs
   n_states : 7
   params : smp
-  t : 0.99
-  t_phaseing : 0.99
+  t : 0.9
+  t_phaseing : 0.9
   fix_NB_dispersion : False
   shared_NB_dispersion : True
   fix_BB_dispersion : False

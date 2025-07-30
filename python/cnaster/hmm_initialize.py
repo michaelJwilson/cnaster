@@ -34,32 +34,6 @@ def interval_mean(arr, N):
     
     return result
 
-def kmeans_plusplus(samples, k=5, scale=10.0):
-    """
-    kmeans++ centers (of degree k) and their associated cost.
-
-    NB samples new center according to -log prob. of
-       existing centers.
-    """
-    idx = np.arange(len(samples))
-
-    # NB -log Probability.
-    information = np.ones_like(samples)
-    centers = []
-
-    while len(centers) < k:
-        ps = information / information.sum()
-
-        # NB high exclusive; with replacement.
-        xx = samples[np.random.choice(idx, p=ps)]
-        centers.append(xx)
-
-        # TODO
-        # information = get_cost(samples, centers)
-
-    return np.array(centers + [information.sum()])
-
-
 def cna_mixture_init(
     n_states,
     t,
@@ -90,8 +64,6 @@ def cna_mixture_init(
     
     endog = interval_X[:,1,:].flatten()
     exposure = interval_total_bb_RD.flatten()
-
-    print(endog / exposure)
 
     n_samples = len(endog)
     exog = np.ones((n_samples, 1))
@@ -130,8 +102,6 @@ def cna_mixture_init(
     ps = group_nll_sums / group_nll_sums.sum()
     idx = np.random.choice(range(len(group_nll_sums)), p=ps)
 
-    print(idx)
-
     start_idx = idx * eff_element
     end_idx = start_idx + eff_element
 
@@ -141,8 +111,6 @@ def cna_mixture_init(
 
     endog = interval_X[:,1,:].flatten()
     exposure = interval_total_bb_RD.flatten()
-
-    print(endog / exposure)
 
     n_samples = len(endog)
     exog = np.ones((n_samples, 1))

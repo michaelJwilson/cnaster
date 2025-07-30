@@ -46,7 +46,7 @@ def pipeline_baum_welch(
     if ((init_log_mu is None) and ("m" in params)) or (
         (init_p_binom is None) and ("p" in params)
     ):
-        cna_mixture_init():
+        cna_mixture_init(
             n_states,
             t,
             X,

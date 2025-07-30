@@ -11,7 +11,8 @@ logger = logging.getLogger(__name__)
 
 def get_eff_element(t, K, two_sided=True):
     result = -np.log((t * K - 1.0) / (K - 1.0))
-
+    result = 1./result
+    
     if two_sided:
         result *= 2.0
         
@@ -31,7 +32,7 @@ def interval_mean(arr, N):
     
     return result
 
-def cna_mixture_init():
+def cna_mixture_init(
     n_states,
     t,
     X,
@@ -40,17 +41,22 @@ def cna_mixture_init():
     hmm_class,
 ):
     logger.info(
-        f"Initializing HMM emission with CNA Mixture++ assuming only_minor={only_minor}."
+        f"Initializing HMM emission with CNA Mixture++."
     )
     
     eff_element = get_eff_element(t, n_states)
-
-    logger.info(f"Found effective genomic element={eff_element} for (t,K)=({t},{n_states})")
+    # eff_element = int(np.ceil(eff_element))
+    
+    logger.info(f"Found effective genomic element={eff_element:.6e} for (t,K)=({t},{n_states}) and {X.shape[0]} total genomic elements")
     
     # TODO sample first state from data.
-    group_idx = np.random.randint(X.shape[0]) // eff_element
+    group_idx = int(np.floor(np.random.randint(X.shape[0]) // eff_element))
     start_idx, end_idx = group_idx * eff_element, (group_idx + 1) * eff_element
 
+    print(group_idx, start_idx, end_idx)
+
+    exit(0)
+    
     interval_X = X[start_idx: end_idx, ...]
     interval_base_nb_mean = base_nb_mean[start_idx: end_idx, ...]
     interval_total_bb_RD = total_bb_RD[start_idx: end_idx, ...]

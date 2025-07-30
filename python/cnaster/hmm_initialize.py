@@ -123,6 +123,8 @@ def cna_mixture_init(
     solver = Weighted_BetaBinom_mix(endog, exog, weights, exposure)
     result = solver.fit(start_params=start_params, **solver_params)
 
+    # TODO nll under best state for each, choose next state and repeat up
+    #      to n states.
     
 def gmm_init(
     n_states,

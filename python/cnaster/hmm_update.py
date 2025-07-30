@@ -27,11 +27,13 @@ def get_em_solver_params():
     solver = config.hmm.solver
 
     match solver:
-        "bfgs":
+        case "bfgs":
             kwargs = ("xrtol", "disp")
-        "nm":
+        case "lbfgs":
+            kwargs = ("maxiter", "ftol")        
+        case "nm":
             kwargs = ("maxiter", "xtol", "ftol", "disp")
-        _:
+        case _:
             raise ValueError(f"Unsupported solver: {solver}!")
 
     return {

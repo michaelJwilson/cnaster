@@ -17,3 +17,4 @@ sample_sheet.tsv
 cnaster.log*
 
 *.pyc
+cnaster.perf

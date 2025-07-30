@@ -18,7 +18,7 @@ def get_eff_element(t, K, two_sided=True):
     if two_sided:
         result *= 2.0
         
-    return result
+    return int(ceil(result))
 
 @njit
 def interval_mean(arr, N):
@@ -47,14 +47,11 @@ def cna_mixture_init(
     )
     
     eff_element = get_eff_element(t, n_states)
-    eff_element = int(np.ceil(eff_element))
     
     logger.info(f"Found effective genomic element={eff_element:.3f} for (t,K)=({t},{n_states}) and {X.shape[0]} total genomic elements")
 
-    # NB true of phasing partition and assumed below (currently).                                                                                                                                                                                           
+    # NB true of phasing partition and assumed below (currently), i.e. fed by one pseudo-bulk at a time.                                                                                                                                                                                         
     assert X.shape[-1] == 1
-    
-    states = []
 
     # TODO HACK                                                                                                                                                                                                                                             
     start_params = np.array([0.5, 1.])
@@ -62,20 +59,17 @@ def cna_mixture_init(
 
     # NB sample group from data.                                                                                                                                                                                                                            
     # TODO exclude existing states? rare clash?                                                                                                                                                                                                             
-    group_idx = int(np.floor(np.random.randint(X.shape[0]) // eff_element))
-    start_idx, end_idx = group_idx * eff_element, (group_idx + 1) * eff_element
+    group_idx = int(np.floor(np.random.randint(low=0, high=X.shape[0]) // eff_element))
+    start_idx = group_idx * eff_element
+    end_idx = start_idx + eff_element
 
     num_groups = X.shape[0] // eff_element
-    group_nlls = np.zeros(num_groups)
-    
-    while len(states) < n_states:
-        interval_X = X[start_idx: end_idx, ...]
-        interval_base_nb_mean = base_nb_mean[start_idx: end_idx, ...]
-        interval_total_bb_RD = total_bb_RD[start_idx: end_idx, ...]
+    states = []
 
+    while len(states) < n_states:
         # NB fit emission parameters to group
-        endog = interval_X[:,1,:].flatten()
-        exposure = interval_total_bb_RD.flatten()
+        endog = X[start_idx: end_idx, 1, :].flatten()
+        exposure = total_bb_RD[start_idx: end_idx, ...].flatten()
         
         n_samples = len(endog)
         exog = np.ones((n_samples, 1))
@@ -103,7 +97,7 @@ def cna_mixture_init(
                 endog, exog, weights, exposure, state, tumor_prop=None, reduce=False
             )
 
-            group_nlls[:] = 0.
+            group_nlls = np.zeros(num_groups)
 
             for group_idx in range(num_groups):
                 start_idx = group_idx * eff_element
@@ -124,7 +118,7 @@ def cna_mixture_init(
         start_idx = idx * eff_element
         end_idx = start_idx + eff_element
 
-        print(states)
+        print(ps.mean(), states)
     
 def gmm_init(
     n_states,

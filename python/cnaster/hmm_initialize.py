@@ -45,17 +45,13 @@ def cna_mixture_init(
     )
     
     eff_element = get_eff_element(t, n_states)
-    # eff_element = int(np.ceil(eff_element))
+    eff_element = int(np.ceil(eff_element))
     
-    logger.info(f"Found effective genomic element={eff_element:.6e} for (t,K)=({t},{n_states}) and {X.shape[0]} total genomic elements")
+    logger.info(f"Found effective genomic element={eff_element:.3f} for (t,K)=({t},{n_states}) and {X.shape[0]} total genomic elements")
     
     # TODO sample first state from data.
     group_idx = int(np.floor(np.random.randint(X.shape[0]) // eff_element))
     start_idx, end_idx = group_idx * eff_element, (group_idx + 1) * eff_element
-
-    print(group_idx, start_idx, end_idx)
-
-    exit(0)
     
     interval_X = X[start_idx: end_idx, ...]
     interval_base_nb_mean = base_nb_mean[start_idx: end_idx, ...]

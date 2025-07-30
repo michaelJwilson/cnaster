@@ -43,13 +43,14 @@ hmrf:
   construct_adjacency_w : 1.0
 
 # TODO HACK max_iter : 30 ->
-#           nm -> lbfgs
+#           solver: nm ->
+#           t: 0.99999 ->
 hmm:
   solver: nm
   n_states : 7
   params : smp
-  t : 0.99999
-  t_phaseing : 0.9999
+  t : 0.9
+  t_phaseing : 0.9
   fix_NB_dispersion : False
   shared_NB_dispersion : True
   fix_BB_dispersion : False

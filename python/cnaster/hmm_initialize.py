@@ -41,6 +41,7 @@ def cna_mixture_init(
     base_nb_mean,
     total_bb_RD,
     hmm_class,
+    only_minor=True,
 ):
     logger.info(
         f"Initializing HMM emission with CNA Mixture++."
@@ -123,6 +124,16 @@ def cna_mixture_init(
         start_idx = idx * eff_element
         end_idx = start_idx + eff_element
     
+    p_binom = np.array([state[0] for state in states])
+
+    # TODO
+    tau = max([state[1] for state in states])
+
+    if only_minor:
+        p_binom = np.where(p_binom > 0.5, 1. - p_binom, p_binom)
+
+    return None, p_binom
+
 def gmm_init(
     n_states,
     X,

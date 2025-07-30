@@ -88,7 +88,7 @@ def flush_perf(model: str, size, start_time: float, end_time: float, result: Any
 
 
 def nloglikeobs_nb(
-    endog, exog, weights, exposure, params, tumor_prop=None, reduce=True
+    endog, exog, weights, exposure, params, tumor_prop=None, reduce=True,
 ):
     if tumor_prop is None:
         nb_mean = exog @ np.exp(params[:-1]) * exposure

@@ -24,10 +24,19 @@ def get_em_solver_params():
     Get the parameters for the emission solver.
     """
     config = get_global_config()
+    solver = config.hmm.solver
+
+    match solver:
+        "bfgs":
+            kwargs = ("xrtol", "disp")
+        "nm":
+            kwargs = ("maxiter", "xtol", "ftol", "disp")
+        _:
+            raise ValueError(f"Unsupported solver: {solver}!")
 
     return {
         k.replace("em_", ""): float(getattr(config.hmm, f"em_{k}"))
-        for k in ("maxiter", "xtol", "xrtol", "ftol", "disp")
+        for k in kwargs
     }
 
 

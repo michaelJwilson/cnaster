@@ -4,7 +4,7 @@ import numpy as np
 import scipy.linalg
 import scipy.special
 import scipy.stats
-from cnaster.hmm_initialize import initialization_by_gmm
+from cnaster.hmm_initialize import gmm_init
 from cnaster.hmm_sitewise import hmm_sitewise
 from cnaster.hmm_utils import compute_posterior_obs
 
@@ -39,14 +39,14 @@ def pipeline_baum_welch(
     tol=1e-4,
     **kwargs,
 ):
-    logger.debug(f"Solving HMM with {hmmclass.__name__} instance.")
+    logger.info(f"Solving HMM for X={X.shape} with {hmmclass.__name__} instance.")
 
     n_spots = X.shape[2]
 
     if ((init_log_mu is None) and ("m" in params)) or (
         (init_p_binom is None) and ("p" in params)
     ):
-        tmp_log_mu, tmp_p_binom = initialization_by_gmm(
+        tmp_log_mu, tmp_p_binom = gmm_init(
             n_states,
             X,
             base_nb_mean,

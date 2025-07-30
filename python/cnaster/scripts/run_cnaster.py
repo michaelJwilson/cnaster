@@ -147,7 +147,7 @@ def run_cnaster(config_path):
         config.phasing.logphase_shift,
     )
 
-    # TODO
+    # TODO (requires paste).
     initial_clone_for_phasing = initialize_clones(
         coords,
         sample_ids,
@@ -179,7 +179,7 @@ def run_cnaster(config_path):
         threshold=config.hmrf.tumorprop_threshold,
     )
 
-    logger.info(f"Solved for initial phase given Eagle & BAF.")
+    logger.info(f"Solved for initial phase given Eagle & BAF in {(time.time() - start_time)/60.:.2f} minutes.")
     
     df_gene_snp["phase"] = np.where(
         df_gene_snp.snp_id.isnull(),

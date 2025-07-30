@@ -1,13 +1,105 @@
 import logging
 
 import numpy as np
+from numba import njit
 from cnaster.config import get_global_config
 from sklearn.mixture import GaussianMixture
 
 logger = logging.getLogger(__name__)
 
 
-def initialization_by_gmm(
+def get_eff_element(t, K, two_sided=True):
+    result = -np.log((t * K - 1.0) / (K - 1.0))
+    result = 2.0 * result if two_sided else result
+    return result
+
+@njit(nopython=True)
+def interval_mean(arr, N, axis=-1):
+    num_groups = arr.shape[axis] // N
+
+    # TODO generalize shape definition 
+    result = np.empty((arr.shape[0], num_groups), dtype=arr.dtype)
+    
+    for i in range(arr.shape[0]):
+        for j in range(num_groups):
+            start_idx = j * n
+            end_idx = start_idx + n
+            result[i, j] = np.mean(arr[i, start_idx:end_idx])
+    
+    return result
+"""
+def cna_mixture_init():
+    n_states,
+    t,
+    X,
+    base_nb_mean,
+    total_bb_RD,
+    params,
+    hmm_class,
+    random_state=None,
+    in_log_space=True,
+    only_minor=True,
+    min_binom_prob=0.1,
+    max_binom_prob=0.9,
+):
+    logger.info(
+        f"Initializing HMM emission with Gaussian Mixture Model assuming only_minor={only_minor}."
+    )
+
+    X_gmm_rdr, X_gmm_baf = None, None
+
+    eff_element = get_eff_element(t, n_states)
+
+    if "m" in params:
+        if in_log_space:
+            X_gmm_rdr = np.vstack(
+                [np.log(X[:, 0, s] / base_nb_mean[:, s]) for s in range(X.shape[2])]
+            ).T
+            valid = ~np.isnan(X_gmm_rdr) & ~np.isinf(X_gmm_rdr)
+
+            offset = np.mean(X_gmm_rdr[valid])
+            normalizetomax1 = np.max(X_gmm_rdr[valid]) - np.min(X_gmm_rdr[valid])
+
+            logger.info(
+                f"Assuming log-space RDR wih offset and normalization: {offset:.4f}, {normalizetomax1:.4f}"
+            )
+        else:
+            X_gmm_rdr = np.vstack(
+                [X[:, 0, s] / base_nb_mean[:, s] for s in range(X.shape[2])]
+            ).T
+            valid = ~np.isnan(X_gmm_rdr) & ~np.isinf(X_gmm_rdr)
+
+            offset = 0
+
+            # NB TODO? assumes X_gmm_rdr.min() = 0.                                                                                                                    
+            normalizetomax1 = np.max(X_gmm_rdr[valid])
+
+            logger.info(
+                f"Assuming linear-space RDR wih offset and normalization: {offset:.4f}, {normalizetomax1:.4f}"
+            )
+
+        X_gmm_rdr = (X_gmm_rdr - offset) / normalizetomax1
+
+        print(X_gmm_rdr.shape)
+
+        exit(0)
+        
+        # TODO
+        X_gmm_rdr = interval_mean(X_gmm_rdr, eff_element, axis=-1)
+
+        # TODO sample first state from data.
+
+        # NB returns log_likelihoods with shape (2*n_states, n_obs, n_spots).
+        log_emission_rdr, log_emission_baf = hmm_class.compute_emission_probability_nb_betabinom(
+            X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus
+        )
+
+        log_emission = log_emission_rdr + log_emission_baf
+
+        # TODO sample next state given log_emission.
+"""     
+
+def gmm_init(
     n_states,
     X,
     base_nb_mean,
@@ -122,7 +214,7 @@ def initialization_by_gmm(
         gmm_p_binom = gmm.means_[:, X.shape[2] :]
 
         if only_minor:
-            gmm_p_binom = np.where(gmm_p_binom > 0.5, 1.0 - gmm_p_binom, gmm_p_binom)
+            gmm_p_binom = np.where(gmm_p_binom > 0.5, 1. - gmm_p_binom, gmm_p_binom)
 
     elif "m" in params:
         gmm_log_mu = (
@@ -140,10 +232,10 @@ def initialization_by_gmm(
             gmm_p_binom = np.where(gmm_p_binom > 0.5, 1.0 - gmm_p_binom, gmm_p_binom)
 
     if np.any(gmm_p_binom > 0.5):
-        logger.warning(f"GMM initialized p binom > 0.5, {gmm_p_binom[gmm_p_binom > 0.5]}")
+        logger.warning(
+            f"GMM initialized p binom > 0.5, {gmm_p_binom[gmm_p_binom > 0.5]}"
+        )
 
-    logger.info(
-        f"Solved for GMM initialized parameters:\n{gmm_log_mu}\n{gmm_p_binom}"
-    )
+    logger.info(f"Solved for GMM initialized parameters:\n{gmm_log_mu}\n{gmm_p_binom}")
 
     return gmm_log_mu, gmm_p_binom

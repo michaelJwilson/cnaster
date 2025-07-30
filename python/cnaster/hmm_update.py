@@ -27,7 +27,7 @@ def get_em_solver_params():
 
     return {
         k.replace("em_", ""): float(getattr(config.hmm, f"em_{k}"))
-        for k in ("maxiter", "xtol", "ftol", "disp")
+        for k in ("maxiter", "xtol", "xrtol", "ftol", "disp")
     }
 
 

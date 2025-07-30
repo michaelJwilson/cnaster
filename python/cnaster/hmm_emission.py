@@ -47,14 +47,14 @@ def get_betabinom_start_params(legacy=False, exog=None):
 
 @dataclass
 class FitMetrics:
+    timestamp: str
     model: str
-    runtime: float
+    optimizer: str
+    runtime: str
     iterations: Optional[int]
     fcalls: Optional[int]
-    optimizer: str
     converged: Optional[bool]
     llf: float
-    timestamp: str
 
 
 def flush_perf(model: str, start_time: float, end_time: float, result: Any):
@@ -65,7 +65,7 @@ def flush_perf(model: str, start_time: float, end_time: float, result: Any):
 
     metrics = FitMetrics(
         model=model,
-        runtime=runtime,
+        runtime=f"{runtime:.4f}",
         iterations=mle_retvals.get("iterations"),
         fcalls=mle_retvals.get("fcalls"),
         optimizer=mle_settings.get("optimizer", "Unknown"),
@@ -77,7 +77,7 @@ def flush_perf(model: str, start_time: float, end_time: float, result: Any):
     file_exists = Path("cnaster.perf").exists()
 
     with open("cnaster.perf", "a", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=asdict(metrics).keys())
+        writer = csv.DictWriter(f, fieldnames=asdict(metrics).keys(), delimiter='\t')
 
         if not file_exists:
             writer.writeheader()

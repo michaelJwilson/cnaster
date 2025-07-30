@@ -1130,7 +1130,7 @@ def run_cnaster(config_path):
 
     # TODO
     fig_path = f"{config.paths.output_dir}/plots/clones_spatial.pdf"
-    logger.info("Writing clones spatial fig. to {fig_path}")
+    logger.info(f"Writing clones spatial fig. to {fig_path}")
     # clones_fig.savefig(fig_path, transparent=True, bbox_inches="tight")
 
     logger.info(f"Done in {(time.time() - start_time)/60.:.2f} minutes.")

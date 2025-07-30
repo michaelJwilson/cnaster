@@ -43,9 +43,9 @@ hmrf:
   construct_adjacency_w : 1.0
 
 # TODO HACK max_iter : 30 ->
-#           nm -> lbfgsb 
+#           nm -> lbfgs
 hmm:
-  solver: lbfgs
+  solver: nm
   n_states : 7
   params : smp
   t : 0.99999

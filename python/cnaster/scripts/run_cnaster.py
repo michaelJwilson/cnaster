@@ -1113,7 +1113,7 @@ def run_cnaster(config_path):
 
     # TODO
     fig_path = f"{config.paths.output_dir}/plots/clones_genomic.pdf"
-    logger.info("Writing clones genomic fig. to {fig_path}")
+    logger.info(f"Writing clones genomic fig. to {fig_path}")
     # rdr_baf_fig.savefig(fig_path, transparent=True, bbox_inches="tight")
 
     assignment = pd.Series([f"clone {x}" for x in res_combine["new_assignment"]])

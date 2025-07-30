@@ -5,6 +5,7 @@ from numba import njit
 from sklearn.mixture import GaussianMixture
 from cnaster.config import get_global_config
 from cnaster.hmm_emission import Weighted_BetaBinom_mix
+from cnaster.hmm_update import get_em_solver_params
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +65,8 @@ def cna_mixture_init(
 
     # TODO optimization settings kwargs.
     start_params = np.array([0.5, 1.])
-    result = Weighted_BetaBinom_mix(endog, exog, weights, exposure).fit(start_params=start_params)
+    solver_params = get_em_solver_params()
+    result = Weighted_BetaBinom_mix(endog, exog, weights, exposure).fit(start_params=start_params, **solver_params)
     
     """
     # NB returns log_likelihoods with shape (2*n_states, n_obs, n_spots).

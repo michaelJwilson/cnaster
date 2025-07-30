@@ -46,7 +46,7 @@ hmrf:
 #           solver: nm ->
 #           t: 0.99999 ->
 hmm:
-  solver: nm
+  solver: lbfgs
   n_states : 7
   params : smp
   t : 0.9

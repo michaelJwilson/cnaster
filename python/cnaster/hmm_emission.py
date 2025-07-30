@@ -227,14 +227,14 @@ class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
         )
 
         logger.info(
-            f"Weighted_NegativeBinomial_mix done: {runtime:.2f}s with tumor_prop={self.tumor_prop is not None}, "
-            f"{len(start_params)} params ({'with default start' if using_default_params else 'with custom start'}), "
-            f"{result.mle_retvals.get('iterations', 'N/A')} iter, "
-            f"{result.mle_retvals.get('fcalls', 'N/A')} fcalls, "
-            f"optimizer: {result.mle_settings.get('optimizer', 'Unknown')}, "
-            f"converged: {result.mle_retvals.get('converged', 'N/A')}, "
-            f"llf: {result.llf:.6e}",
-            f"params:\n{result.params}"
+            f"Weighted_NegativeBinomial_mix done: {runtime:.2f}s with\ntumor_prop={self.tumor_prop is not None},\n"
+            f"{len(start_params)} params ({'with default start' if using_default_params else 'with custom start'}),\n"
+            f"{result.mle_retvals.get('iterations', 'N/A')} iter,\n"
+            f"{result.mle_retvals.get('fcalls', 'N/A')} fcalls,\n"
+            f"optimizer: {result.mle_settings.get('optimizer', 'Unknown')},\n"
+            f"converged: {result.mle_retvals.get('converged', 'N/A')},\n"
+            f"llf: {result.llf:.6e}\n",
+            f"params: {result.params}"
         )
 
         return result
@@ -379,14 +379,14 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
         )
 
         logger.info(
-            f"Weighted_BetaBinom_mix done: {runtime:.2f}s with\ntumor_prop={self.tumor_prop is not None}, "
+            f"Weighted_BetaBinom_mix done: {runtime:.2f}s with\ntumor_prop={self.tumor_prop is not None},\n"
             f"{len(start_params)} params ({'with default start' if using_default_params else 'with custom start'}),\n"
             f"{result.mle_retvals.get('iterations', 'N/A')} iter,\n"
             f"{result.mle_retvals.get('fcalls', 'N/A')} fcalls,\n"
             f"optimizer: {result.mle_settings.get('optimizer', 'Unknown')},\n"
             f"converged: {result.mle_retvals.get('converged', 'N/A')},\n"
             f"llf: {result.llf:.6e}\n"
-            f"params:\n{result.params}"
+            f"params: {result.params}"
         )
 
         return result

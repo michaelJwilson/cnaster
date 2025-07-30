@@ -2,6 +2,7 @@ import logging
 
 import numpy as np
 from numba import njit
+from pysam import samples
 from sklearn.mixture import GaussianMixture
 from cnaster.config import get_global_config
 from cnaster.hmm_emission import Weighted_BetaBinom_mix, Weighted_NegativeBinomial_mix, nloglikeobs_bb
@@ -32,6 +33,32 @@ def interval_mean(arr, N):
         result[j, ...] = np.mean(arr[start_idx:end_idx, ...], axis=0)
     
     return result
+
+def kmeans_plusplus(samples, k=5, scale=10.0):
+    """
+    kmeans++ centers (of degree k) and their associated cost.
+
+    NB samples new center according to -log prob. of
+       existing centers.
+    """
+    idx = np.arange(len(samples))
+
+    # NB -log Probability.
+    information = np.ones_like(samples)
+    centers = []
+
+    while len(centers) < k:
+        ps = information / information.sum()
+
+        # NB high exclusive; with replacement.
+        xx = samples[np.random.choice(idx, p=ps)]
+        centers.append(xx)
+
+        # TODO
+        # information = get_cost(samples, centers)
+
+    return np.array(centers + [information.sum()])
+
 
 def cna_mixture_init(
     n_states,
@@ -98,7 +125,29 @@ def cna_mixture_init(
         # NB assumes IDD for samples in each eff_element.
         group_nll_sums[group_idx] = np.sum(nllbb[start_idx:end_idx])
     
-    # TODO NB zero NB exposure for phasing.
+    ps = group_nll_sums / group_nll_sums.sum()
+    idx = np.random.choice(range(len(group_nll_sums)), p=ps)
+
+    start_idx = idx * eff_element
+    end_idx = start_idx + eff_element
+
+    interval_X = X[start_idx: end_idx, ...]
+    interval_base_nb_mean = base_nb_mean[start_idx: end_idx, ...]
+    interval_total_bb_RD = total_bb_RD[start_idx: end_idx, ...]
+
+    endog = interval_X[:,1,:].flatten()
+    exposure = interval_total_bb_RD.flatten()
+
+    n_samples = len(endog)
+    exog = np.ones((n_samples, 1))
+    weights = np.ones(n_samples)
+    
+    # TODO HACK
+    start_params = np.array([0.5, 1.])
+    solver_params = get_em_solver_params()
+
+    solver = Weighted_BetaBinom_mix(endog, exog, weights, exposure)
+    result = solver.fit(start_params=start_params, **solver_params)
 
     
 def gmm_init(

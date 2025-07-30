@@ -23,6 +23,19 @@ logger = logging.getLogger(__name__)
 warnings.filterwarnings("ignore", category=UserWarning, module="statsmodels")
 
 
+@dataclass
+class FitMetrics:
+    timestamp: str
+    model: str
+    optimizer: str
+    size: int
+    runtime: str
+    iterations: Optional[int]
+    fcalls: Optional[int]
+    converged: Optional[bool]
+    llf: float
+
+
 def get_nbinom_start_params(legacy=False):
     config = get_global_config()
 
@@ -43,19 +56,6 @@ def get_betabinom_start_params(legacy=False, exog=None):
     ps = config.betabinom.start_params.split(",")
 
     return np.array(ps).astype(float), config.nbinom.start_disp
-
-
-@dataclass
-class FitMetrics:
-    timestamp: str
-    model: str
-    optimizer: str
-    size: int
-    runtime: str
-    iterations: Optional[int]
-    fcalls: Optional[int]
-    converged: Optional[bool]
-    llf: float
 
 
 def flush_perf(model: str, size, start_time: float, end_time: float, result: Any):
@@ -85,6 +85,52 @@ def flush_perf(model: str, size, start_time: float, end_time: float, result: Any
             writer.writeheader()
 
         writer.writerow(asdict(metrics))
+
+
+def nloglikeobs_nb(
+    endog, exog, weights, exposure, params, tumor_prop=None, reduce=True
+):
+    if tumor_prop is None:
+        nb_mean = exog @ np.exp(params[:-1]) * exposure
+    else:
+        nb_mean = exposure * (
+            tumor_prop * exog @ np.exp(params[:-1]) + (1.0 - tumor_prop)
+        )
+
+    nb_std = np.sqrt(nb_mean + params[-1] * nb_mean**2)
+
+    n, p = convert_params(nb_mean, nb_std)
+
+    result = -scipy.stats.nbinom.logpmf(endog, n, p)
+    result[np.isnan(result)] = np.inf
+
+    if reduce:
+        result = result.dot(weights)
+        assert not np.isnan(result), f"{params}: {result}"
+
+    return result
+
+
+def nloglikeobs_bb(
+    endog, exog, weights, exposure, params, tumor_prop=None, reduce=True
+):
+    p = exog @ params[:-1]
+
+    if tumor_prop is None:
+        a = p * params[-1]
+        b = (1.0 - p) * params[-1]
+    else:
+        a = (p * tumor_prop + 0.5 * (1.0 - tumor_prop)) * params[-1]
+        b = ((1.0 - p) * tumor_prop + 0.5 * (1.0 - tumor_prop)) * params[-1]
+
+    result = -scipy.stats.betabinom.logpmf(endog, exposure, a, b)
+    result[np.isnan(result)] = np.inf
+
+    if reduce:
+        result = result.dot(weights)
+        assert not np.isnan(result), f"{params}: {result}"
+
+    return result
 
 
 class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
@@ -166,7 +212,8 @@ class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
             self.exog = self.exog[unique_idx, :]
             self.compress = True
 
-    def nloglikeobs(self, params):
+    def nloglikeobs(self, params, reduce=True):
+        """
         if self.tumor_prop is None:
             nb_mean = self.exog @ np.exp(params[:-1]) * self.exposure
         else:
@@ -181,11 +228,22 @@ class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
 
         result = -scipy.stats.nbinom.logpmf(self.endog, n, p)
         result[np.isnan(result)] = np.inf
-        result = result.dot(self.weights)
 
-        assert not np.isnan(result), f"{params}: {result}"
+        if reduce:
+            result = result.dot(self.weights)
+            assert not np.isnan(result), f"{params}: {result}"
 
         return result
+        """
+        return nloglikeobs_nb(
+            self.endog,
+            self.exog,
+            self.weights,
+            self.exposure,
+            params,
+            tumor_prop=self.tumor_prop,
+            reduce=reduce,
+        )
 
     def fit(
         self, start_params=None, maxiter=10_000, maxfun=5_000, legacy=False, **kwargs
@@ -219,7 +277,9 @@ class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
         end_time = time.time()
         runtime = end_time - start_time
 
-        flush_perf(self.__class__.__name__, len(self.exog), start_time, end_time, result)
+        flush_perf(
+            self.__class__.__name__, len(self.exog), start_time, end_time, result
+        )
 
         logger.debug(
             f"Weighted_NegativeBinomial_mix debug - mle_retvals: {result.mle_retvals}, "
@@ -233,7 +293,7 @@ class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
             f"{result.mle_retvals.get('fcalls', 'N/A')} fcalls,\n"
             f"optimizer: {result.mle_settings.get('optimizer', 'Unknown')},\n"
             f"converged: {result.mle_retvals.get('converged', 'N/A')},\n"
-            f"llf: {result.llf:.6e}\n",
+            f"llf: {result.llf:.6e}\n"
             f"params: {result.params}"
         )
 
@@ -314,7 +374,8 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
             self.exog = self.exog[unique_idx, :]
             self.compress = True
 
-    def nloglikeobs(self, params):
+    def nloglikeobs(self, params, reduce=True):
+        """
         p = self.exog @ params[:-1]
 
         if self.tumor_prop is None:
@@ -328,11 +389,16 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
 
         result = -scipy.stats.betabinom.logpmf(self.endog, self.exposure, a, b)
         result[np.isnan(result)] = np.inf
-        result = result.dot(self.weights)
 
-        assert not np.isnan(result), f"{params}: {result}"
+        if reduce:
+            result = result.dot(self.weights)
+            assert not np.isnan(result), f"{params}: {result}"
 
         return result
+        """
+        return nloglikeobs_bb(
+            self.endog, self.exog, self.weights, self.exposure, params, tumor_prop=self.tumor_prop, reduce=reduce
+        )
 
     def fit(
         self, start_params=None, maxiter=10_000, maxfun=5_000, legacy=False, **kwargs
@@ -371,7 +437,9 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
         end_time = time.time()
         runtime = end_time - start_time
 
-        flush_perf(self.__class__.__name__, len(self.exog), start_time, end_time, result)
+        flush_perf(
+            self.__class__.__name__, len(self.exog), start_time, end_time, result
+        )
 
         logger.debug(
             f"Weighted_BetaBinom_mix debug - mle_retvals: {result.mle_retvals}, "

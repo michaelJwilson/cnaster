@@ -4,7 +4,7 @@ import numpy as np
 from numba import njit
 from sklearn.mixture import GaussianMixture
 from cnaster.config import get_global_config
-from cnaster.hmm_emission import Weighted_BetaBinom_mix
+from cnaster.hmm_emission import Weighted_BetaBinom_mix, Weighted_NegativeBinomial_mix, nloglikeobs_bb
 from cnaster.hmm_update import get_em_solver_params
 
 logger = logging.getLogger(__name__)
@@ -58,24 +58,40 @@ def cna_mixture_init(
     interval_base_nb_mean = base_nb_mean[start_idx: end_idx, ...]
     interval_total_bb_RD = total_bb_RD[start_idx: end_idx, ...]
 
+    # NB true of phasing partition and assumed below (currently).
+    assert X.shape[-1] == 1
+    
     endog = interval_X[:,1,:].flatten()
-    exog = np.ones_like(endog)
-    weights = np.ones_like(endog)
+    exog = weights = np.ones_like(endog)
     exposure = interval_total_bb_RD.flatten()
 
-    # TODO optimization settings kwargs.
+    # TODO HACK
     start_params = np.array([0.5, 1.])
     solver_params = get_em_solver_params()
-    result = Weighted_BetaBinom_mix(endog, exog, weights, exposure).fit(start_params=start_params, **solver_params)
+
+    solver = Weighted_BetaBinom_mix(endog, exog, weights, exposure)
+    result = solver.fit(start_params=start_params, **solver_params)
+
+    endog = X[:,1,:].flatten()
+    exog = weights = np.ones_like(endog)
+    exposure = total_bb_RD.flatten()
     
-    """
-    # NB returns log_likelihoods with shape (2*n_states, n_obs, n_spots).
-    log_emission_rdr, log_emission_baf = hmm_class.compute_emission_probability_nb_betabinom(
-        binned_X, binned_base_nb_mean, log_mu, alphas, binned_total_bb_RD, p_binom, taus
+    nllbb = nloglikeobs_bb(
+        endog, exog, weights, exposure, result.params, tumor_prop=None, reduce=False
     )
     
-    log_emission = log_emission_rdr + log_emission_baf
     """
+    TODO zero NB exposure for phasing.
+    endog = interval_X[:,0,:].flatten()
+    exposure = interval_base_nb_mean.flatten()
+
+    # NB log RDR
+    start_params = np.array([0., 1.])
+    
+    solver = Weighted_NegativeBinomial_mix(endog, exog, weights, exposure)
+    nb_result = solver.fit(start_params=start_params, **solver_params)
+    """
+    
 
 def gmm_init(
     n_states,

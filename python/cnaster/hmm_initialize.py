@@ -18,7 +18,7 @@ def get_eff_element(t, K, two_sided=True):
     if two_sided:
         result *= 2.0
         
-    return int(ceil(result))
+    return int(np.ceil(result))
 
 @njit
 def interval_mean(arr, N):

@@ -506,7 +506,7 @@ def run_cnaster(config_path):
             smooth_mat=smooth_mat[np.ix_(idx_spots, idx_spots)],
             adjacency_mat=adjacency_mat[np.ix_(idx_spots, idx_spots)],
             sample_ids=copy_slice_sample_ids,
-            max_iter_outer=config.hmrf.max_iter_outer,  # TODO MAGIC 10
+            max_iter_outer=config.hmrf.max_iter_outer,
             nodepotential=config.hmrf.nodepotential,
             hmmclass=hmm_nophasing,
             params="smp",

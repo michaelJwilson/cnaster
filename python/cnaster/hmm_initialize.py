@@ -37,13 +37,7 @@ def cna_mixture_init():
     X,
     base_nb_mean,
     total_bb_RD,
-    params,
     hmm_class,
-    random_state=None,
-    in_log_space=True,
-    only_minor=True,
-    min_binom_prob=0.1,
-    max_binom_prob=0.9,
 ):
     logger.info(
         f"Initializing HMM emission with CNA Mixture++ assuming only_minor={only_minor}."
@@ -51,6 +45,8 @@ def cna_mixture_init():
     
     eff_element = get_eff_element(t, n_states)
 
+    logger.info(f"Found effective genomic element={eff_element} for (t,K)=({t},{n_states})")
+    
     # TODO sample first state from data.
     group_idx = np.random.randint(X.shape[0]) // eff_element
     start_idx, end_idx = group_idx * eff_element, (group_idx + 1) * eff_element
@@ -65,7 +61,8 @@ def cna_mixture_init():
     exposure = interval_total_bb_RD.flatten()
 
     # TODO optimization settings kwargs.
-    result = Weighted_BetaBinom_mix(endog, exog, weights, exposure)
+    start_params = np.array([0.5, 1.])
+    result = Weighted_BetaBinom_mix(endog, exog, weights, exposure).fit(start_params=start_params)
     
     """
     # NB returns log_likelihoods with shape (2*n_states, n_obs, n_spots).

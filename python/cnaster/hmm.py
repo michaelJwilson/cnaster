@@ -4,7 +4,7 @@ import numpy as np
 import scipy.linalg
 import scipy.special
 import scipy.stats
-from cnaster.hmm_initialize import gmm_init
+from cnaster.hmm_initialize import gmm_init, cna_mixture_init
 from cnaster.hmm_sitewise import hmm_sitewise
 from cnaster.hmm_utils import compute_posterior_obs
 
@@ -46,6 +46,17 @@ def pipeline_baum_welch(
     if ((init_log_mu is None) and ("m" in params)) or (
         (init_p_binom is None) and ("p" in params)
     ):
+        cna_mixture_init():
+            n_states,
+            t,
+            X,
+            base_nb_mean,
+            total_bb_RD,
+            hmmclass,
+        )
+
+        exit(0)
+
         tmp_log_mu, tmp_p_binom = gmm_init(
             n_states,
             X,

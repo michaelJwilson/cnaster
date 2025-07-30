@@ -70,7 +70,7 @@ def flush_perf(model: str, start_time: float, end_time: float, result: Any):
         fcalls=mle_retvals.get("fcalls"),
         optimizer=mle_settings.get("optimizer", "Unknown"),
         converged=mle_retvals.get("converged"),
-        llf=float(result.llf) if hasattr(result, "llf") else float("nan"),
+        llf=f"{result.llf:.6e}" if hasattr(result, "llf") else "NAN",
         timestamp=time.strftime("%Y-%m-%d %H:%M:%S"),
     )
 

@@ -88,8 +88,15 @@ def cna_mixture_init(
 
     # TODO sum nllbb across all samples in each eff_element; chose next shard according
     #     to nllbb.
+    num_groups = X.shape[0] // eff_element
+    group_nll_sums = np.zeros(num_groups)
     
-
+    for group_idx in range(num_groups):
+        start_idx = group_idx * eff_element
+        end_idx = start_idx + eff_element
+        
+        # NB assumes IDD for samples in each eff_element.
+        group_nll_sums[group_idx] = np.sum(nllbb[start_idx:end_idx])
     
     # TODO NB zero NB exposure for phasing.
 

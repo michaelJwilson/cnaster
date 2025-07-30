@@ -62,9 +62,12 @@ def cna_mixture_init(
     assert X.shape[-1] == 1
     
     endog = interval_X[:,1,:].flatten()
-    exog = weights = np.ones_like(endog)
     exposure = interval_total_bb_RD.flatten()
 
+    n_samples = len(endog)
+    exog = np.ones((n_samples, 1))
+    weights = np.ones(n_samples)
+    
     # TODO HACK
     start_params = np.array([0.5, 1.])
     solver_params = get_em_solver_params()
@@ -73,26 +76,24 @@ def cna_mixture_init(
     result = solver.fit(start_params=start_params, **solver_params)
 
     endog = X[:,1,:].flatten()
-    exog = weights = np.ones_like(endog)
     exposure = total_bb_RD.flatten()
+
+    n_samples = len(endog)
+    exog = np.ones((n_samples, 1))
+    weights = np.ones(n_samples)
     
     nllbb = nloglikeobs_bb(
         endog, exog, weights, exposure, result.params, tumor_prop=None, reduce=False
     )
-    
-    """
-    TODO zero NB exposure for phasing.
-    endog = interval_X[:,0,:].flatten()
-    exposure = interval_base_nb_mean.flatten()
 
-    # NB log RDR
-    start_params = np.array([0., 1.])
-    
-    solver = Weighted_NegativeBinomial_mix(endog, exog, weights, exposure)
-    nb_result = solver.fit(start_params=start_params, **solver_params)
-    """
+    # TODO sum nllbb across all samples in each eff_element; chose next shard according
+    #     to nllbb.
     
 
+    
+    # TODO NB zero NB exposure for phasing.
+
+    
 def gmm_init(
     n_states,
     X,

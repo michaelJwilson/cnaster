@@ -64,6 +64,9 @@ def cna_mixture_init(
     # TODO exclude existing states? rare clash?                                                                                                                                                                                                             
     group_idx = int(np.floor(np.random.randint(X.shape[0]) // eff_element))
     start_idx, end_idx = group_idx * eff_element, (group_idx + 1) * eff_element
+
+    num_groups = X.shape[0] // eff_element
+    group_nlls = np.zeros(num_groups)
     
     while len(states) < n_states:
         interval_X = X[start_idx: end_idx, ...]
@@ -80,8 +83,10 @@ def cna_mixture_init(
                 
         solver = Weighted_BetaBinom_mix(endog, exog, weights, exposure)
         result = solver.fit(start_params=start_params, **settings)
-
+        
         states.append(result.params)
+
+        logger.info(f"Solved for {len(states)} states.")
 
         # NB evaluate data likelihood for current states                                                                                                                                                                                                    
         endog = X[:,1,:].flatten()
@@ -98,8 +103,7 @@ def cna_mixture_init(
                 endog, exog, weights, exposure, state, tumor_prop=None, reduce=False
             )
 
-            num_groups = X.shape[0] // eff_element
-            group_nlls = np.zeros(num_groups)
+            group_nlls[:] = 0.
 
             for group_idx in range(num_groups):
                 start_idx = group_idx * eff_element
@@ -110,17 +114,17 @@ def cna_mixture_init(
             
             all_group_nlls.append(group_nlls)
 
-        all_group_nlls = np.hstack(all_group_nlls)
+        all_group_nlls = np.column_stack(all_group_nlls).T
         best_group_nll = np.min(all_group_nlls, axis=0)
-            
+        
         # NB sample next state.
-        ps = group_nll_bbs / group_nll_bbs.sum()
-        idx = np.random.choice(range(len(group_nll_bbs)), p=ps)
+        ps = best_group_nll / best_group_nll.sum()
+        idx = np.random.choice(range(len(ps)), p=ps)
 
         start_idx = idx * eff_element
         end_idx = start_idx + eff_element
 
-    print(states)
+        print(states)
     
 def gmm_init(
     n_states,

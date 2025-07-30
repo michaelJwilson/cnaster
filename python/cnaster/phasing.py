@@ -33,7 +33,7 @@ def initial_phase_given_partition(
     BAF_CHANGE_THRESHOLD = 0.1
     DEFAULT_DIPLOID_STATE = 2
 
-    logger.info(f"Starting phasing with {len(initial_clone_index)} clones.")
+    logger.info(f"Starting phasing assuming {len(initial_clone_index)} clones.")
 
     # NB merge across initial clones.
     X, base_nb_mean, total_bb_RD, tumor_prop = merge_pseudobulk_by_index_mix(
@@ -152,4 +152,6 @@ def initial_phase_given_partition(
 
     refined_lengths = np.array(refined_lengths)
 
+    logger.info(f"Solved for {len(refined_lengths)} phase-refined lengths given {len(length)} input lengths.")
+    
     return phase_indicator, refined_lengths

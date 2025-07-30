@@ -89,7 +89,9 @@ def run_cnaster(config_path):
         if adata.obs["sample"].iloc[i] != sample_list[-1]:
             sample_list.append(adata.obs["sample"].iloc[i])
 
-    # convert sample name to index
+    logger.info(f"Found {len(sample_list)} unique samples, e.g. {sample_list[:3]}")
+            
+    # NB assign index to unique sample names.
     sample_ids = np.zeros(adata.shape[0], dtype=int)
 
     for s, sname in enumerate(sample_list):

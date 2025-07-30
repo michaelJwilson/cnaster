@@ -39,7 +39,7 @@ def fixed_rectangle_partition(
     else:
         range_coords = coords
 
-    px = np.linspace(0, 1, x_part + 1)
+    px = np.linspace(0, 1, 1 + x_part)
     px[-1] += 0.01
     px = px[1:]
 

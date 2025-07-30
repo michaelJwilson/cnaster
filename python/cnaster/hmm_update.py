@@ -30,16 +30,13 @@ def get_em_solver_params():
         case "bfgs":
             kwargs = ("xrtol", "disp")
         case "lbfgs":
-            kwargs = ("maxiter", "ftol")        
+            kwargs = ("maxiter", "ftol")
         case "nm":
             kwargs = ("maxiter", "xtol", "ftol", "disp")
         case _:
             raise ValueError(f"Unsupported solver: {solver}!")
 
-    return {
-        k.replace("em_", ""): float(getattr(config.hmm, f"em_{k}"))
-        for k in kwargs
-    }
+    return {k.replace("em_", ""): float(getattr(config.hmm, f"em_{k}")) for k in kwargs}
 
 
 def update_transition_sitewise(log_xi, is_diag=False):

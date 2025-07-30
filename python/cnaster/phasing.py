@@ -49,7 +49,7 @@ def initial_phase_given_partition(
 
     # NB (segments, initial clones).
     baf_profiles = np.zeros((X.shape[2], X.shape[0]))
-    
+
     # NB loop over initial clones.
     for i in range(X.shape[2]):
         logger.info(f"Solving for phasing of initial clone {i} of {X.shape[2]}.")

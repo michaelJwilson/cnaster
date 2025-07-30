@@ -77,7 +77,7 @@ def flush_perf(model: str, start_time: float, end_time: float, result: Any):
     file_exists = Path("cnaster.perf").exists()
 
     with open("cnaster.perf", "a", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=asdict(metrics).keys(), delimiter='\t')
+        writer = csv.DictWriter(f, fieldnames=asdict(metrics).keys(), delimiter="\t")
 
         if not file_exists:
             writer.writeheader()

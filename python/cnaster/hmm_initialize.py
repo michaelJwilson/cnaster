@@ -2,102 +2,76 @@ import logging
 
 import numpy as np
 from numba import njit
-from cnaster.config import get_global_config
 from sklearn.mixture import GaussianMixture
+from cnaster.config import get_global_config
+from cnaster.hmm_emission import Weighted_BetaBinom_mix
 
 logger = logging.getLogger(__name__)
 
 
 def get_eff_element(t, K, two_sided=True):
     result = -np.log((t * K - 1.0) / (K - 1.0))
-    result = 2.0 * result if two_sided else result
+
+    if two_sided:
+        result *= 2.0
+        
     return result
 
-@njit(nopython=True)
-def interval_mean(arr, N, axis=-1):
-    num_groups = arr.shape[axis] // N
+@njit
+def interval_mean(arr, N):
+    num_groups = arr.shape[0] // N
 
     # TODO generalize shape definition 
-    result = np.empty((arr.shape[0], num_groups), dtype=arr.dtype)
+    result = np.empty((num_groups, *arr.shape[1:]), dtype=arr.dtype)
     
-    for i in range(arr.shape[0]):
-        for j in range(num_groups):
-            start_idx = j * n
-            end_idx = start_idx + n
-            result[i, j] = np.mean(arr[i, start_idx:end_idx])
+    for j in range(num_groups):
+        start_idx = j * N
+        end_idx = start_idx + N
+        result[j, ...] = np.mean(arr[start_idx:end_idx, ...], axis=0)
     
     return result
-"""
+
 def cna_mixture_init():
     n_states,
     t,
     X,
     base_nb_mean,
     total_bb_RD,
-    params,
     hmm_class,
-    random_state=None,
-    in_log_space=True,
-    only_minor=True,
-    min_binom_prob=0.1,
-    max_binom_prob=0.9,
 ):
     logger.info(
-        f"Initializing HMM emission with Gaussian Mixture Model assuming only_minor={only_minor}."
+        f"Initializing HMM emission with CNA Mixture++ assuming only_minor={only_minor}."
     )
-
-    X_gmm_rdr, X_gmm_baf = None, None
-
+    
     eff_element = get_eff_element(t, n_states)
 
-    if "m" in params:
-        if in_log_space:
-            X_gmm_rdr = np.vstack(
-                [np.log(X[:, 0, s] / base_nb_mean[:, s]) for s in range(X.shape[2])]
-            ).T
-            valid = ~np.isnan(X_gmm_rdr) & ~np.isinf(X_gmm_rdr)
+    logger.info(f"Found effective genomic element={eff_element} for (t,K)=({t},{n_states})")
+    
+    # TODO sample first state from data.
+    group_idx = np.random.randint(X.shape[0]) // eff_element
+    start_idx, end_idx = group_idx * eff_element, (group_idx + 1) * eff_element
 
-            offset = np.mean(X_gmm_rdr[valid])
-            normalizetomax1 = np.max(X_gmm_rdr[valid]) - np.min(X_gmm_rdr[valid])
+    interval_X = X[start_idx: end_idx, ...]
+    interval_base_nb_mean = base_nb_mean[start_idx: end_idx, ...]
+    interval_total_bb_RD = total_bb_RD[start_idx: end_idx, ...]
 
-            logger.info(
-                f"Assuming log-space RDR wih offset and normalization: {offset:.4f}, {normalizetomax1:.4f}"
-            )
-        else:
-            X_gmm_rdr = np.vstack(
-                [X[:, 0, s] / base_nb_mean[:, s] for s in range(X.shape[2])]
-            ).T
-            valid = ~np.isnan(X_gmm_rdr) & ~np.isinf(X_gmm_rdr)
+    endog = interval_X[:,1,:].flatten()
+    exog = np.ones_like(endog)
+    weights = np.ones_like(endog)
+    exposure = interval_total_bb_RD.flatten()
 
-            offset = 0
-
-            # NB TODO? assumes X_gmm_rdr.min() = 0.                                                                                                                    
-            normalizetomax1 = np.max(X_gmm_rdr[valid])
-
-            logger.info(
-                f"Assuming linear-space RDR wih offset and normalization: {offset:.4f}, {normalizetomax1:.4f}"
-            )
-
-        X_gmm_rdr = (X_gmm_rdr - offset) / normalizetomax1
-
-        print(X_gmm_rdr.shape)
-
-        exit(0)
-        
-        # TODO
-        X_gmm_rdr = interval_mean(X_gmm_rdr, eff_element, axis=-1)
-
-        # TODO sample first state from data.
-
-        # NB returns log_likelihoods with shape (2*n_states, n_obs, n_spots).
-        log_emission_rdr, log_emission_baf = hmm_class.compute_emission_probability_nb_betabinom(
-            X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus
-        )
-
-        log_emission = log_emission_rdr + log_emission_baf
-
-        # TODO sample next state given log_emission.
-"""     
+    # TODO optimization settings kwargs.
+    start_params = np.array([0.5, 1.])
+    result = Weighted_BetaBinom_mix(endog, exog, weights, exposure).fit(start_params=start_params)
+    
+    """
+    # NB returns log_likelihoods with shape (2*n_states, n_obs, n_spots).
+    log_emission_rdr, log_emission_baf = hmm_class.compute_emission_probability_nb_betabinom(
+        binned_X, binned_base_nb_mean, log_mu, alphas, binned_total_bb_RD, p_binom, taus
+    )
+    
+    log_emission = log_emission_rdr + log_emission_baf
+    """
 
 def gmm_init(
     n_states,

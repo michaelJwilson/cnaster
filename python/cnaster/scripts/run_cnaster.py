@@ -138,7 +138,7 @@ def run_cnaster(config_path):
         cell_snp_Ballele,
         unique_snp_ids,
     )
-
+    
     # NB 1D array / list?
     log_sitewise_transmat = get_sitewise_transmat(
         df_gene_snp,

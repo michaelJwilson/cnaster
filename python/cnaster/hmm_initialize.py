@@ -50,81 +50,77 @@ def cna_mixture_init(
     eff_element = int(np.ceil(eff_element))
     
     logger.info(f"Found effective genomic element={eff_element:.3f} for (t,K)=({t},{n_states}) and {X.shape[0]} total genomic elements")
+
+    # NB true of phasing partition and assumed below (currently).                                                                                                                                                                                           
+    assert X.shape[-1] == 1
     
-    # TODO sample first state from data.
+    states = []
+
+    # TODO HACK                                                                                                                                                                                                                                             
+    start_params = np.array([0.5, 1.])
+    settings = get_em_solver_params()
+
+    # NB sample group from data.                                                                                                                                                                                                                            
+    # TODO exclude existing states? rare clash?                                                                                                                                                                                                             
     group_idx = int(np.floor(np.random.randint(X.shape[0]) // eff_element))
     start_idx, end_idx = group_idx * eff_element, (group_idx + 1) * eff_element
     
-    interval_X = X[start_idx: end_idx, ...]
-    interval_base_nb_mean = base_nb_mean[start_idx: end_idx, ...]
-    interval_total_bb_RD = total_bb_RD[start_idx: end_idx, ...]
+    while len(states) < n_states:
+        interval_X = X[start_idx: end_idx, ...]
+        interval_base_nb_mean = base_nb_mean[start_idx: end_idx, ...]
+        interval_total_bb_RD = total_bb_RD[start_idx: end_idx, ...]
 
-    # NB true of phasing partition and assumed below (currently).
-    assert X.shape[-1] == 1
-    
-    endog = interval_X[:,1,:].flatten()
-    exposure = interval_total_bb_RD.flatten()
-
-    n_samples = len(endog)
-    exog = np.ones((n_samples, 1))
-    weights = np.ones(n_samples)
-    
-    # TODO HACK
-    start_params = np.array([0.5, 1.])
-    solver_params = get_em_solver_params()
-
-    solver = Weighted_BetaBinom_mix(endog, exog, weights, exposure)
-    result = solver.fit(start_params=start_params, **solver_params)
-
-    endog = X[:,1,:].flatten()
-    exposure = total_bb_RD.flatten()
-
-    n_samples = len(endog)
-    exog = np.ones((n_samples, 1))
-    weights = np.ones(n_samples)
-    
-    nllbb = nloglikeobs_bb(
-        endog, exog, weights, exposure, result.params, tumor_prop=None, reduce=False
-    )
-
-    # TODO sum nllbb across all samples in each eff_element; chose next shard according
-    #     to nllbb.
-    num_groups = X.shape[0] // eff_element
-    group_nll_sums = np.zeros(num_groups)
-    
-    for group_idx in range(num_groups):
-        start_idx = group_idx * eff_element
-        end_idx = start_idx + eff_element
+        # NB fit emission parameters to group
+        endog = interval_X[:,1,:].flatten()
+        exposure = interval_total_bb_RD.flatten()
         
-        # NB assumes IDD for samples in each eff_element.
-        group_nll_sums[group_idx] = np.sum(nllbb[start_idx:end_idx])
-    
-    ps = group_nll_sums / group_nll_sums.sum()
-    idx = np.random.choice(range(len(group_nll_sums)), p=ps)
+        n_samples = len(endog)
+        exog = np.ones((n_samples, 1))
+        weights = np.ones(n_samples)
+                
+        solver = Weighted_BetaBinom_mix(endog, exog, weights, exposure)
+        result = solver.fit(start_params=start_params, **settings)
 
-    start_idx = idx * eff_element
-    end_idx = start_idx + eff_element
+        states.append(result.params)
 
-    interval_X = X[start_idx: end_idx, ...]
-    interval_base_nb_mean = base_nb_mean[start_idx: end_idx, ...]
-    interval_total_bb_RD = total_bb_RD[start_idx: end_idx, ...]
+        # NB evaluate data likelihood for current states                                                                                                                                                                                                    
+        endog = X[:,1,:].flatten()
+        exposure = total_bb_RD.flatten()
+	
+        n_samples = len(endog)
+        exog = np.ones((n_samples, 1))
+        weights = np.ones(n_samples)
+            
+        all_group_nlls = []
+        
+        for state in states:
+            nll = nloglikeobs_bb(
+                endog, exog, weights, exposure, state, tumor_prop=None, reduce=False
+            )
 
-    endog = interval_X[:,1,:].flatten()
-    exposure = interval_total_bb_RD.flatten()
+            num_groups = X.shape[0] // eff_element
+            group_nlls = np.zeros(num_groups)
 
-    n_samples = len(endog)
-    exog = np.ones((n_samples, 1))
-    weights = np.ones(n_samples)
-    
-    # TODO HACK
-    start_params = np.array([0.5, 1.])
-    solver_params = get_em_solver_params()
+            for group_idx in range(num_groups):
+                start_idx = group_idx * eff_element
+                end_idx = start_idx + eff_element
 
-    solver = Weighted_BetaBinom_mix(endog, exog, weights, exposure)
-    result = solver.fit(start_params=start_params, **solver_params)
+                # NB assumes IDD for samples in each eff_element.                                                                                                                                                                                             
+                group_nlls[group_idx] = np.sum(nll[start_idx:end_idx])
+            
+            all_group_nlls.append(group_nlls)
 
-    # TODO nll under best state for each, choose next state and repeat up
-    #      to n states.
+        all_group_nlls = np.hstack(all_group_nlls)
+        best_group_nll = np.min(all_group_nlls, axis=0)
+            
+        # NB sample next state.
+        ps = group_nll_bbs / group_nll_bbs.sum()
+        idx = np.random.choice(range(len(group_nll_bbs)), p=ps)
+
+        start_idx = idx * eff_element
+        end_idx = start_idx + eff_element
+
+    print(states)
     
 def gmm_init(
     n_states,

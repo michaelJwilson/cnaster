@@ -72,7 +72,7 @@ class hmm_sitewise:
         log_emission : array, shape (2*n_states, n_obs, n_spots)
             Log emission probability for each gene each spot (or sample) under each state. There is a common bag of states across all spots.
         """
-        n_obs, n_comp, n_spots = X.shape
+        n_obs, _, n_spots = X.shape
         n_states = log_mu.shape[0]
 
         log_emission_rdr = np.zeros((2 * n_states, n_obs, n_spots))
@@ -117,19 +117,7 @@ class hmm_sitewise:
                             (1.0 - p_binom[i, s]) * taus[i, s],
 			)
                     )
-                    """
-                    exp = log_emission_baf[i + n_states, idx_nonzero_baf, s] = (
-                        scipy.stats.betabinom.logpmf(
-                            X[idx_nonzero_baf, 1, s],
-                            total_bb_RD[idx_nonzero_baf, s],
-                            (1. - p_binom[i, s]) * taus[i, s],
-                            p_binom[i, s] * taus[i, s],
-                        )
-                    )
                     
-                    # TODO DEPRECATE
-                    np.testing.assert_allclose(log_emission_baf[i + n_states, idx_nonzero_baf, s], exp, rtol=1e-10, atol=1e-12)
-                    """
         return log_emission_rdr, log_emission_baf
 
     @staticmethod
@@ -173,9 +161,7 @@ class hmm_sitewise:
         log_emission : array, shape (2*n_states, n_obs, n_spots)
             Log emission probability for each gene each spot (or sample) under each state. There is a common bag of states across all spots.
         """
-        n_obs = X.shape[0]
-        n_comp = X.shape[1]
-        n_spots = X.shape[2]
+        n_obs, _, n_spots = X.shape
         n_states = log_mu.shape[0]
 
         log_emission_rdr = np.zeros((2 * n_states, n_obs, n_spots))
@@ -183,13 +169,12 @@ class hmm_sitewise:
 
         for i in np.arange(n_states):
             for s in np.arange(n_spots):
-                # expression from NB distribution
                 idx_nonzero_rdr = np.where(base_nb_mean[:, s] > 0)[0]
 
                 if len(idx_nonzero_rdr) > 0:
                     nb_mean = base_nb_mean[idx_nonzero_rdr, s] * (
                         tumor_prop[idx_nonzero_rdr, s] * np.exp(log_mu[i, s])
-                        + 1
+                        + 1.
                         - tumor_prop[idx_nonzero_rdr, s]
                     )
                     nb_std = np.sqrt(nb_mean + alphas[i, s] * nb_mean**2)
@@ -201,7 +186,6 @@ class hmm_sitewise:
                         log_emission_rdr[i, idx_nonzero_rdr, s]
                     )
 
-                # AF from BetaBinom distribution
                 idx_nonzero_baf = np.where(total_bb_RD[:, s] > 0)[0]
 
                 if len(idx_nonzero_baf) > 0:

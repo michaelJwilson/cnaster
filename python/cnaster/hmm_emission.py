@@ -7,6 +7,12 @@ import scipy.stats
 from functools import partial
 from cnaster.config import get_global_config
 from cnaster.hmm_utils import convert_params, get_solver
+from dataclasses import dataclass, asdict
+from typing import Optional, Dict, Any, List
+import json
+import csv
+from pathlib import Path
+
 
 # from cnaster.deprecated.hmm_emission import Weighted_NegativeBinomial, Weighted_BetaBinom
 from statsmodels.base.model import GenericLikelihoodModel
@@ -37,6 +43,46 @@ def get_betabinom_start_params(legacy=False, exog=None):
     ps = config.betabinom.start_params.split(",")
 
     return np.array(ps).astype(float), config.nbinom.start_disp
+
+
+@dataclass
+class FitMetrics:
+    model: str
+    runtime: float
+    iterations: Optional[int]
+    fcalls: Optional[int]
+    optimizer: str
+    converged: Optional[bool]
+    llf: float
+    timestamp: str
+
+
+def flush_perf(model: str, start_time: float, end_time: float, result: Any):
+    runtime = end_time - start_time
+
+    mle_retvals = getattr(result, "mle_retvals", {})
+    mle_settings = getattr(result, "mle_settings", {})
+
+    metrics = FitMetrics(
+        model=model,
+        runtime=runtime,
+        iterations=mle_retvals.get("iterations"),
+        fcalls=mle_retvals.get("fcalls"),
+        optimizer=mle_settings.get("optimizer", "Unknown"),
+        converged=mle_retvals.get("converged"),
+        llf=float(result.llf) if hasattr(result, "llf") else float("nan"),
+        timestamp=time.strftime("%Y-%m-%d %H:%M:%S"),
+    )
+
+    file_exists = Path("cnaster.perf").exists()
+
+    with open("cnaster.perf", "a", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=asdict(metrics).keys())
+
+        if not file_exists:
+            writer.writeheader()
+
+        writer.writerow(asdict(metrics))
 
 
 class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
@@ -136,7 +182,7 @@ class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
         result = result.dot(self.weights)
 
         assert not np.isnan(result), f"{params}: {result}"
-        
+
         return result
 
     def fit(
@@ -168,7 +214,10 @@ class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
             method=get_solver(),
             **kwargs,
         )
-        runtime = time.time() - start_time
+        end_time = time.time()
+        runtime = end_time - start_time
+
+        flush_perf(self.__class__.__name__, start_time, end_time, result)
 
         logger.debug(
             f"Weighted_NegativeBinomial_mix debug - mle_retvals: {result.mle_retvals}, "
@@ -261,7 +310,7 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
             # NB one-hot encoded design matrix of class labels
             self.exog = self.exog[unique_idx, :]
             self.compress = True
-            
+
     def nloglikeobs(self, params):
         p = self.exog @ params[:-1]
 
@@ -274,14 +323,6 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
                 -1
             ]
 
-<<<<<<< HEAD
-        # Return per-observation negative log-likelihood weighted by weights
-        logpmf_values = scipy.stats.betabinom.logpmf(self.endog, self.exposure, a, b)
-        result = -logpmf_values * self.weights
-        
-        # Handle non-finite values
-        return np.where(np.isfinite(result), result, 1e10)
-=======
         result = -scipy.stats.betabinom.logpmf(self.endog, self.exposure, a, b)
         result[np.isnan(result)] = np.inf
         result = result.dot(self.weights)
@@ -289,7 +330,6 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
         assert not np.isnan(result), f"{params}: {result}"
 
         return result
->>>>>>> 10a1e31f4644824aebeac6e4ea8e82d29943a067
 
     def fit(
         self, start_params=None, maxiter=10_000, maxfun=5_000, legacy=False, **kwargs
@@ -326,7 +366,10 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
             method=get_solver(),
             **kwargs,
         )
-        runtime = time.time() - start_time
+        end_time = time.time()
+        runtime = end_time - start_time
+
+        flush_perf(self.__class__.__name__, start_time, end_time, result)
 
         logger.debug(
             f"Weighted_BetaBinom_mix debug - mle_retvals: {result.mle_retvals}, "

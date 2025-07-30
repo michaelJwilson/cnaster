@@ -91,6 +91,8 @@ def cna_mixture_init(
     endog = interval_X[:,1,:].flatten()
     exposure = interval_total_bb_RD.flatten()
 
+    print(endog / exposure)
+
     n_samples = len(endog)
     exog = np.ones((n_samples, 1))
     weights = np.ones(n_samples)
@@ -128,6 +130,8 @@ def cna_mixture_init(
     ps = group_nll_sums / group_nll_sums.sum()
     idx = np.random.choice(range(len(group_nll_sums)), p=ps)
 
+    print(idx)
+
     start_idx = idx * eff_element
     end_idx = start_idx + eff_element
 
@@ -137,6 +141,8 @@ def cna_mixture_init(
 
     endog = interval_X[:,1,:].flatten()
     exposure = interval_total_bb_RD.flatten()
+
+    print(endog / exposure)
 
     n_samples = len(endog)
     exog = np.ones((n_samples, 1))

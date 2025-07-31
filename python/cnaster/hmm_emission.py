@@ -195,7 +195,7 @@ class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
         weights,
         exposure,
         tumor_prop=None,
-        compress=False,
+        compress=True,
         seed=0,
         **kwargs,
     ):
@@ -464,15 +464,14 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
                 ps, disp = get_betabinom_start_params(legacy=legacy, exog=self.exog)
                 start_params = np.concatenate([ps[: self.num_states], np.array([disp])])
 
+        self.zero_point = None
+                
         start_time = time.time()
 
         # NB log initial start params and initial likelihood:
         logger.info(
             f"Weighted_BetaBinom_mix (compress={self.compress}) initial likelihood={self.nloglikeobs(start_params):.6e} @ start_params:\n{start_params}"
         )
-
-        # NB safety clause
-        #    self.zero_point = None
         
         # TODO bounds
         result = super().fit(

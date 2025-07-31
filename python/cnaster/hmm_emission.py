@@ -4,6 +4,7 @@ import warnings
 
 import numpy as np
 import scipy.stats
+from scipy.special import loggamma
 from functools import partial
 from cnaster.config import get_global_config
 from cnaster.hmm_utils import convert_params, get_solver
@@ -88,7 +89,13 @@ def flush_perf(model: str, size, start_time: float, end_time: float, result: Any
 
 
 def nloglikeobs_nb(
-    endog, exog, weights, exposure, params, tumor_prop=None, reduce=True,
+    endog,
+    exog,
+    weights,
+    exposure,
+    params,
+    tumor_prop=None,
+    reduce=True,
 ):
     if tumor_prop is None:
         nb_mean = exog @ np.exp(params[:-1]) * exposure
@@ -111,8 +118,32 @@ def nloglikeobs_nb(
     return result
 
 
+def betabinom_logpmf_zp(endog, exposure):
+    return loggamma(exposure + 1) - loggamma(endog + 1) - loggamma(exposure - endog + 1)
+
+
+def betabinom_logpmf(endog, exposure, a, b, zero_point):
+    result = (
+        zero_point
+        + loggamma(endog + a)
+        + loggamma(exposure - endog + b)
+        + loggamma(a + b)
+        - loggamma(exposure + a + b)
+        - loggamma(a)
+        - loggamma(b)
+    )
+    return result
+
+
 def nloglikeobs_bb(
-    endog, exog, weights, exposure, params, tumor_prop=None, reduce=True
+    endog,
+    exog,
+    weights,
+    exposure,
+    params,
+    tumor_prop=None,
+    zero_point=None,
+    reduce=True,
 ):
     p = exog @ params[:-1]
 
@@ -123,7 +154,11 @@ def nloglikeobs_bb(
         a = (p * tumor_prop + 0.5 * (1.0 - tumor_prop)) * params[-1]
         b = ((1.0 - p) * tumor_prop + 0.5 * (1.0 - tumor_prop)) * params[-1]
 
-    result = -scipy.stats.betabinom.logpmf(endog, exposure, a, b)
+    if zero_point is None:
+        result = -scipy.stats.betabinom.logpmf(endog, exposure, a, b)
+    else:
+        result = betabinom_logpmf(endog, exposure, a, b, zero_point)
+
     result[np.isnan(result)] = np.inf
 
     if reduce:
@@ -396,8 +431,18 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
 
         return result
         """
+        if self.zero_point is None:
+            self.zero_point = betabinom_logpmf_zp(self.endog, self.exposure)
+
         return nloglikeobs_bb(
-            self.endog, self.exog, self.weights, self.exposure, params, tumor_prop=self.tumor_prop, reduce=reduce
+            self.endog,
+            self.exog,
+            self.weights,
+            self.exposure,
+            params,
+            tumor_prop=self.tumor_prop,
+            zero_point=self.zero_point,
+            reduce=reduce,
         )
 
     def fit(
@@ -426,6 +471,9 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
             f"Weighted_BetaBinom_mix (compress={self.compress}) initial likelihood={self.nloglikeobs(start_params):.6e} @ start_params:\n{start_params}"
         )
 
+        # NB safety clause
+        #    self.zero_point = None
+        
         # TODO bounds
         result = super().fit(
             start_params=start_params,

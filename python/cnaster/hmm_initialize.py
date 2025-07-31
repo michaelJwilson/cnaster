@@ -48,6 +48,7 @@ def cna_mixture_init(
     )
     
     eff_element = get_eff_element(t, n_states)
+    eff_element = 1
     
     logger.info(f"Found effective genomic element={eff_element:.3f} for (t,K)=({t},{n_states}) and {X.shape[0]} total genomic elements")
 

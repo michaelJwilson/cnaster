@@ -46,6 +46,7 @@ def pipeline_baum_welch(
     if ((init_log_mu is None) and ("m" in params)) or (
         (init_p_binom is None) and ("p" in params)
     ):
+        """
         tmp_log_mu, tmp_p_binom = cna_mixture_init(
             n_states,
             t,
@@ -54,9 +55,8 @@ def pipeline_baum_welch(
             total_bb_RD,
             hmmclass,
         )
-
-        print(tmp_p_binom)
-
+        """
+        
         tmp_log_mu, tmp_p_binom = gmm_init(
             n_states,
             X,
@@ -67,10 +67,6 @@ def pipeline_baum_welch(
             in_log_space=in_log_space,
             only_minor=only_minor,
         )
-
-        print(tmp_p_binom)
-
-        exit(0)
 
         # TODO sort print
         if (init_log_mu is None) and ("m" in params):

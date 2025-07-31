@@ -39,7 +39,7 @@ def fixed_rectangle_partition(
     else:
         range_coords = coords
 
-    px = np.linspace(0, 1, x_part + 1)
+    px = np.linspace(0, 1, 1 + x_part)
     px[-1] += 0.01
     px = px[1:]
 
@@ -97,7 +97,7 @@ def initialize_clones(
     return initial_clone_index
 
 
-# TODO!!  spatially contigous clones?
+# TODO!! spatially contigous clones?
 def rectangle_initialize_initial_clone(coords, n_clones, random_state=0):
     np.random.seed(random_state)
 
@@ -130,7 +130,7 @@ def rectangle_initialize_initial_clone(coords, n_clones, random_state=0):
     # TODO? assigning blocks to clone (note that if sqrt(n_clone) is not an integer,
     # multiple blocks can be assigned to one clone)
     while True:
-        # NB assign blocks to clones.
+        # NB assign blocks (randomly) to clones.
         block_clone_map = np.random.randint(low=0, high=n_clones, size=p**2)
 
         while len(np.unique(block_clone_map)) < n_clones:

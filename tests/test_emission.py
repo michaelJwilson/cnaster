@@ -6,24 +6,21 @@ from functools import partial
 from cnaster.hmm_sitewise import switch_betabinom
 
 
-def betabinom_zp_eval(bn, Sn, alpha, beta):
-    # NB model dependent BB factors;
-    #    exp: zero_point = loggamma(Sn + 1) - loggamma(bn + 1) - loggamma(Sn - bn + 1)
-    #         i.e. 3/9 of gamma computations.
-    return loggamma(Sn + 1) - loggamma(bn + 1) - loggamma(Sn - bn + 1)
+def betabinom_zp_eval(endog, exposure, a, b):
+    return loggamma(exposure + 1) - loggamma(endog + 1) - loggamma(exposure - endog + 1)
     
-def betabinom_eval(zero_point, bn, Sn, alpha, beta):
+def betabinom_eval(endog, exposure, a, b, zero_point):
     # NB model dependent BB factors;                                                                                                                                                        
     #    exp: zero_point = loggamma(Sn + 1) - loggamma(bn + 1) - loggamma(Sn - bn + 1)                                                                                                      
     #         i.e. 3/9 of gamma computations.                                                                                                                                               
     result = (
         zero_point
-        + loggamma(bn + alpha)
-        + loggamma(Sn - bn + beta)
-        + loggamma(alpha + beta)
-        - loggamma(Sn + alpha + beta)
-        - loggamma(alpha)
-        - loggamma(beta)
+        + loggamma(endog + a)
+        + loggamma(exposure - endog + b)
+        + loggamma(a + b)
+        - loggamma(exposure + a + b)
+        - loggamma(a)
+        - loggamma(b)
     )
     return result
 
@@ -57,7 +54,7 @@ def test_emission_model_eval(benchmark, baf_emission_data):
     zero_point = betabinom_zp_eval(bn, Sn, alpha, beta)
     
     solver = partial(
-        betabinom_eval, zero_point=zero_point, bn=bn, Sn=Sn, alpha=alpha, beta=beta
+        betabinom_eval, zero_point=zero_point, endog=bn, exposure=Sn, a=alpha, b=beta
     )
     result = benchmark(solver)
 

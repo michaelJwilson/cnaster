@@ -555,7 +555,6 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
             "maxiter": maxiter,
             "maxfun": maxfun,
             "ftol": kwargs.get("ftol", None),
-            "gtol": kwargs.get("gtol", None),
             "disp": kwargs.get("disp", False),
         }
 

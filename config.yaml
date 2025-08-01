@@ -65,7 +65,7 @@ hmm:
   em_maxiter: 1500
   em_xtol: 1e-4
   em_ftol: 1e-4
-  em_xrtol: 1e-2
+  em_xrtol: 1e-4
   em_disp: 0
 
 # NB N sub-set of states will use the first N

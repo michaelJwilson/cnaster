@@ -32,7 +32,7 @@ def get_em_solver_params():
         case "BFGS":
             kwargs = ("xrtol", "disp")
         case "L-BFGS-B":
-            kwargs = ("maxiter", "ftol")
+            kwargs = ("maxiter", "ftol", "disp")
         case "Nelder-Mead":
             kwargs = ("maxiter", "xtol", "ftol", "disp")
         case _:

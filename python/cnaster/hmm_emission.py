@@ -4,6 +4,7 @@ import warnings
 
 import numpy as np
 import scipy.stats
+from math import lgamma
 from scipy.special import loggamma
 from functools import partial
 from cnaster.config import get_global_config
@@ -13,6 +14,7 @@ from typing import Optional, Dict, Any, List
 import json
 import csv
 from pathlib import Path
+from numba import njit
 
 
 # from cnaster.deprecated.hmm_emission import Weighted_NegativeBinomial, Weighted_BetaBinom
@@ -132,22 +134,48 @@ def nloglikeobs_nb(
 
     return result
 
-
 def betabinom_logpmf_zp(endog, exposure):
     return loggamma(exposure + 1) - loggamma(endog + 1) - loggamma(exposure - endog + 1)
 
+@njit(nogil=True)
+def compute_bb_ab(exog, params, tumor_prop=None):
+    """
+    Numba-compiled parameter computation that releases GIL
+    """
+    p = np.dot(exog, params[:-1])
+    tau = params[-1]
+    
+    if tumor_prop is None:
+        a = p * tau
+        b = (1.0 - p) * tau
+    else:
+        a = (p * tumor_prop + 0.5 * (1.0 - tumor_prop)) * tau
+        b = ((1.0 - p) * tumor_prop + 0.5 * (1.0 - tumor_prop)) * tau
+    
+    return a, b
 
-def betabinom_logpmf(endog, exposure, a, b, zero_point):
-    result = (
-        zero_point
-        + loggamma(endog + a)
-        + loggamma(exposure - endog + b)
-        + loggamma(a + b)
-        - loggamma(exposure + a + b)
-        - loggamma(a)
-        - loggamma(b)
-    )
-    return result
+@njit(nogil=True)
+def betabinom_logpmf(endog, exposure, a, b, zero_point, result_array=None):
+    """
+    Numba-compiled betabinom logpmf computation that releases GIL
+    """
+    if result_array is None:
+        result_array = np.empty_like(endog, dtype=np.float64)
+
+    for i in range(len(endog)):
+        result_array[i] = (
+            zero_point[i]
+            + lgamma(endog[i] + a[i])
+            + lgamma(exposure[i] - endog[i] + b[i])
+            + lgamma(a[i] + b[i])
+            - lgamma(exposure[i] + a[i] + b[i])
+            - lgamma(a[i])
+            - lgamma(b[i])
+        )
+        if np.isnan(result_array[i]):
+            result_array[i] = np.inf
+
+    return result_array
 
 
 def nloglikeobs_bb(
@@ -156,25 +184,27 @@ def nloglikeobs_bb(
     weights,
     exposure,
     params,
+    result_array=None,
     tumor_prop=None,
     zero_point=None,
     reduce=True,
 ):
-    p = exog @ params[:-1]
-
-    if tumor_prop is None:
-        a = p * params[-1]
-        b = (1.0 - p) * params[-1]
+    if zero_point is not None:
+        a, b = compute_bb_ab(exog, params, tumor_prop)
+        result = -betabinom_logpmf(endog, exposure, a, b, zero_point, result_array=result_array)
     else:
-        a = (p * tumor_prop + 0.5 * (1.0 - tumor_prop)) * params[-1]
-        b = ((1.0 - p) * tumor_prop + 0.5 * (1.0 - tumor_prop)) * params[-1]
+        # Fallback for when zero_point is None
+        p = exog @ params[:-1]
 
-    if zero_point is None:
+        if tumor_prop is None:
+            a = p * params[-1]
+            b = (1.0 - p) * params[-1]
+        else:
+            a = (p * tumor_prop + 0.5 * (1.0 - tumor_prop)) * params[-1]
+            b = ((1.0 - p) * tumor_prop + 0.5 * (1.0 - tumor_prop)) * params[-1]
+
         result = -scipy.stats.betabinom.logpmf(endog, exposure, a, b)
-    else:
-        result = betabinom_logpmf(endog, exposure, a, b, zero_point)
-
-    result[np.isnan(result)] = np.inf
+        result[np.isnan(result)] = np.inf
 
     if reduce:
         result = result.dot(weights)
@@ -455,6 +485,7 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
             self.weights,
             self.exposure,
             params,
+            result_array=self.likelihood_array,
             tumor_prop=self.tumor_prop,
             zero_point=self.zero_point,
             reduce=reduce,
@@ -480,6 +511,7 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
                 start_params = np.concatenate([ps[: self.num_states], np.array([disp])])
 
         self.zero_point = None
+        self.likelihood_array = np.empty_like(self.endog, dtype=np.float64)
                 
         start_time = time.time()
 

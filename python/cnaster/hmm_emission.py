@@ -155,12 +155,11 @@ def compute_bb_ab(exog, params, tumor_prop=None):
     return a, b
 
 @njit(nogil=True)
-def betabinom_logpmf(endog, exposure, a, b, zero_point, result_array=None):
+def betabinom_logpmf(endog, exposure, a, b, zero_point):
     """
     Numba-compiled betabinom logpmf computation that releases GIL
     """
-    if result_array is None:
-        result_array = np.empty_like(endog, dtype=np.float64)
+    result_array = np.empty_like(endog, dtype=np.float64)
 
     for i in range(len(endog)):
         result_array[i] = (
@@ -184,14 +183,13 @@ def nloglikeobs_bb(
     weights,
     exposure,
     params,
-    result_array=None,
     tumor_prop=None,
     zero_point=None,
     reduce=True,
 ):
     if zero_point is not None:
         a, b = compute_bb_ab(exog, params, tumor_prop)
-        result = -betabinom_logpmf(endog, exposure, a, b, zero_point, result_array=result_array)
+        result = -betabinom_logpmf(endog, exposure, a, b, zero_point)
     else:
         # Fallback for when zero_point is None
         p = exog @ params[:-1]
@@ -485,7 +483,6 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
             self.weights,
             self.exposure,
             params,
-            result_array=self.likelihood_array,
             tumor_prop=self.tumor_prop,
             zero_point=self.zero_point,
             reduce=reduce,
@@ -501,17 +498,10 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
             if hasattr(self, "start_params"):
                 start_params = self.start_params
             else:
-                """
-                # TODO BUG? self.nparams??
-                start_params = np.append(
-                    0.5 / self.exog.shape[1] * np.ones(self.nparams), 1.0
-                )
-                """
                 ps, disp = get_betabinom_start_params(legacy=legacy, exog=self.exog)
                 start_params = np.concatenate([ps[: self.num_states], np.array([disp])])
 
         self.zero_point = None
-        self.likelihood_array = np.empty_like(self.endog, dtype=np.float64)
                 
         start_time = time.time()
 

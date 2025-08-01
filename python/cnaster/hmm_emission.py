@@ -80,7 +80,7 @@ def get_betabinom_start_params(legacy=False, exog=None):
 
     ps = [float(xx) for xx in config.betabinom.start_params.split(",")]
 
-    return ps, float(config.nbinom.start_disp)
+    return ps, float(config.betabinom.start_disp)
 
 
 def flush_perf(
@@ -207,27 +207,6 @@ def betabinom_logpmf(endog, exposure, a, b, zero_point):
             result_array[i] = np.inf
 
     return result_array
-
-
-# Pre-compile Numba functions with dummy data to avoid first-call overhead
-def _precompile_numba_functions():
-    """Pre-compile Numba functions to avoid compilation overhead in threads"""
-    if not hasattr(_thread_local, "precompiled"):
-        # Create dummy data for compilation
-        dummy_endog = np.array([1.0, 2.0])
-        dummy_exposure = np.array([10.0, 20.0])
-        dummy_exog = np.array([[1.0, 0.0], [0.0, 1.0]])
-        dummy_params = np.array([0.5, 0.5, 1.0])
-        dummy_zero_point = np.array([1.0, 1.0])
-
-        # Trigger compilation
-        dummy_a, dummy_b = compute_bb_ab(dummy_exog, dummy_params)
-        betabinom_logpmf(
-            dummy_endog, dummy_exposure, dummy_a, dummy_b, dummy_zero_point
-        )
-
-        _thread_local.precompiled = True
-
 
 def nloglikeobs_bb(
     endog,

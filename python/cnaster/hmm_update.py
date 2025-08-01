@@ -4,6 +4,7 @@ import logging
 import numpy as np
 import scipy
 import statsmodels as sm
+import concurrent.futures
 from cnaster.hmm_emission import (
     Weighted_BetaBinom,
     # Weighted_BetaBinom_fixdispersion,
@@ -1202,13 +1203,29 @@ def update_emission_params_bb_sitewise_uniqvalues(
             )
 
             model = Weighted_BetaBinom(y, features, weights=weights, exposure=exposure)
+
+            with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+                future_res = executor.submit(model.fit, **model_fit_params)
+
+                if start_p_binom is not None:
+                    future_res2 = executor.submit(model.fit, **model_fit_params, start_params=start_params)
+
+                res = future_res.result()
+
+                if start_p_binom is not None:
+                    res2 = future_res2.result()
+
+            model = Weighted_BetaBinom(y, features, weights=weights, exposure=exposure)
             res = model.fit(**model_fit_params)
+
             for s, idx_state_posweight in enumerate(state_posweights):
                 l1 = int(np.sum([len(x) for x in state_posweights[:s]]))
                 l2 = int(np.sum([len(x) for x in state_posweights[: (s + 1)]]))
                 new_p_binom[idx_state_posweight, s] = res.params[l1:l2]
+
             if res.params[-1] > 0:
                 new_taus[:, :] = res.params[-1]
+
             if start_p_binom is not None:
                 res2 = model.fit(
                     **model_fit_params,

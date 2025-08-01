@@ -559,6 +559,7 @@ class Weighted_BetaBinom_mix():
         using_default_params = start_params is None
 
         if start_params is None:
+            # TODO DEPRECATE
             if hasattr(self, "start_params"):
                 start_params = self.start_params
             else:
@@ -583,15 +584,6 @@ class Weighted_BetaBinom_mix():
             "disp": kwargs.get("disp", False),
         }
 
-        """
-        result = super().fit(
-            start_params=start_params,
-            maxiter=maxiter,
-            maxfun=maxfun,
-            method=get_solver(),
-            **kwargs,
-        )
-        """
         result = scipy.optimize.minimize(
             self.nloglikeobs,
             start_params,

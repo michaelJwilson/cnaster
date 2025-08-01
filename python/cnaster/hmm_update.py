@@ -1190,7 +1190,7 @@ def update_emission_params_bb_sitewise_uniqvalues(
             
             with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:                
                 future_res = executor.submit(model.fit, **settings)
-
+                
                 if start_p_binom is not None:
                     start_params=np.concatenate(
                         [
@@ -1207,9 +1207,6 @@ def update_emission_params_bb_sitewise_uniqvalues(
                     res2 = future_res2.result()
 
             logger.info(f"Ended futures thread pool in {time.time() - _start_time:.3f}s.")
-
-            # model = Weighted_BetaBinom(y, features, weights=weights, exposure=exposure)
-            # res = model.fit(**settings)
 
             for s, idx_state_posweight in enumerate(state_posweights):
                 l1 = int(np.sum([len(x) for x in state_posweights[:s]]))

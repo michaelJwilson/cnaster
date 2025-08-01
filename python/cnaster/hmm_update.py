@@ -29,14 +29,14 @@ def get_em_solver_params():
     solver = config.hmm.solver
 
     match solver:
-        case "bfgs":
+        case "BFGS":
             kwargs = ("xrtol", "disp")
-        case "lbfgs":
-            kwargs = ("maxiter")
-        case "nm":
+        case "L-BFGS-B":
+            kwargs = ("maxiter", "ftol")
+        case "Nelder-Mead":
             kwargs = ("maxiter", "xtol", "ftol", "disp")
         case _:
-            raise ValueError(f"Unsupported solver: {solver}!")
+            raise ValueError(f"cnaster does not support solver: {solver}")
 
     return {k.replace("em_", ""): float(getattr(config.hmm, f"em_{k}")) for k in kwargs}
 

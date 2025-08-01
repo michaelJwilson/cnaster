@@ -46,7 +46,7 @@ hmrf:
 #           solver: nm ->
 #           t: 0.99999 ->
 hmm:
-  solver: lbfgs
+  solver: "Nelder-Mead"
   n_states : 7
   params : smp
   t : 0.999

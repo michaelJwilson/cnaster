@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 # TODO
 warnings.filterwarnings("ignore", category=UserWarning, module="statsmodels")
 
+
 @dataclass
 class OptimizationResult:
     optimizer: str
@@ -34,18 +35,17 @@ class OptimizationResult:
     converged: bool
     iterations: int
     fcalls: int
-    mle_retvals: dict
-    mle_settings: dict
-    
+
     def __post_init__(self):
-        if not hasattr(self, 'mle_retvals'):
+        if not hasattr(self, "mle_retvals"):
             self.mle_retvals = {
-                'converged': self.converged,
-                'iterations': self.iterations,
-                'fcalls': self.fcalls
+                "converged": self.converged,
+                "iterations": self.iterations,
+                "fcalls": self.fcalls,
             }
-        if not hasattr(self, 'mle_settings'):
-            self.mle_settings = {'optimizer': self.optimizer}
+        if not hasattr(self, "mle_settings"):
+            self.mle_settings = {"optimizer": self.optimizer}
+
 
 @dataclass
 class FitMetrics:
@@ -84,7 +84,14 @@ def get_betabinom_start_params(legacy=False, exog=None):
     return ps, float(config.nbinom.start_disp)
 
 
-def flush_perf(model: str, size, default_start_params: bool, start_time: float, end_time: float, result: Any):
+def flush_perf(
+    model: str,
+    size,
+    default_start_params: bool,
+    start_time: float,
+    end_time: float,
+    result: Any,
+):
     runtime = end_time - start_time
 
     mle_retvals = getattr(result, "mle_retvals", {})
@@ -155,8 +162,10 @@ def nloglikeobs_nb(
 
     return result
 
+
 def betabinom_logpmf_zp(endog, exposure):
     return loggamma(exposure + 1) - loggamma(endog + 1) - loggamma(exposure - endog + 1)
+
 
 @njit(nogil=True, cache=True, fastmath=True)
 def compute_bb_ab(exog, params, tumor_prop=None):
@@ -165,15 +174,16 @@ def compute_bb_ab(exog, params, tumor_prop=None):
     """
     p = np.dot(exog, params[:-1])
     tau = params[-1]
-    
+
     if tumor_prop is None:
         a = p * tau
         b = (1.0 - p) * tau
     else:
         a = (p * tumor_prop + 0.5 * (1.0 - tumor_prop)) * tau
         b = ((1.0 - p) * tumor_prop + 0.5 * (1.0 - tumor_prop)) * tau
-    
+
     return a, b
+
 
 @njit(nogil=True, cache=True, fastmath=True)
 def betabinom_logpmf(endog, exposure, a, b, zero_point):
@@ -197,22 +207,26 @@ def betabinom_logpmf(endog, exposure, a, b, zero_point):
 
     return result_array
 
+
 # Pre-compile Numba functions with dummy data to avoid first-call overhead
 def _precompile_numba_functions():
     """Pre-compile Numba functions to avoid compilation overhead in threads"""
-    if not hasattr(_thread_local, 'precompiled'):
+    if not hasattr(_thread_local, "precompiled"):
         # Create dummy data for compilation
         dummy_endog = np.array([1.0, 2.0])
         dummy_exposure = np.array([10.0, 20.0])
         dummy_exog = np.array([[1.0, 0.0], [0.0, 1.0]])
         dummy_params = np.array([0.5, 0.5, 1.0])
         dummy_zero_point = np.array([1.0, 1.0])
-        
+
         # Trigger compilation
         dummy_a, dummy_b = compute_bb_ab(dummy_exog, dummy_params)
-        betabinom_logpmf(dummy_endog, dummy_exposure, dummy_a, dummy_b, dummy_zero_point)
-        
+        betabinom_logpmf(
+            dummy_endog, dummy_exposure, dummy_a, dummy_b, dummy_zero_point
+        )
+
         _thread_local.precompiled = True
+
 
 def nloglikeobs_bb(
     endog,
@@ -225,7 +239,7 @@ def nloglikeobs_bb(
     reduce=True,
 ):
     a, b = compute_bb_ab(exog, params, tumor_prop)
-    
+
     if zero_point is not None:
         result = -betabinom_logpmf(endog, exposure, a, b, zero_point)
     else:
@@ -384,7 +398,12 @@ class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
         runtime = end_time - start_time
 
         flush_perf(
-            self.__class__.__name__, len(self.exog), using_default_params, start_time, end_time, result
+            self.__class__.__name__,
+            len(self.exog),
+            using_default_params,
+            start_time,
+            end_time,
+            result,
         )
 
         logger.debug(
@@ -495,11 +514,27 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
             reduce=reduce,
         )
 
+    def get_bounds(self, params):
+        """
+        Set reasonable bounds for parameters
+        """
+        n_params = len(params)
+        bounds = []
+
+        EPSILON = 1.e-6
+        
+        for i in range(n_params - 1):
+            bounds.append((EPSILON, 1. - EPSILON))
+        
+        bounds.append((EPSILON, 1e6))
+        
+        return bounds
+
     def fit(
         self, start_params=None, maxiter=10_000, maxfun=5_000, legacy=False, **kwargs
     ):
         using_default_params = start_params is None
-        
+
         if start_params is None:
             if hasattr(self, "start_params"):
                 start_params = self.start_params
@@ -508,13 +543,22 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
                 start_params = np.array(ps[: self.num_states] + [disp])
 
         self.zero_point = betabinom_logpmf_zp(self.endog, self.exposure)
-                
+
         start_time = time.time()
 
         logger.info(
             f"Weighted_BetaBinom_mix (compress={self.compress}, endog_shape={self.endog.shape}) initial likelihood={self.nloglikeobs(start_params):.6e} @ start_params:\n{start_params}"
         )
-        
+
+        bounds = self.get_bounds(start_params)
+        options = {
+            "maxiter": maxiter,
+            "maxfun": maxfun,
+            "ftol": kwargs.get("ftol", None),
+            "gtol": kwargs.get("gtol", None),
+            "disp": kwargs.get("disp", False),
+        }
+
         """
         result = super().fit(
             start_params=start_params,
@@ -524,17 +568,18 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
             **kwargs,
         )
         """
-        # NB bounds=bounds,
         result = scipy.optimize.minimize(
             self.nloglikeobs,
             start_params,
             method=get_solver(),
-            **kwargs
+            bounds=bounds,
+            options=options,
         )
 
         result = OptimizationResult(
+            optimizer=get_solver(),
             params=result.x,
-            llf= -result.fun,
+            llf=-result.fun,
             converged=result.success,
             iterations=result.get("nit", None),
             fcalls=result.get("nfev", None),
@@ -544,7 +589,12 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
         runtime = end_time - start_time
 
         flush_perf(
-            self.__class__.__name__, len(self.exog), using_default_params, start_time, end_time, result
+            self.__class__.__name__,
+            len(self.exog),
+            using_default_params,
+            start_time,
+            end_time,
+            result,
         )
 
         logger.debug(

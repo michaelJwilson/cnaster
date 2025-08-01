@@ -265,7 +265,7 @@ def compute_posterior_transition_nophasing(
 
 
 def get_solver():
-    known_solvers = ("newton", "bfgs", "lbfgs", "powell", "nm", "cg", "ncg")
+    known_solvers = ("BFGS", "L-BFGS-B", "Nelder-Mead")
 
     name = get_global_config().hmm.solver
 

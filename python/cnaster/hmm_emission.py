@@ -137,7 +137,7 @@ def nloglikeobs_nb(
 def betabinom_logpmf_zp(endog, exposure):
     return loggamma(exposure + 1) - loggamma(endog + 1) - loggamma(exposure - endog + 1)
 
-@njit(nogil=True)
+@njit(nogil=True, cache=True, fastmath=True)
 def compute_bb_ab(exog, params, tumor_prop=None):
     """
     Numba-compiled parameter computation that releases GIL
@@ -154,7 +154,7 @@ def compute_bb_ab(exog, params, tumor_prop=None):
     
     return a, b
 
-@njit(nogil=True)
+@njit(nogil=True, cache=True, fastmath=True)
 def betabinom_logpmf(endog, exposure, a, b, zero_point):
     """
     Numba-compiled betabinom logpmf computation that releases GIL

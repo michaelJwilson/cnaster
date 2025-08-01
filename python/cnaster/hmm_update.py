@@ -1,3 +1,4 @@
+import time
 import copy
 import logging
 
@@ -31,7 +32,7 @@ def get_em_solver_params():
         case "bfgs":
             kwargs = ("xrtol", "disp")
         case "lbfgs":
-            kwargs = ("maxiter", "ftol")
+            kwargs = ("maxiter")
         case "nm":
             kwargs = ("maxiter", "xtol", "ftol", "disp")
         case _:
@@ -1204,9 +1205,11 @@ def update_emission_params_bb_sitewise_uniqvalues(
 
             model = Weighted_BetaBinom(y, features, weights=weights, exposure=exposure)
 
-            with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
-                logger.info(f"Starting futures thread pool.")
-                
+            _start_time = time.time()
+            
+            logger.info(f"Starting futures thread pool.")
+            
+            with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:                
                 future_res = executor.submit(model.fit, **model_fit_params)
 
                 if start_p_binom is not None:
@@ -1224,7 +1227,7 @@ def update_emission_params_bb_sitewise_uniqvalues(
                 if start_p_binom is not None:
                     res2 = future_res2.result()
 
-                logger.info(f"Ended futures thread pool.")
+            logger.info(f"Ended futures thread pool in {time.time() - _start_time:.3f}s.")
 
             # model = Weighted_BetaBinom(y, features, weights=weights, exposure=exposure)
             # res = model.fit(**model_fit_params)

@@ -182,7 +182,7 @@ def run_cnaster(config_path):
         threshold=config.hmrf.tumorprop_threshold,
     )
 
-    logger.info(f"Solved for initial phase given Eagle & BAF in {(time.time() - start_time)/60.:.2f} minutes.")
+    logger.info(f"Solved for initial phase given Eagle & BAF in {(time.time() - start_time):.2f} seconds.")
 
     exit(0)
     

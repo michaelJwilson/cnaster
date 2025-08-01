@@ -1205,9 +1205,18 @@ def update_emission_params_bb_sitewise_uniqvalues(
             model = Weighted_BetaBinom(y, features, weights=weights, exposure=exposure)
 
             with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+                logger.info(f"Starting futures thread pool.")
+                
                 future_res = executor.submit(model.fit, **model_fit_params)
 
                 if start_p_binom is not None:
+                    start_params=np.concatenate(
+                        [
+                            start_p_binom[idx_state_posweight, s]
+                            for s, idx_state_posweight in enumerate(state_posweights)
+                        ]
+                        + [np.ones(1) * taus[0, s]]
+                    )
                     future_res2 = executor.submit(model.fit, **model_fit_params, start_params=start_params)
 
                 res = future_res.result()
@@ -1215,8 +1224,10 @@ def update_emission_params_bb_sitewise_uniqvalues(
                 if start_p_binom is not None:
                     res2 = future_res2.result()
 
-            model = Weighted_BetaBinom(y, features, weights=weights, exposure=exposure)
-            res = model.fit(**model_fit_params)
+                logger.info(f"Ended futures thread pool.")
+
+            # model = Weighted_BetaBinom(y, features, weights=weights, exposure=exposure)
+            # res = model.fit(**model_fit_params)
 
             for s, idx_state_posweight in enumerate(state_posweights):
                 l1 = int(np.sum([len(x) for x in state_posweights[:s]]))
@@ -1227,6 +1238,7 @@ def update_emission_params_bb_sitewise_uniqvalues(
                 new_taus[:, :] = res.params[-1]
 
             if start_p_binom is not None:
+                """
                 res2 = model.fit(
                     **model_fit_params,
                     start_params=np.concatenate(
@@ -1237,6 +1249,7 @@ def update_emission_params_bb_sitewise_uniqvalues(
                         + [np.ones(1) * taus[0, s]]
                     ),
                 )
+                """
                 if model.nloglikeobs(res2.params) < model.nloglikeobs(res.params):
                     for s, idx_state_posweight in enumerate(state_posweights):
                         l1 = int(np.sum([len(x) for x in state_posweights[:s]]))

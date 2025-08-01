@@ -47,9 +47,9 @@ def get_nbinom_start_params(legacy=False):
     if legacy:
         return 0.1 * np.ones(config.hmm.n_states), 1.0e-2
 
-    ms = config.nbinom.start_params.split(",")
+    ms = [float(xx) for xx in config.nbinom.start_params.split(",")]
 
-    return np.array(ms).astype(float), config.nbinom.start_disp
+    return ms, float(config.nbinom.start_disp)
 
 
 def get_betabinom_start_params(legacy=False, exog=None):
@@ -58,9 +58,9 @@ def get_betabinom_start_params(legacy=False, exog=None):
     if legacy:
         return (0.5 / exog.shape[1]) * np.ones(config.hmm.n_states), 1.0
 
-    ps = config.betabinom.start_params.split(",")
+    ps = [float(xx) for xx in config.betabinom.start_params.split(",")]
 
-    return np.array(ps).astype(float), config.nbinom.start_disp
+    return ps, float(config.nbinom.start_disp)
 
 
 def flush_perf(model: str, size, default_start_params: bool, start_time: float, end_time: float, result: Any):
@@ -187,20 +187,11 @@ def nloglikeobs_bb(
     zero_point=None,
     reduce=True,
 ):
+    a, b = compute_bb_ab(exog, params, tumor_prop)
+    
     if zero_point is not None:
-        a, b = compute_bb_ab(exog, params, tumor_prop)
         result = -betabinom_logpmf(endog, exposure, a, b, zero_point)
     else:
-        # Fallback for when zero_point is None
-        p = exog @ params[:-1]
-
-        if tumor_prop is None:
-            a = p * params[-1]
-            b = (1.0 - p) * params[-1]
-        else:
-            a = (p * tumor_prop + 0.5 * (1.0 - tumor_prop)) * params[-1]
-            b = ((1.0 - p) * tumor_prop + 0.5 * (1.0 - tumor_prop)) * params[-1]
-
         result = -scipy.stats.betabinom.logpmf(endog, exposure, a, b)
         result[np.isnan(result)] = np.inf
 
@@ -337,7 +328,7 @@ class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
                 # TODO BUG? self.nparams??
                 # start_params = np.append(0.1 * np.ones(self.nparams), 1.0e-2)
                 ms, disp = get_nbinom_start_params(legacy=legacy)
-                start_params = np.concatenate([ms[: self.num_states], np.array([disp])])
+                start_params = np.array(ms[: self.num_states] + [disp])
 
         start_time = time.time()
 
@@ -453,30 +444,6 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
             self.compress = True
 
     def nloglikeobs(self, params, reduce=True):
-        """
-        p = self.exog @ params[:-1]
-
-        if self.tumor_prop is None:
-            a = p * params[-1]
-            b = (1.0 - p) * params[-1]
-        else:
-            a = (p * self.tumor_prop + 0.5 * (1.0 - self.tumor_prop)) * params[-1]
-            b = ((1.0 - p) * self.tumor_prop + 0.5 * (1.0 - self.tumor_prop)) * params[
-                -1
-            ]
-
-        result = -scipy.stats.betabinom.logpmf(self.endog, self.exposure, a, b)
-        result[np.isnan(result)] = np.inf
-
-        if reduce:
-            result = result.dot(self.weights)
-            assert not np.isnan(result), f"{params}: {result}"
-
-        return result
-        """
-        if self.zero_point is None:
-            self.zero_point = betabinom_logpmf_zp(self.endog, self.exposure)
-
         return nloglikeobs_bb(
             self.endog,
             self.exog,
@@ -494,14 +461,15 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
         # assert self.nparams == (1 + self.exog.shape[1]), f"Found nparams={self.nparams}, expected={self.exog.shape[1]}"
 
         using_default_params = start_params is None
+        
         if start_params is None:
             if hasattr(self, "start_params"):
                 start_params = self.start_params
             else:
                 ps, disp = get_betabinom_start_params(legacy=legacy, exog=self.exog)
-                start_params = np.concatenate([ps[: self.num_states], np.array([disp])])
+                start_params = np.array(ps[: self.num_states] + [disp])
 
-        self.zero_point = None
+        self.zero_point = betabinom_logpmf_zp(self.endog, self.exposure)
                 
         start_time = time.time()
 

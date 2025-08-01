@@ -254,7 +254,7 @@ def nloglikeobs_bb(
     return result
 
 
-class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
+class Weighted_NegativeBinomial_mix():
     """
     Negative Binomial model endog ~ NB(exposure * exp(exog @ params[:-1]), params[-1]), where exog is the design matrix, and params[-1] is 1 / overdispersion.
     This function fits the NB params when samples are weighted by weights: max_{params} \sum_{s} weights_s * log P(endog_s | exog_s; params)
@@ -285,8 +285,6 @@ class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
         seed=0,
         **kwargs,
     ):
-        super().__init__(endog, exog, **kwargs)
-
         exog = exog.copy()
         
         if exog.ndim == 1:
@@ -446,7 +444,7 @@ class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
         return result
 
 
-class Weighted_BetaBinom_mix(GenericLikelihoodModel):
+class Weighted_BetaBinom_mix():
     """
     Beta-binomial model endog ~ BetaBin(exposure, tau * p, tau * (1 - p)), where p = exog @ params[:-1] and tau = params[-1].
     This function fits the BetaBin params when samples are weighted by weights: max_{params} \sum_{s} weights_s * log P(endog_s | exog_s; params)
@@ -469,8 +467,6 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
     def __init__(
         self, endog, exog, weights, exposure, tumor_prop=None, compress=False, **kwargs
     ):
-        super().__init__(endog, exog, **kwargs)
-
         exog = exog.copy()
         
         if exog.ndim == 1:

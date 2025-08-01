@@ -8,6 +8,25 @@ from cnaster.config import get_global_config
 logger = logging.getLogger(__name__)
 
 
+def get_em_solver_params():
+    """                                                                                                                                                                                                                                                                         
+    Get the parameters for the emission solver.                                                                                                                                                                                                                                 
+    """
+    config = get_global_config()
+    solver = config.hmm.solver
+
+    match solver:
+        case "BFGS":
+            kwargs = ("xrtol", "disp")
+        case "L-BFGS-B":
+            kwargs = ("maxiter", "ftol", "disp")
+        case "Nelder-Mead":
+            kwargs = ("maxiter", "xtol", "ftol", "disp")
+        case _:
+            raise ValueError(f"cnaster does not support solver: {solver}")
+
+    return {k.replace("em_", ""): float(getattr(config.hmm, f"em_{k}")) for k in kwargs}
+
 @njit
 def mylogsumexp(a):
     a_max = np.max(a)

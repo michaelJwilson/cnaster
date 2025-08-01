@@ -14,32 +14,11 @@ from cnaster.hmm_emission import (
     Weighted_NegativeBinomial,
     Weighted_NegativeBinomial_mix,
 )
-from cnaster.hmm_utils import mylogsumexp, mylogsumexp_ax_keep
+from cnaster.hmm_utils import mylogsumexp, mylogsumexp_ax_keep, get_em_solver_params
 from cnaster.config import get_global_config
 from numba import njit
 
 logger = logging.getLogger(__name__)
-
-
-def get_em_solver_params():
-    """
-    Get the parameters for the emission solver.
-    """
-    config = get_global_config()
-    solver = config.hmm.solver
-
-    match solver:
-        case "BFGS":
-            kwargs = ("xrtol", "disp")
-        case "L-BFGS-B":
-            kwargs = ("maxiter", "ftol", "disp")
-        case "Nelder-Mead":
-            kwargs = ("maxiter", "xtol", "ftol", "disp")
-        case _:
-            raise ValueError(f"cnaster does not support solver: {solver}")
-
-    return {k.replace("em_", ""): float(getattr(config.hmm, f"em_{k}")) for k in kwargs}
-
 
 def update_transition_sitewise(log_xi, is_diag=False):
     """
@@ -223,7 +202,7 @@ def update_emission_params_nb_sitewise_uniqvalues(
         else np.zeros((n_states, n_spots))
     )
     new_alphas = copy.copy(alphas)
-    model_fit_params = get_em_solver_params()
+    settings = get_em_solver_params()
 
     if fix_NB_dispersion:
         logger.info("Updating (phasing) NB emission parameters with fixed dispersion.")
@@ -242,12 +221,12 @@ def update_emission_params_nb_sitewise_uniqvalues(
                     exposure=unique_values[s][idx_nonzero, 1],
                     var_weights=tmp[i, idx_nonzero] + tmp[i + n_states, idx_nonzero],
                 )
-                res = model.fit(**model_fit_params)
+                res = model.fit(**settings)
                 new_log_mu[i, s] = res.params[0]
 
                 if start_log_mu is not None:
                     res2 = model.fit(
-                        **model_fit_params,
+                        **settings,
                         start_params=np.array([start_log_mu[i, s]]),
                     )
                     new_log_mu[i, s] = (
@@ -274,12 +253,12 @@ def update_emission_params_nb_sitewise_uniqvalues(
                         exposure=unique_values[s][idx_nonzero, 1],
                         penalty=0,
                     )
-                    res = model.fit(**model_fit_params)
+                    res = model.fit(**settings)
                     new_log_mu[i, s] = res.params[0]
                     new_alphas[i, s] = res.params[-1]
                     if start_log_mu is not None:
                         res2 = model.fit(
-                            **model_fit_params,
+                            **settings,
                             start_params=np.append(
                                 [start_log_mu[i, s]], [alphas[i, s]]
                             ),
@@ -352,7 +331,7 @@ def update_emission_params_nb_sitewise_uniqvalues(
             model = Weighted_NegativeBinomial(
                 y, features, weights=weights, exposure=exposure
             )
-            res = model.fit(**model_fit_params)
+            res = model.fit(**settings)
             for s, idx_state_posweight in enumerate(state_posweights):
                 l1 = int(np.sum([len(x) for x in state_posweights[:s]]))
                 l2 = int(np.sum([len(x) for x in state_posweights[: (s + 1)]]))
@@ -361,7 +340,7 @@ def update_emission_params_nb_sitewise_uniqvalues(
                 new_alphas[:, :] = res.params[-1]
             if start_log_mu is not None:
                 res2 = model.fit(
-                    **model_fit_params,
+                    **settings,
                     start_params=np.concatenate(
                         [
                             start_log_mu[idx_state_posweight, s]
@@ -418,7 +397,7 @@ def update_emission_params_nb_nophasing_uniqvalues(
     )
     new_alphas = copy.copy(alphas)
 
-    model_fit_params = get_em_solver_params()
+    settings = get_em_solver_params()
 
     if fix_NB_dispersion:
         logger.info(
@@ -437,11 +416,11 @@ def update_emission_params_nb_nophasing_uniqvalues(
                     exposure=unique_values[s][idx_nonzero, 1],
                     var_weights=tmp[i, idx_nonzero],
                 )
-                res = model.fit(**model_fit_params)
+                res = model.fit(**settings)
                 new_log_mu[i, s] = res.params[0]
                 if start_log_mu is not None:
                     res2 = model.fit(
-                        **model_fit_params,
+                        **settings,
                         start_params=np.array([start_log_mu[i, s]]),
                     )
                     new_log_mu[i, s] = (
@@ -466,12 +445,12 @@ def update_emission_params_nb_nophasing_uniqvalues(
                         exposure=unique_values[s][idx_nonzero, 1],
                         penalty=0,
                     )
-                    res = model.fit(**model_fit_params)
+                    res = model.fit(**settings)
                     new_log_mu[i, s] = res.params[0]
                     new_alphas[i, s] = res.params[-1]
                     if start_log_mu is not None:
                         res2 = model.fit(
-                            **model_fit_params,
+                            **settings,
                             start_params=np.append(
                                 [start_log_mu[i, s]], [alphas[i, s]]
                             ),
@@ -533,7 +512,7 @@ def update_emission_params_nb_nophasing_uniqvalues(
             model = Weighted_NegativeBinomial(
                 y, features, weights=weights, exposure=exposure
             )
-            res = model.fit(**model_fit_params)
+            res = model.fit(**settings)
             for s, idx_state_posweight in enumerate(state_posweights):
                 l1 = int(np.sum([len(x) for x in state_posweights[:s]]))
                 l2 = int(np.sum([len(x) for x in state_posweights[: (s + 1)]]))
@@ -542,7 +521,7 @@ def update_emission_params_nb_nophasing_uniqvalues(
                 new_alphas[:, :] = res.params[-1]
             if start_log_mu is not None:
                 res2 = model.fit(
-                    **model_fit_params,
+                    **settings,
                     start_params=np.concatenate(
                         [
                             start_log_mu[idx_state_posweight, s]
@@ -599,7 +578,7 @@ def update_emission_params_nb_sitewise_uniqvalues_mix(
     )
     new_alphas = copy.copy(alphas)
 
-    model_fit_params = get_em_solver_params()
+    settings = get_em_solver_params()
 
     # expression signal by NB distribution
     if fix_NB_dispersion:
@@ -619,11 +598,11 @@ def update_emission_params_nb_sitewise_uniqvalues_mix(
                     exposure=unique_values[s][idx_nonzero, 1],
                     var_weights=tmp[i, idx_nonzero] + tmp[i + n_states, idx_nonzero],
                 )
-                res = model.fit(**model_fit_params)
+                res = model.fit(**settings)
                 new_log_mu[i, s] = res.params[0]
                 if start_log_mu is not None:
                     res2 = model.fit(
-                        **model_fit_params,
+                        **settings,
                         start_params=np.array([start_log_mu[i, s]]),
                     )
                     new_log_mu[i, s] = (
@@ -653,13 +632,13 @@ def update_emission_params_nb_sitewise_uniqvalues_mix(
                         exposure=unique_values[s][idx_nonzero, 1],
                         tumor_prop=this_tp,
                     )
-                    res = model.fit(**model_fit_params)
+                    res = model.fit(**settings)
                     new_log_mu[i, s] = res.params[0]
                     new_alphas[i, s] = res.params[-1]
 
                     if start_log_mu is not None:
                         res2 = model.fit(
-                            **model_fit_params,
+                            **settings,
                             start_params=np.append(
                                 [start_log_mu[i, s]], [alphas[i, s]]
                             ),
@@ -747,7 +726,7 @@ def update_emission_params_nb_sitewise_uniqvalues_mix(
                 tumor_prop=tp,
                 penalty=0,
             )
-            res = model.fit(**model_fit_params)
+            res = model.fit(**settings)
             for s, idx_state_posweight in enumerate(state_posweights):
                 l1 = int(np.sum([len(x) for x in state_posweights[:s]]))
                 l2 = int(np.sum([len(x) for x in state_posweights[: (s + 1)]]))
@@ -756,7 +735,7 @@ def update_emission_params_nb_sitewise_uniqvalues_mix(
                 new_alphas[:, :] = res.params[-1]
             if start_log_mu is not None:
                 res2 = model.fit(
-                    **model_fit_params,
+                    **settings,
                     start_params=np.concatenate(
                         [
                             start_log_mu[idx_state_posweight, s]
@@ -813,7 +792,7 @@ def update_emission_params_nb_nophasing_uniqvalues_mix(
         else np.zeros((n_states, n_spots))
     )
     new_alphas = copy.copy(alphas)
-    model_fit_params = get_em_solver_params()
+    settings = get_em_solver_params()
 
     if fix_NB_dispersion:
         logger.info(
@@ -832,11 +811,11 @@ def update_emission_params_nb_nophasing_uniqvalues_mix(
                     exposure=unique_values[s][idx_nonzero, 1],
                     var_weights=tmp[i, idx_nonzero],
                 )
-                res = model.fit(**model_fit_params)
+                res = model.fit(**settings)
                 new_log_mu[i, s] = res.params[0]
                 if start_log_mu is not None:
                     res2 = model.fit(
-                        **model_fit_params,
+                        **settings,
                         start_params=np.array([start_log_mu[i, s]]),
                     )
                     new_log_mu[i, s] = (
@@ -866,12 +845,12 @@ def update_emission_params_nb_nophasing_uniqvalues_mix(
                         exposure=unique_values[s][idx_nonzero, 1],
                         tumor_prop=this_tp,
                     )
-                    res = model.fit(**model_fit_params)
+                    res = model.fit(**settings)
                     new_log_mu[i, s] = res.params[0]
                     new_alphas[i, s] = res.params[-1]
                     if start_log_mu is not None:
                         res2 = model.fit(
-                            **model_fit_params,
+                            **settings,
                             start_params=np.append(
                                 [start_log_mu[i, s]], [alphas[i, s]]
                             ),
@@ -956,7 +935,7 @@ def update_emission_params_nb_nophasing_uniqvalues_mix(
                 tumor_prop=tp,
                 penalty=0,
             )
-            res = model.fit(**model_fit_params)
+            res = model.fit(**settings)
             for s, idx_state_posweight in enumerate(state_posweights):
                 l1 = int(np.sum([len(x) for x in state_posweights[:s]]))
                 l2 = int(np.sum([len(x) for x in state_posweights[: (s + 1)]]))
@@ -965,7 +944,7 @@ def update_emission_params_nb_nophasing_uniqvalues_mix(
                 new_alphas[:, :] = res.params[-1]
             if start_log_mu is not None:
                 res2 = model.fit(
-                    **model_fit_params,
+                    **settings,
                     start_params=np.concatenate(
                         [
                             start_log_mu[idx_state_posweight, s]
@@ -1022,7 +1001,7 @@ def update_emission_params_bb_sitewise_uniqvalues(
     )
     new_taus = copy.copy(taus)
 
-    model_fit_params = get_em_solver_params()
+    settings = get_em_solver_params()
 
     if fix_BB_dispersion:
         logger.info("Updating (phasing) BAF emission parameters with fixed dispersion.")
@@ -1052,11 +1031,11 @@ def update_emission_params_bb_sitewise_uniqvalues(
                             unique_values[s][idx_nonzero, 1],
                         ),
                     )
-                    res = model.fit(**model_fit_params)
+                    res = model.fit(**settings)
                     new_p_binom[i, s] = res.params[0]
                     if start_p_binom is not None:
                         res2 = model.fit(
-                            **model_fit_params,
+                            **settings,
                             start_params=np.array(start_p_binom[i, s]),
                         )
                         new_p_binom[i, s] = (
@@ -1105,12 +1084,12 @@ def update_emission_params_bb_sitewise_uniqvalues(
                                 unique_values[s][idx_nonzero, 1],
                             ),
                         )
-                        res = model.fit(**model_fit_params)
+                        res = model.fit(**settings)
                         new_p_binom[i, s] = res.params[0]
                         new_taus[i, s] = res.params[-1]
                         if start_p_binom is not None:
                             res2 = model.fit(
-                                **model_fit_params,
+                                **settings,
                                 start_params=np.append(
                                     [start_p_binom[i, s]], [taus[i, s]]
                                 ),
@@ -1210,7 +1189,7 @@ def update_emission_params_bb_sitewise_uniqvalues(
             logger.info(f"Starting futures thread pool.")
             
             with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:                
-                future_res = executor.submit(model.fit, **model_fit_params)
+                future_res = executor.submit(model.fit, **settings)
 
                 if start_p_binom is not None:
                     start_params=np.concatenate(
@@ -1220,7 +1199,7 @@ def update_emission_params_bb_sitewise_uniqvalues(
                         ]
                         + [np.ones(1) * taus[0, s]]
                     )
-                    future_res2 = executor.submit(model.fit, **model_fit_params, start_params=start_params)
+                    future_res2 = executor.submit(model.fit, **settings, start_params=start_params)
 
                 res = future_res.result()
 
@@ -1230,7 +1209,7 @@ def update_emission_params_bb_sitewise_uniqvalues(
             logger.info(f"Ended futures thread pool in {time.time() - _start_time:.3f}s.")
 
             # model = Weighted_BetaBinom(y, features, weights=weights, exposure=exposure)
-            # res = model.fit(**model_fit_params)
+            # res = model.fit(**settings)
 
             for s, idx_state_posweight in enumerate(state_posweights):
                 l1 = int(np.sum([len(x) for x in state_posweights[:s]]))
@@ -1243,7 +1222,7 @@ def update_emission_params_bb_sitewise_uniqvalues(
             if start_p_binom is not None:
                 """
                 res2 = model.fit(
-                    **model_fit_params,
+                    **settings,
                     start_params=np.concatenate(
                         [
                             start_p_binom[idx_state_posweight, s]
@@ -1299,7 +1278,7 @@ def update_emission_params_bb_nophasing_uniqvalues(
         else np.ones((n_states, n_spots)) * 0.5
     )
     new_taus = copy.copy(taus)
-    model_fit_params = get_em_solver_params()
+    settings = get_em_solver_params()
 
     if fix_BB_dispersion:
         logger.info(
@@ -1319,11 +1298,11 @@ def update_emission_params_bb_nophasing_uniqvalues(
                         weights=tmp[i, idx_nonzero],
                         exposure=unique_values[s][idx_nonzero, 1],
                     )
-                    res = model.fit(**model_fit_params)
+                    res = model.fit(**settings)
                     new_p_binom[i, s] = res.params[0]
                     if start_p_binom is not None:
                         res2 = model.fit(
-                            **model_fit_params,
+                            **settings,
                             start_params=np.array(start_p_binom[i, s]),
                         )
                         new_p_binom[i, s] = (
@@ -1350,12 +1329,12 @@ def update_emission_params_bb_nophasing_uniqvalues(
                             weights=tmp[i, idx_nonzero],
                             exposure=unique_values[s][idx_nonzero, 1],
                         )
-                        res = model.fit(**model_fit_params)
+                        res = model.fit(**settings)
                         new_p_binom[i, s] = res.params[0]
                         new_taus[i, s] = res.params[-1]
                         if start_p_binom is not None:
                             res2 = model.fit(
-                                **model_fit_params,
+                                **settings,
                                 start_params=np.append(
                                     [start_p_binom[i, s]], [taus[i, s]]
                                 ),
@@ -1416,7 +1395,7 @@ def update_emission_params_bb_nophasing_uniqvalues(
             weights = np.concatenate(weights)
             features = scipy.linalg.block_diag(*features)
             model = Weighted_BetaBinom(y, features, weights=weights, exposure=exposure)
-            res = model.fit(**model_fit_params)
+            res = model.fit(**settings)
             for s, idx_state_posweight in enumerate(state_posweights):
                 l1 = int(np.sum([len(x) for x in state_posweights[:s]]))
                 l2 = int(np.sum([len(x) for x in state_posweights[: (s + 1)]]))
@@ -1425,7 +1404,7 @@ def update_emission_params_bb_nophasing_uniqvalues(
                 new_taus[:, :] = res.params[-1]
             if start_p_binom is not None:
                 res2 = model.fit(
-                    **model_fit_params,
+                    **settings,
                     start_params=np.concatenate(
                         [
                             start_p_binom[idx_state_posweight, s]
@@ -1483,7 +1462,7 @@ def update_emission_params_bb_sitewise_uniqvalues_mix(
         else np.ones((n_states, n_spots)) * 0.5
     )
     new_taus = copy.copy(taus)
-    model_fit_params = get_em_solver_params()
+    settings = get_em_solver_params()
 
     if fix_BB_dispersion:
         logger.info(
@@ -1523,11 +1502,11 @@ def update_emission_params_bb_sitewise_uniqvalues_mix(
                         tumor_prop=this_tp,
                     )
 
-                    res = model.fit(**model_fit_params)
+                    res = model.fit(**settings)
                     new_p_binom[i, s] = res.params[0]
                     if start_p_binom is not None:
                         res2 = model.fit(
-                            **model_fit_params,
+                            **settings,
                             start_params=np.array(start_p_binom[i, s]),
                         )
                         new_p_binom[i, s] = (
@@ -1575,12 +1554,12 @@ def update_emission_params_bb_sitewise_uniqvalues_mix(
                             tumor_prop=this_tp,
                         )
 
-                        res = model.fit(**model_fit_params)
+                        res = model.fit(**settings)
                         new_p_binom[i, s] = res.params[0]
                         new_taus[i, s] = res.params[-1]
                         if start_p_binom is not None:
                             res2 = model.fit(
-                                **model_fit_params,
+                                **settings,
                                 start_params=np.append(
                                     [start_p_binom[i, s]], [taus[i, s]]
                                 ),
@@ -1676,7 +1655,7 @@ def update_emission_params_bb_sitewise_uniqvalues_mix(
             model = Weighted_BetaBinom_mix(
                 y, features, weights=weights, exposure=exposure, tumor_prop=tp
             )
-            res = model.fit(**model_fit_params)
+            res = model.fit(**settings)
             for s, idx_state_posweight in enumerate(state_posweights):
                 l1 = int(np.sum([len(x) for x in state_posweights[:s]]))
                 l2 = int(np.sum([len(x) for x in state_posweights[: (s + 1)]]))
@@ -1685,7 +1664,7 @@ def update_emission_params_bb_sitewise_uniqvalues_mix(
                 new_taus[:, :] = res.params[-1]
             if start_p_binom is not None:
                 res2 = model.fit(
-                    **model_fit_params,
+                    **settings,
                     start_params=np.concatenate(
                         [
                             start_p_binom[idx_state_posweight, s]
@@ -1743,7 +1722,7 @@ def update_emission_params_bb_nophasing_uniqvalues_mix(
         else np.ones((n_states, n_spots)) * 0.5
     )
     new_taus = copy.copy(taus)
-    model_fit_params = get_em_solver_params()
+    settings = get_em_solver_params()
 
     if fix_BB_dispersion:
         logger.info(
@@ -1770,11 +1749,11 @@ def update_emission_params_bb_nophasing_uniqvalues_mix(
                         exposure=unique_values[s][idx_nonzero, 1],
                         tumor_prop=this_tp,
                     )
-                    res = model.fit(**model_fit_params)
+                    res = model.fit(**settings)
                     new_p_binom[i, s] = res.params[0]
                     if start_p_binom is not None:
                         res2 = model.fit(
-                            **model_fit_params,
+                            **settings,
                             start_params=np.array(start_p_binom[i, s]),
                         )
                         new_p_binom[i, s] = (
@@ -1808,12 +1787,12 @@ def update_emission_params_bb_nophasing_uniqvalues_mix(
                             exposure=unique_values[s][idx_nonzero, 1],
                             tumor_prop=this_tp,
                         )
-                        res = model.fit(**model_fit_params)
+                        res = model.fit(**settings)
                         new_p_binom[i, s] = res.params[0]
                         new_taus[i, s] = res.params[-1]
                         if start_p_binom is not None:
                             res2 = model.fit(
-                                **model_fit_params,
+                                **settings,
                                 start_params=np.append(
                                     [start_p_binom[i, s]], [taus[i, s]]
                                 ),
@@ -1893,7 +1872,7 @@ def update_emission_params_bb_nophasing_uniqvalues_mix(
             model = Weighted_BetaBinom_mix(
                 y, features, weights=weights, exposure=exposure, tumor_prop=tp
             )
-            res = model.fit(**model_fit_params)
+            res = model.fit(**settings)
             for s, idx_state_posweight in enumerate(state_posweights):
                 l1 = int(np.sum([len(x) for x in state_posweights[:s]]))
                 l2 = int(np.sum([len(x) for x in state_posweights[: (s + 1)]]))
@@ -1902,7 +1881,7 @@ def update_emission_params_bb_nophasing_uniqvalues_mix(
                 new_taus[:, :] = res.params[-1]
             if start_p_binom is not None:
                 res2 = model.fit(
-                    **model_fit_params,
+                    **settings,
                     start_params=np.concatenate(
                         [
                             start_p_binom[idx_state_posweight, s]

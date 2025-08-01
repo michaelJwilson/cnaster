@@ -9,7 +9,7 @@ from sklearn.cluster import KMeans
 from cnaster.hmm_emission import Weighted_BetaBinom
 from cnaster.reference import get_reference_recomb_rates
 from cnaster.recomb import assign_centiMorgans, compute_numbat_phase_switch_prob
-
+from cnaster.hmm_utils import get_em_solver_params
 
 logger = logging.getLogger(__name__)
 
@@ -191,7 +191,11 @@ def normal_baf_bin_filter(
     model = Weighted_BetaBinom(
         tmpX, np.ones(len(tmpX)), weights=np.ones(len(tmpX)), exposure=tmptotal_bb_RD
     )
-    tmpres = model.fit(disp=0)
+
+    # LEGACY
+    settings = get_em_solver_params()
+        
+    tmpres = model.fit(**settings)
     tmpres.params[0] = 0.5
     tmpres.params[-1] = max(tmpres.params[-1], min_betabinom_tau)
 

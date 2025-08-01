@@ -450,6 +450,11 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
     ):
         super().__init__(endog, exog, **kwargs)
 
+        exog = exog.copy()
+        
+        if exog.ndim == 1:
+            exog = np.atleast_2d(exog).T
+        
         # NB EM-based posterior weights.
         self.endog = np.asarray(endog, dtype=np.float64)
         self.exog = np.asarray(exog, dtype=np.float64)
@@ -457,7 +462,7 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
         self.exposure = np.asarray(exposure, dtype=np.float64)
         self.tumor_prop = tumor_prop
         self.compress = False
-        self.num_states = self.exog.shape[1]
+        self.num_states = self.exog.shape[-1]
         self.zero_point = None
 
         if tumor_prop is not None:
@@ -466,7 +471,8 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
             )
             return
 
-        cls = np.argmax(self.exog, axis=1)
+        # TODO HACK
+        cls = np.argmax(self.exog, axis=-1)        
         counts = np.vstack([self.endog, self.exposure, cls]).T
 
         # TODO HACK decimals
@@ -542,12 +548,14 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
                 ps, disp = get_betabinom_start_params(legacy=legacy, exog=self.exog)
                 start_params = np.array(ps[: self.num_states] + [disp])
 
+        assert self.num_states == (len(start_params) - 1), f"{len(start_params)}, {self.exog.shape}"
+                
         self.zero_point = betabinom_logpmf_zp(self.endog, self.exposure)
 
         start_time = time.time()
 
         logger.info(
-            f"Weighted_BetaBinom_mix (compress={self.compress}, endog_shape={self.endog.shape}) initial likelihood={self.nloglikeobs(start_params):.6e} @ start_params:\n{start_params}"
+            f"Weighted_BetaBinom_mix (compress={self.compress}, num_states={self.num_states}, endog_shape={self.endog.shape}) initial likelihood={self.nloglikeobs(start_params):.6e} @ start_params:\n{start_params}"
         )
 
         bounds = self.get_bounds(start_params)

@@ -82,7 +82,7 @@ def aggr_hmrfmix_reassignment_concatenate(
     posterior : array, shape (n_spots, n_clones), optional
         Posterior probabilities if return_posterior=True.
     """
-    n_obs, _, N = single_X.shape[0]
+    n_obs, _, N = single_X.shape
     n_clones = int(len(pred) / n_obs)
     n_states = res["new_p_binom"].shape[0]
 

@@ -66,9 +66,7 @@ class hmm_nophasing:
         log_emission : array, shape (n_states, n_obs, n_spots)
             Log emission probability for each gene each spot (or sample) under each state. There is a common bag of states across all spots.
         """
-        n_obs = X.shape[0]
-        n_comp = X.shape[1]
-        n_spots = X.shape[2]
+        n_obs, n_comp, n_spots = X.shape
         n_states = log_mu.shape[0]
 
         log_emission_rdr = np.zeros((n_states, n_obs, n_spots))

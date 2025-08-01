@@ -26,10 +26,12 @@ warnings.filterwarnings("ignore", category=UserWarning, module="statsmodels")
 
 @dataclass
 class FitMetrics:
+    row_index: int
     timestamp: str
     model: str
     optimizer: str
     size: int
+    default_start_params: bool
     runtime: str
     iterations: Optional[int]
     fcalls: Optional[int]
@@ -59,25 +61,38 @@ def get_betabinom_start_params(legacy=False, exog=None):
     return np.array(ps).astype(float), config.nbinom.start_disp
 
 
-def flush_perf(model: str, size, start_time: float, end_time: float, result: Any):
+def flush_perf(model: str, size, default_start_params: bool, start_time: float, end_time: float, result: Any):
     runtime = end_time - start_time
 
     mle_retvals = getattr(result, "mle_retvals", {})
     mle_settings = getattr(result, "mle_settings", {})
 
+    # Read existing file to get next row index
+    perf_file = Path("cnaster.perf")
+    row_index = 1
+    if perf_file.exists():
+        try:
+            with open(perf_file, "r") as f:
+                reader = csv.reader(f, delimiter="\t")
+                row_index = sum(1 for _ in reader)  # Count all rows including header
+        except:
+            row_index = 1
+
     metrics = FitMetrics(
+        row_index=row_index,
         model=model,
         runtime=f"{runtime:.4f}",
         iterations=mle_retvals.get("iterations"),
         fcalls=mle_retvals.get("fcalls"),
         optimizer=mle_settings.get("optimizer", "Unknown"),
         size=size,
+        default_start_params=default_start_params,
         converged=mle_retvals.get("converged"),
         llf=f"{result.llf:.6e}" if hasattr(result, "llf") else "NAN",
         timestamp=time.strftime("%Y-%m-%d %H:%M:%S"),
     )
 
-    file_exists = Path("cnaster.perf").exists()
+    file_exists = perf_file.exists()
 
     with open("cnaster.perf", "a", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=asdict(metrics).keys(), delimiter="\t")
@@ -299,7 +314,7 @@ class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
         start_time = time.time()
 
         logger.info(
-            f"Weighted_NegativeBinomial_mix (compress={self.compress}) initial likelihood={self.nloglikeobs(start_params):.6e} @ start_params: {start_params}"
+            f"Weighted_NegativeBinomial_mix (compress={self.compress}, endog_shape={self.endog.shape}) initial likelihood={self.nloglikeobs(start_params):.6e} @ start_params: {start_params}"
         )
 
         result = super().fit(
@@ -313,7 +328,7 @@ class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
         runtime = end_time - start_time
 
         flush_perf(
-            self.__class__.__name__, len(self.exog), start_time, end_time, result
+            self.__class__.__name__, len(self.exog), using_default_params, start_time, end_time, result
         )
 
         logger.debug(
@@ -322,7 +337,7 @@ class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
         )
 
         logger.info(
-            f"Weighted_NegativeBinomial_mix done: {runtime:.2f}s with\ntumor_prop={self.tumor_prop is not None},\n"
+            f"Weighted_NegativeBinomial_mix done: {runtime:.2f}s with\nendog_shape={self.endog.shape},\ntumor_prop={self.tumor_prop is not None},\n"
             f"{len(start_params)} params ({'with default start' if using_default_params else 'with custom start'}),\n"
             f"{result.mle_retvals.get('iterations', 'N/A')} iter,\n"
             f"{result.mle_retvals.get('fcalls', 'N/A')} fcalls,\n"
@@ -470,7 +485,7 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
 
         # NB log initial start params and initial likelihood:
         logger.info(
-            f"Weighted_BetaBinom_mix (compress={self.compress}) initial likelihood={self.nloglikeobs(start_params):.6e} @ start_params:\n{start_params}"
+            f"Weighted_BetaBinom_mix (compress={self.compress}, endog_shape={self.endog.shape}) initial likelihood={self.nloglikeobs(start_params):.6e} @ start_params:\n{start_params}"
         )
         
         # TODO bounds
@@ -485,7 +500,7 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
         runtime = end_time - start_time
 
         flush_perf(
-            self.__class__.__name__, len(self.exog), start_time, end_time, result
+            self.__class__.__name__, len(self.exog), using_default_params, start_time, end_time, result
         )
 
         logger.debug(
@@ -494,7 +509,7 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
         )
 
         logger.info(
-            f"Weighted_BetaBinom_mix done: {runtime:.2f}s with\ntumor_prop={self.tumor_prop is not None},\n"
+            f"Weighted_BetaBinom_mix done: {runtime:.2f}s with\nendog_shape={self.endog.shape},\ntumor_prop={self.tumor_prop is not None},\n"
             f"{len(start_params)} params ({'with default start' if using_default_params else 'with custom start'}),\n"
             f"{result.mle_retvals.get('iterations', 'N/A')} iter,\n"
             f"{result.mle_retvals.get('fcalls', 'N/A')} fcalls,\n"

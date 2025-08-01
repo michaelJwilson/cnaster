@@ -45,6 +45,7 @@ hmrf:
 # TODO HACK max_iter : 30 ->
 #           solver: nm ->
 #           t: 0.99999 ->
+#           tol: 0.0001 ->
 hmm:
   solver: "L-BFGS-B"
   n_states : 7
@@ -56,8 +57,8 @@ hmm:
   fix_BB_dispersion : False
   shared_BB_dispersion : True
   compression_decimals: 3
-  max_iter : 30
-  tol : 0.0001
+  max_iter : 1
+  tol : 0.001
   gmm_random_state : 0
   gmm_maxiter: 30
   np_threshold : 1.0

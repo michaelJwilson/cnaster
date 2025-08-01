@@ -242,7 +242,6 @@ class hmm_sitewise:
 
         log_sitewise_self_transmat = np.log(1 - np.exp(log_sitewise_transmat))
 
-        # initialize log_alpha
         log_alpha = np.zeros((log_emission.shape[0], n_obs))
         buf = np.zeros(log_emission.shape[0])
         cumlen = 0
@@ -565,12 +564,18 @@ class hmm_sitewise:
 
             logger.debug(f"Parameters: {np.hstack([new_log_mu, new_p_binom])}")
 
+            transmat_converged = np.mean(np.abs(np.exp(new_log_transmat) - np.exp(log_transmat))) < tol
+            log_mu_converged = np.mean(np.abs(new_log_mu - log_mu)) < tol
+            p_binom_converged = np.mean(np.abs(new_p_binom - p_binom)) < tol
+            
             if (
-                np.mean(np.abs(np.exp(new_log_transmat) - np.exp(log_transmat))) < tol
-                and np.mean(np.abs(new_log_mu - log_mu)) < tol
-                and np.mean(np.abs(new_p_binom - p_binom)) < tol
+                transmat_converged
+                and log_mu_converged
+                and p_binom_converged
             ):
                 break
+            else:
+                logger.info(f"Convergence of T, mu and p: {transmat_converged},{log_mu_converged},{p_binom_converged}")
 
             log_startprob = new_log_startprob
             log_transmat = new_log_transmat

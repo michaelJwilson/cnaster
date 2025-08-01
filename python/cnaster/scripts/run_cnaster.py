@@ -178,7 +178,7 @@ def run_cnaster(config_path):
         config.hmm.fix_BB_dispersion,
         config.hmm.shared_BB_dispersion,
         config.hmm.max_iter,  # MAGIC max_iter
-        1.0e-3,  # MAGIC tol
+        1.0e-3,  # MAGIC tol on HMM parameter end.
         threshold=config.hmrf.tumorprop_threshold,
     )
 

@@ -61,8 +61,6 @@ logger = logging.getLogger(__name__)
 
 
 def run_cnaster(config_path):
-    start_time = time.time()
-
     config = YAMLConfig.from_file(config_path)
 
     set_global_config(config)
@@ -159,6 +157,9 @@ def run_cnaster(config_path):
 
     logger.warning("Assuming 5 BAF states for phasing.")
 
+    # NB time inference, not pre-processing.
+    start_time = time.time()
+    
     # TODO updates mu? as initialization?
     phase_indicator, refined_lengths = initial_phase_given_partition(
         single_X,
@@ -181,7 +182,7 @@ def run_cnaster(config_path):
         threshold=config.hmrf.tumorprop_threshold,
     )
 
-    logger.info(f"Solved for initial phase given Eagle & BAF in {(time.time() - start_time)/60.:.2f} minutes.")
+    logger.info(f"Solved for initial phase given Eagle & BAF in {(time.time() - start_time):.2f} seconds.")
 
     exit(0)
     

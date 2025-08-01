@@ -476,7 +476,7 @@ class hmm_sitewise:
                 log_alpha, log_beta, log_transmat, log_emission
             )
 
-            # M step
+            # ----  M step  ----
             if "s" in self.params:
                 new_log_startprob = update_startprob_sitewise(lengths, log_gamma)
                 new_log_startprob = new_log_startprob.flatten()

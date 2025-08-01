@@ -17,8 +17,6 @@ from pathlib import Path
 from numba import njit
 import scipy.optimize
 
-
-# from cnaster.deprecated.hmm_emission import Weighted_NegativeBinomial, Weighted_BetaBinom
 from statsmodels.base.model import GenericLikelihoodModel
 
 logger = logging.getLogger(__name__)
@@ -54,6 +52,7 @@ class FitMetrics:
     model: str
     optimizer: str
     size: int
+    num_states: int
     default_start_params: bool
     runtime: str
     iterations: Optional[int]
@@ -87,6 +86,7 @@ def get_betabinom_start_params(legacy=False, exog=None):
 def flush_perf(
     model: str,
     size,
+    num_states: int,
     default_start_params: bool,
     start_time: float,
     end_time: float,
@@ -116,6 +116,7 @@ def flush_perf(
         fcalls=mle_retvals.get("fcalls"),
         optimizer=mle_settings.get("optimizer", "Unknown"),
         size=size,
+        num_states=num_states,
         default_start_params=default_start_params,
         converged=mle_retvals.get("converged"),
         llf=f"{result.llf:.6e}" if hasattr(result, "llf") else "NAN",
@@ -286,13 +287,20 @@ class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
     ):
         super().__init__(endog, exog, **kwargs)
 
+        exog = exog.copy()
+        
+        if exog.ndim == 1:
+            exog = np.atleast_2d(exog).T
+
         # NB EM-based posterior weights.
-        self.weights = weights
-        self.exposure = exposure
+        self.endog = np.asarray(endog, dtype=np.float64)
+        self.exog = np.asarray(exog, dtype=np.float64)
+        self.weights = np.asarray(weights, dtype=np.float64)
+        self.exposure = np.asarray(exposure, dtype=np.float64)
         self.seed = seed
         self.tumor_prop = tumor_prop
         self.compress = False
-        self.num_states = self.exog.shape[1]
+        self.num_states = self.exog.shape[-1]
 
         if tumor_prop is not None:
             logger.warning(
@@ -300,7 +308,7 @@ class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
             )
             return
 
-        cls = np.argmax(self.exog, axis=1)
+        cls = np.argmax(self.exog, axis=-1)
         counts = np.vstack([self.endog, self.exposure, cls]).T
 
         # TODO HACK decimals
@@ -333,28 +341,6 @@ class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
             self.compress = True
 
     def nloglikeobs(self, params, reduce=True):
-        """
-        if self.tumor_prop is None:
-            nb_mean = self.exog @ np.exp(params[:-1]) * self.exposure
-        else:
-            nb_mean = self.exposure * (
-                self.tumor_prop * self.exog @ np.exp(params[:-1])
-                + (1.0 - self.tumor_prop)
-            )
-
-        nb_std = np.sqrt(nb_mean + params[-1] * nb_mean**2)
-
-        n, p = convert_params(nb_mean, nb_std)
-
-        result = -scipy.stats.nbinom.logpmf(self.endog, n, p)
-        result[np.isnan(result)] = np.inf
-
-        if reduce:
-            result = result.dot(self.weights)
-            assert not np.isnan(result), f"{params}: {result}"
-
-        return result
-        """
         return nloglikeobs_nb(
             self.endog,
             self.exog,
@@ -365,41 +351,76 @@ class Weighted_NegativeBinomial_mix(GenericLikelihoodModel):
             reduce=reduce,
         )
 
+    def get_bounds(self, params):
+        """
+        Set reasonable bounds for parameters
+        """
+        n_params = len(params)
+        bounds = []
+
+        EPSILON = 1.e-6
+
+        # Bounds for log-space parameters (can be negative)
+        for i in range(n_params - 1):
+            bounds.append((-10, 10))
+        
+        # Bound for overdispersion parameter (must be positive)
+        bounds.append((EPSILON, 1e6))
+        
+        return bounds
+
     def fit(
         self, start_params=None, maxiter=10_000, maxfun=5_000, legacy=False, **kwargs
     ):
-        # assert self.nparams == (1 + self.exog.shape[1]), f"Found nparams={self.nparams}, expected={self.exog.shape[1]}"
-
         using_default_params = start_params is None
 
         if start_params is None:
             if hasattr(self, "start_params"):
                 start_params = self.start_params
             else:
-                # TODO BUG? self.nparams??
-                # start_params = np.append(0.1 * np.ones(self.nparams), 1.0e-2)
                 ms, disp = get_nbinom_start_params(legacy=legacy)
                 start_params = np.array(ms[: self.num_states] + [disp])
+
+        assert self.num_states == (len(start_params) - 1), f"{len(start_params)}, {self.exog.shape}"
 
         start_time = time.time()
 
         logger.info(
-            f"Weighted_NegativeBinomial_mix (compress={self.compress}, endog_shape={self.endog.shape}) initial likelihood={self.nloglikeobs(start_params):.6e} @ start_params: {start_params}"
+            f"Weighted_NegativeBinomial_mix (compress={self.compress}, num_states={self.num_states}, endog_shape={self.endog.shape}) initial likelihood={self.nloglikeobs(start_params):.6e} @ start_params:\n{start_params}"
         )
 
-        result = super().fit(
-            start_params=start_params,
-            maxiter=maxiter,
-            maxfun=maxfun,
+        bounds = self.get_bounds(start_params)
+        options = {
+            "maxiter": maxiter,
+            "maxfun": maxfun,
+            "ftol": kwargs.get("ftol", None),
+            "disp": kwargs.get("disp", False),
+        }
+
+        result = scipy.optimize.minimize(
+            self.nloglikeobs,
+            start_params,
             method=get_solver(),
-            **kwargs,
+            bounds=bounds,
+            options=options,
         )
+
+        result = OptimizationResult(
+            optimizer=get_solver(),
+            params=result.x,
+            llf=-result.fun,
+            converged=result.success,
+            iterations=result.get("nit", None),
+            fcalls=result.get("nfev", None),
+        )
+
         end_time = time.time()
         runtime = end_time - start_time
 
         flush_perf(
             self.__class__.__name__,
             len(self.exog),
+            self.num_states,
             using_default_params,
             start_time,
             end_time,
@@ -598,6 +619,7 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
         flush_perf(
             self.__class__.__name__,
             len(self.exog),
+            self.num_states,
             using_default_params,
             start_time,
             end_time,

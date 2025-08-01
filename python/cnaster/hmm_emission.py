@@ -15,6 +15,7 @@ import json
 import csv
 from pathlib import Path
 from numba import njit
+import threading
 
 
 # from cnaster.deprecated.hmm_emission import Weighted_NegativeBinomial, Weighted_BetaBinom
@@ -137,6 +138,9 @@ def nloglikeobs_nb(
 def betabinom_logpmf_zp(endog, exposure):
     return loggamma(exposure + 1) - loggamma(endog + 1) - loggamma(exposure - endog + 1)
 
+# Thread-local storage for compiled functions and cached data
+_thread_local = threading.local()
+
 @njit(nogil=True)
 def compute_bb_ab(exog, params, tumor_prop=None):
     """
@@ -176,6 +180,22 @@ def betabinom_logpmf(endog, exposure, a, b, zero_point):
 
     return result_array
 
+# Pre-compile Numba functions with dummy data to avoid first-call overhead
+def _precompile_numba_functions():
+    """Pre-compile Numba functions to avoid compilation overhead in threads"""
+    if not hasattr(_thread_local, 'precompiled'):
+        # Create dummy data for compilation
+        dummy_endog = np.array([1.0, 2.0])
+        dummy_exposure = np.array([10.0, 20.0])
+        dummy_exog = np.array([[1.0, 0.0], [0.0, 1.0]])
+        dummy_params = np.array([0.5, 0.5, 1.0])
+        dummy_zero_point = np.array([1.0, 1.0])
+        
+        # Trigger compilation
+        dummy_a, dummy_b = compute_bb_ab(dummy_exog, dummy_params)
+        betabinom_logpmf(dummy_endog, dummy_exposure, dummy_a, dummy_b, dummy_zero_point)
+        
+        _thread_local.precompiled = True
 
 def nloglikeobs_bb(
     endog,
@@ -403,80 +423,20 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
     ):
         super().__init__(endog, exog, **kwargs)
 
+        # Pre-compile Numba functions for this thread
+        _precompile_numba_functions()
+
         # NB EM-based posterior weights.
         self.weights = weights
         self.exposure = exposure
         self.tumor_prop = tumor_prop
         self.compress = False
         self.num_states = self.exog.shape[1]
-
-        if tumor_prop is not None:
-            logger.warning(
-                f"{self.__class__} compression is not supported for tumor_prop != None."
-            )
-            return
-
-        cls = np.argmax(self.exog, axis=1)
-        counts = np.vstack([self.endog, self.exposure, cls]).T
-
-        # TODO HACK decimals
-        if counts.dtype != int:
-            counts = counts.round(decimals=4)
-
-        # NB see https://numpy.org/doc/stable/reference/generated/numpy.unique.html
-        unique_pairs, unique_idx, unique_inv = np.unique(
-            counts, return_index=True, return_inverse=True, axis=0
-        )
-
-        mean_compression = 1.0 - len(unique_pairs) / len(self.endog)
-
-        logger.warning(
-            f"{self.__class__.__name__} has further achievable compression: {100. * mean_compression:.4f}"
-        )
-
-        if compress and mean_compression > 0.0:
-            # TODO HACK
-            # NB sum self.weights - relies on original self.endog length
-            transfer = np.zeros((len(unique_pairs), len(self.endog)), dtype=int)
-
-            for i in range(len(unique_pairs)):
-                transfer[i, unique_inv == i] = 1
-
-            self.weights = transfer @ self.weights
-
-            # NB update self.endog, self.exposure, self.exog, self.weights for unique_pairs compression:
-            self.endog = unique_pairs[:, 0]
-            self.exposure = unique_pairs[:, 1]
-
-            # NB one-hot encoded design matrix of class labels
-            self.exog = self.exog[unique_idx, :]
-            self.compress = True
+        
+        # Pre-compute zero_point to avoid repeated calculation
+        self.zero_point = betabinom_logpmf_zp(self.endog, self.exposure)
 
     def nloglikeobs(self, params, reduce=True):
-        """
-        p = self.exog @ params[:-1]
-
-        if self.tumor_prop is None:
-            a = p * params[-1]
-            b = (1.0 - p) * params[-1]
-        else:
-            a = (p * self.tumor_prop + 0.5 * (1.0 - self.tumor_prop)) * params[-1]
-            b = ((1.0 - p) * self.tumor_prop + 0.5 * (1.0 - self.tumor_prop)) * params[
-                -1
-            ]
-
-        result = -scipy.stats.betabinom.logpmf(self.endog, self.exposure, a, b)
-        result[np.isnan(result)] = np.inf
-
-        if reduce:
-            result = result.dot(self.weights)
-            assert not np.isnan(result), f"{params}: {result}"
-
-        return result
-        """
-        if self.zero_point is None:
-            self.zero_point = betabinom_logpmf_zp(self.endog, self.exposure)
-
         return nloglikeobs_bb(
             self.endog,
             self.exog,
@@ -491,8 +451,6 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
     def fit(
         self, start_params=None, maxiter=10_000, maxfun=5_000, legacy=False, **kwargs
     ):
-        # assert self.nparams == (1 + self.exog.shape[1]), f"Found nparams={self.nparams}, expected={self.exog.shape[1]}"
-
         using_default_params = start_params is None
         if start_params is None:
             if hasattr(self, "start_params"):
@@ -501,16 +459,12 @@ class Weighted_BetaBinom_mix(GenericLikelihoodModel):
                 ps, disp = get_betabinom_start_params(legacy=legacy, exog=self.exog)
                 start_params = np.concatenate([ps[: self.num_states], np.array([disp])])
 
-        self.zero_point = None
-                
         start_time = time.time()
 
-        # NB log initial start params and initial likelihood:
         logger.info(
             f"Weighted_BetaBinom_mix (compress={self.compress}, endog_shape={self.endog.shape}) initial likelihood={self.nloglikeobs(start_params):.6e} @ start_params:\n{start_params}"
         )
         
-        # TODO bounds
         result = super().fit(
             start_params=start_params,
             maxiter=maxiter,

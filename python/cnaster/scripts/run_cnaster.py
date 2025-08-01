@@ -183,8 +183,6 @@ def run_cnaster(config_path):
     )
 
     logger.info(f"Solved for initial phase given Eagle & BAF in {(time.time() - start_time):.2f} seconds.")
-
-    exit(0)
     
     df_gene_snp["phase"] = np.where(
         df_gene_snp.snp_id.isnull(),

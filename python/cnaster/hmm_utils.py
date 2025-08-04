@@ -9,8 +9,8 @@ logger = logging.getLogger(__name__)
 
 
 def get_em_solver_params():
-    """                                                                                                                                                                                                                                                                         
-    Get the parameters for the emission solver.                                                                                                                                                                                                                                 
+    """
+    Get the parameters for the emission solver.
     """
     config = get_global_config()
     solver = config.hmm.solver
@@ -26,6 +26,7 @@ def get_em_solver_params():
             raise ValueError(f"cnaster does not support solver: {solver}")
 
     return {k.replace("em_", ""): float(getattr(config.hmm, f"em_{k}")) for k in kwargs}
+
 
 @njit
 def mylogsumexp(a):

@@ -5,7 +5,11 @@ from numba import njit
 from pysam import samples
 from sklearn.mixture import GaussianMixture
 from cnaster.config import get_global_config
-from cnaster.hmm_emission import Weighted_BetaBinom_mix, Weighted_NegativeBinomial_mix, nloglikeobs_bb
+from cnaster.hmm_emission import (
+    Weighted_BetaBinom_mix,
+    Weighted_NegativeBinomial_mix,
+    nloglikeobs_bb,
+)
 from cnaster.hmm_update import get_em_solver_params
 
 logger = logging.getLogger(__name__)
@@ -13,26 +17,28 @@ logger = logging.getLogger(__name__)
 
 def get_eff_element(t, K, two_sided=True):
     result = -np.log((t * K - 1.0) / (K - 1.0))
-    result = 1./result
-    
+    result = 1.0 / result
+
     if two_sided:
         result *= 2.0
-        
+
     return int(np.ceil(result))
+
 
 @njit
 def interval_mean(arr, N):
     num_groups = arr.shape[0] // N
 
-    # TODO generalize shape definition 
+    # TODO generalize shape definition
     result = np.empty((num_groups, *arr.shape[1:]), dtype=arr.dtype)
-    
+
     for j in range(num_groups):
         start_idx = j * N
         end_idx = start_idx + N
         result[j, ...] = np.mean(arr[start_idx:end_idx, ...], axis=0)
-    
+
     return result
+
 
 def cna_mixture_init(
     n_states,
@@ -43,24 +49,24 @@ def cna_mixture_init(
     hmm_class,
     only_minor=True,
 ):
-    logger.info(
-        f"Initializing HMM emission with CNA Mixture++."
-    )
-    
+    logger.info(f"Initializing HMM emission with CNA Mixture++.")
+
     eff_element = get_eff_element(t, n_states)
     eff_element = 1
-    
-    logger.info(f"Found effective genomic element={eff_element:.3f} for (t,K)=({t},{n_states}) and {X.shape[0]} total genomic elements")
 
-    # NB true of phasing partition and assumed below (currently), i.e. fed by one pseudo-bulk at a time.                                                                                                                                                                                         
+    logger.info(
+        f"Found effective genomic element={eff_element:.3f} for (t,K)=({t},{n_states}) and {X.shape[0]} total genomic elements"
+    )
+
+    # NB true of phasing partition and assumed below (currently), i.e. fed by one pseudo-bulk at a time.
     assert X.shape[-1] == 1
 
-    # TODO HACK                                                                                                                                                                                                                                             
-    start_params = np.array([0.5, 1.])
+    # TODO HACK
+    start_params = np.array([0.5, 1.0])
     settings = get_em_solver_params()
 
-    # NB sample group from data.                                                                                                                                                                                                                            
-    # TODO exclude existing states? rare clash?                                                                                                                                                                                                             
+    # NB sample group from data.
+    # TODO exclude existing states? rare clash?
     group_idx = int(np.floor(np.random.randint(low=0, high=X.shape[0]) // eff_element))
     start_idx = group_idx * eff_element
     end_idx = start_idx + eff_element
@@ -70,30 +76,30 @@ def cna_mixture_init(
 
     while len(states) < n_states:
         # NB fit emission parameters to group
-        endog = X[start_idx: end_idx, 1, :].flatten()
-        exposure = total_bb_RD[start_idx: end_idx, ...].flatten()
-        
+        endog = X[start_idx:end_idx, 1, :].flatten()
+        exposure = total_bb_RD[start_idx:end_idx, ...].flatten()
+
         n_samples = len(endog)
         exog = np.ones((n_samples, 1))
         weights = np.ones(n_samples)
-                
+
         solver = Weighted_BetaBinom_mix(endog, exog, weights, exposure)
         result = solver.fit(start_params=start_params, **settings)
-        
+
         states.append(result.params)
 
         logger.info(f"Solved for {len(states)} states.")
 
-        # NB evaluate data likelihood for current states                                                                                                                                                                                                    
-        endog = X[:,1,:].flatten()
+        # NB evaluate data likelihood for current states
+        endog = X[:, 1, :].flatten()
         exposure = total_bb_RD.flatten()
-	
+
         n_samples = len(endog)
         exog = np.ones((n_samples, 1))
         weights = np.ones(n_samples)
-            
+
         all_group_nlls = []
-        
+
         for state in states:
             nll = nloglikeobs_bb(
                 endog, exog, weights, exposure, state, tumor_prop=None, reduce=False
@@ -105,14 +111,14 @@ def cna_mixture_init(
                 start_idx = group_idx * eff_element
                 end_idx = start_idx + eff_element
 
-                # NB assumes IDD for samples in each eff_element.                                                                                                                                                                                             
+                # NB assumes IDD for samples in each eff_element.
                 group_nlls[group_idx] = np.sum(nll[start_idx:end_idx])
-            
+
             all_group_nlls.append(group_nlls)
 
         all_group_nlls = np.column_stack(all_group_nlls).T
         best_group_nll = np.min(all_group_nlls, axis=0)
-    
+
         best_group_idx = np.argmin(all_group_nlls, axis=0)
 
         print(states)
@@ -124,16 +130,17 @@ def cna_mixture_init(
 
         start_idx = idx * eff_element
         end_idx = start_idx + eff_element
-    
+
     p_binom = np.array([state[0] for state in states])
 
     # TODO
     tau = max([state[1] for state in states])
 
     if only_minor:
-        p_binom = np.where(p_binom > 0.5, 1. - p_binom, p_binom)
+        p_binom = np.where(p_binom > 0.5, 1.0 - p_binom, p_binom)
 
     return None, p_binom
+
 
 def gmm_init(
     n_states,
@@ -250,7 +257,7 @@ def gmm_init(
         gmm_p_binom = gmm.means_[:, X.shape[2] :]
 
         if only_minor:
-            gmm_p_binom = np.where(gmm_p_binom > 0.5, 1. - gmm_p_binom, gmm_p_binom)
+            gmm_p_binom = np.where(gmm_p_binom > 0.5, 1.0 - gmm_p_binom, gmm_p_binom)
 
     elif "m" in params:
         gmm_log_mu = (

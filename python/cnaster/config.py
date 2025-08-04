@@ -22,7 +22,7 @@ def set_global_config(config):
 def get_global_config():
     if _global_config is None:
         logger.warning("cnaster config has not been defined.")
-    
+
     return _global_config
 
 

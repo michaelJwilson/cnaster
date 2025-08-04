@@ -64,6 +64,7 @@ def compute_emissions_nb(
 
     return log_emission_rdr
 
+
 @njit(nogil=True, cache=True, fastmath=False, error_model="numpy", parallel=True)
 def compute_emissions_bb(
     X,
@@ -91,9 +92,7 @@ def compute_emissions_bb(
     return log_emission_baf
 
 
-def compute_emissions(
-    X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus
-):
+def compute_emissions(X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus):
     n_obs, n_spots = base_nb_mean.shape
     n_states = log_mu.shape[0]
 

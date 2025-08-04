@@ -18,6 +18,7 @@ def logsumexp(x):
     x_max = np.max(x)
     return x_max + np.log(np.sum(np.exp(x - x_max)))
 
+
 # TODO validate
 def cast_csr(csr_matrix):
     result = []
@@ -27,7 +28,7 @@ def cast_csr(csr_matrix):
         end_idx = csr_matrix.indptr[i + 1]
 
         row_data = []
-	
+
         for idx in range(start_idx, end_idx):
             col = csr_matrix.indices[idx]
             val = csr_matrix.data[idx]
@@ -36,6 +37,7 @@ def cast_csr(csr_matrix):
         result.append(row_data)
 
     return result
+
 
 # TODO
 # @njit
@@ -53,10 +55,10 @@ def icm_update(
     n_spots, n_clones = single_llf.shape
     w_edge = np.zeros(n_clones)
     niter = 0
-    
+
     while True:
         edits = 0
-        
+
         for i in range(n_spots):
             # NB emission likelihood for all clones for this spot
             w_node = single_llf[i, :].copy()
@@ -73,10 +75,10 @@ def icm_update(
 
             assignment_cost = w_node + spatial_weight * w_edge
             label = np.argmax(assignment_cost)
-            
+
             # logger.info(f"ICM label contention: {assignment_cost} implies {new_assignment[i]} -> {label}")
-                        
-            edits += int(label != new_assignment[i])            
+
+            edits += int(label != new_assignment[i])
             new_assignment[i] = label
 
             # TODO
@@ -87,14 +89,15 @@ def icm_update(
         niter += 1
 
         _, cnts = np.unique(new_assignment, return_counts=True)
-        
+
         logger.info(f"Found ICM edit_rate={edit_rate:.6f} for iteration {niter}.")
         logger.info(f"Found ICM inferred clone proportions: {cnts / n_spots}")
-        
-        if edit_rate < tol: 
+
+        if edit_rate < tol:
             break
 
     return niter
+
 
 def aggr_hmrfmix_reassignment_concatenate(
     single_X,
@@ -186,8 +189,10 @@ def aggr_hmrfmix_reassignment_concatenate(
         # NB compute lambda, i.e. normalized baseline expression, for mixture model
         lambd = np.sum(single_base_nb_mean, axis=1) / np.sum(single_base_nb_mean)
 
-    logger.info(f"Solving for emission likelihood for all clones with {hmmclass.__name__}.")
-        
+    logger.info(
+        f"Solving for emission likelihood for all clones with {hmmclass.__name__} and use_mixture={use_mixture}."
+    )
+
     for i in range(N):
         idx = smooth_mat[i, :].nonzero()[1]
 
@@ -200,7 +205,6 @@ def aggr_hmrfmix_reassignment_concatenate(
             this_pred = pred[(c * n_obs) : (c * n_obs + n_obs)]
 
             if use_mixture:
-                # NB
                 if np.sum(single_base_nb_mean[:, idx] > 0) > 0:
                     mu = np.exp(res["new_log_mu"][(this_pred % n_states), :]) / np.sum(
                         np.exp(res["new_log_mu"][(this_pred % n_states), :]) * lambd
@@ -263,7 +267,7 @@ def aggr_hmrfmix_reassignment_concatenate(
     logger.info(f"Solving for updated clone labels with ICM.")
 
     adj_list = cast_csr(adjacency_mat)
-    
+
     # NB new_assignment and posterior are updated in place.
     niter = icm_update(
         single_llf,
@@ -742,199 +746,6 @@ def merge_by_minspots(
         ]
     )
     return merging_groups, merged_res
-
-
-"""
-def compute_hmrf_assignment_likelihood(
-    single_llf,
-    adjacency_mat,
-    prev_assignment,
-    sample_ids,
-    log_persample_weights,
-    spatial_weight,
-    return_posterior=False,
-):
-    N, n_clones = single_llf.shape
-    new_assignment = copy.copy(prev_assignment)
-    posterior = np.zeros((N, n_clones))
-
-    for i in range(N):
-        # Node potential
-        w_node = single_llf[i, :]
-        w_node += log_persample_weights[:, sample_ids[i]]
-
-        # Edge potential
-        w_edge = np.zeros(n_clones)
-        for j in adjacency_mat[i, :].nonzero()[1]:
-            if new_assignment[j] >= 0:
-                w_edge[new_assignment[j]] += adjacency_mat[i, j]
-
-        # Assignment
-        new_assignment[i] = np.argmax(w_node + spatial_weight * w_edge)
-
-        # Posterior
-        posterior[i, :] = np.exp(
-            w_node
-            + spatial_weight * w_edge
-            - scipy.special.logsumexp(w_node + spatial_weight * w_edge)
-        )
-
-    total_llf = np.sum(single_llf[np.arange(N), new_assignment])
-
-    for i in range(N):
-        total_llf += np.sum(
-            spatial_weight
-            * np.sum(
-                new_assignment[adjacency_mat[i, :].nonzero()[1]] == new_assignment[i]
-            )
-        )
-
-    if return_posterior:
-        return new_assignment, total_llf, posterior
-    else:
-        return new_assignment, total_llf
-
-
-def _compute_likelihood_matrix(
-    single_X,
-    single_base_nb_mean,
-    single_total_bb_RD,
-    res,
-    smooth_mat,
-    pred=None,
-    single_tumor_prop=None,
-    hmmclass=hmm_sitewise,
-    use_posterior=False,
-):
-    n_obs, _, N = single_X.shape
-    n_states = res["new_p_binom"].shape[0]
-    n_clones = res["new_log_mu"].shape[1]
-
-    single_llf = np.zeros((N, n_clones))
-
-    use_mixture = single_tumor_prop is not None
-
-    if use_mixture:
-        lambd = np.sum(single_base_nb_mean, axis=1) / np.sum(single_base_nb_mean)
-
-    for i in range(N):
-        idx = smooth_mat[i, :].nonzero()[1]
-
-        if use_mixture:
-            idx = idx[~np.isnan(single_tumor_prop[idx])]
-
-        for c in range(n_clones):
-            if use_mixture:
-                emission_args = _get_mixture_emission_args(
-                    single_X,
-                    single_base_nb_mean,
-                    single_total_bb_RD,
-                    res,
-                    idx,
-                    c,
-                    single_tumor_prop,
-                    pred,
-                    lambd,
-                    n_obs,
-                    n_states,
-                    use_posterior,
-                )
-                tmp_log_emission_rdr, tmp_log_emission_baf = (
-                    hmmclass.compute_emission_probability_nb_betabinom_mix(
-                        *emission_args
-                    )
-                )
-            else:
-                emission_args = _get_standard_emission_args(
-                    single_X, single_base_nb_mean, single_total_bb_RD, res, idx, c
-                )
-                tmp_log_emission_rdr, tmp_log_emission_baf = (
-                    hmmclass.compute_emission_probability_nb_betabinom(*emission_args)
-                )
-
-            single_llf[i, c] = _compute_spot_likelihood(
-                tmp_log_emission_rdr,
-                tmp_log_emission_baf,
-                single_base_nb_mean,
-                single_total_bb_RD,
-                idx,
-                i,
-                pred,
-                res,
-                c,
-                n_obs,
-                use_posterior,
-            )
-
-    return single_llf
-
-
-def _get_standard_emission_args(
-    single_X, single_base_nb_mean, single_total_bb_RD, res, idx, c
-):
-    return (
-        np.sum(single_X[:, :, idx], axis=2, keepdims=True),
-        np.sum(single_base_nb_mean[:, idx], axis=1, keepdims=True),
-        res["new_log_mu"][:, c : (c + 1)],
-        res["new_alphas"][:, c : (c + 1)],
-        np.sum(single_total_bb_RD[:, idx], axis=1, keepdims=True),
-        res["new_p_binom"][:, c : (c + 1)],
-        res["new_taus"][:, c : (c + 1)],
-    )
-
-
-def _get_mixture_emission_args(
-    single_X,
-    single_base_nb_mean,
-    single_total_bb_RD,
-    res,
-    idx,
-    c,
-    single_tumor_prop,
-    pred,
-    lambd,
-    n_obs,
-    n_states,
-    use_posterior,
-):
-    base_args = _get_standard_emission_args(
-        single_X, single_base_nb_mean, single_total_bb_RD, res, idx, c
-    )
-
-    tumor_prop_arg = np.ones((n_obs, 1)) * np.mean(single_tumor_prop[idx])
-
-    if use_posterior:
-        # Posterior-based mixture
-        if np.sum(single_base_nb_mean) > 0:
-            this_pred_cnv = res["pred_cnv"][:, c]
-            logmu_shift = np.array(
-                scipy.special.logsumexp(
-                    res["new_log_mu"][this_pred_cnv, c] + np.log(lambd), axis=0
-                )
-            )
-            kwargs = {
-                "logmu_shift": logmu_shift.reshape(1, 1),
-                "sample_length": np.array([n_obs]),
-            }
-        else:
-            kwargs = {}
-        return base_args + (tumor_prop_arg,) + tuple(kwargs.values())
-    else:
-        # Point estimate mixture
-        if np.sum(single_base_nb_mean[:, idx] > 0) > 0:
-            mu = np.exp(res["new_log_mu"][(pred % n_states), :]) / np.sum(
-                np.exp(res["new_log_mu"][(pred % n_states), :]) * lambd
-            )
-            weighted_tp = (np.mean(single_tumor_prop[idx]) * mu) / (
-                np.mean(single_tumor_prop[idx]) * mu
-                + 1
-                - np.mean(single_tumor_prop[idx])
-            )
-        else:
-            weighted_tp = np.repeat(np.mean(single_tumor_prop[idx]), n_obs)
-
-        return base_args + (tumor_prop_arg, weighted_tp.reshape(-1, 1))
-"""
 
 
 # NB point={aggr_hmrf_reassignment, aggr_hmrfmix_reassignment};

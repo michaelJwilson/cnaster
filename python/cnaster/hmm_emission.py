@@ -168,7 +168,7 @@ def betabinom_logpmf_zp(endog, exposure):
     return loggamma(exposure + 1) - loggamma(endog + 1) - loggamma(exposure - endog + 1)
 
 
-@njit(nogil=True, cache=True, fastmath=False)
+@njit(nogil=True, cache=True, fastmath=False, error_model="numpy")
 def compute_bb_ab(exog, params, tumor_prop=None):
     p = np.dot(exog, params[:-1])
     tau = params[-1]
@@ -183,7 +183,7 @@ def compute_bb_ab(exog, params, tumor_prop=None):
     return a, b
 
 
-@njit(nogil=True, cache=True, fastmath=True)
+@njit(nogil=True, cache=True, fastmath=False, error_model="numpy")
 def betabinom_logpmf(endog, exposure, a, b, zero_point):
     result_array = np.empty_like(endog, dtype=np.float64)
 
@@ -201,6 +201,7 @@ def betabinom_logpmf(endog, exposure, a, b, zero_point):
             result_array[i] = np.inf
 
     return result_array
+
 
 def nloglikeobs_bb(
     endog,
@@ -227,7 +228,7 @@ def nloglikeobs_bb(
     return result
 
 
-class Weighted_NegativeBinomial_mix():
+class Weighted_NegativeBinomial_mix:
     """
     Negative Binomial model endog ~ NB(exposure * exp(exog @ params[:-1]), params[-1]), where exog is the design matrix, and params[-1] is 1 / overdispersion.
     This function fits the NB params when samples are weighted by weights: max_{params} \sum_{s} weights_s * log P(endog_s | exog_s; params)
@@ -259,7 +260,7 @@ class Weighted_NegativeBinomial_mix():
         **kwargs,
     ):
         exog = exog.copy()
-        
+
         if exog.ndim == 1:
             exog = np.atleast_2d(exog).T
 
@@ -329,15 +330,15 @@ class Weighted_NegativeBinomial_mix():
         n_params = len(params)
         bounds = []
 
-        EPSILON = 1.e-6
+        EPSILON = 1.0e-6
 
         # Bounds for log-space parameters (can be negative)
         for i in range(n_params - 1):
             bounds.append((-10, 10))
-        
+
         # Bound for overdispersion parameter (must be positive)
         bounds.append((EPSILON, 1e6))
-        
+
         return bounds
 
     def fit(
@@ -352,7 +353,9 @@ class Weighted_NegativeBinomial_mix():
                 ms, disp = get_nbinom_start_params(legacy=legacy)
                 start_params = np.array(ms[: self.num_states] + [disp])
 
-        assert self.num_states == (len(start_params) - 1), f"{len(start_params)}, {self.exog.shape}"
+        assert self.num_states == (
+            len(start_params) - 1
+        ), f"{len(start_params)}, {self.exog.shape}"
 
         start_time = time.time()
 
@@ -417,7 +420,7 @@ class Weighted_NegativeBinomial_mix():
         return result
 
 
-class Weighted_BetaBinom_mix():
+class Weighted_BetaBinom_mix:
     """
     Beta-binomial model endog ~ BetaBin(exposure, tau * p, tau * (1 - p)), where p = exog @ params[:-1] and tau = params[-1].
     This function fits the BetaBin params when samples are weighted by weights: max_{params} \sum_{s} weights_s * log P(endog_s | exog_s; params)
@@ -441,10 +444,10 @@ class Weighted_BetaBinom_mix():
         self, endog, exog, weights, exposure, tumor_prop=None, compress=False, **kwargs
     ):
         exog = exog.copy()
-        
+
         if exog.ndim == 1:
             exog = np.atleast_2d(exog).T
-        
+
         # NB EM-based posterior weights.
         self.endog = np.asarray(endog, dtype=np.float64)
         self.exog = np.asarray(exog, dtype=np.float64)
@@ -462,7 +465,7 @@ class Weighted_BetaBinom_mix():
             return
 
         # TODO HACK
-        cls = np.argmax(self.exog, axis=-1)        
+        cls = np.argmax(self.exog, axis=-1)
         counts = np.vstack([self.endog, self.exposure, cls]).T
 
         # TODO HACK decimals
@@ -517,13 +520,13 @@ class Weighted_BetaBinom_mix():
         n_params = len(params)
         bounds = []
 
-        EPSILON = 1.e-6
-        
+        EPSILON = 1.0e-6
+
         for i in range(n_params - 1):
-            bounds.append((EPSILON, 1. - EPSILON))
-        
+            bounds.append((EPSILON, 1.0 - EPSILON))
+
         bounds.append((EPSILON, 1e6))
-        
+
         return bounds
 
     def fit(
@@ -539,8 +542,10 @@ class Weighted_BetaBinom_mix():
                 ps, disp = get_betabinom_start_params(legacy=legacy, exog=self.exog)
                 start_params = np.array(ps[: self.num_states] + [disp])
 
-        assert self.num_states == (len(start_params) - 1), f"{len(start_params)}, {self.exog.shape}"
-                
+        assert self.num_states == (
+            len(start_params) - 1
+        ), f"{len(start_params)}, {self.exog.shape}"
+
         self.zero_point = betabinom_logpmf_zp(self.endog, self.exposure)
 
         start_time = time.time()

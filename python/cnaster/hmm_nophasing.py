@@ -92,7 +92,7 @@ class hmm_nophasing:
                             X[idx_nonzero_baf, 1, s],
                             total_bb_RD[idx_nonzero_baf, s],
                             p_binom[i, s] * taus[i, s],
-                            (1 - p_binom[i, s]) * taus[i, s],
+                            (1. - p_binom[i, s]) * taus[i, s],
                         )
                     )
 

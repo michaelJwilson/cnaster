@@ -39,6 +39,7 @@ hmrf:
   num_hmrf_initialization_start : 0
   num_hmrf_initialization_end : 1
   spatial_weight : 1.0
+  interia : 0
   construct_adjacency_method : hexagon
   construct_adjacency_w : 1.0
 

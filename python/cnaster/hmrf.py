@@ -6,6 +6,7 @@ import scipy.special
 from cnaster.hmm import gmm_init, pipeline_baum_welch
 from cnaster.hmm_sitewise import hmm_sitewise
 from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
+from cnaster.config import get_global_config
 from sklearn.metrics import adjusted_rand_score
 
 logger = logging.getLogger(__name__)
@@ -21,8 +22,8 @@ def aggr_hmrfmix_reassignment_concatenate(
     adjacency_mat,
     prev_assignment,
     sample_ids,
-    log_persample_weights,
     spatial_weight,
+    log_persample_weights=None,
     single_tumor_prop=None,
     hmmclass=hmm_sitewise,
     return_posterior=False,
@@ -173,15 +174,17 @@ def aggr_hmrfmix_reassignment_concatenate(
                     tmp_log_emission_rdr[this_pred, np.arange(n_obs), 0]
                 ) + np.sum(tmp_log_emission_baf[this_pred, np.arange(n_obs), 0])
 
+    # TODO
+    for i in range(N):
         # NB emission likelihood for all clones for this spot.
         w_node = single_llf[i, :]
 
-        # TODO
-        w_node += log_persample_weights[:, sample_ids[i]]
+        if log_persample_weights is not None:
+            w_node += log_persample_weights[:, sample_ids[i]]
 
+        # NB edge costs accumulated across n clones [spatial_weight].
         w_edge = np.zeros(n_clones)
 
-        # NB [spatial_weight]
         for j in adjacency_mat[i, :].nonzero()[1]:
             w_edge[new_assignment[j]] += adjacency_mat[i, j]
 
@@ -193,7 +196,7 @@ def aggr_hmrfmix_reassignment_concatenate(
             assignment_cost - scipy.special.logsumexp(assignment_cost)
         )
 
-    # NB compute total log likelihood (common logic)
+    # NB compute total ln likelihood.
     total_llf = np.sum(single_llf[np.arange(N), new_assignment])
 
     for i in range(N):
@@ -346,7 +349,8 @@ def hmrfmix_concatenate_pipeline(
         last_assignment[idx] = c
 
     # NB inertia to spot clone change.
-    log_persample_weights = np.ones((n_clones, n_samples)) * (-np.log(n_clones))
+    intertia = bool(get_global_config().hmrf.inertia)
+    log_persample_weights = np.ones((n_clones, n_samples)) * (-np.log(n_clones)) if inertia else None
 
     res = {}
 
@@ -405,8 +409,8 @@ def hmrfmix_concatenate_pipeline(
             adjacency_mat,
             last_assignment,
             sample_ids,
-            log_persample_weights,
             spatial_weight=spatial_weight,
+            log_persample_weights=log_persample_weights,
             single_tumor_prop=single_tumor_prop,
             hmmclass=hmmclass,
         )
@@ -488,22 +492,23 @@ def hmrfmix_concatenate_pipeline(
         last_assignment = res["new_assignment"]
 
         # NB X.shape[2] is the current inferred number of clones.
-        log_persample_weights = np.ones((X.shape[2], n_samples)) * (-np.log(X.shape[2]))
+        if inertia:
+            log_persample_weights = np.ones((X.shape[2], n_samples)) * (-np.log(X.shape[2]))
 
-        for sidx in range(n_samples):
-            index = np.where(sample_ids == sidx)[0]
+            for sidx in range(n_samples):
+                index = np.where(sample_ids == sidx)[0]
 
-            this_persample_weight = np.bincount(
-                res["new_assignment"][index], minlength=X.shape[2]
-            ) / len(index)
+                this_persample_weight = np.bincount(
+                    res["new_assignment"][index], minlength=X.shape[2]
+                ) / len(index)
+                
+                log_persample_weights[:, sidx] = np.where(
+                    this_persample_weight > 0, np.log(this_persample_weight), -50
+                )
 
-            log_persample_weights[:, sidx] = np.where(
-                this_persample_weight > 0, np.log(this_persample_weight), -50
-            )
-
-            log_persample_weights[:, sidx] = log_persample_weights[
-                :, sidx
-            ] - scipy.special.logsumexp(log_persample_weights[:, sidx])
+                log_persample_weights[:, sidx] = log_persample_weights[
+                    :, sidx
+                ] - scipy.special.logsumexp(log_persample_weights[:, sidx])
 
     return res
 

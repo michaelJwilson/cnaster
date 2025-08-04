@@ -1,0 +1,3 @@
+- Deprecate statsmodels from m-step.
+- Release GIL from emission and thread across start params
+- 

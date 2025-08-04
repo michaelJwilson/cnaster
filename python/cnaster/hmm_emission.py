@@ -168,11 +168,8 @@ def betabinom_logpmf_zp(endog, exposure):
     return loggamma(exposure + 1) - loggamma(endog + 1) - loggamma(exposure - endog + 1)
 
 
-@njit(nogil=True, cache=True, fastmath=True)
+@njit(nogil=True, cache=True, fastmath=False)
 def compute_bb_ab(exog, params, tumor_prop=None):
-    """
-    Numba-compiled parameter computation that releases GIL
-    """
     p = np.dot(exog, params[:-1])
     tau = params[-1]
 
@@ -188,9 +185,6 @@ def compute_bb_ab(exog, params, tumor_prop=None):
 
 @njit(nogil=True, cache=True, fastmath=True)
 def betabinom_logpmf(endog, exposure, a, b, zero_point):
-    """
-    Numba-compiled betabinom logpmf computation that releases GIL
-    """
     result_array = np.empty_like(endog, dtype=np.float64)
 
     for i in range(len(endog)):

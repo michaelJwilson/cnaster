@@ -291,8 +291,6 @@ def run_cnaster(config_path):
         tumorprop_threshold=config.hmrf.tumorprop_threshold,
     )
 
-    exit(0)
-
     # TODO HACK
     n_obs = single_X.shape[0]
 

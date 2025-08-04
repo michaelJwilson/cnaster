@@ -257,7 +257,7 @@ def run_cnaster(config_path):
     initial_clone_index = rectangle_initialize_initial_clone(
         coords, config.hmrf.n_clones, random_state=0
     )
-
+    
     logger.info("Solving HMM+HMRF for copy state and clones.")
     
     res = hmrfmix_concatenate_pipeline(
@@ -290,6 +290,8 @@ def run_cnaster(config_path):
         spatial_weight=config.hmrf.spatial_weight,
         tumorprop_threshold=config.hmrf.tumorprop_threshold,
     )
+
+    exit(0)
 
     # TODO HACK
     n_obs = single_X.shape[0]

@@ -33,11 +33,11 @@ def cast_csr(csr_matrix):
             val = csr_matrix.data[idx]
             row_data.append((col, val))
 
-        result.append(np.array(row_data))
+        result.append(row_data)
 
     return result
 
-@njit
+# @njit
 def icm_update(
     single_llf,
     adjacency_list,
@@ -51,9 +51,6 @@ def icm_update(
     # NB guranteed to converge.
     n_spots, n_clones = single_llf.shape
     w_edge = np.zeros(n_clones)
-
-    logger.info(f"Solving for updated clone labels with ICM.")
-
     niter = 0
     
     while True:
@@ -61,7 +58,7 @@ def icm_update(
         
         for i in range(n_spots):
             # NB emission likelihood for all clones for this spot
-            w_node = single_llf[i, :]
+            w_node = single_llf[i, :].copy()
 
             if log_persample_weights is not None:
                 w_node += log_persample_weights[:, sample_ids[i]]
@@ -74,10 +71,11 @@ def icm_update(
                 w_edge[new_assignment[j]] += value
 
             assignment_cost = w_node + spatial_weight * w_edge
-
             label = np.argmax(assignment_cost)
-
-            edit += int(label == new_assignment[i])            
+            
+            logger.info(f"ICM label contention: {assignment_cost} implies {new_assignment[i]} -> {label}")
+                        
+            edits += int(label != new_assignment[i])            
             new_assignment[i] = label
 
             # TODO
@@ -86,13 +84,16 @@ def icm_update(
 
         edit_rate = edits / n_spots
         niter += 1
+
+        _, cnts = np.unique(new_assignment, return_counts=True)
+        
+        logger.info(f"Found ICM edit_rate={edit_rate:.6f} for iteration {niter}.")
+        logger.info(f"Found ICM inferred clone proportions: {cnts / n_spots}")
         
         if edit_rate < tol: 
             break
 
-    logger.info(f"Solved for updated clone labels in {niter} with ICM.")
-        
-    return new_assignment, posterior
+    return niter
 
 def aggr_hmrfmix_reassignment_concatenate(
     single_X,
@@ -184,6 +185,8 @@ def aggr_hmrfmix_reassignment_concatenate(
         # NB compute lambda, i.e. normalized baseline expression, for mixture model
         lambd = np.sum(single_base_nb_mean, axis=1) / np.sum(single_base_nb_mean)
 
+    logger.info(f"Solving for emission likelihood for all clones with {hmmclass}.")
+        
     for i in range(N):
         idx = smooth_mat[i, :].nonzero()[1]
 
@@ -256,6 +259,27 @@ def aggr_hmrfmix_reassignment_concatenate(
                     tmp_log_emission_rdr[this_pred, np.arange(n_obs), 0]
                 ) + np.sum(tmp_log_emission_baf[this_pred, np.arange(n_obs), 0])
 
+    logger.info(f"Solving for updated clone labels with ICM.")
+
+    adj_list = cast_csr(adjacency_mat)
+
+    for i in range(10):
+        print(adj_list[i])
+    
+    # NB new_assignment and posterior are updated in place.
+    niter = icm_update(
+        single_llf,
+        adj_list,
+        new_assignment,
+        spatial_weight,
+        posterior,
+        tol=0.1,
+        log_persample_weights=log_persample_weights,
+        sample_ids=sample_ids,
+    )
+
+    logger.info(f"Solved for updated clone labels in {niter} ICM iterations.")
+    """
     # TODO
     for i in range(N):
         # NB emission likelihood for all clones for this spot.
@@ -277,7 +301,7 @@ def aggr_hmrfmix_reassignment_concatenate(
         posterior[i, :] = np.exp(
             assignment_cost - scipy.special.logsumexp(assignment_cost)
         )
-
+    """
     # NB compute total ln likelihood.
     total_llf = np.sum(single_llf[np.arange(N), new_assignment])
 
@@ -431,10 +455,12 @@ def hmrfmix_concatenate_pipeline(
         last_assignment[idx] = c
 
     # NB inertia to spot clone change.
-    intertia = bool(get_global_config().hmrf.inertia)
+    inertia = bool(get_global_config().hmrf.inertia)
     log_persample_weights = (
         np.ones((n_clones, n_samples)) * (-np.log(n_clones)) if inertia else None
     )
+
+    logger.info(f"Assuming hmrf inertia={inertia}")
 
     res = {}
 

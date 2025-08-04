@@ -25,7 +25,8 @@ phasing:
   logphase_shift : -2.0
   npart_phasing : 1
 
-# TODO HACK max_iter_outer : 20 -> 
+# TODO HACK max_iter_outer : 20 ->
+#           spatial_weight : 1.0 ->
 hmrf:
   n_clones : 3
   n_clones_rdr : 2
@@ -39,7 +40,7 @@ hmrf:
   num_hmrf_initialization_start : 0
   num_hmrf_initialization_end : 1
   spatial_weight : 1.0
-  interia : 0
+  inertia : 0
   construct_adjacency_method : hexagon
   construct_adjacency_w : 1.0
 

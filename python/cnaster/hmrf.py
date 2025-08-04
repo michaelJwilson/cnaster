@@ -186,7 +186,7 @@ def aggr_hmrfmix_reassignment_concatenate(
         # NB compute lambda, i.e. normalized baseline expression, for mixture model
         lambd = np.sum(single_base_nb_mean, axis=1) / np.sum(single_base_nb_mean)
 
-    logger.info(f"Solving for emission likelihood for all clones with {hmmclass.__name__}.")
+    logger.info(f"Solving for emission likelihood for all clones with {hmmclass.__name__} and use_mixture={use_mixture}.")
         
     for i in range(N):
         idx = smooth_mat[i, :].nonzero()[1]

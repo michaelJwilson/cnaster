@@ -152,6 +152,8 @@ def initial_phase_given_partition(
 
     refined_lengths = np.array(refined_lengths)
 
-    logger.info(f"Solved for {len(refined_lengths)} phase-refined lengths given {len(lengths)} input lengths.")
-    
+    logger.info(
+        f"Solved for {len(refined_lengths)} phase-refined lengths given {len(lengths)} input lengths."
+    )
+
     return phase_indicator, refined_lengths

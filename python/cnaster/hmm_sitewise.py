@@ -564,18 +564,18 @@ class hmm_sitewise:
 
             logger.debug(f"Parameters: {np.hstack([new_log_mu, new_p_binom])}")
 
-            transmat_converged = np.mean(np.abs(np.exp(new_log_transmat) - np.exp(log_transmat))) < tol
+            transmat_converged = (
+                np.mean(np.abs(np.exp(new_log_transmat) - np.exp(log_transmat))) < tol
+            )
             log_mu_converged = np.mean(np.abs(new_log_mu - log_mu)) < tol
             p_binom_converged = np.mean(np.abs(new_p_binom - p_binom)) < tol
-            
-            if (
-                transmat_converged
-                and log_mu_converged
-                and p_binom_converged
-            ):
+
+            if transmat_converged and log_mu_converged and p_binom_converged:
                 break
             else:
-                logger.info(f"Convergence of T, mu and p: {transmat_converged},{log_mu_converged},{p_binom_converged}")
+                logger.info(
+                    f"Convergence of T, mu and p: {transmat_converged},{log_mu_converged},{p_binom_converged}"
+                )
 
             log_startprob = new_log_startprob
             log_transmat = new_log_transmat

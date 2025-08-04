@@ -194,7 +194,7 @@ def normal_baf_bin_filter(
 
     # LEGACY
     settings = get_em_solver_params()
-        
+
     tmpres = model.fit(**settings)
     tmpres.params[0] = 0.5
     tmpres.params[-1] = max(tmpres.params[-1], min_betabinom_tau)

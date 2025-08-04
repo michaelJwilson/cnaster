@@ -56,7 +56,7 @@ def pipeline_baum_welch(
             hmmclass,
         )
         """
-        
+
         tmp_log_mu, tmp_p_binom = gmm_init(
             n_states,
             X,

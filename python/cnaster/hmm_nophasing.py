@@ -59,7 +59,7 @@ class hmm_nophasing:
         tumor_prop,
         **kwargs,
     ):
-        n_obs, n_comp, n_spots = X.shape
+        n_obs, _, n_spots = X.shape
         n_states = log_mu.shape[0]
 
         log_emission_rdr = np.zeros((n_states, n_obs, n_spots))

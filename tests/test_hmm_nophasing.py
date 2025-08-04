@@ -183,28 +183,19 @@ class TestEquivalence:
 
         
 class TestBenchmarks:
-    def test_data_benchmark(self, test_data, benchmark):
-        def run_numba():
-            return compute_emissions_efficient(*test_data)
-
-        result = benchmark(run_numba)
-
     def test_performance_comparison(self, test_data):
         base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus, X = test_data
 
-        # Warmup numba
         compute_emissions_efficient(
             base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus, X
         )
 
-        # Time original implementation
         start_time = time.time()
         rdr_orig, baf_orig = compute_emissions_original(
             base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus, X
         )
         original_time = time.time() - start_time
 
-        # Time numba implementation
         start_time = time.time()
         rdr_numba, baf_numba = compute_emissions_efficient(
             base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus, X
@@ -212,6 +203,7 @@ class TestBenchmarks:
         numba_time = time.time() - start_time
 
         speedup = original_time / numba_time
+        
         print(f"\nPerformance comparison:")
         print(f"Original implementation: {original_time:.4f}s")
         print(f"Numba implementation: {numba_time:.4f}s")

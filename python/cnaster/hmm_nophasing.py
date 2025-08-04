@@ -19,6 +19,7 @@ from cnaster.hmm_utils import (
     np_sum_ax_squeeze,
 )
 from cnaster.deprecated.hmm_nophasing import compute_emission_probability_nb_betabinom
+from cnaster.hmm_emission_eval import compute_emissions
 from numba import njit
 
 """

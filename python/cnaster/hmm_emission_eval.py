@@ -38,10 +38,10 @@ def betabinom_logpmf_numba(k, n, alpha, beta):
 
 @njit(nogil=True, cache=True, fastmath=False, error_model="numpy", parallel=True)
 def compute_emissions_nb(
+    X,
     base_nb_mean,
     log_mu,
     alphas,
-    X,
     n_states,
     n_obs,
     n_spots,
@@ -66,10 +66,10 @@ def compute_emissions_nb(
 
 @njit(nogil=True, cache=True, fastmath=False, error_model="numpy", parallel=True)
 def compute_emissions_bb(
+    X,
     total_bb_RD,
     p_binom,
     taus,
-    X,
     n_states,
     n_obs,
     n_spots,
@@ -92,7 +92,7 @@ def compute_emissions_bb(
 
 
 def compute_emissions(
-    base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus, X
+    X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus
 ):
     n_obs, n_spots = base_nb_mean.shape
     n_states = log_mu.shape[0]
@@ -106,19 +106,19 @@ def compute_emissions(
     X = np.ascontiguousarray(X, dtype=np.int32)
 
     log_emission_rdr = compute_emissions_nb(
+        X,
         base_nb_mean,
         log_mu,
         alphas,
-        X,
         n_states,
         n_obs,
         n_spots,
     )
     log_emission_baf = compute_emissions_bb(
+        X,
         total_bb_RD,
         p_binom,
         taus,
-        X,
         n_states,
         n_obs,
         n_spots,

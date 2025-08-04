@@ -128,7 +128,7 @@ class TestEquivalence:
         )
 
         rdr_numba, baf_numba = compute_emissions(
-            base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus, X
+            X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus
         )
 
         # Handle -inf values separately
@@ -174,7 +174,7 @@ class TestEquivalence:
         )
 
         rdr_numba, baf_numba = compute_emissions(
-            base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus, X
+            X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus
         )
 
         np.testing.assert_allclose(rdr_orig, rdr_numba, rtol=1e-10, atol=1e-10)
@@ -205,18 +205,18 @@ class TestBenchmarks:
 
         # Warm up numba compilation
         compute_emissions(
-            base_nb_mean[:10], log_mu, alphas, total_bb_RD[:10], p_binom, taus, X[:10]
+            X[:10], base_nb_mean[:10], log_mu, alphas, total_bb_RD[:10], p_binom, taus
         )
 
         result = benchmark(
             compute_emissions,
+            X,
             base_nb_mean,
             log_mu,
             alphas,
             total_bb_RD,
             p_binom,
             taus,
-            X,
         )
 
         assert len(result) == 2
@@ -229,18 +229,18 @@ class TestBenchmarks:
 
         # Warm up numba compilation
         compute_emissions(
-            base_nb_mean[:10], log_mu, alphas, total_bb_RD[:10], p_binom, taus, X[:10]
+            X[:10], base_nb_mean[:10], log_mu, alphas, total_bb_RD[:10], p_binom, taus
         )
 
         result = benchmark(
             compute_emissions,
+            X,
             base_nb_mean,
             log_mu,
             alphas,
             total_bb_RD,
             p_binom,
             taus,
-            X,
         )
 
         assert len(result) == 2

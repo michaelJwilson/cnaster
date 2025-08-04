@@ -37,6 +37,7 @@ def cast_csr(csr_matrix):
 
     return result
 
+# TODO
 # @njit
 def icm_update(
     single_llf,
@@ -44,7 +45,7 @@ def icm_update(
     new_assignment,
     spatial_weight,
     posterior,
-    tol=0.1,
+    tol=0.01,
     log_persample_weights=None,
     sample_ids=None,
 ):
@@ -73,7 +74,7 @@ def icm_update(
             assignment_cost = w_node + spatial_weight * w_edge
             label = np.argmax(assignment_cost)
             
-            logger.info(f"ICM label contention: {assignment_cost} implies {new_assignment[i]} -> {label}")
+            # logger.info(f"ICM label contention: {assignment_cost} implies {new_assignment[i]} -> {label}")
                         
             edits += int(label != new_assignment[i])            
             new_assignment[i] = label
@@ -262,9 +263,6 @@ def aggr_hmrfmix_reassignment_concatenate(
     logger.info(f"Solving for updated clone labels with ICM.")
 
     adj_list = cast_csr(adjacency_mat)
-
-    for i in range(10):
-        print(adj_list[i])
     
     # NB new_assignment and posterior are updated in place.
     niter = icm_update(
@@ -279,29 +277,7 @@ def aggr_hmrfmix_reassignment_concatenate(
     )
 
     logger.info(f"Solved for updated clone labels in {niter} ICM iterations.")
-    """
-    # TODO
-    for i in range(N):
-        # NB emission likelihood for all clones for this spot.
-        w_node = single_llf[i, :]
 
-        if log_persample_weights is not None:
-            w_node += log_persample_weights[:, sample_ids[i]]
-
-        # NB edge costs accumulated across n clones [spatial_weight].
-        w_edge = np.zeros(n_clones)
-
-        for j in adjacency_mat[i, :].nonzero()[1]:
-            w_edge[new_assignment[j]] += adjacency_mat[i, j]
-
-        assignment_cost = w_node + spatial_weight * w_edge
-        new_assignment[i] = np.argmax(assignment_cost)
-
-        # NB compute posterior probabilities
-        posterior[i, :] = np.exp(
-            assignment_cost - scipy.special.logsumexp(assignment_cost)
-        )
-    """
     # NB compute total ln likelihood.
     total_llf = np.sum(single_llf[np.arange(N), new_assignment])
 

@@ -37,35 +37,6 @@ class hmm_nophasing:
     def compute_emission_probability_nb_betabinom(
         X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus
     ):
-        """
-        Attributes
-        ----------
-        X : array, shape (n_observations, n_components, n_spots)
-            Observed expression UMI count and allele frequency UMI count.
-
-        base_nb_mean : array, shape (n_observations, n_spots)
-            Mean expression under diploid state.
-
-        log_mu : array, shape (n_states, n_spots)
-            Log of read depth change due to CNV. Mean of NB distributions in HMM per state per spot.
-
-        alphas : array, shape (n_states, n_spots)
-            Over-dispersion of NB distributions in HMM per state per spot.
-
-        total_bb_RD : array, shape (n_observations, n_spots)
-            SNP-covering reads for both REF and ALT across genes along genome.
-
-        p_binom : array, shape (n_states, n_spots)
-            BAF due to CNV. Mean of Beta Binomial distribution in HMM per state per spot.
-
-        taus : array, shape (n_states, n_spots)
-            Over-dispersion of Beta Binomial distribution in HMM per state per spot.
-
-        Returns
-        ----------
-        log_emission : array, shape (n_states, n_obs, n_spots)
-            Log emission probability for each gene each spot (or sample) under each state. There is a common bag of states across all spots.
-        """
         n_obs, n_comp, n_spots = X.shape
         n_states = log_mu.shape[0]
 
@@ -110,38 +81,7 @@ class hmm_nophasing:
         tumor_prop,
         **kwargs,
     ):
-        """
-        Attributes
-        ----------
-        X : array, shape (n_observations, n_components, n_spots)
-            Observed expression UMI count and allele frequency UMI count.
-
-        base_nb_mean : array, shape (n_observations, n_spots)
-            Mean expression under diploid state.
-
-        log_mu : array, shape (n_states, n_spots)
-            Log of read depth change due to CNV. Mean of NB distributions in HMM per state per spot.
-
-        alphas : array, shape (n_states, n_spots)
-            Over-dispersion of NB distributions in HMM per state per spot.
-
-        total_bb_RD : array, shape (n_observations, n_spots)
-            SNP-covering reads for both REF and ALT across genes along genome.
-
-        p_binom : array, shape (n_states, n_spots)
-            BAF due to CNV. Mean of Beta Binomial distribution in HMM per state per spot.
-
-        taus : array, shape (n_states, n_spots)
-            Over-dispersion of Beta Binomial distribution in HMM per state per spot.
-
-        Returns
-        ----------
-        log_emission : array, shape (n_states, n_obs, n_spots)
-            Log emission probability for each gene each spot (or sample) under each state. There is a common bag of states across all spots.
-        """
-        n_obs = X.shape[0]
-        n_comp = X.shape[1]
-        n_spots = X.shape[2]
+        n_obs, n_comp, n_spots = X.shape
         n_states = log_mu.shape[0]
 
         log_emission_rdr = np.zeros((n_states, n_obs, n_spots))

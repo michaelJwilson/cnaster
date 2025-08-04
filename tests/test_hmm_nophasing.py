@@ -4,7 +4,6 @@ import scipy.stats
 from math import lgamma, log, exp, sqrt
 import time
 import numba
-import concurrent.futures
 from numba import njit
 from cnaster.hmm_utils import convert_params
 from cnaster.deprecated.hmm_nophasing import compute_emission_probability_nb_betabinom
@@ -111,34 +110,24 @@ def compute_emissions_efficient(
     taus = np.ascontiguousarray(taus, dtype=np.float64)
     X = np.ascontiguousarray(X, dtype=np.int32)
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-        # Submit NB computation
-        future_nb = executor.submit(
-            compute_emissions_nb,
-            base_nb_mean,
-            log_mu,
-            alphas,
-            X,
-            n_states,
-            n_obs,
-            n_spots,
-        )
-        
-        # Submit BB computation
-        future_bb = executor.submit(
-            compute_emissions_bb,
-            total_bb_RD,
-            p_binom,
-            taus,
-            X,
-            n_states,
-            n_obs,
-            n_spots,
-        )
-        
-        # Wait for both computations to complete
-        log_emission_rdr = future_nb.result()
-        log_emission_baf = future_bb.result()
+    log_emission_rdr = compute_emissions_nb(
+        base_nb_mean,
+        log_mu,
+        alphas,
+        X,
+        n_states,
+        n_obs,
+        n_spots,
+    )
+    log_emission_baf = compute_emissions_bb(
+        total_bb_RD,
+        p_binom,
+        taus,
+        X,
+        n_states,
+        n_obs,
+        n_spots,
+    )
 
     return log_emission_rdr, log_emission_baf
 

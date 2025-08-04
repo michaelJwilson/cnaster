@@ -487,6 +487,7 @@ def hmrfmix_concatenate_pipeline(
         last_taus = res["new_taus"]
         last_assignment = res["new_assignment"]
 
+        # NB X.shape[2] is the current inferred number of clones.
         log_persample_weights = np.ones((X.shape[2], n_samples)) * (-np.log(X.shape[2]))
 
         for sidx in range(n_samples):

@@ -4,12 +4,13 @@ import scipy.stats
 from math import lgamma, log, exp, sqrt
 import time
 import numba
+import concurrent.futures
 from numba import njit
 from cnaster.hmm_utils import convert_params
 from cnaster.deprecated.hmm_nophasing import compute_emission_probability_nb_betabinom
 
 
-@njit
+@njit(nogil=True, cache=True, fastmath=False, error_model="numpy")
 def convert_params_numba(mean, std):
     var = std * std
     p = mean / var
@@ -17,7 +18,7 @@ def convert_params_numba(mean, std):
     return n, p
 
 
-@njit
+@njit(nogil=True, cache=True, fastmath=False, error_model="numpy")
 def nbinom_logpmf_numba(k, r, p):
     if p <= 0.0 or p >= 1.0 or r <= 0.0:
         return 0.0
@@ -29,7 +30,7 @@ def nbinom_logpmf_numba(k, r, p):
     return log_coeff + r * log(p) + k * log(1.0 - p)
 
 
-@njit
+@njit(nogil=True, cache=True, fastmath=False, error_model="numpy")
 def betabinom_logpmf_numba(k, n, alpha, beta):
     if alpha <= 0.0 or beta <= 0.0 or n < 0 or k < 0 or k > n:
         return 0.0
@@ -41,14 +42,11 @@ def betabinom_logpmf_numba(k, n, alpha, beta):
     return log_binom_coeff + log_beta_num - log_beta_denom
 
 
-@njit(parallel=True)
-def compute_emissions_numba(
+@njit(nogil=True, cache=True, fastmath=False, error_model="numpy", parallel=True)
+def compute_emissions_nb(
     base_nb_mean,
     log_mu,
     alphas,
-    total_bb_RD,
-    p_binom,
-    taus,
     X,
     n_states,
     n_obs,
@@ -56,11 +54,10 @@ def compute_emissions_numba(
 ):
     # TODO zeros? -np.inf
     log_emission_rdr = np.full((n_states, n_obs, n_spots), 0.0)
-    log_emission_baf = np.full((n_states, n_obs, n_spots), 0.0)
 
     for i in numba.prange(n_states):
-        for s in range(n_spots):
-            for obs in range(n_obs):
+        for obs in range(n_obs):
+            for s in range(n_spots):
                 if base_nb_mean[obs, s] > 0:
                     nb_mean = base_nb_mean[obs, s] * exp(log_mu[i, s])
                     nb_var = nb_mean + alphas[i, s] * nb_mean * nb_mean
@@ -71,7 +68,24 @@ def compute_emissions_numba(
                         X[obs, 0, s], n, p
                     )
 
-            for obs in range(n_obs):
+    return log_emission_rdr
+
+@njit(nogil=True, cache=True, fastmath=False, error_model="numpy", parallel=True)
+def compute_emissions_bb(
+    total_bb_RD,
+    p_binom,
+    taus,
+    X,
+    n_states,
+    n_obs,
+    n_spots,
+):
+    # TODO zeros? -np.inf
+    log_emission_baf = np.full((n_states, n_obs, n_spots), 0.0)
+
+    for i in numba.prange(n_states):
+        for obs in range(n_obs):
+            for s in range(n_spots):
                 if total_bb_RD[obs, s] > 0:
                     alpha = p_binom[i, s] * taus[i, s]
                     beta = (1.0 - p_binom[i, s]) * taus[i, s]
@@ -80,7 +94,7 @@ def compute_emissions_numba(
                         X[obs, 1, s], total_bb_RD[obs, s], alpha, beta
                     )
 
-    return log_emission_rdr, log_emission_baf
+    return log_emission_baf
 
 
 def compute_emissions_efficient(
@@ -97,18 +111,36 @@ def compute_emissions_efficient(
     taus = np.ascontiguousarray(taus, dtype=np.float64)
     X = np.ascontiguousarray(X, dtype=np.int32)
 
-    return compute_emissions_numba(
-        base_nb_mean,
-        log_mu,
-        alphas,
-        total_bb_RD,
-        p_binom,
-        taus,
-        X,
-        n_states,
-        n_obs,
-        n_spots,
-    )
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+        # Submit NB computation
+        future_nb = executor.submit(
+            compute_emissions_nb,
+            base_nb_mean,
+            log_mu,
+            alphas,
+            X,
+            n_states,
+            n_obs,
+            n_spots,
+        )
+        
+        # Submit BB computation
+        future_bb = executor.submit(
+            compute_emissions_bb,
+            total_bb_RD,
+            p_binom,
+            taus,
+            X,
+            n_states,
+            n_obs,
+            n_spots,
+        )
+        
+        # Wait for both computations to complete
+        log_emission_rdr = future_nb.result()
+        log_emission_baf = future_bb.result()
+
+    return log_emission_rdr, log_emission_baf
 
 
 @pytest.fixture

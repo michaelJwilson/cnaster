@@ -100,7 +100,7 @@ def icm_update(
     return niter
 
 
-@njit(cache=True)
+# @njit(cache=True)
 def pool_hmrf_data(
     single_X,
     single_base_nb_mean,
@@ -347,7 +347,7 @@ def aggr_hmrfmix_reassignment_concatenate(
     )
 
     smooth_adj = cast_csr(smooth_mat)
-
+    """
     pooled_X, pooled_base_nb_mean, pooled_total_bb_RD, weighted_tp, mean_tumor_prop = (
         pool_hmrf_data(
             single_X,
@@ -374,8 +374,7 @@ def aggr_hmrfmix_reassignment_concatenate(
             res["new_taus"],
         )
     )
-
-    exit(0)
+    """
 
     for i in range(N):
         # NB neighbor spots pooled with i.
@@ -386,9 +385,9 @@ def aggr_hmrfmix_reassignment_concatenate(
             idx = idx[~np.isnan(single_tumor_prop[idx])]
 
         # TODO pooled_X updated for the aggregate per spot.
-        # pooled_X = np.sum(single_X[:, :, idx], axis=2, keepdims=True)
-        # pooled_base_nb_mean = np.sum(single_base_nb_mean[:, idx], axis=1, keepdims=True)
-        # pooled_total_bb_RD = np.sum(single_total_bb_RD[:, idx], axis=1, keepdims=True)
+        pooled_X = np.sum(single_X[:, :, idx], axis=2, keepdims=True)
+        pooled_base_nb_mean = np.sum(single_base_nb_mean[:, idx], axis=1, keepdims=True)
+        pooled_total_bb_RD = np.sum(single_total_bb_RD[:, idx], axis=1, keepdims=True)
 
         for c in range(n_clones):
             # NB decoded copy number state for each genomic bin for this clone.

@@ -83,6 +83,8 @@ def aggr_hmrfmix_reassignment_concatenate(
         Posterior probabilities if return_posterior=True.
     """
     n_obs, _, N = single_X.shape
+
+    # NB pred is the argmax posterior by genome, concatenated by clones.
     n_clones = int(len(pred) / n_obs)
     n_states = res["new_p_binom"].shape[0]
 
@@ -107,11 +109,11 @@ def aggr_hmrfmix_reassignment_concatenate(
             idx = idx[~np.isnan(single_tumor_prop[idx])]
 
         for c in range(n_clones):
-            # NB copy number state for each genomic bin for this clone.
+            # NB decoded copy number state for each genomic bin for this clone.
             this_pred = pred[(c * n_obs) : (c * n_obs + n_obs)]
 
             if use_mixture:
-                # NB compute weighted tumor proportion for mixture model
+                # NB
                 if np.sum(single_base_nb_mean[:, idx] > 0) > 0:
                     mu = np.exp(res["new_log_mu"][(this_pred % n_states), :]) / np.sum(
                         np.exp(res["new_log_mu"][(this_pred % n_states), :]) * lambd
@@ -127,7 +129,7 @@ def aggr_hmrfmix_reassignment_concatenate(
                         np.mean(single_tumor_prop[idx]), single_X.shape[0]
                     )
 
-                # NB compute emission probabilities, 
+                # NB compute emission probabilities,
                 tmp_log_emission_rdr, tmp_log_emission_baf = (
                     hmmclass.compute_emission_probability_nb_betabinom_mix(
                         np.sum(single_X[:, :, idx], axis=2, keepdims=True),
@@ -142,7 +144,6 @@ def aggr_hmrfmix_reassignment_concatenate(
                     )
                 )
             else:
-                # Compute emission probabilities for standard model
                 tmp_log_emission_rdr, tmp_log_emission_baf = (
                     hmmclass.compute_emission_probability_nb_betabinom(
                         np.sum(single_X[:, :, idx], axis=2, keepdims=True),
@@ -172,25 +173,27 @@ def aggr_hmrfmix_reassignment_concatenate(
                     tmp_log_emission_rdr[this_pred, np.arange(n_obs), 0]
                 ) + np.sum(tmp_log_emission_baf[this_pred, np.arange(n_obs), 0])
 
-        # NB compute node and edge weights (common logic)
+        # NB emission likelihood for all clones for this spot.
         w_node = single_llf[i, :]
+
+        # TODO
         w_node += log_persample_weights[:, sample_ids[i]]
 
         w_edge = np.zeros(n_clones)
-        
+
+        # NB [spatial_weight]
         for j in adjacency_mat[i, :].nonzero()[1]:
             w_edge[new_assignment[j]] += adjacency_mat[i, j]
 
-        new_assignment[i] = np.argmax(w_node + spatial_weight * w_edge)
+        assignment_cost = w_node + spatial_weight * w_edge
+        new_assignment[i] = np.argmax(assignment_cost)
 
         # NB compute posterior probabilities
         posterior[i, :] = np.exp(
-            w_node
-            + spatial_weight * w_edge
-            - scipy.special.logsumexp(w_node + spatial_weight * w_edge)
+            assignment_cost - scipy.special.logsumexp(assignment_cost)
         )
 
-    # Compute total log likelihood (common logic)
+    # NB compute total log likelihood (common logic)
     total_llf = np.sum(single_llf[np.arange(N), new_assignment])
 
     for i in range(N):

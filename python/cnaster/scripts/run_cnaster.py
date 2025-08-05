@@ -550,14 +550,15 @@ def run_cnaster(config_path):
             merged_res = copy.copy(res)
             merged_res["new_assignment"] = np.zeros(len(idx_spots), dtype=int)
 
+            # TODO log failure
             try:
                 log_gamma = res["log_gamma"][
                     :, (c * n_obs) : (c * n_obs + n_obs)
-                ].reshape((2 * config["n_states"], n_obs, 1))
+                ].reshape((2 * config.hmm.n_states, n_obs, 1))
             except:
                 log_gamma = res["log_gamma"][
                     :, (c * n_obs) : (c * n_obs + n_obs)
-                ].reshape((config["n_states"], n_obs, 1))
+                ].reshape((config.hmm.n_states, n_obs, 1))
 
             pred_cnv = res["pred_cnv"][(c * n_obs) : (c * n_obs + n_obs)].reshape(
                 (-1, 1)

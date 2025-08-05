@@ -108,11 +108,12 @@ def aggr_hmrfmix_reassignment_concatenate(
         f"Solving for emission likelihood for all clones with {hmmclass.__name__} and use_mixture={use_mixture}."
     )
 
-    all_pooled_X = []
-    all_pooled_base_nb_mean = []
-    all_pooled_total_bb_RD = []
-    all_log_emission_rdr, all_log_emission_baf = [], []
-
+    if debug:
+        all_pooled_X = []
+        all_pooled_base_nb_mean = []
+        all_pooled_total_bb_RD = []
+        all_log_emission_rdr, all_log_emission_baf = [], []
+        
     for i in range(N):
         # NB neighbor spots pooled with i.
         idx = smooth_mat[i, :].nonzero()[1]
@@ -190,19 +191,21 @@ def aggr_hmrfmix_reassignment_concatenate(
                     tmp_log_emission_rdr[this_pred, np.arange(n_obs), 0]
                 ) + np.sum(tmp_log_emission_baf[this_pred, np.arange(n_obs), 0])
 
-        all_pooled_X.append(pooled_X)
-        all_pooled_base_nb_mean.append(pooled_base_nb_mean)
-        all_pooled_total_bb_RD.append(pooled_total_bb_RD)
-        all_log_emission_rdr.append(tmp_log_emission_rdr)
-        all_log_emission_baf.append(tmp_log_emission_baf)
+        if debug:
+            all_pooled_X.append(pooled_X)
+            all_pooled_base_nb_mean.append(pooled_base_nb_mean)
+            all_pooled_total_bb_RD.append(pooled_total_bb_RD)
+            all_log_emission_rdr.append(tmp_log_emission_rdr)
+            all_log_emission_baf.append(tmp_log_emission_baf)
 
-    all_pooled_X = np.concatenate(all_pooled_X, axis=-1)
-    all_pooled_base_nb_mean = np.concatenate(all_pooled_base_nb_mean, axis=-1)
-    all_pooled_total_bb_RD = np.concatenate(all_pooled_total_bb_RD, axis=-1)
-    all_log_emission_rdr = np.concatenate(all_log_emission_rdr, axis=-1)
-    all_log_emission_baf = np.concatenate(all_log_emission_baf, axis=-1)
-
-    debug_stack = [all_pooled_X, all_pooled_base_nb_mean, all_pooled_total_bb_RD, all_log_emission_rdr, all_log_emission_baf]
+    if debug:
+        all_pooled_X = np.concatenate(all_pooled_X, axis=-1)
+        all_pooled_base_nb_mean = np.concatenate(all_pooled_base_nb_mean, axis=-1)
+        all_pooled_total_bb_RD = np.concatenate(all_pooled_total_bb_RD, axis=-1)
+        all_log_emission_rdr = np.concatenate(all_log_emission_rdr, axis=-1)
+        all_log_emission_baf = np.concatenate(all_log_emission_baf, axis=-1)
+        
+        debug_stack = [all_pooled_X, all_pooled_base_nb_mean, all_pooled_total_bb_RD, all_log_emission_rdr, all_log_emission_baf]
 
     logger.info(f"Solving for updated clone labels with ICM.")
 

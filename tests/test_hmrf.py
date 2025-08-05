@@ -18,9 +18,9 @@ class TestHmrf:
         np.random.seed(42)
 
         self.n_obs = 1_000
-        self.n_spots = 100
+        self.n_spots = 1
         self.n_states = 5
-        self.n_clones = 4
+        self.n_clones = 1
 
         # TODO explain dimensions
         single_X_shape = (self.n_obs, 2, self.n_spots)

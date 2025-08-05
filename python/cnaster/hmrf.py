@@ -401,6 +401,13 @@ def aggr_hmrfmix_reassignment_concatenate(
 def clone_stack_obs(
     X, base_nb_mean, total_bb_RD, lengths, log_sitewise_transmat, tumor_prop
 ):
+    """
+    Reshape observation data from clone-wise format to stacked format for HMM processing.
+    
+    Transforms multi-clone observation data by vertically stacking clones, converting
+    from (n_obs, 2, n_clones) format to (n_obs * n_clones, 2, 1) format where each
+    clone is treated as a separate observation sequence.
+    """
     # NB vertical stacking of X, base_nb_mean, total_bb_RD, tumor_prop across clones,
     # i.e. reshape observation data from (n_obs, 2, n_clones) to (n_obs * n_clones, 2, 1)
     clone_stack_X = np.vstack(

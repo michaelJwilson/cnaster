@@ -907,12 +907,12 @@ def update_emission_params_nb_nophasing_uniqvalues_mix(
                     this_features[
                         (i * len(idx_nonzero)) : ((i + 1) * len(idx_nonzero)), i
                     ] = 1
-                # only optimize for states where at least 1 SNP belongs to
+                # NB only optimize for states where at least 1 SNP belongs to
                 idx_state_posweight = np.array(
                     [
                         i
                         for i in range(this_features.shape[1])
-                        if np.sum(this_weights[this_features[:, i] == 1]) >= 0.1
+                        if np.sum(this_weights[this_features[:, i] == 1]) >= 0.1 # MAGIC
                     ]
                 )
                 idx_row_posweight = np.concatenate(
@@ -941,6 +941,8 @@ def update_emission_params_nb_nophasing_uniqvalues_mix(
                 penalty=0,
             )
             res = model.fit(**settings)
+
+            # TODO TBC only update states with (MAGIC) >0.1 em weight.
             for s, idx_state_posweight in enumerate(state_posweights):
                 l1 = int(np.sum([len(x) for x in state_posweights[:s]]))
                 l2 = int(np.sum([len(x) for x in state_posweights[: (s + 1)]]))

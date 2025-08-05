@@ -242,6 +242,9 @@ def pipeline_baum_welch(
         )
     """
 
+    # TODO DEBUG
+    logger.info(f"Solved for new_log_mu.shape={new_log_mu.shape}")
+    
     return {
         "new_log_mu": new_log_mu,
         "new_alphas": new_alphas,

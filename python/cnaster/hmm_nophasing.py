@@ -41,7 +41,7 @@ class hmm_nophasing:
     ):
         # LEGACY
         # return compute_emission_probability_nb_betabinom(
-        #     X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus
+        #       X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus
         # )
         return compute_emissions(
             X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus

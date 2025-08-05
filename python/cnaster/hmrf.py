@@ -11,6 +11,7 @@ from cnaster.hmm_sitewise import hmm_sitewise
 from cnaster.hmrf_utils import cast_csr
 from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
 from cnaster.config import get_global_config
+from cnaster.deprecated.hmrf import aggr_hmrfmix_reassignment_concatenate
 from sklearn.metrics import adjusted_rand_score
 
 logger = logging.getLogger(__name__)
@@ -173,8 +174,8 @@ def pool_hmrf_data(
         weighted_tp,
     )
 
-
-def aggr_hmrfmix_reassignment_concatenate(
+# WIP
+def __aggr_hmrfmix_reassignment_concatenate(
     single_X,
     single_base_nb_mean,
     single_total_bb_RD,
@@ -290,8 +291,6 @@ def aggr_hmrfmix_reassignment_concatenate(
             lambd,
         )
     )
-
-    print(f"\n{pooled_X}")
 
     logger.info("Evaluating HMRF NB+BB emission likelihood")
     

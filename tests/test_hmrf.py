@@ -54,6 +54,17 @@ class TestHmrf:
         self.lambd = np.random.uniform(0.1, 0.3, self.n_obs)
         self.lambd = self.lambd / np.sum(self.lambd)
 
+        self.res = {
+            "new_p_binom": np.random.uniform(0.1, 0.9, (self.n_states, self.n_clones)),
+            "new_log_mu": np.random.normal(0, 1, (self.n_states, self.n_clones)),
+            "new_alphas": np.random.uniform(1, 10, (self.n_states, self.n_clones)),
+            "new_taus": np.random.uniform(0.1, 1, (self.n_states, self.n_clones))
+        }
+        self.adjacency_mat = csr_matrix(adjacency_data)
+        self.prev_assignment = np.random.randint(0, self.n_clones, self.n_spots)
+        self.sample_ids = np.arange(self.n_spots)
+        self.spatial_weight = 0.5
+
     def test_numba_compilation(self):
         try:
             result = pool_hmrf_data(
@@ -99,6 +110,9 @@ class TestHmrf:
             self.spatial_weight,
             hmmclass=hmm_nophasing,
         )
+
+        # Assert equivalence of results
+        np.testing.assert_array_almost_equal(exp, res, decimal=10)
 
 
 if __name__ == "__main__":

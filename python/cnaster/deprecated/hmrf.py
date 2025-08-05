@@ -2,6 +2,7 @@ import time
 import copy
 import logging
 import numpy as np
+from cnaster.icm import icm_update
 from cnaster.hmrf_utils import cast_csr
 from cnaster.hmm_sitewise import hmm_sitewise
 

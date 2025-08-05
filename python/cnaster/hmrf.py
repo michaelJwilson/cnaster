@@ -7,6 +7,7 @@ import scipy.special
 from numba import njit
 from cnaster.hmm import gmm_init, pipeline_baum_welch
 from cnaster.hmm_sitewise import hmm_sitewise
+from cnaster.hmrf_utils import cast_csr
 from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
 from cnaster.config import get_global_config
 from sklearn.metrics import adjusted_rand_score
@@ -80,7 +81,7 @@ def icm_update(
     return niter
 
 
-# @njit(cache=True)
+@njit(cache=True)
 def pool_hmrf_data(
     single_X,
     single_base_nb_mean,
@@ -133,33 +134,38 @@ def pool_hmrf_data(
         Mean tumor proportions for each spot.
     """
     n_obs, _, N = single_X.shape
-    n_clones = int(len(pred) / n_obs)
-
-    assert res_new_log_mu.shape[-1] == n_clones
-
+    
     pooled_X = np.zeros((n_obs, 2, N), dtype=single_X.dtype)
     pooled_base_nb_mean = np.zeros((n_obs, N), dtype=single_base_nb_mean.dtype)
     pooled_total_bb_RD = np.zeros((n_obs, N), dtype=single_total_bb_RD.dtype)
-    mean_tumor_prop = np.zeros(N, dtype=np.float64)
+    mean_tumor_prop, weighted_tp = None, None
+    """
+    # TODO HACK BUG  
+    if use_mixture:
+        n_clones = int(len(pred) / n_obs)
+        
+        assert res_new_log_mu.shape[-1] == n_clones
 
-    weighted_tp = np.zeros((n_obs, n_clones, N), dtype=np.float64) if use_mixture else None
-    weighted_mu = np.zeros((n_obs, n_clones), dtype=np.float64) if use_mixture else None
+        mean_tumor_prop = np.zeros(N, dtype=np.float64)
+        
+        weighted_mu = np.zeros((n_obs, n_clones), dtype=np.float64)
+        weighted_tp = np.zeros((n_obs, n_clones, N), dtype=np.float64)
+        
+        for c in range(n_clones):
+            norm = 0.0
 
-    for c in range(n_clones):
-        norm = 0.0
-
-        for obs_idx in range(n_obs):
-            # NB modulo phasing.
-            state_idx = pred[c * n_obs + obs_idx] % n_states
-            mu = np.exp(res_new_log_mu[state_idx, c])
-            norm += mu * lambd[obs_idx]
-
-        for obs_idx in range(n_obs):
-            state_idx = pred[c * n_obs + obs_idx] % n_states
-            mu = np.exp(res_new_log_mu[state_idx, c])
-
-            weighted_mu[obs_idx, c] = mu / norm
-
+            for obs_idx in range(n_obs):
+                # NB modulo phasing.
+                state_idx = pred[c * n_obs + obs_idx] % n_states
+                mu = np.exp(res_new_log_mu[state_idx, c])
+                norm += mu * lambd[obs_idx]
+                
+            for obs_idx in range(n_obs):
+                state_idx = pred[c * n_obs + obs_idx] % n_states
+                mu = np.exp(res_new_log_mu[state_idx, c])
+            
+                weighted_mu[obs_idx, c] = mu / norm
+    """
     for i in range(N):
         valid_neighbors = []
 
@@ -188,7 +194,8 @@ def pool_hmrf_data(
                 pooled_total_bb_RD[obs_idx, i] += single_total_bb_RD[
                     obs_idx, neighbor_idx
                 ]
-
+        """
+        # TODO HACK BUG
         if use_mixture:
             tumor_prop_sum = 0.0
 
@@ -211,7 +218,7 @@ def pool_hmrf_data(
             else:
                 for obs_idx in range(n_obs):
                     weighted_tp[obs_idx, c, i] = mean_tumor_prop[i]
-
+        """
     return (
         pooled_X,
         pooled_base_nb_mean,
@@ -321,6 +328,8 @@ def aggr_hmrfmix_reassignment_concatenate(
     )
 
     smooth_adj = cast_csr(smooth_mat)
+
+    logger.info("Pooling hmrf data")
     
     pooled_X, pooled_base_nb_mean, pooled_total_bb_RD, mean_tumor_prop, weighted_tp = (
         pool_hmrf_data(
@@ -337,6 +346,8 @@ def aggr_hmrfmix_reassignment_concatenate(
         )
     )
 
+    logger.info("Evaluating HMRF NB+BB emission likelihood")
+    
     if use_mixture:
         tmp_log_emission_rdr, tmp_log_emission_baf = (
             hmmclass.compute_emission_probability_nb_betabinom_mix(
@@ -364,6 +375,8 @@ def aggr_hmrfmix_reassignment_concatenate(
             )
         )
 
+    logger.info(f"TODO: post-processing likelihood")
+        
     # TODO numba
     for i in range(N):
         # NB neighbor spots pooled with i.
@@ -644,11 +657,7 @@ def hmrfmix_concatenate_pipeline(
 
         # NB handle the case when one clone has zero spots.
         if len(np.unique(new_assignment)) < X.shape[2]:
-            logger.warning(
-                "Clone %d has no spots assigned. Re-indexing clones.",
-                r,
-                np.unique(new_assignment),
-            )
+            logger.warning(f"Iteration {r}: clone has no spots assigned. Re-indexing clones.")
 
             res["assignment_before_reindex"] = new_assignment
             remaining_clones = np.sort(np.unique(new_assignment))

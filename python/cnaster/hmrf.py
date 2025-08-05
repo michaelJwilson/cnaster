@@ -86,7 +86,8 @@ def pool_hmrf_data(
     single_X,
     single_base_nb_mean,
     single_total_bb_RD,
-    smooth_adj,
+    smooth_indices,
+    smooth_indptr,
     single_tumor_prop=None,
     use_mixture=False,
     res_new_log_mu=None,
@@ -167,9 +168,14 @@ def pool_hmrf_data(
                 weighted_mu[obs_idx, c] = mu / norm
     """
     for i in range(N):
+        start_idx = smooth_indptr[i]
+        end_idx = smooth_indptr[i + 1]
+
         valid_neighbors = []
 
-        for col, _ in smooth_adj[i]:
+        for k in range(start_idx, end_idx):
+            col = smooth_indices[k]
+
             if use_mixture and single_tumor_prop is not None:
                 if not np.isnan(single_tumor_prop[col]):
                     valid_neighbors.append(col)
@@ -327,7 +333,7 @@ def aggr_hmrfmix_reassignment_concatenate(
         f"Solving for emission likelihood for all clones with {hmmclass.__name__} and use_mixture={use_mixture}."
     )
 
-    smooth_adj = cast_csr(smooth_mat)
+    # smooth_adj = cast_csr(smooth_mat)
 
     logger.info("Pooling hmrf data")
     
@@ -336,7 +342,8 @@ def aggr_hmrfmix_reassignment_concatenate(
             single_X,
             single_base_nb_mean,
             single_total_bb_RD,
-            smooth_adj,
+            smooth_mat.indices,
+            smooth_mat.indptr,
             single_tumor_prop,
             use_mixture,
             res["new_log_mu"] if use_mixture else None,

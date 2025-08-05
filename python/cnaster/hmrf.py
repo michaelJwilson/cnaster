@@ -20,26 +20,6 @@ def logsumexp(x):
     return x_max + np.log(np.sum(np.exp(x - x_max)))
 
 
-# TODO validate
-def cast_csr(csr_matrix):
-    result = []
-
-    for i in range(csr_matrix.shape[0]):
-        start_idx = csr_matrix.indptr[i]
-        end_idx = csr_matrix.indptr[i + 1]
-
-        row_data = []
-
-        for idx in range(start_idx, end_idx):
-            col = csr_matrix.indices[idx]
-            val = csr_matrix.data[idx]
-            row_data.append((col, val))
-
-        result.append(row_data)
-
-    return result
-
-
 # TODO
 # @njit
 def icm_update(
@@ -152,26 +132,38 @@ def pool_hmrf_data(
     mean_tumor_prop : array, shape (n_spots,)
         Mean tumor proportions for each spot.
     """
-    n_obs, _, n_spots = single_X.shape
+    n_obs, _, N = single_X.shape
+    n_clones = int(len(pred) / n_obs)
 
-    pooled_X = np.zeros((n_obs, 2, n_spots), dtype=single_X.dtype)
-    pooled_base_nb_mean = np.zeros((n_obs, n_spots), dtype=single_base_nb_mean.dtype)
-    pooled_total_bb_RD = np.zeros((n_obs, n_spots), dtype=single_total_bb_RD.dtype)
-    mean_tumor_prop = np.zeros(n_spots, dtype=np.float64)
+    assert res_new_log_mu.shape[-1] == n_clones
 
-    if use_mixture:
-        weighted_tp = np.zeros((n_obs, n_spots), dtype=np.float64)
+    pooled_X = np.zeros((n_obs, 2, N), dtype=single_X.dtype)
+    pooled_base_nb_mean = np.zeros((n_obs, N), dtype=single_base_nb_mean.dtype)
+    pooled_total_bb_RD = np.zeros((n_obs, N), dtype=single_total_bb_RD.dtype)
+    mean_tumor_prop = np.zeros(N, dtype=np.float64)
 
-        # CHECK
-        n_clones = res_new_log_mu.shape[1]
-    else:
-        weighted_tp = np.zeros((1, 1), dtype=np.float64)
+    weighted_tp = np.zeros((n_obs, n_clones, N), dtype=np.float64) if use_mixture else None
+    weighted_mu = np.zeros((n_obs, n_clones), dtype=np.float64) if use_mixture else None
 
-    for i in range(n_spots):
-        # Extract neighbor indices, filtering out NaN tumor proportions if needed
+    for c in range(n_clones):
+        norm = 0.0
+
+        for obs_idx in range(n_obs):
+            # NB modulo phasing.
+            state_idx = pred[c * n_obs + obs_idx] % n_states
+            mu = np.exp(res_new_log_mu[state_idx, c])
+            norm += mu * lambd[obs_idx]
+
+        for obs_idx in range(n_obs):
+            state_idx = pred[c * n_obs + obs_idx] % n_states
+            mu = np.exp(res_new_log_mu[state_idx, c])
+
+            weighted_mu[obs_idx, c] = mu / norm
+
+    for i in range(N):
         valid_neighbors = []
 
-        for col, val in smooth_adj[i]:
+        for col, _ in smooth_adj[i]:
             if use_mixture and single_tumor_prop is not None:
                 if not np.isnan(single_tumor_prop[col]):
                     valid_neighbors.append(col)
@@ -180,70 +172,52 @@ def pool_hmrf_data(
 
         valid_count = len(valid_neighbors)
 
-        # CHECK
+        # TODO CHECK prior behavior?
         if valid_count == 0:
             continue
 
-        for neighbor_idx in valid_neighbors:
-            for obs_idx in range(n_obs):
+        for obs_idx in range(n_obs):
+            for neighbor_idx in valid_neighbors:
                 pooled_X[obs_idx, 0, i] += single_X[obs_idx, 0, neighbor_idx]
                 pooled_X[obs_idx, 1, i] += single_X[obs_idx, 1, neighbor_idx]
 
-            # Pool base_nb_mean
-            for obs_idx in range(n_obs):
                 pooled_base_nb_mean[obs_idx, i] += single_base_nb_mean[
                     obs_idx, neighbor_idx
                 ]
 
-            # Pool total_bb_RD
-            for obs_idx in range(n_obs):
                 pooled_total_bb_RD[obs_idx, i] += single_total_bb_RD[
                     obs_idx, neighbor_idx
                 ]
 
-        if single_tumor_prop is not None:
+        if use_mixture:
             tumor_prop_sum = 0.0
+
             for neighbor_idx in valid_neighbors:
                 tumor_prop_sum += single_tumor_prop[neighbor_idx]
-            mean_tumor_prop[i] = tumor_prop_sum / valid_count
-        else:
-            mean_tumor_prop[i] = 1.0
 
-        if use_mixture:
+            # NB input to compute_emission_probability_nb_betabinom_mix
+            mean_tumor_prop[i] = tumor_prop_sum / valid_count
+
             if np.sum(pooled_base_nb_mean[:, i]) > 0:
                 for c in range(n_clones):
-                    mu_sum = 0.0
-                    lambd_sum = 0.0
-
                     for obs_idx in range(n_obs):
-                        state_idx = pred[c * n_obs + obs_idx] % n_states
-                        mu_val = np.exp(res_new_log_mu[state_idx, c])
-                        mu_sum += mu_val
-                        lambd_sum += mu_val * lambd[obs_idx]
-
-                    if lambd_sum > 0:
-                        for obs_idx in range(n_obs):
-                            state_idx = pred[c * n_obs + obs_idx] % n_states
-                            mu_val = np.exp(res_new_log_mu[state_idx, c])
-                            normalized_mu = mu_val / lambd_sum
-
-                            weighted_tp[obs_idx, i] = (
-                                mean_tumor_prop[i] * normalized_mu
-                            ) / (
-                                mean_tumor_prop[i] * normalized_mu
-                                + 1.0
-                                - mean_tumor_prop[i]
-                            )
+                        weighted_tp[obs_idx, c, i] = (
+                            mean_tumor_prop[i] * weighted_mu[obs_idx, c]
+                        ) / (
+                            mean_tumor_prop[i] * weighted_mu[obs_idx, c]
+                            + 1.0
+                            - mean_tumor_prop[i]
+                        )
             else:
                 for obs_idx in range(n_obs):
-                    weighted_tp[obs_idx, i] = mean_tumor_prop[i]
+                    weighted_tp[obs_idx, c, i] = mean_tumor_prop[i]
 
     return (
         pooled_X,
         pooled_base_nb_mean,
         pooled_total_bb_RD,
-        weighted_tp,
         mean_tumor_prop,
+        weighted_tp,
     )
 
 
@@ -347,8 +321,8 @@ def aggr_hmrfmix_reassignment_concatenate(
     )
 
     smooth_adj = cast_csr(smooth_mat)
-    """
-    pooled_X, pooled_base_nb_mean, pooled_total_bb_RD, weighted_tp, mean_tumor_prop = (
+    
+    pooled_X, pooled_base_nb_mean, pooled_total_bb_RD, mean_tumor_prop, weighted_tp = (
         pool_hmrf_data(
             single_X,
             single_base_nb_mean,
@@ -363,19 +337,34 @@ def aggr_hmrfmix_reassignment_concatenate(
         )
     )
 
-    tmp_log_emission_rdr, tmp_log_emission_baf = (
-        hmmclass.compute_emission_probability_nb_betabinom(
-            pooled_X,
-            pooled_base_nb_mean,
-            res["new_log_mu"],
-            res["new_alphas"],
-            pooled_total_bb_RD,
-            res["new_p_binom"],
-            res["new_taus"],
+    if use_mixture:
+        tmp_log_emission_rdr, tmp_log_emission_baf = (
+            hmmclass.compute_emission_probability_nb_betabinom_mix(
+                pooled_X,
+                pooled_base_nb_mean,
+                res["new_log_mu"],
+                res["new_alphas"],
+                pooled_total_bb_RD,
+                res["new_p_binom"],
+                res["new_taus"],
+                np.ones((n_obs, 1)) * np.mean(single_tumor_prop[idx]), # TODO BUG too many args???
+                weighted_tp.reshape(-1, 1), # NB cast (n_obs,) to (n_obs, 1).
+            )
         )
-    )
-    """
+    else:
+        tmp_log_emission_rdr, tmp_log_emission_baf = (
+            hmmclass.compute_emission_probability_nb_betabinom(
+                pooled_X,
+                pooled_base_nb_mean,
+                res["new_log_mu"],
+                res["new_alphas"],
+                pooled_total_bb_RD,
+                res["new_p_binom"],
+                res["new_taus"],
+            )
+        )
 
+    # TODO numba
     for i in range(N):
         # NB neighbor spots pooled with i.
         idx = smooth_mat[i, :].nonzero()[1]
@@ -384,71 +373,29 @@ def aggr_hmrfmix_reassignment_concatenate(
             # filter out NaN tumor proportions
             idx = idx[~np.isnan(single_tumor_prop[idx])]
 
-        # TODO pooled_X updated for the aggregate per spot.
-        pooled_X = np.sum(single_X[:, :, idx], axis=2, keepdims=True)
-        pooled_base_nb_mean = np.sum(single_base_nb_mean[:, idx], axis=1, keepdims=True)
-        pooled_total_bb_RD = np.sum(single_total_bb_RD[:, idx], axis=1, keepdims=True)
+        # TODO pooled_X treated as a bool.
+        if (
+            np.sum(single_base_nb_mean[:, idx] > 0) > 0
+            and np.sum(single_total_bb_RD[:, idx] > 0) > 0
+        ):
+            ratio_nonzeros = (
+                1.0
+                * np.sum(single_total_bb_RD[:, idx] > 0)
+                / np.sum(single_base_nb_mean[:, idx] > 0)
+            )
 
-        for c in range(n_clones):
-            # NB decoded copy number state for each genomic bin for this clone.
-            this_pred = pred[(c * n_obs) : ((c + 1) * n_obs)]
+            for c in range(n_clones):
+                this_pred = pred[(c * n_obs) : ((c + 1) * n_obs)]
 
-            # TODO pre-compute weighted_tp per spot.
-            if use_mixture:
-                if np.sum(single_base_nb_mean[:, idx] > 0) > 0:
-                    mu = np.exp(res["new_log_mu"][(this_pred % n_states), :])
-                    mu /= np.sum(mu * lambd)
-
-                    weighted_tp = (np.mean(single_tumor_prop[idx]) * mu) / (
-                        np.mean(single_tumor_prop[idx]) * mu
-                        + 1.0
-                        - np.mean(single_tumor_prop[idx])
-                    )
-                else:
-                    weighted_tp = np.repeat(
-                        np.mean(single_tumor_prop[idx]), single_X.shape[0]
-                    )
-
-                # NB compute emission probabilities,
-                tmp_log_emission_rdr, tmp_log_emission_baf = (
-                    hmmclass.compute_emission_probability_nb_betabinom_mix(
-                        pooled_X,
-                        pooled_base_nb_mean,
-                        res["new_log_mu"],
-                        res["new_alphas"],
-                        pooled_total_bb_RD,
-                        res["new_p_binom"],
-                        res["new_taus"],
-                        np.ones((n_obs, 1)) * np.mean(single_tumor_prop[idx]),
-                        weighted_tp.reshape(-1, 1),
-                    )
-                )
-            else:
-                tmp_log_emission_rdr, tmp_log_emission_baf = (
-                    hmmclass.compute_emission_probability_nb_betabinom(
-                        pooled_X,
-                        pooled_base_nb_mean,
-                        res["new_log_mu"],
-                        res["new_alphas"],
-                        pooled_total_bb_RD,
-                        res["new_p_binom"],
-                        res["new_taus"],
-                    )
-                )
-
-            if (
-                np.sum(single_base_nb_mean[:, idx] > 0) > 0
-                and np.sum(single_total_bb_RD[:, idx] > 0) > 0
-            ):
-                ratio_nonzeros = (
-                    1.0
-                    * np.sum(single_total_bb_RD[:, idx] > 0)
-                    / np.sum(single_base_nb_mean[:, idx] > 0)
-                )
+                # TODO np.arange(n_obs) -> :?
                 single_llf[i, c] = ratio_nonzeros * np.sum(
                     tmp_log_emission_rdr[this_pred, np.arange(n_obs), 0]
                 ) + np.sum(tmp_log_emission_baf[this_pred, np.arange(n_obs), 0])
-            else:
+        else:
+            for c in range(n_clones):
+                this_pred = pred[(c * n_obs) : ((c + 1) * n_obs)]
+
+                # TODO np.arange(n_obs) -> :?
                 single_llf[i, c] = np.sum(
                     tmp_log_emission_rdr[this_pred, np.arange(n_obs), 0]
                 ) + np.sum(tmp_log_emission_baf[this_pred, np.arange(n_obs), 0])

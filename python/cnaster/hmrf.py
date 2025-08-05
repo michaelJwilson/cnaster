@@ -5,6 +5,7 @@ import time
 import numpy as np
 import scipy.special
 from numba import njit
+from cnaster.icm import icm_update
 from cnaster.hmm import gmm_init, pipeline_baum_welch
 from cnaster.hmm_sitewise import hmm_sitewise
 from cnaster.hmrf_utils import cast_csr
@@ -19,67 +20,6 @@ logger = logging.getLogger(__name__)
 def logsumexp(x):
     x_max = np.max(x)
     return x_max + np.log(np.sum(np.exp(x - x_max)))
-
-
-# TODO
-# @njit
-def icm_update(
-    single_llf,
-    adjacency_list,
-    new_assignment,
-    spatial_weight,
-    posterior,
-    tol=0.01,
-    log_persample_weights=None,
-    sample_ids=None,
-):
-    # NB guranteed to converge.
-    n_spots, n_clones = single_llf.shape
-    w_edge = np.zeros(n_clones)
-    niter = 0
-
-    while True:
-        edits = 0
-
-        for i in range(n_spots):
-            # NB emission likelihood for all clones for this spot
-            w_node = single_llf[i, :].copy()
-
-            if log_persample_weights is not None:
-                w_node += log_persample_weights[:, sample_ids[i]]
-
-            # NB edge costs accumulated across clones
-            w_edge[:] = 0.0
-
-            # NB sum spatial weights for neighbors grouped by current assignment
-            for j, value in adjacency_list[i]:
-                w_edge[new_assignment[j]] += value
-
-            assignment_cost = w_node + spatial_weight * w_edge
-            label = np.argmax(assignment_cost)
-
-            # logger.info(f"ICM label contention: {assignment_cost} implies {new_assignment[i]} -> {label}")
-
-            edits += int(label != new_assignment[i])
-            new_assignment[i] = label
-
-            # TODO
-            norm = logsumexp(assignment_cost)
-            posterior[i, :] = np.exp(assignment_cost - norm)
-
-        edit_rate = edits / n_spots
-        niter += 1
-
-        _, cnts = np.unique(new_assignment, return_counts=True)
-
-        logger.info(f"Found ICM edit_rate={edit_rate:.6f} for iteration {niter}.")
-        logger.info(f"Found ICM inferred clone proportions: {cnts / n_spots}")
-
-        if edit_rate < tol:
-            break
-
-    return niter
-
 
 @njit(cache=True)
 def pool_hmrf_data(
@@ -134,9 +74,9 @@ def pool_hmrf_data(
     mean_tumor_prop : array, shape (n_spots,)
         Mean tumor proportions for each spot.
     """
-    n_obs, _, N = single_X.shape
+    n_obs, n_comp, N = single_X.shape
     
-    pooled_X = np.zeros((n_obs, 2, N), dtype=single_X.dtype)
+    pooled_X = np.zeros((n_obs, n_comp, N), dtype=single_X.dtype)
     pooled_base_nb_mean = np.zeros((n_obs, N), dtype=single_base_nb_mean.dtype)
     pooled_total_bb_RD = np.zeros((n_obs, N), dtype=single_total_bb_RD.dtype)
     mean_tumor_prop, weighted_tp = None, None
@@ -313,7 +253,7 @@ def aggr_hmrfmix_reassignment_concatenate(
 
     start_time = time.time()
 
-    # NB likelihood for all spots and all clones.
+    # NB clone assignment for all spots.
     new_assignment = copy.copy(prev_assignment)
 
     single_llf = np.zeros((N, n_clones))
@@ -333,11 +273,9 @@ def aggr_hmrfmix_reassignment_concatenate(
         f"Solving for emission likelihood for all clones with {hmmclass.__name__} and use_mixture={use_mixture}."
     )
 
-    # smooth_adj = cast_csr(smooth_mat)
-
     logger.info("Pooling hmrf data")
     
-    pooled_X, pooled_base_nb_mean, pooled_total_bb_RD, mean_tumor_prop, weighted_tp = (
+    pooled_X, pooled_base_nb_mean, pooled_total_bb_RD, _, weighted_tp = (
         pool_hmrf_data(
             single_X,
             single_base_nb_mean,
@@ -353,8 +291,11 @@ def aggr_hmrfmix_reassignment_concatenate(
         )
     )
 
+    print(f"\n{pooled_X}")
+
     logger.info("Evaluating HMRF NB+BB emission likelihood")
     
+    # NB emission shape: (n_states, n_obs, n_spots)
     if use_mixture:
         tmp_log_emission_rdr, tmp_log_emission_baf = (
             hmmclass.compute_emission_probability_nb_betabinom_mix(
@@ -409,28 +350,29 @@ def aggr_hmrfmix_reassignment_concatenate(
 
                 # TODO np.arange(n_obs) -> :?
                 single_llf[i, c] = ratio_nonzeros * np.sum(
-                    tmp_log_emission_rdr[this_pred, np.arange(n_obs), 0]
-                ) + np.sum(tmp_log_emission_baf[this_pred, np.arange(n_obs), 0])
+                    tmp_log_emission_rdr[this_pred, np.arange(n_obs), i]
+                ) + np.sum(tmp_log_emission_baf[this_pred, np.arange(n_obs), i])
         else:
             for c in range(n_clones):
                 this_pred = pred[(c * n_obs) : ((c + 1) * n_obs)]
 
                 # TODO np.arange(n_obs) -> :?
                 single_llf[i, c] = np.sum(
-                    tmp_log_emission_rdr[this_pred, np.arange(n_obs), 0]
-                ) + np.sum(tmp_log_emission_baf[this_pred, np.arange(n_obs), 0])
+                    tmp_log_emission_rdr[this_pred, np.arange(n_obs), i]
+                ) + np.sum(tmp_log_emission_baf[this_pred, np.arange(n_obs), i])
 
     logger.info(f"Solving for updated clone labels with ICM.")
 
     adj_list = cast_csr(adjacency_mat)
 
+    # NB updates new_assignment and posterior in place.
     niter = icm_update(
         single_llf,
         adj_list,
         new_assignment,
         spatial_weight,
         posterior,
-        tol=0.1,
+        tol=0.1, # MAGIC TODO
         log_persample_weights=log_persample_weights,
         sample_ids=sample_ids,
     )
@@ -459,6 +401,13 @@ def aggr_hmrfmix_reassignment_concatenate(
 def clone_stack_obs(
     X, base_nb_mean, total_bb_RD, lengths, log_sitewise_transmat, tumor_prop
 ):
+    """
+    Reshape observation data from clone-wise format to stacked format for HMM processing.
+    
+    Transforms multi-clone observation data by vertically stacking clones, converting
+    from (n_obs, 2, n_clones) format to (n_obs * n_clones, 2, 1) format where each
+    clone is treated as a separate observation sequence.
+    """
     # NB vertical stacking of X, base_nb_mean, total_bb_RD, tumor_prop across clones,
     # i.e. reshape observation data from (n_obs, 2, n_clones) to (n_obs * n_clones, 2, 1)
     clone_stack_X = np.vstack(

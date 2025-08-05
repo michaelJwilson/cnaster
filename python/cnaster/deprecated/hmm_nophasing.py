@@ -5,7 +5,7 @@ from cnaster.hmm_utils import convert_params
 def compute_emission_probability_nb_betabinom(
     X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus
 ):
-    n_obs, n_comp, n_spots = X.shape
+    n_obs, _, n_spots = X.shape
     n_states = log_mu.shape[0]
 
     log_emission_rdr = np.zeros((n_states, n_obs, n_spots))

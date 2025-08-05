@@ -253,7 +253,7 @@ def aggr_hmrfmix_reassignment_concatenate(
 
     start_time = time.time()
 
-    # NB likelihood for all spots and all clones.
+    # NB clone assignment for all spots.
     new_assignment = copy.copy(prev_assignment)
 
     single_llf = np.zeros((N, n_clones))
@@ -370,7 +370,7 @@ def aggr_hmrfmix_reassignment_concatenate(
         new_assignment,
         spatial_weight,
         posterior,
-        tol=0.1,
+        tol=0.1, # MAGIC TODO
         log_persample_weights=log_persample_weights,
         sample_ids=sample_ids,
     )

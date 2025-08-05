@@ -11,7 +11,9 @@ from cnaster.hmm_sitewise import hmm_sitewise
 from cnaster.hmrf_utils import cast_csr
 from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
 from cnaster.config import get_global_config
-from cnaster.deprecated.hmrf import aggr_hmrfmix_reassignment_concatenate
+from cnaster.deprecated.hmrf import (
+    aggr_hmrfmix_reassignment_concatenate as dep_aggr_hmrfmix_reassignment_concatenate,
+)
 from sklearn.metrics import adjusted_rand_score
 
 logger = logging.getLogger(__name__)
@@ -21,6 +23,7 @@ logger = logging.getLogger(__name__)
 def logsumexp(x):
     x_max = np.max(x)
     return x_max + np.log(np.sum(np.exp(x - x_max)))
+
 
 @njit(cache=True)
 def pool_hmrf_data(
@@ -76,7 +79,7 @@ def pool_hmrf_data(
         Mean tumor proportions for each spot.
     """
     n_obs, n_comp, N = single_X.shape
-    
+
     pooled_X = np.zeros((n_obs, n_comp, N), dtype=single_X.dtype)
     pooled_base_nb_mean = np.zeros((n_obs, N), dtype=single_base_nb_mean.dtype)
     pooled_total_bb_RD = np.zeros((n_obs, N), dtype=single_total_bb_RD.dtype)
@@ -174,8 +177,8 @@ def pool_hmrf_data(
         weighted_tp,
     )
 
-# WIP
-def __aggr_hmrfmix_reassignment_concatenate(
+
+def aggr_hmrfmix_reassignment_concatenate(
     single_X,
     single_base_nb_mean,
     single_total_bb_RD,
@@ -246,6 +249,25 @@ def __aggr_hmrfmix_reassignment_concatenate(
     posterior : array, shape (n_spots, n_clones), optional
         Posterior probabilities if return_posterior=True.
     """
+    """
+    return dep_aggr_hmrfmix_reassignment_concatenate(
+        single_X,
+        single_base_nb_mean,
+        single_total_bb_RD,
+        res,
+        pred,
+        smooth_mat,
+        adjacency_mat,
+        prev_assignment,
+        sample_ids,
+        spatial_weight,
+        log_persample_weights=log_persample_weights,
+        single_tumor_prop=single_tumor_prop,
+        hmmclass=hmmclass,
+        return_posterior=return_posterior,
+    )
+    """
+
     n_obs, _, N = single_X.shape
 
     # NB pred is the argmax posterior by genome, concatenated by clones.
@@ -275,23 +297,21 @@ def __aggr_hmrfmix_reassignment_concatenate(
     )
 
     logger.info("Pooling hmrf data")
-    
-    pooled_X, pooled_base_nb_mean, pooled_total_bb_RD, _, weighted_tp = (
-        pool_hmrf_data(
-            single_X,
-            single_base_nb_mean,
-            single_total_bb_RD,
-            smooth_mat.indices,
-            smooth_mat.indptr,
-            single_tumor_prop,
-            use_mixture,
-            res["new_log_mu"] if use_mixture else None,
-            pred if use_mixture else None,
-            n_states if use_mixture else None,
-            lambd,
-        )
+
+    pooled_X, pooled_base_nb_mean, pooled_total_bb_RD, _, weighted_tp = pool_hmrf_data(
+        single_X,
+        single_base_nb_mean,
+        single_total_bb_RD,
+        smooth_mat.indices,
+        smooth_mat.indptr,
+        single_tumor_prop,
+        use_mixture,
+        res["new_log_mu"] if use_mixture else None,
+        pred if use_mixture else None,
+        n_states if use_mixture else None,
+        lambd,
     )
-    
+
     # NB emission shape: (n_states, n_obs, n_spots)
     if use_mixture:
         tmp_log_emission_rdr, tmp_log_emission_baf = (
@@ -303,8 +323,9 @@ def __aggr_hmrfmix_reassignment_concatenate(
                 pooled_total_bb_RD,
                 res["new_p_binom"],
                 res["new_taus"],
-                np.ones((n_obs, 1)) * np.mean(single_tumor_prop[idx]), # TODO BUG too many args???
-                weighted_tp.reshape(-1, 1), # NB cast (n_obs,) to (n_obs, 1).
+                np.ones((n_obs, 1))
+                * np.mean(single_tumor_prop[idx]),  # TODO BUG too many args???
+                weighted_tp.reshape(-1, 1),  # NB cast (n_obs,) to (n_obs, 1).
             )
         )
     else:
@@ -321,7 +342,7 @@ def __aggr_hmrfmix_reassignment_concatenate(
         )
 
     logger.info(f"TODO: post-processing likelihood")
-        
+
     # TODO numba
     for i in range(N):
         # NB neighbor spots pooled with i.
@@ -369,7 +390,7 @@ def __aggr_hmrfmix_reassignment_concatenate(
         new_assignment,
         spatial_weight,
         posterior,
-        tol=0.1, # MAGIC TODO
+        tol=0.1,  # MAGIC TODO
         log_persample_weights=log_persample_weights,
         sample_ids=sample_ids,
     )
@@ -400,7 +421,7 @@ def clone_stack_obs(
 ):
     """
     Reshape observation data from clone-wise format to stacked format for HMM processing.
-    
+
     Transforms multi-clone observation data by vertically stacking clones, converting
     from (n_obs, 2, n_clones) format to (n_obs * n_clones, 2, 1) format where each
     clone is treated as a separate observation sequence.
@@ -612,7 +633,9 @@ def hmrfmix_concatenate_pipeline(
 
         # NB handle the case when one clone has zero spots.
         if len(np.unique(new_assignment)) < X.shape[2]:
-            logger.warning(f"Iteration {r}: clone has no spots assigned. Re-indexing clones.")
+            logger.warning(
+                f"Iteration {r}: clone has no spots assigned. Re-indexing clones."
+            )
 
             res["assignment_before_reindex"] = new_assignment
             remaining_clones = np.sort(np.unique(new_assignment))

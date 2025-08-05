@@ -392,13 +392,16 @@ class hmm_nophasing:
                 log_sitewise_transmat,
             )
 
+            # NB n_states * n_observations
             log_gamma = compute_posterior_obs(log_alpha, log_beta)
 
+            logger.info(f"State posterior breakdown: {np.sum(np.exp(log_gamma), axis=1) / np.sum(np.exp(log_gamma))}")
+            
             log_xi = compute_posterior_transition_nophasing(
                 log_alpha, log_beta, log_transmat, log_emission
             )
 
-            # M step
+            # M-step
             if "s" in self.params:
                 new_log_startprob = update_startprob_nophasing(lengths, log_gamma)
                 new_log_startprob = new_log_startprob.flatten()
@@ -502,24 +505,29 @@ class hmm_nophasing:
                 new_taus = taus
 
             logger.info(
-                f"HMM iteration {r} emission parameters: log_mu and p_binom =\n{np.hstack([new_log_mu, new_p_binom])}",
-            )
-
-            logger.info(
-                "Found max HMM parameter updates:\nstart prob.=%.6e\ntransfer matrix=%.6e\nlog_mu=%.6e\np_binom=%.6e",
+                "HMM iteration %d: found max HMM parameter updates for tol=%.6e: \nstart prob.=%.6e\ntransfer matrix=%.6e\nmu=%.6e\np_binom=%.6e",
+                r,
+                tol, 
                 np.max(np.abs(np.exp(new_log_startprob) - np.exp(log_startprob))),
                 np.max(np.abs(np.exp(new_log_transmat) - np.exp(log_transmat))),
-                np.max(np.abs(new_log_mu - log_mu)),
+                np.max(np.abs(np.exp(new_log_mu) - np.exp(log_mu))),
                 np.max(np.abs(new_p_binom - p_binom)),
             )
 
+            # NB log mu -> mu convergence.
             # TODO BUG? no check on start prob.
-            if (
+            transmat_converged = (
                 np.mean(np.abs(np.exp(new_log_transmat) - np.exp(log_transmat))) < tol
-                and np.mean(np.abs(new_log_mu - log_mu)) < tol
-                and np.mean(np.abs(new_p_binom - p_binom)) < tol
-            ):
+            )
+            log_mu_converged = np.mean(np.abs(np.exp(new_log_mu) - np.exp(log_mu))) < tol
+            p_binom_converged = np.mean(np.abs(new_p_binom - p_binom)) < tol
+
+            if transmat_converged and log_mu_converged and p_binom_converged:
                 break
+            else:
+                logger.info(
+                    f"Convergence of T, mu and p: {transmat_converged},{log_mu_converged},{p_binom_converged}"
+		)
 
             log_startprob = new_log_startprob
             log_transmat = new_log_transmat

@@ -471,6 +471,8 @@ class hmm_sitewise:
 
             log_gamma = compute_posterior_obs(log_alpha, log_beta)
 
+            logger.info(f"State posterior breakdown: {np.sum(np.exp(log_gamma), axis=1) / np.sum(np.exp(log_gamma))}")
+            
             log_xi = compute_posterior_transition_sitewise(
                 log_alpha, log_beta, log_transmat, log_emission
             )
@@ -555,15 +557,16 @@ class hmm_sitewise:
                 new_p_binom = p_binom
                 new_taus = taus
 
-            logger.debug(
-                f"Convergence metrics: startprob={np.mean(np.abs(np.exp(new_log_startprob) - np.exp(log_startprob))):.6f}, "
-                f"transmat={np.mean(np.abs(np.exp(new_log_transmat) - np.exp(log_transmat))):.6f}, "
-                f"log_mu={np.mean(np.abs(new_log_mu - log_mu)):.6f}, "
-                f"p_binom={np.mean(np.abs(new_p_binom - p_binom)):.6f}"
+            logger.info(
+                "HMM iteration %d: found max HMM parameter updates for tol=%.6e: \nstart prob.=%.6e\ntransfer matrix=%.6e\nlog_mu=%.6e\np_binom=%.6e",
+                r,
+                tol,
+                np.max(np.abs(np.exp(new_log_startprob) - np.exp(log_startprob))),
+                np.max(np.abs(np.exp(new_log_transmat) - np.exp(log_transmat))),
+                np.max(np.abs(new_log_mu - log_mu)),
+                np.max(np.abs(new_p_binom - p_binom)),
             )
-
-            logger.debug(f"Parameters: {np.hstack([new_log_mu, new_p_binom])}")
-
+                
             transmat_converged = (
                 np.mean(np.abs(np.exp(new_log_transmat) - np.exp(log_transmat))) < tol
             )

@@ -271,7 +271,7 @@ def __aggr_hmrfmix_reassignment_concatenate(
     )
 
     logger.info(
-        f"Solving for emission likelihood for all clones with {hmmclass.__name__} and use_mixture={use_mixture}."
+        f"Solving emission likelihood for X.shape={single_X.shape}, n_states={n_states} and {n_clones} clones with {hmmclass.__name__} and use_mixture={use_mixture}."
     )
 
     logger.info("Pooling hmrf data")
@@ -291,8 +291,6 @@ def __aggr_hmrfmix_reassignment_concatenate(
             lambd,
         )
     )
-
-    logger.info("Evaluating HMRF NB+BB emission likelihood")
     
     # NB emission shape: (n_states, n_obs, n_spots)
     if use_mixture:
@@ -427,6 +425,8 @@ def clone_stack_obs(
         if tumor_prop is not None
         else None
     )
+
+    logger.info(f"Stacked X from shape {X.shape} to {clone_stack_X.shape}.")
 
     return (
         clone_stack_X,

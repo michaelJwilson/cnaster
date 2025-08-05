@@ -39,4 +39,6 @@ def merge_pseudobulk_by_index_mix(
         base_nb_mean[:, k] = np.sum(single_base_nb_mean[:, idx], axis=1)
         total_bb_RD[:, k] = np.sum(single_total_bb_RD[:, idx], axis=1)
 
+    logger.info(f"Merged single_X to pseudobulk of shape {X.shape[2]}.")
+
     return X, base_nb_mean, total_bb_RD, tumor_prop

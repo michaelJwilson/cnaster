@@ -105,7 +105,7 @@ def aggr_hmrfmix_reassignment_concatenate(
     )
 
     logger.info(
-        f"Solving for emission likelihood for all clones with {hmmclass.__name__} and use_mixture={use_mixture}."
+        f"Solving emission likelihood for X.shape={single_X.shape}, n_states={n_states} and {n_clones} clones with {hmmclass.__name__} and use_mixture={use_mixture}."
     )
 
     if debug:

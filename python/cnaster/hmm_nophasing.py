@@ -39,7 +39,7 @@ class hmm_nophasing:
     def compute_emission_probability_nb_betabinom(
         X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus
     ):
-        logger.info(f"Evaluating HMRF NB+BB emission likelihood for X.shape={X.shape} and log_mu.shape={log_mu.shape}.")
+        logger.debug(f"Evaluating HMRF NB+BB emission likelihood for X.shape={X.shape} and log_mu.shape={log_mu.shape}.")
 
         # LEGACY
         # return compute_emission_probability_nb_betabinom(

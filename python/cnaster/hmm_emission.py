@@ -114,7 +114,7 @@ def flush_perf(
         runtime=f"{runtime:.4f}",
         iterations=mle_retvals.get("iterations"),
         fcalls=mle_retvals.get("fcalls"),
-        optimizer=mle_settings.get("optimizer", "Unknown"),
+        optimizer=mle_settings.get("optimizer", "Unknown").ljust(40),
         size=size,
         num_states=num_states,
         default_start_params=default_start_params,

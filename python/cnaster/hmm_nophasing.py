@@ -401,9 +401,9 @@ class hmm_nophasing:
 
             logger.info(f"State posterior breakdown:\n{np.sum(np.exp(log_gamma), axis=1) / np.sum(np.exp(log_gamma))}")
             
-            log_xi = compute_posterior_transition_nophasing(
-                log_alpha, log_beta, log_transmat, log_emission
-            )
+            # log_xi = compute_posterior_transition_nophasing(
+            #     log_alpha, log_beta, log_transmat, log_emission
+            # )
 
             # M-step
             if "s" in self.params:
@@ -413,6 +413,10 @@ class hmm_nophasing:
                 new_log_startprob = log_startprob
 
             if "t" in self.params:
+                log_xi = compute_posterior_transition_nophasing(
+                    log_alpha, log_beta, log_transmat, log_emission
+                )
+                
                 new_log_transmat = update_transition_nophasing(log_xi, is_diag=is_diag)
             else:
                 new_log_transmat = log_transmat

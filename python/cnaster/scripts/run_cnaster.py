@@ -202,11 +202,7 @@ def run_cnaster(config_path):
         threshold=config.hmrf.tumorprop_threshold,
     )
 
-    logger.info(
-        f"Solved for initial phase given Eagle & BAF in {(time.time() - start_time):.2f} seconds."
-    )
-
-    exit(0)
+    logger.info(f"Solved for initial phase given Eagle & BAF in {(time.time() - start_time):.2f} seconds.")
 
     df_gene_snp["phase"] = np.where(
         df_gene_snp.snp_id.isnull(),
@@ -281,9 +277,15 @@ def run_cnaster(config_path):
     initial_clone_index = rectangle_initialize_initial_clone(
         coords, config.hmrf.n_clones, random_state=0
     )
+<<<<<<< HEAD
 
     logger.info("Solving HMM+HMRF for copy state and clones.")
 
+=======
+    
+    logger.info("Solving HMM+HMRF for copy state and clones with BAF only.")
+    
+>>>>>>> 55183d9a505e3956fb16dca33a54a3b1d807d315
     res = hmrfmix_concatenate_pipeline(
         None,
         None,

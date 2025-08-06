@@ -598,7 +598,7 @@ class Weighted_BetaBinom_mix:
         )
 
         logger.info(
-            f"Weighted_BetaBinom_mix done: {runtime:.2f}s with\nendog_shape={self.endog.shape},\ntumor_prop={self.tumor_prop is not None},\n"
+            f"Weighted_BetaBinom_mix done: {runtime:.2f}s with {get_solver()}\nendog_shape={self.endog.shape},\ntumor_prop={self.tumor_prop is not None},\n"
             f"{len(start_params)} params ({'with default start' if using_default_params else 'with custom start'}),\n"
             f"{result.mle_retvals.get('iterations', 'N/A')} iter,\n"
             f"{result.mle_retvals.get('fcalls', 'N/A')} fcalls,\n"

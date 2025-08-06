@@ -1,3 +1,5 @@
-- Deprecate statsmodels from m-step.
-- Release GIL from emission and thread across start params
+- deprecate statsmodels from m-step.
+- release GIL from emission and thread across start params.
 - log mu -> mu convergence check.
+- change default tau, tol.
+- 

@@ -1165,9 +1165,14 @@ def update_emission_params_bb_sitewise_uniqvalues(
                     [
                         i
                         for i in range(this_features.shape[1])
-                        if np.sum(this_weights[this_features[:, i] == 1]) >= 0.1
+                        if np.sum(this_weights[this_features[:, i] == 1]) >= 0.1 # MAGIC
                     ]
                 )
+
+                # TODO HACK?
+                if len(idx_state_posweight) < this_features.shape[1]:
+                    logger.warning(f"M-step solving for only states: {idx_state_posweight} given MAGIC.")
+                
                 idx_row_posweight = np.concatenate(
                     [np.where(this_features[:, k] == 1)[0] for k in idx_state_posweight]
                 )
@@ -1195,6 +1200,7 @@ def update_emission_params_bb_sitewise_uniqvalues(
 
             logger.info(f"Starting futures thread pool.")
 
+            # TODO config max_workers.
             with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
                 future_res = executor.submit(model.fit, **settings)
 
@@ -1226,6 +1232,8 @@ def update_emission_params_bb_sitewise_uniqvalues(
 
             if res.params[-1] > 0:
                 new_taus[:, :] = res.params[-1]
+            else:
+                logger.warning(f"Solved for negative tau={res.params[-1]}")
 
             if start_p_binom is not None:
                 """
@@ -1247,6 +1255,14 @@ def update_emission_params_bb_sitewise_uniqvalues(
                         new_p_binom[idx_state_posweight, s] = res2.params[l1:l2]
                     if res2.params[-1] > 0:
                         new_taus[:, :] = res2.params[-1]
+                    else:
+                        logger.warning(f"Solved for negative tau={res2.params[-1]}")
+
+    valid = (new_p_binom < min_binom_prob) && (new_p_binom > max_binom_prob)
+
+    if not np.all(valid):
+        logger.warning(f"Clipping inferred p binom to {min_binom_prob}, {max_binom_prob} limits.")
+    
     new_p_binom[new_p_binom < min_binom_prob] = min_binom_prob
     new_p_binom[new_p_binom > max_binom_prob] = max_binom_prob
     return new_p_binom, new_taus

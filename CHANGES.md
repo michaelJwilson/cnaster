@@ -3,3 +3,4 @@
 - log mu -> mu convergence check.
 - change default tau, tol.
 - GMM converged.
+- convergence of ICM.

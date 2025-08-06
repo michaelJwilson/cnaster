@@ -310,6 +310,10 @@ class hmm_nophasing:
         )
 
         for r in range(max_iter):
+            logger.info(
+                f"----  Solving for Baum-Welch iteration {r}/{max_iter} with NegBin+BetaBin emission  -----"
+            )
+            
             # E step
             if tumor_prop is None:
                 log_emission_rdr, log_emission_baf = (
@@ -395,7 +399,7 @@ class hmm_nophasing:
             # NB n_states * n_observations
             log_gamma = compute_posterior_obs(log_alpha, log_beta)
 
-            logger.info(f"State posterior breakdown: {np.sum(np.exp(log_gamma), axis=1) / np.sum(np.exp(log_gamma))}")
+            logger.info(f"State posterior breakdown:\n{np.sum(np.exp(log_gamma), axis=1) / np.sum(np.exp(log_gamma))}")
             
             log_xi = compute_posterior_transition_nophasing(
                 log_alpha, log_beta, log_transmat, log_emission
@@ -505,8 +509,7 @@ class hmm_nophasing:
                 new_taus = taus
 
             logger.info(
-                "HMM iteration %d: found max HMM parameter updates for tol=%.6e: \nstart prob.=%.6e\ntransfer matrix=%.6e\nmu=%.6e\np_binom=%.6e",
-                r,
+                "Found max HMM parameter updates for tol=%.6e: \nstart prob.=%.6e\ntransfer matrix=%.6e\nmu=%.6e\np_binom=%.6e",
                 tol, 
                 np.max(np.abs(np.exp(new_log_startprob) - np.exp(log_startprob))),
                 np.max(np.abs(np.exp(new_log_transmat) - np.exp(log_transmat))),

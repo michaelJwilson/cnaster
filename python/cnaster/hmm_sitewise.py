@@ -426,7 +426,7 @@ class hmm_sitewise:
 
         for r in range(max_iter):
             logger.info(
-                f"Solving for Baum-Welch iteration {r}/{max_iter} with NegBin+BetaBin emission."
+                f"----  Solving for Baum-Welch iteration {r}/{max_iter} with NegBin+BetaBin emission  -----"
             )
 
             if tumor_prop is None:
@@ -558,8 +558,7 @@ class hmm_sitewise:
                 new_taus = taus
 
             logger.info(
-                "HMM iteration %d: found max HMM parameter updates for tol=%.6e: \nstart prob.=%.6e\ntransfer matrix=%.6e\nlog_mu=%.6e\np_binom=%.6e",
-                r,
+                "Found max HMM parameter updates for tol=%.6e: \nstart prob.=%.6e\ntransfer matrix=%.6e\nlog_mu=%.6e\np_binom=%.6e",
                 tol,
                 np.max(np.abs(np.exp(new_log_startprob) - np.exp(log_startprob))),
                 np.max(np.abs(np.exp(new_log_transmat) - np.exp(log_transmat))),

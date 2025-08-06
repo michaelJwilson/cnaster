@@ -1258,7 +1258,7 @@ def update_emission_params_bb_sitewise_uniqvalues(
                     else:
                         logger.warning(f"Solved for negative tau={res2.params[-1]}")
 
-    valid = (new_p_binom < min_binom_prob) && (new_p_binom > max_binom_prob)
+    valid = (new_p_binom > min_binom_prob) & (new_p_binom < max_binom_prob)
 
     if not np.all(valid):
         logger.warning(f"Clipping inferred p binom to {min_binom_prob}, {max_binom_prob} limits.")

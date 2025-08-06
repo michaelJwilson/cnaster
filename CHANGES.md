@@ -2,4 +2,4 @@
 - release GIL from emission and thread across start params.
 - log mu -> mu convergence check.
 - change default tau, tol.
-- 
+- convergence of ICM.

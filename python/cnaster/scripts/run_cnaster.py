@@ -50,12 +50,35 @@ from cnaster.integer_copy import (
 )
 from cnaster.plotting import plot_clones_genomic, plot_clones_spatial
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(filename)s:%(lineno)d - %(message)s",
+start_time = time.time()
+
+
+class RuntimeFormatter(logging.Formatter):
+    def format(self, record):
+        runtime_minutes = (time.time() - start_time) / 60.0
+        record.runtime = f"{runtime_minutes:.2f}m"
+        return super().format(record)
+
+
+formatter = RuntimeFormatter(
+    fmt="[%(runtime)s] - %(asctime)s - %(name)s - %(levelname)s - %(filename)s:%(lineno)d - %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
-    handlers=[logging.FileHandler("cnaster.log"), logging.StreamHandler()],
 )
+
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+for handler in logger.handlers[:]:
+    logger.removeHandler(handler)
+
+file_handler = logging.FileHandler("cnaster.log")
+stream_handler = logging.StreamHandler()
+
+file_handler.setFormatter(formatter)
+stream_handler.setFormatter(formatter)
+
+logger.addHandler(file_handler)
+logger.addHandler(stream_handler)
 
 logger = logging.getLogger(__name__)
 
@@ -88,7 +111,7 @@ def run_cnaster(config_path):
             sample_list.append(adata.obs["sample"].iloc[i])
 
     logger.info(f"Found {len(sample_list)} unique samples, e.g. {sample_list[:3]}")
-            
+
     # NB assign index to unique sample names.
     sample_ids = np.zeros(adata.shape[0], dtype=int)
 
@@ -113,19 +136,19 @@ def run_cnaster(config_path):
     """
 
     logger.info(f"Forming gene & snp meta data.")
-    
+
     df_gene_snp = form_gene_snp_table(
         unique_snp_ids, config.references.hgtable_file, adata
     )
-    
+
     logger.info(f"Assigning initial blocks")
-    
+
     df_gene_snp = assign_initial_blocks(
         df_gene_snp, adata, cell_snp_Aallele, cell_snp_Ballele, unique_snp_ids
     )
 
     logger.info(f"Summarizing counts for blocks")
-    
+
     (
         lengths,
         single_X,
@@ -138,7 +161,7 @@ def run_cnaster(config_path):
         cell_snp_Ballele,
         unique_snp_ids,
     )
-    
+
     # NB 1D array / list?
     log_sitewise_transmat = get_sitewise_transmat(
         df_gene_snp,
@@ -157,9 +180,6 @@ def run_cnaster(config_path):
 
     logger.warning("Assuming 5 BAF states for phasing.")
 
-    # NB time inference, not pre-processing.
-    start_time = time.time()
-    
     # TODO updates mu? as initialization?
     phase_indicator, refined_lengths = initial_phase_given_partition(
         single_X,
@@ -182,10 +202,12 @@ def run_cnaster(config_path):
         threshold=config.hmrf.tumorprop_threshold,
     )
 
-    logger.info(f"Solved for initial phase given Eagle & BAF in {(time.time() - start_time):.2f} seconds.")
+    logger.info(
+        f"Solved for initial phase given Eagle & BAF in {(time.time() - start_time):.2f} seconds."
+    )
 
     exit(0)
-    
+
     df_gene_snp["phase"] = np.where(
         df_gene_snp.snp_id.isnull(),
         None,
@@ -193,7 +215,7 @@ def run_cnaster(config_path):
     )
 
     logger.info(f"Recalculating blocks given new phasing")
-    
+
     df_gene_snp = create_bin_ranges(
         df_gene_snp,
         single_total_bb_RD,
@@ -202,7 +224,7 @@ def run_cnaster(config_path):
     )
 
     logger.info(f"Recalculating counts given new blocks")
-    
+
     # TODO separate transmat.
     (
         lengths,
@@ -229,7 +251,7 @@ def run_cnaster(config_path):
     )
 
     logger.info("Solving for multislice_adjaceny.")
-    
+
     # NB smooth & adjacency matrix for each sample
     adjacency_mat, smooth_mat = multislice_adjacency(
         sample_ids,
@@ -255,13 +277,13 @@ def run_cnaster(config_path):
     single_base_nb_mean[:, :] = 0
 
     logger.info("Solving for multislice_adjaceny.")
-    
+
     initial_clone_index = rectangle_initialize_initial_clone(
         coords, config.hmrf.n_clones, random_state=0
     )
-    
+
     logger.info("Solving HMM+HMRF for copy state and clones.")
-    
+
     res = hmrfmix_concatenate_pipeline(
         None,
         None,
@@ -357,8 +379,10 @@ def run_cnaster(config_path):
         ]
     )
 
-    logger.info(f"Refinining {n_baf_clones} BAF identified clones with RDR data assuming n_clones_rdr={config.hmrf.n_clones_rdr}")
-    
+    logger.info(
+        f"Refinining {n_baf_clones} BAF identified clones with RDR data assuming n_clones_rdr={config.hmrf.n_clones_rdr}"
+    )
+
     # NB refine BAF-identified clones
     if (config.preprocessing.normalidx_file is None) and (
         config.preprocessing.tumorprop_file is None

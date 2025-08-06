@@ -683,10 +683,9 @@ def hmrfmix_concatenate_pipeline(
 
         state_counts = np.bincount(pred, minlength=n_states)
         state_usage = state_counts / len(pred)
-
-        # NB max not mean.
+        
         logger.info(
-            f"ARI to last assignment: {adjusted_rand_score(last_assignment, res["new_assignment"]):.4f}"
+            f"{np.count_nonzero(last_assignment != res["new_assignment"])}/{len(last_assignment)} assignment changes with ARI to last assignment: {adjusted_rand_score(last_assignment, res['new_assignment']):.4f}"
         )
 
         with np.printoptions(linewidth=np.inf):

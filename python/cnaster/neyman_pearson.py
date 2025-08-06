@@ -108,18 +108,19 @@ def neyman_pearson_similarity(
     lambd = np.sum(base_nb_mean, axis=1) / np.sum(base_nb_mean)
 
     if tumor_prop is None:
-        log_emission_rdr, log_emission_baf = (
-            hmmclass.compute_emission_probability_nb_betabinom(
-                np.vstack([X[:, 0, :].flatten("F"), X[:, 1, :].flatten("F")]).T.reshape(
-                    -1, 2, 1
-                ),
-                base_nb_mean.flatten("F").reshape(-1, 1),
-                res["new_log_mu"],
-                res["new_alphas"],
-                total_bb_RD.flatten("F").reshape(-1, 1),
-                res["new_p_binom"],
-                res["new_taus"],
-            )
+        (
+            log_emission_rdr,
+            log_emission_baf,
+        ) = hmmclass.compute_emission_probability_nb_betabinom(
+            np.vstack([X[:, 0, :].flatten("F"), X[:, 1, :].flatten("F")]).T.reshape(
+                -1, 2, 1
+            ),
+            base_nb_mean.flatten("F").reshape(-1, 1),
+            res["new_log_mu"],
+            res["new_alphas"],
+            total_bb_RD.flatten("F").reshape(-1, 1),
+            res["new_p_binom"],
+            res["new_taus"],
         )
     else:
         if "m" in params:
@@ -140,36 +141,38 @@ def neyman_pearson_similarity(
                     )
                 )
             logmu_shift = np.vstack(logmu_shift)
-            log_emission_rdr, log_emission_baf = (
-                hmmclass.compute_emission_probability_nb_betabinom_mix(
-                    np.vstack(
-                        [X[:, 0, :].flatten("F"), X[:, 1, :].flatten("F")]
-                    ).T.reshape(-1, 2, 1),
-                    base_nb_mean.flatten("F").reshape(-1, 1),
-                    res["new_log_mu"],
-                    res["new_alphas"],
-                    total_bb_RD.flatten("F").reshape(-1, 1),
-                    res["new_p_binom"],
-                    res["new_taus"],
-                    tumor_prop,
-                    logmu_shift=logmu_shift,
-                    sample_length=np.ones(n_clones, dtype=int) * n_obs,
-                )
+            (
+                log_emission_rdr,
+                log_emission_baf,
+            ) = hmmclass.compute_emission_probability_nb_betabinom_mix(
+                np.vstack([X[:, 0, :].flatten("F"), X[:, 1, :].flatten("F")]).T.reshape(
+                    -1, 2, 1
+                ),
+                base_nb_mean.flatten("F").reshape(-1, 1),
+                res["new_log_mu"],
+                res["new_alphas"],
+                total_bb_RD.flatten("F").reshape(-1, 1),
+                res["new_p_binom"],
+                res["new_taus"],
+                tumor_prop,
+                logmu_shift=logmu_shift,
+                sample_length=np.ones(n_clones, dtype=int) * n_obs,
             )
         else:
-            log_emission_rdr, log_emission_baf = (
-                hmmclass.compute_emission_probability_nb_betabinom_mix(
-                    np.vstack(
-                        [X[:, 0, :].flatten("F"), X[:, 1, :].flatten("F")]
-                    ).T.reshape(-1, 2, 1),
-                    base_nb_mean.flatten("F").reshape(-1, 1),
-                    res["new_log_mu"],
-                    res["new_alphas"],
-                    total_bb_RD.flatten("F").reshape(-1, 1),
-                    res["new_p_binom"],
-                    res["new_taus"],
-                    tumor_prop,
-                )
+            (
+                log_emission_rdr,
+                log_emission_baf,
+            ) = hmmclass.compute_emission_probability_nb_betabinom_mix(
+                np.vstack([X[:, 0, :].flatten("F"), X[:, 1, :].flatten("F")]).T.reshape(
+                    -1, 2, 1
+                ),
+                base_nb_mean.flatten("F").reshape(-1, 1),
+                res["new_log_mu"],
+                res["new_alphas"],
+                total_bb_RD.flatten("F").reshape(-1, 1),
+                res["new_p_binom"],
+                res["new_taus"],
+                tumor_prop,
             )
 
     log_emission_rdr = log_emission_rdr.reshape(
@@ -293,18 +296,19 @@ def compute_neymanpearson_stats(
     lambd = np.sum(base_nb_mean, axis=1) / np.sum(base_nb_mean)
 
     if tumor_prop is None:
-        log_emission_rdr, log_emission_baf = (
-            hmmclass.compute_emission_probability_nb_betabinom(
-                np.vstack([X[:, 0, :].flatten("F"), X[:, 1, :].flatten("F")]).T.reshape(
-                    -1, 2, 1
-                ),
-                base_nb_mean.flatten("F").reshape(-1, 1),
-                res["new_log_mu"],
-                res["new_alphas"],
-                total_bb_RD.flatten("F").reshape(-1, 1),
-                res["new_p_binom"],
-                res["new_taus"],
-            )
+        (
+            log_emission_rdr,
+            log_emission_baf,
+        ) = hmmclass.compute_emission_probability_nb_betabinom(
+            np.vstack([X[:, 0, :].flatten("F"), X[:, 1, :].flatten("F")]).T.reshape(
+                -1, 2, 1
+            ),
+            base_nb_mean.flatten("F").reshape(-1, 1),
+            res["new_log_mu"],
+            res["new_alphas"],
+            total_bb_RD.flatten("F").reshape(-1, 1),
+            res["new_p_binom"],
+            res["new_taus"],
         )
     else:
         if "m" in params:
@@ -324,36 +328,38 @@ def compute_neymanpearson_stats(
                     )
                 )
             logmu_shift = np.vstack(logmu_shift)
-            log_emission_rdr, log_emission_baf = (
-                hmmclass.compute_emission_probability_nb_betabinom_mix(
-                    np.vstack(
-                        [X[:, 0, :].flatten("F"), X[:, 1, :].flatten("F")]
-                    ).T.reshape(-1, 2, 1),
-                    base_nb_mean.flatten("F").reshape(-1, 1),
-                    res["new_log_mu"],
-                    res["new_alphas"],
-                    total_bb_RD.flatten("F").reshape(-1, 1),
-                    res["new_p_binom"],
-                    res["new_taus"],
-                    tumor_prop,
-                    logmu_shift=logmu_shift,
-                    sample_length=np.ones(n_clones, dtype=int) * n_obs,
-                )
+            (
+                log_emission_rdr,
+                log_emission_baf,
+            ) = hmmclass.compute_emission_probability_nb_betabinom_mix(
+                np.vstack([X[:, 0, :].flatten("F"), X[:, 1, :].flatten("F")]).T.reshape(
+                    -1, 2, 1
+                ),
+                base_nb_mean.flatten("F").reshape(-1, 1),
+                res["new_log_mu"],
+                res["new_alphas"],
+                total_bb_RD.flatten("F").reshape(-1, 1),
+                res["new_p_binom"],
+                res["new_taus"],
+                tumor_prop,
+                logmu_shift=logmu_shift,
+                sample_length=np.ones(n_clones, dtype=int) * n_obs,
             )
         else:
-            log_emission_rdr, log_emission_baf = (
-                hmmclass.compute_emission_probability_nb_betabinom_mix(
-                    np.vstack(
-                        [X[:, 0, :].flatten("F"), X[:, 1, :].flatten("F")]
-                    ).T.reshape(-1, 2, 1),
-                    base_nb_mean.flatten("F").reshape(-1, 1),
-                    res["new_log_mu"],
-                    res["new_alphas"],
-                    total_bb_RD.flatten("F").reshape(-1, 1),
-                    res["new_p_binom"],
-                    res["new_taus"],
-                    tumor_prop,
-                )
+            (
+                log_emission_rdr,
+                log_emission_baf,
+            ) = hmmclass.compute_emission_probability_nb_betabinom_mix(
+                np.vstack([X[:, 0, :].flatten("F"), X[:, 1, :].flatten("F")]).T.reshape(
+                    -1, 2, 1
+                ),
+                base_nb_mean.flatten("F").reshape(-1, 1),
+                res["new_log_mu"],
+                res["new_alphas"],
+                total_bb_RD.flatten("F").reshape(-1, 1),
+                res["new_p_binom"],
+                res["new_taus"],
+                tumor_prop,
             )
     log_emission_rdr = log_emission_rdr.reshape(
         (log_emission_rdr.shape[0], n_obs, n_clones), order="F"

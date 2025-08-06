@@ -92,30 +92,30 @@ class hmm_sitewise:
                         X[idx_nonzero_rdr, 0, s], n, p
                     )
 
-                    log_emission_rdr[i + n_states, idx_nonzero_rdr, s] = (
-                        log_emission_rdr[i, idx_nonzero_rdr, s]
-                    )
+                    log_emission_rdr[
+                        i + n_states, idx_nonzero_rdr, s
+                    ] = log_emission_rdr[i, idx_nonzero_rdr, s]
 
                 idx_nonzero_baf = np.where(total_bb_RD[:, s] > 0)[0]
 
                 if len(idx_nonzero_baf) > 0:
-                    log_emission_baf[i, idx_nonzero_baf, s] = (
-                        scipy.stats.betabinom.logpmf(
-                            X[idx_nonzero_baf, 1, s],
-                            total_bb_RD[idx_nonzero_baf, s],
-                            p_binom[i, s] * taus[i, s],
-                            (1.0 - p_binom[i, s]) * taus[i, s],
-                        )
+                    log_emission_baf[
+                        i, idx_nonzero_baf, s
+                    ] = scipy.stats.betabinom.logpmf(
+                        X[idx_nonzero_baf, 1, s],
+                        total_bb_RD[idx_nonzero_baf, s],
+                        p_binom[i, s] * taus[i, s],
+                        (1.0 - p_binom[i, s]) * taus[i, s],
                     )
 
-                    log_emission_baf[i + n_states, idx_nonzero_baf, s] = (
-                        switch_betabinom(
-                            log_emission_baf[i, idx_nonzero_baf, s],
-                            X[idx_nonzero_baf, 1, s],
-                            total_bb_RD[idx_nonzero_baf, s],
-                            p_binom[i, s] * taus[i, s],
-                            (1.0 - p_binom[i, s]) * taus[i, s],
-                        )
+                    log_emission_baf[
+                        i + n_states, idx_nonzero_baf, s
+                    ] = switch_betabinom(
+                        log_emission_baf[i, idx_nonzero_baf, s],
+                        X[idx_nonzero_baf, 1, s],
+                        total_bb_RD[idx_nonzero_baf, s],
+                        p_binom[i, s] * taus[i, s],
+                        (1.0 - p_binom[i, s]) * taus[i, s],
                     )
 
         return log_emission_rdr, log_emission_baf
@@ -182,9 +182,9 @@ class hmm_sitewise:
                     log_emission_rdr[i, idx_nonzero_rdr, s] = scipy.stats.nbinom.logpmf(
                         X[idx_nonzero_rdr, 0, s], n, p
                     )
-                    log_emission_rdr[i + n_states, idx_nonzero_rdr, s] = (
-                        log_emission_rdr[i, idx_nonzero_rdr, s]
-                    )
+                    log_emission_rdr[
+                        i + n_states, idx_nonzero_rdr, s
+                    ] = log_emission_rdr[i, idx_nonzero_rdr, s]
 
                 idx_nonzero_baf = np.where(total_bb_RD[:, s] > 0)[0]
 
@@ -471,8 +471,10 @@ class hmm_sitewise:
 
             log_gamma = compute_posterior_obs(log_alpha, log_beta)
 
-            logger.info(f"State posterior breakdown:\n{np.sum(np.exp(log_gamma), axis=1) / np.sum(np.exp(log_gamma))}")
-            
+            logger.info(
+                f"State posterior breakdown:\n{np.sum(np.exp(log_gamma), axis=1) / np.sum(np.exp(log_gamma))}"
+            )
+
             log_xi = compute_posterior_transition_sitewise(
                 log_alpha, log_beta, log_transmat, log_emission
             )
@@ -565,7 +567,7 @@ class hmm_sitewise:
                 np.max(np.abs(new_log_mu - log_mu)),
                 np.max(np.abs(new_p_binom - p_binom)),
             )
-                
+
             transmat_converged = (
                 np.mean(np.abs(np.exp(new_log_transmat) - np.exp(log_transmat))) < tol
             )

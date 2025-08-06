@@ -471,7 +471,7 @@ def update_emission_params_nb_nophasing_uniqvalues(
                         )
         else:
             logger.info(
-                "Updating (no phasing) NB emission parameters with shared dispersion."
+                "Updating (no phasing) NB emission parameters with shared dispersion for {n_spots} spots."
             )
 
             exposure, y, weights, features, state_posweights = [], [], [], [], []
@@ -485,7 +485,6 @@ def update_emission_params_nb_nophasing_uniqvalues(
                     [tmp[i, idx_nonzero] for i in range(n_states)]
                 )
 
-                # TODO confirm: design matrix.
                 this_features = np.zeros((n_states * len(idx_nonzero), n_states))
                 for i in np.arange(n_states):
                     this_features[
@@ -496,14 +495,18 @@ def update_emission_params_nb_nophasing_uniqvalues(
                     [
                         i
                         for i in range(this_features.shape[1])
-                        if np.sum(this_weights[this_features[:, i] == 1]) >= state_weight_threshold
+                        if np.sum(this_weights[this_features[:, i] == 1])
+                        >= state_weight_threshold
                     ]
                 )
 
-                # TODO HACK?                                                                                                                                                                                                                                                    
+                # TODO HACK?
                 if len(idx_state_posweight) < this_features.shape[1]:
-                    logger.warning(f"M-step solving for only states: {idx_state_posweight} given MAGIC.")
-                
+                    logger.warning(
+                        f"M-step solving for only states: {idx_state_posweight} given state_weight_threshold={state_weight_threshold}."
+                    )
+
+                # NB select only those states meeting state_weight_threshold cut.
                 idx_row_posweight = np.concatenate(
                     [np.where(this_features[:, k] == 1)[0] for k in idx_state_posweight]
                 )
@@ -918,7 +921,8 @@ def update_emission_params_nb_nophasing_uniqvalues_mix(
                     [
                         i
                         for i in range(this_features.shape[1])
-                        if np.sum(this_weights[this_features[:, i] == 1]) >= 0.1 # MAGIC
+                        if np.sum(this_weights[this_features[:, i] == 1])
+                        >= 0.1  # MAGIC
                     ]
                 )
                 idx_row_posweight = np.concatenate(
@@ -1172,14 +1176,17 @@ def update_emission_params_bb_sitewise_uniqvalues(
                     [
                         i
                         for i in range(this_features.shape[1])
-                        if np.sum(this_weights[this_features[:, i] == 1]) >= state_weight_threshold
+                        if np.sum(this_weights[this_features[:, i] == 1])
+                        >= state_weight_threshold
                     ]
                 )
 
                 # TODO HACK?
                 if len(idx_state_posweight) < this_features.shape[1]:
-                    logger.warning(f"M-step solving for only states: {idx_state_posweight} given MAGIC.")
-                
+                    logger.warning(
+                        f"M-step solving for only states: {idx_state_posweight} given MAGIC."
+                    )
+
                 idx_row_posweight = np.concatenate(
                     [np.where(this_features[:, k] == 1)[0] for k in idx_state_posweight]
                 )
@@ -1268,8 +1275,10 @@ def update_emission_params_bb_sitewise_uniqvalues(
     valid = (new_p_binom > min_binom_prob) & (new_p_binom < max_binom_prob)
 
     if not np.all(valid):
-        logger.warning(f"Clipping inferred p binom to {min_binom_prob}, {max_binom_prob} limits.")
-    
+        logger.warning(
+            f"Clipping inferred p binom to {min_binom_prob}, {max_binom_prob} limits."
+        )
+
     new_p_binom[new_p_binom < min_binom_prob] = min_binom_prob
     new_p_binom[new_p_binom > max_binom_prob] = max_binom_prob
     return new_p_binom, new_taus
@@ -1286,7 +1295,7 @@ def update_emission_params_bb_nophasing_uniqvalues(
     percent_threshold=0.99,
     min_binom_prob=0.01,
     max_binom_prob=0.99,
-    state_weight_threshold=0.0, 
+    state_weight_threshold=0.0,
 ):
     """
     Attributes
@@ -1409,17 +1418,20 @@ def update_emission_params_bb_nophasing_uniqvalues(
                     [
                         i
                         for i in range(this_features.shape[1])
-                        if np.sum(this_weights[this_features[:, i] == 1]) >= state_weight_threshold
+                        if np.sum(this_weights[this_features[:, i] == 1])
+                        >= state_weight_threshold
                     ]
                 )
 
                 if len(idx_state_posweight) < this_features.shape[1]:
-                    logger.warning(f"M-step solving for only states: {idx_state_posweight} given MAGIC.")
-                
+                    logger.warning(
+                        f"M-step solving for only states: {idx_state_posweight} given MAGIC."
+                    )
+
                 idx_row_posweight = np.concatenate(
                     [np.where(this_features[:, k] == 1)[0] for k in idx_state_posweight]
                 )
-                
+
                 y.append(this_y[idx_row_posweight])
                 exposure.append(this_exposure[idx_row_posweight])
                 weights.append(this_weights[idx_row_posweight])

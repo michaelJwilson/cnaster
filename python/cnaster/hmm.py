@@ -85,9 +85,7 @@ def pipeline_baum_welch(
     hmm_model = hmmclass(params=params, t=t)
 
     # TODO HACK "log_gamma"
-    remain_kwargs = {
-        k: v for k, v in kwargs.items() if k in ["lambd", "sample_length"]
-    }
+    remain_kwargs = {k: v for k, v in kwargs.items() if k in ["lambd", "sample_length"]}
 
     (
         new_log_mu,
@@ -243,8 +241,10 @@ def pipeline_baum_welch(
         )
     """
 
-    logger.info(f"Solved HMM with LLF={llf:.6e} for new_log_mu.shape={new_log_mu.shape} given X.shape={X.shape}")
-    
+    logger.info(
+        f"Solved HMM with LLF={llf:.6e} for new_log_mu.shape={new_log_mu.shape} given X.shape={X.shape}"
+    )
+
     return {
         "new_log_mu": new_log_mu,
         "new_alphas": new_alphas,

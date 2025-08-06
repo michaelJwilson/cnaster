@@ -140,9 +140,9 @@ def rectangle_initialize_initial_clone(coords, n_clones, random_state=0):
 
             # NB take a block from the over-represented clone and give to the unassigned
             #    clone.
-            block_clone_map[np.where(block_clone_map == np.argmax(bc))[0][0]] = (
-                np.where(bc == 0)[0][0]
-            )
+            block_clone_map[
+                np.where(block_clone_map == np.argmax(bc))[0][0]
+            ] = np.where(bc == 0)[0][0]
 
         block_clone_map = {i: block_clone_map[i] for i in range(len(block_clone_map))}
         clone_id = np.array([block_clone_map[i] for i in block_id])
@@ -208,7 +208,9 @@ def choose_adjacency_by_readcounts(
     x_dist = coords[:, 0][None, :] - coords[:, 0][:, None]
     y_dist = coords[:, 1][None, :] - coords[:, 1][:, None]
 
-    tmp_pairwise_squared_dist = x_dist**2 * unit_xsquared + y_dist**2 * unit_ysquared
+    tmp_pairwise_squared_dist = (
+        x_dist**2 * unit_xsquared + y_dist**2 * unit_ysquared
+    )
 
     np.fill_diagonal(tmp_pairwise_squared_dist, np.max(tmp_pairwise_squared_dist))
 

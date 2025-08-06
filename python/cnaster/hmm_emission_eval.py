@@ -35,6 +35,7 @@ def betabinom_logpmf_numba(k, n, alpha, beta):
 
     return log_binom_coeff + log_beta_num - log_beta_denom
 
+
 # error_model="numpy"
 @njit(nogil=True, cache=True, fastmath=False, parallel=True)
 def compute_emissions_nb(
@@ -49,9 +50,9 @@ def compute_emissions_nb(
     # TODO zeros? -np.inf
     log_emission_rdr = np.full((n_states, n_obs, n_spots), 0.0)
 
-    # TODO                                                                                                                                                                                                                                                       
+    # TODO
     assert log_mu.shape[1] == 1
-    
+
     for i in numba.prange(n_states):
         for obs in range(n_obs):
             for s in range(n_spots):
@@ -67,6 +68,7 @@ def compute_emissions_nb(
 
     return log_emission_rdr
 
+
 # error_model="numpy"
 @njit(nogil=True, cache=True, fastmath=False, parallel=True)
 def compute_emissions_bb(
@@ -81,9 +83,9 @@ def compute_emissions_bb(
     # TODO zeros? -np.inf
     log_emission_baf = np.full((n_states, n_obs, n_spots), 0.0)
 
-    # TODO                                                                                                                                                                                                                                                       
+    # TODO
     assert p_binom.shape[1] == 1
-    
+
     for i in numba.prange(n_states):
         for obs in range(n_obs):
             for s in range(n_spots):
@@ -101,7 +103,7 @@ def compute_emissions_bb(
 def compute_emissions(X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus):
     n_obs, _, n_spots = X.shape
     n_states = log_mu.shape[0]
-    
+
     base_nb_mean = np.ascontiguousarray(base_nb_mean, dtype=np.float64)
     log_mu = np.ascontiguousarray(log_mu, dtype=np.float64)
     alphas = np.ascontiguousarray(alphas, dtype=np.float64)

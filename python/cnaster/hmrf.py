@@ -314,31 +314,33 @@ def aggr_hmrfmix_reassignment_concatenate(
 
     # NB emission shape: (n_states, n_obs, n_spots)
     if use_mixture:
-        tmp_log_emission_rdr, tmp_log_emission_baf = (
-            hmmclass.compute_emission_probability_nb_betabinom_mix(
-                pooled_X,
-                pooled_base_nb_mean,
-                res["new_log_mu"],
-                res["new_alphas"],
-                pooled_total_bb_RD,
-                res["new_p_binom"],
-                res["new_taus"],
-                np.ones((n_obs, 1))
-                * np.mean(single_tumor_prop[idx]),  # TODO BUG too many args???
-                weighted_tp.reshape(-1, 1),  # NB cast (n_obs,) to (n_obs, 1).
-            )
+        (
+            tmp_log_emission_rdr,
+            tmp_log_emission_baf,
+        ) = hmmclass.compute_emission_probability_nb_betabinom_mix(
+            pooled_X,
+            pooled_base_nb_mean,
+            res["new_log_mu"],
+            res["new_alphas"],
+            pooled_total_bb_RD,
+            res["new_p_binom"],
+            res["new_taus"],
+            np.ones((n_obs, 1))
+            * np.mean(single_tumor_prop[idx]),  # TODO BUG too many args???
+            weighted_tp.reshape(-1, 1),  # NB cast (n_obs,) to (n_obs, 1).
         )
     else:
-        tmp_log_emission_rdr, tmp_log_emission_baf = (
-            hmmclass.compute_emission_probability_nb_betabinom(
-                pooled_X,
-                pooled_base_nb_mean,
-                res["new_log_mu"],
-                res["new_alphas"],
-                pooled_total_bb_RD,
-                res["new_p_binom"],
-                res["new_taus"],
-            )
+        (
+            tmp_log_emission_rdr,
+            tmp_log_emission_baf,
+        ) = hmmclass.compute_emission_probability_nb_betabinom(
+            pooled_X,
+            pooled_base_nb_mean,
+            res["new_log_mu"],
+            res["new_alphas"],
+            pooled_total_bb_RD,
+            res["new_p_binom"],
+            res["new_taus"],
         )
 
     logger.info(f"TODO: post-processing likelihood")
@@ -685,9 +687,9 @@ def hmrfmix_concatenate_pipeline(
 
         state_counts = np.bincount(pred, minlength=n_states)
         state_usage = state_counts / len(pred)
-        
+
         logger.info(
-            f"{np.count_nonzero(last_assignment != res["new_assignment"])}/{len(last_assignment)} assignment changes with ARI to last assignment: {adjusted_rand_score(last_assignment, res['new_assignment']):.4f}"
+            f"{np.count_nonzero(last_assignment != res['new_assignment'])}/{len(last_assignment)} assignment changes with ARI to last assignment: {adjusted_rand_score(last_assignment, res['new_assignment']):.4f}"
         )
 
         with np.printoptions(linewidth=np.inf):
@@ -903,16 +905,17 @@ def aggr_hmrf_reassignment(
         idx = smooth_mat[i, :].nonzero()[1]
 
         for c in range(n_clones):
-            tmp_log_emission_rdr, tmp_log_emission_baf = (
-                hmmclass.compute_emission_probability_nb_betabinom(
-                    np.sum(single_X[:, :, idx], axis=2, keepdims=True),
-                    np.sum(single_base_nb_mean[:, idx], axis=1, keepdims=True),
-                    res["new_log_mu"][:, c : (c + 1)],
-                    res["new_alphas"][:, c : (c + 1)],
-                    np.sum(single_total_bb_RD[:, idx], axis=1, keepdims=True),
-                    res["new_p_binom"][:, c : (c + 1)],
-                    res["new_taus"][:, c : (c + 1)],
-                )
+            (
+                tmp_log_emission_rdr,
+                tmp_log_emission_baf,
+            ) = hmmclass.compute_emission_probability_nb_betabinom(
+                np.sum(single_X[:, :, idx], axis=2, keepdims=True),
+                np.sum(single_base_nb_mean[:, idx], axis=1, keepdims=True),
+                res["new_log_mu"][:, c : (c + 1)],
+                res["new_alphas"][:, c : (c + 1)],
+                np.sum(single_total_bb_RD[:, idx], axis=1, keepdims=True),
+                res["new_p_binom"][:, c : (c + 1)],
+                res["new_taus"][:, c : (c + 1)],
             )
             if (
                 np.sum(single_base_nb_mean[:, idx] > 0) > 0
@@ -988,16 +991,17 @@ def hmrf_reassignment_posterior(
         idx = smooth_mat[i, :].nonzero()[1]
 
         for c in range(n_clones):
-            tmp_log_emission_rdr, tmp_log_emission_baf = (
-                hmmclass.compute_emission_probability_nb_betabinom(
-                    np.sum(single_X[:, :, idx], axis=2, keepdims=True),
-                    np.sum(single_base_nb_mean[:, idx], axis=1, keepdims=True),
-                    res["new_log_mu"][:, c : (c + 1)],
-                    res["new_alphas"][:, c : (c + 1)],
-                    np.sum(single_total_bb_RD[:, idx], axis=1, keepdims=True),
-                    res["new_p_binom"][:, c : (c + 1)],
-                    res["new_taus"][:, c : (c + 1)],
-                )
+            (
+                tmp_log_emission_rdr,
+                tmp_log_emission_baf,
+            ) = hmmclass.compute_emission_probability_nb_betabinom(
+                np.sum(single_X[:, :, idx], axis=2, keepdims=True),
+                np.sum(single_base_nb_mean[:, idx], axis=1, keepdims=True),
+                res["new_log_mu"][:, c : (c + 1)],
+                res["new_alphas"][:, c : (c + 1)],
+                np.sum(single_total_bb_RD[:, idx], axis=1, keepdims=True),
+                res["new_p_binom"][:, c : (c + 1)],
+                res["new_taus"][:, c : (c + 1)],
             )
             if (
                 np.sum(single_base_nb_mean[:, idx] > 0) > 0
@@ -1106,18 +1110,19 @@ def aggr_hmrfmix_reassignment(
                 weighted_tp = np.repeat(
                     np.mean(single_tumor_prop[idx]), single_X.shape[0]
                 )
-            tmp_log_emission_rdr, tmp_log_emission_baf = (
-                hmmclass.compute_emission_probability_nb_betabinom_mix(
-                    np.sum(single_X[:, :, idx], axis=2, keepdims=True),
-                    np.sum(single_base_nb_mean[:, idx], axis=1, keepdims=True),
-                    res["new_log_mu"][:, c : (c + 1)],
-                    res["new_alphas"][:, c : (c + 1)],
-                    np.sum(single_total_bb_RD[:, idx], axis=1, keepdims=True),
-                    res["new_p_binom"][:, c : (c + 1)],
-                    res["new_taus"][:, c : (c + 1)],
-                    np.ones((n_obs, 1)) * np.mean(single_tumor_prop[idx]),
-                    weighted_tp.reshape(-1, 1),
-                )
+            (
+                tmp_log_emission_rdr,
+                tmp_log_emission_baf,
+            ) = hmmclass.compute_emission_probability_nb_betabinom_mix(
+                np.sum(single_X[:, :, idx], axis=2, keepdims=True),
+                np.sum(single_base_nb_mean[:, idx], axis=1, keepdims=True),
+                res["new_log_mu"][:, c : (c + 1)],
+                res["new_alphas"][:, c : (c + 1)],
+                np.sum(single_total_bb_RD[:, idx], axis=1, keepdims=True),
+                res["new_p_binom"][:, c : (c + 1)],
+                res["new_taus"][:, c : (c + 1)],
+                np.ones((n_obs, 1)) * np.mean(single_tumor_prop[idx]),
+                weighted_tp.reshape(-1, 1),
             )
             if (
                 np.sum(single_base_nb_mean[:, idx] > 0) > 0
@@ -1209,18 +1214,19 @@ def hmrfmix_reassignment_posterior(
                 }
             else:
                 kwargs = {}
-            tmp_log_emission_rdr, tmp_log_emission_baf = (
-                hmmclass.compute_emission_probability_nb_betabinom_mix(
-                    np.sum(single_X[:, :, idx], axis=2, keepdims=True),
-                    np.sum(single_base_nb_mean[:, idx], axis=1, keepdims=True),
-                    res["new_log_mu"][:, c : (c + 1)],
-                    res["new_alphas"][:, c : (c + 1)],
-                    np.sum(single_total_bb_RD[:, idx], axis=1, keepdims=True),
-                    res["new_p_binom"][:, c : (c + 1)],
-                    res["new_taus"][:, c : (c + 1)],
-                    np.ones((n_obs, 1)) * np.mean(single_tumor_prop[idx]),
-                    **kwargs,
-                )
+            (
+                tmp_log_emission_rdr,
+                tmp_log_emission_baf,
+            ) = hmmclass.compute_emission_probability_nb_betabinom_mix(
+                np.sum(single_X[:, :, idx], axis=2, keepdims=True),
+                np.sum(single_base_nb_mean[:, idx], axis=1, keepdims=True),
+                res["new_log_mu"][:, c : (c + 1)],
+                res["new_alphas"][:, c : (c + 1)],
+                np.sum(single_total_bb_RD[:, idx], axis=1, keepdims=True),
+                res["new_p_binom"][:, c : (c + 1)],
+                res["new_taus"][:, c : (c + 1)],
+                np.ones((n_obs, 1)) * np.mean(single_tumor_prop[idx]),
+                **kwargs,
             )
             if (
                 np.sum(single_base_nb_mean[:, idx] > 0) > 0

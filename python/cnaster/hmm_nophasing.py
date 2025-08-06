@@ -39,8 +39,9 @@ class hmm_nophasing:
     def compute_emission_probability_nb_betabinom(
         X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus
     ):
-
-        logger.debug(f"Evaluating HMRF NB+BB emission likelihood for X.shape={X.shape} and log_mu.shape={log_mu.shape}.")
+        logger.debug(
+            f"Evaluating HMRF NB+BB emission likelihood for X.shape={X.shape} and log_mu.shape={log_mu.shape}."
+        )
 
         # LEGACY
         # return compute_emission_probability_nb_betabinom(
@@ -260,7 +261,7 @@ class hmm_nophasing:
             alpha: size of n_states. Dispersioon parameter of each HMM state.
         """
         n_obs, n_comp, n_spots = X.shape
-        
+
         assert n_comp == 2
 
         # NB initialize NB logmean shift and BetaBinom prob
@@ -313,13 +314,14 @@ class hmm_nophasing:
             logger.info(
                 f"----  Solving for Baum-Welch iteration {r}/{max_iter} with NegBin+BetaBin emission  -----"
             )
-            
+
             # E step
             if tumor_prop is None:
-                log_emission_rdr, log_emission_baf = (
-                    self.compute_emission_probability_nb_betabinom(
-                        X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus
-                    )
+                (
+                    log_emission_rdr,
+                    log_emission_baf,
+                ) = self.compute_emission_probability_nb_betabinom(
+                    X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus
                 )
             else:
                 # NB adjust copy-number state mu for RDR adjusted normalization.
@@ -350,32 +352,34 @@ class hmm_nophasing:
 
                     logmu_shift = np.vstack(logmu_shift)
 
-                    log_emission_rdr, log_emission_baf = (
-                        self.compute_emission_probability_nb_betabinom_mix(
-                            X,
-                            base_nb_mean,
-                            log_mu,
-                            alphas,
-                            total_bb_RD,
-                            p_binom,
-                            taus,
-                            tumor_prop,
-                            logmu_shift=logmu_shift,
-                            sample_length=kwargs["sample_length"],
-                        )
+                    (
+                        log_emission_rdr,
+                        log_emission_baf,
+                    ) = self.compute_emission_probability_nb_betabinom_mix(
+                        X,
+                        base_nb_mean,
+                        log_mu,
+                        alphas,
+                        total_bb_RD,
+                        p_binom,
+                        taus,
+                        tumor_prop,
+                        logmu_shift=logmu_shift,
+                        sample_length=kwargs["sample_length"],
                     )
                 else:
-                    log_emission_rdr, log_emission_baf = (
-                        self.compute_emission_probability_nb_betabinom_mix(
-                            X,
-                            base_nb_mean,
-                            log_mu,
-                            alphas,
-                            total_bb_RD,
-                            p_binom,
-                            taus,
-                            tumor_prop,
-                        )
+                    (
+                        log_emission_rdr,
+                        log_emission_baf,
+                    ) = self.compute_emission_probability_nb_betabinom_mix(
+                        X,
+                        base_nb_mean,
+                        log_mu,
+                        alphas,
+                        total_bb_RD,
+                        p_binom,
+                        taus,
+                        tumor_prop,
                     )
 
             log_emission = log_emission_rdr + log_emission_baf
@@ -399,8 +403,10 @@ class hmm_nophasing:
             # NB n_states * n_observations
             log_gamma = compute_posterior_obs(log_alpha, log_beta)
 
-            logger.info(f"State posterior breakdown:\n{np.sum(np.exp(log_gamma), axis=1) / np.sum(np.exp(log_gamma))}")
-            
+            logger.info(
+                f"State posterior breakdown:\n{np.sum(np.exp(log_gamma), axis=1) / np.sum(np.exp(log_gamma))}"
+            )
+
             # log_xi = compute_posterior_transition_nophasing(
             #     log_alpha, log_beta, log_transmat, log_emission
             # )
@@ -416,36 +422,38 @@ class hmm_nophasing:
                 log_xi = compute_posterior_transition_nophasing(
                     log_alpha, log_beta, log_transmat, log_emission
                 )
-                
+
                 new_log_transmat = update_transition_nophasing(log_xi, is_diag=is_diag)
             else:
                 new_log_transmat = log_transmat
 
             if "m" in self.params:
                 if tumor_prop is None:
-                    new_log_mu, new_alphas = (
-                        update_emission_params_nb_nophasing_uniqvalues(
-                            unique_values_nb,
-                            mapping_matrices_nb,
-                            log_gamma,
-                            alphas,
-                            start_log_mu=log_mu,
-                            fix_NB_dispersion=fix_NB_dispersion,
-                            shared_NB_dispersion=shared_NB_dispersion,
-                        )
+                    (
+                        new_log_mu,
+                        new_alphas,
+                    ) = update_emission_params_nb_nophasing_uniqvalues(
+                        unique_values_nb,
+                        mapping_matrices_nb,
+                        log_gamma,
+                        alphas,
+                        start_log_mu=log_mu,
+                        fix_NB_dispersion=fix_NB_dispersion,
+                        shared_NB_dispersion=shared_NB_dispersion,
                     )
                 else:
-                    new_log_mu, new_alphas = (
-                        update_emission_params_nb_nophasing_uniqvalues_mix(
-                            unique_values_nb,
-                            mapping_matrices_nb,
-                            log_gamma,
-                            alphas,
-                            tumor_prop,
-                            start_log_mu=log_mu,
-                            fix_NB_dispersion=fix_NB_dispersion,
-                            shared_NB_dispersion=shared_NB_dispersion,
-                        )
+                    (
+                        new_log_mu,
+                        new_alphas,
+                    ) = update_emission_params_nb_nophasing_uniqvalues_mix(
+                        unique_values_nb,
+                        mapping_matrices_nb,
+                        log_gamma,
+                        alphas,
+                        tumor_prop,
+                        start_log_mu=log_mu,
+                        fix_NB_dispersion=fix_NB_dispersion,
+                        shared_NB_dispersion=shared_NB_dispersion,
                     )
             else:
                 new_log_mu = log_mu
@@ -453,16 +461,17 @@ class hmm_nophasing:
 
             if "p" in self.params:
                 if tumor_prop is None:
-                    new_p_binom, new_taus = (
-                        update_emission_params_bb_nophasing_uniqvalues(
-                            unique_values_bb,
-                            mapping_matrices_bb,
-                            log_gamma,
-                            taus,
-                            start_p_binom=p_binom,
-                            fix_BB_dispersion=fix_BB_dispersion,
-                            shared_BB_dispersion=shared_BB_dispersion,
-                        )
+                    (
+                        new_p_binom,
+                        new_taus,
+                    ) = update_emission_params_bb_nophasing_uniqvalues(
+                        unique_values_bb,
+                        mapping_matrices_bb,
+                        log_gamma,
+                        taus,
+                        start_p_binom=p_binom,
+                        fix_BB_dispersion=fix_BB_dispersion,
+                        shared_BB_dispersion=shared_BB_dispersion,
                     )
                 else:
                     # NB compute mu as adjusted RDR
@@ -496,17 +505,18 @@ class hmm_nophasing:
                         )
                     else:
                         weighted_tp = tumor_prop
-                    new_p_binom, new_taus = (
-                        update_emission_params_bb_nophasing_uniqvalues_mix(
-                            unique_values_bb,
-                            mapping_matrices_bb,
-                            log_gamma,
-                            taus,
-                            weighted_tp,
-                            start_p_binom=p_binom,
-                            fix_BB_dispersion=fix_BB_dispersion,
-                            shared_BB_dispersion=shared_BB_dispersion,
-                        )
+                    (
+                        new_p_binom,
+                        new_taus,
+                    ) = update_emission_params_bb_nophasing_uniqvalues_mix(
+                        unique_values_bb,
+                        mapping_matrices_bb,
+                        log_gamma,
+                        taus,
+                        weighted_tp,
+                        start_p_binom=p_binom,
+                        fix_BB_dispersion=fix_BB_dispersion,
+                        shared_BB_dispersion=shared_BB_dispersion,
                     )
             else:
                 new_p_binom = p_binom
@@ -514,7 +524,7 @@ class hmm_nophasing:
 
             logger.info(
                 "Found max HMM parameter updates for tol=%.6e: \nstart prob.=%.6e\ntransfer matrix=%.6e\nmu=%.6e\np_binom=%.6e",
-                tol, 
+                tol,
                 np.max(np.abs(np.exp(new_log_startprob) - np.exp(log_startprob))),
                 np.max(np.abs(np.exp(new_log_transmat) - np.exp(log_transmat))),
                 np.max(np.abs(np.exp(new_log_mu) - np.exp(log_mu))),
@@ -526,7 +536,9 @@ class hmm_nophasing:
             transmat_converged = (
                 np.mean(np.abs(np.exp(new_log_transmat) - np.exp(log_transmat))) < tol
             )
-            log_mu_converged = np.mean(np.abs(np.exp(new_log_mu) - np.exp(log_mu))) < tol
+            log_mu_converged = (
+                np.mean(np.abs(np.exp(new_log_mu) - np.exp(log_mu))) < tol
+            )
             p_binom_converged = np.mean(np.abs(new_p_binom - p_binom)) < tol
 
             if transmat_converged and log_mu_converged and p_binom_converged:
@@ -534,7 +546,7 @@ class hmm_nophasing:
             else:
                 logger.info(
                     f"Convergence of T, mu and p: {transmat_converged},{log_mu_converged},{p_binom_converged}"
-		)
+                )
 
             log_startprob = new_log_startprob
             log_transmat = new_log_transmat

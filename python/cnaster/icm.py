@@ -5,6 +5,7 @@ from numba import njit
 
 logger = logging.getLogger(__name__)
 
+
 # TODO
 # @njit
 def icm_update(

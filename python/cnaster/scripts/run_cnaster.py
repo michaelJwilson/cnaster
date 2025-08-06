@@ -61,7 +61,7 @@ class RuntimeFormatter(logging.Formatter):
 
 
 formatter = RuntimeFormatter(
-    fmt="[%(runtime)s] - %(asctime)s - %(name)s - %(levelname)s - %(filename)s:%(lineno)d - %(message)s",
+    fmt="%(asctime)s - %(runtime)s - %(name)s - %(levelname)s - %(filename)s:%(lineno)d - %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 
@@ -277,15 +277,9 @@ def run_cnaster(config_path):
     initial_clone_index = rectangle_initialize_initial_clone(
         coords, config.hmrf.n_clones, random_state=0
     )
-<<<<<<< HEAD
-
-    logger.info("Solving HMM+HMRF for copy state and clones.")
-
-=======
     
     logger.info("Solving HMM+HMRF for copy state and clones with BAF only.")
     
->>>>>>> 55183d9a505e3956fb16dca33a54a3b1d807d315
     res = hmrfmix_concatenate_pipeline(
         None,
         None,

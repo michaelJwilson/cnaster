@@ -582,9 +582,11 @@ def hmrfmix_concatenate_pipeline(
 
         remain_kwargs = {"sample_length": sample_length, "lambd": lambd}
 
+        """
+        # TODO HACK BUG?
         if "log_gamma" in res:
             remain_kwargs["log_gamma"] = res["log_gamma"]
-
+        """
         res = pipeline_baum_welch(
             None,
             clone_stack_X,

@@ -84,8 +84,9 @@ def pipeline_baum_welch(
 
     hmm_model = hmmclass(params=params, t=t)
 
+    # TODO HACK "log_gamma"
     remain_kwargs = {
-        k: v for k, v in kwargs.items() if k in ["lambd", "sample_length", "log_gamma"]
+        k: v for k, v in kwargs.items() if k in ["lambd", "sample_length"]
     }
 
     (
@@ -123,7 +124,7 @@ def pipeline_baum_welch(
     ]
 
     if "m" in params and new_log_mu is not None:
-        to_log.append(f"log_mu=\n{new_log_mu}")
+        to_log.append(f"mu=\n{np.exp(new_log_mu)}")
 
     if "p" in params and new_p_binom is not None:
         to_log.append(f"p_binom=\n{new_p_binom}")

@@ -498,6 +498,11 @@ def update_emission_params_nb_nophasing_uniqvalues(
                         if np.sum(this_weights[this_features[:, i] == 1]) >= 0.1 # MAGIC
                     ]
                 )
+
+                # TODO HACK?                                                                                                                                                                                                                                                    
+                if len(idx_state_posweight) < this_features.shape[1]:
+                    logger.warning(f"M-step solving for only states: {idx_state_posweight} given MAGIC.")
+                
                 idx_row_posweight = np.concatenate(
                     [np.where(this_features[:, k] == 1)[0] for k in idx_state_posweight]
                 )

@@ -291,8 +291,7 @@ class hmm_nophasing:
         else:
             log_transmat = np.zeros((1, 1))
 
-        # HACK
-        # log_gamma = kwargs.get("log_gamma", None)
+        log_gamma = kwargs.get("log_gamma", None)
 
         logger.info(f"Assumed initial log_gamma?  {log_gamma is not None}")
 

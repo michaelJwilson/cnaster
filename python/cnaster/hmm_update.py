@@ -374,6 +374,7 @@ def update_emission_params_nb_nophasing_uniqvalues(
     shared_NB_dispersion=False,
     min_log_rdr=-2,
     max_log_rdr=2,
+    state_weight_threshold=0.0,
 ):
     """
     Attributes
@@ -495,7 +496,7 @@ def update_emission_params_nb_nophasing_uniqvalues(
                     [
                         i
                         for i in range(this_features.shape[1])
-                        if np.sum(this_weights[this_features[:, i] == 1]) >= 0.1 # MAGIC
+                        if np.sum(this_weights[this_features[:, i] == 1]) >= state_weight_threshold
                     ]
                 )
 
@@ -989,6 +990,7 @@ def update_emission_params_bb_sitewise_uniqvalues(
     percent_threshold=0.99,
     min_binom_prob=0.01,
     max_binom_prob=0.99,
+    state_weight_threshold=0.0,
 ):
     """
     Attributes
@@ -1170,7 +1172,7 @@ def update_emission_params_bb_sitewise_uniqvalues(
                     [
                         i
                         for i in range(this_features.shape[1])
-                        if np.sum(this_weights[this_features[:, i] == 1]) >= 0.1 # MAGIC
+                        if np.sum(this_weights[this_features[:, i] == 1]) >= state_weight_threshold
                     ]
                 )
 
@@ -1284,6 +1286,7 @@ def update_emission_params_bb_nophasing_uniqvalues(
     percent_threshold=0.99,
     min_binom_prob=0.01,
     max_binom_prob=0.99,
+    state_weight_threshold=0.0, 
 ):
     """
     Attributes
@@ -1406,12 +1409,17 @@ def update_emission_params_bb_nophasing_uniqvalues(
                     [
                         i
                         for i in range(this_features.shape[1])
-                        if np.sum(this_weights[this_features[:, i] == 1]) >= 0.1
+                        if np.sum(this_weights[this_features[:, i] == 1]) >= state_weight_threshold
                     ]
                 )
+
+                if len(idx_state_posweight) < this_features.shape[1]:
+                    logger.warning(f"M-step solving for only states: {idx_state_posweight} given MAGIC.")
+                
                 idx_row_posweight = np.concatenate(
                     [np.where(this_features[:, k] == 1)[0] for k in idx_state_posweight]
                 )
+                
                 y.append(this_y[idx_row_posweight])
                 exposure.append(this_exposure[idx_row_posweight])
                 weights.append(this_weights[idx_row_posweight])

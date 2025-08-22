@@ -261,10 +261,14 @@ def estimator_tumor_proportion(
             # single
             B_loh = np.array(
                 [
-                    np.sum(single_X[:, 1, i][reshaped_pred_cnv[:, c] == s])
-                    if is_B_lost[j]
-                    else np.sum(single_total_bb_RD[:, i][reshaped_pred_cnv[:, c] == s])
-                    - np.sum(single_X[:, 1, i][reshaped_pred_cnv[:, c] == s])
+                    (
+                        np.sum(single_X[:, 1, i][reshaped_pred_cnv[:, c] == s])
+                        if is_B_lost[j]
+                        else np.sum(
+                            single_total_bb_RD[:, i][reshaped_pred_cnv[:, c] == s]
+                        )
+                        - np.sum(single_X[:, 1, i][reshaped_pred_cnv[:, c] == s])
+                    )
                     for j, s in enumerate(loh_states)
                 ]
             )
@@ -283,12 +287,14 @@ def estimator_tumor_proportion(
             # smoothed
             B_loh = np.array(
                 [
-                    np.sum(single_X[:, 1, idx_adj][reshaped_pred_cnv[:, c] == s])
-                    if is_B_lost[j]
-                    else np.sum(
-                        single_total_bb_RD[:, idx_adj][reshaped_pred_cnv[:, c] == s]
+                    (
+                        np.sum(single_X[:, 1, idx_adj][reshaped_pred_cnv[:, c] == s])
+                        if is_B_lost[j]
+                        else np.sum(
+                            single_total_bb_RD[:, idx_adj][reshaped_pred_cnv[:, c] == s]
+                        )
+                        - np.sum(single_X[:, 1, idx_adj][reshaped_pred_cnv[:, c] == s])
                     )
-                    - np.sum(single_X[:, 1, idx_adj][reshaped_pred_cnv[:, c] == s])
                     for j, s in enumerate(loh_states)
                 ]
             )

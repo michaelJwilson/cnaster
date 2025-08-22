@@ -346,10 +346,6 @@ def run_cnaster(config_path):
         min_umicount_thresholds=n_obs * config.hmrf.min_avgumi_per_clone,
     )
 
-    logger.info(
-        f"Refinining {n_baf_clones} BAF identified clones with RDR data assuming n_clones_rdr={config.hmrf.n_clones_rdr}"
-    )
-
     # TODO CHECK
     n_baf_clones = len(merging_groups)
     combined_assignment = copy.copy(merged_res["new_assignment"])
@@ -360,11 +356,15 @@ def run_cnaster(config_path):
 
     clone_res = {}
 
+    logger.info(
+        f"Refinining {n_baf_clones} BAF identified clones with RDR data assuming n_clones_rdr={n_rdrclones_for_tumorprop}"
+    )
+
     for bafc in range(n_baf_clones):
         logger.info(f"Solving for BAF clone {bafc}/{n_baf_clones}.")
 
         prefix = f"clone{bafc}"
-        idx_spots = np.where(merged_baf_assignment == bafc)[0]
+        idx_spots = np.where(merged_res['new_assignment'] == bafc)[0]
 
         # NB minimum B allele read count on pseudobulk to split clones.
         if np.sum(single_total_bb_RD[:, idx_spots]) < single_X.shape[0] * 50:  # MAGIC

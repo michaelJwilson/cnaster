@@ -1,3 +1,56 @@
+import scipy
+import numpy as np
+import pandas as pd
+from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
+from statsmodels.base.model import GenericLikelihoodModel
+
+
+class BAF_Binom(GenericLikelihoodModel):
+    """
+    Binomial model endog ~ BetaBin(exposure, tau * p, tau * (1 - p)), where p = exog @ params[:-1] and tau = params[-1].
+    This function fits the BetaBin params when samples are weighted by weights: max_{params} \sum_{s} weights_s * log P(endog_s | exog_s; params)
+
+    Attributes
+    ----------
+    endog : array, (n_samples,)
+        Y values.
+
+    exog : array, (n_samples, n_features)
+        Design matrix.
+
+    weights : array, (n_samples,)
+        Sample weights.
+
+    exposure : array, (n_samples,)
+        Total number of trials. In BAF case, this is the total number of SNP-covering UMIs.
+    """
+
+    def __init__(self, endog, exog, weights, exposure, offset, scaling, **kwargs):
+        super(BAF_Binom, self).__init__(endog, exog, **kwargs)
+        self.weights = weights
+        self.exposure = exposure
+        self.offset = offset
+        self.scaling = scaling
+
+    def nloglikeobs(self, params):
+        linear_term = self.exog @ params
+        p = self.scaling / (1 + np.exp(-linear_term + self.offset))
+        llf = scipy.stats.binom.logpmf(self.endog, self.exposure, p)
+        return -llf.dot(self.weights)
+
+    # TODO fitting infrastructure
+    def fit(self, start_params=None, maxiter=10_000, maxfun=5_000, **kwargs):
+        if start_params is None:
+            if hasattr(self, "start_params"):
+                start_params = self.start_params
+            else:
+                # TODO BUG default params.
+                start_params = 0.5 / np.sum(self.exog.shape[1]) * np.ones(self.nparams)
+        return super(BAF_Binom, self).fit(
+            start_params=start_params, maxiter=maxiter, maxfun=maxfun, **kwargs
+        )
+
+
 def identify_normal_spots(
     single_X,
     single_total_bb_RD,
@@ -82,7 +135,7 @@ def identify_loh_per_clone(
     single_total_bb_RD,
     MIN_SNPUMI=10,
     MAX_RDR=1,
-    MIN_BAF_DEVIATION_RANGE=[0.25, 0.12],
+    MIN_BAF_DEVIATION_RANGE=[0.25, 0.12],  # MUTABLE DEFAULT
     MIN_BINS_PER_STATE=10,
     MIN_BINS_ALL=25,
 ):
@@ -126,7 +179,7 @@ def identify_loh_per_clone(
     ).reshape(1, -1)
     # then aggregate to clones
     clone_index = [np.where(new_assignment == c)[0] for c in range(n_clones)]
-    X, base_nb_mean, _ = merge_pseudobulk_by_index(
+    X, base_nb_mean, _ = merge_pseudobulk_by_index_mix(
         single_X,
         simple_single_base_nb_mean,
         np.zeros(simple_single_base_nb_mean.shape),
@@ -235,15 +288,15 @@ def estimator_tumor_proportion(
         res = model.fit(disp=False)
         return 1.0 / (1.0 + np.exp(res.params))
 
-    #
     n_obs = single_X.shape[0]
     n_spots = single_X.shape[2]
     n_clones = int(len(pred_cnv) / n_obs)
     reshaped_pred_cnv = pred_cnv.reshape((n_obs, n_clones), order="F")
 
-    clone_mapping = (
-        assignments.groupby(["coarse", "combined"]).agg("first").reset_index()
-    )
+    # DEPRECATE
+    # clone_mapping = (
+    #     assignments.groupby(["coarse", "combined"]).agg("first").reset_index()
+    # )
 
     tumor_proportion = np.zeros(n_spots)
     full_tumor_proportion = np.zeros((n_spots, n_clones))

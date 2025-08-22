@@ -272,6 +272,8 @@ def run_cnaster(config_path):
 
     # NB end run_parse_n_load::parse_visium.
     # TODO table_bininfo? table_rdrbaf? table_meta? 
+
+    # assert np.any(single_base_nb_mean > 0)
     
     # TODO
     copy_single_X_rdr = copy.copy(single_X[:, 0, :])

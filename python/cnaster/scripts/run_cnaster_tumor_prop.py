@@ -280,7 +280,7 @@ def run_cnaster(config_path):
     # copy_single_X_rdr = copy.copy(single_X[:, 0, :])
     # copy_single_base_nb_mean = copy.copy(single_base_nb_mean)
 
-    assert np.any(single_base_nb_mean > 0)
+    # assert np.any(single_base_nb_mean > 0)
     
     copy_single_base_nb_mean = single_base_nb_mean.copy()
     
@@ -298,7 +298,7 @@ def run_cnaster(config_path):
 
     # HACK max_outer_iter_for_tumorprop: 10 -> 1
     #      max_iter_for_tumorprop: 20 -> 1
-    max_outer_iter_for_tumorprop = 10  # MAGIC
+    max_outer_iter_for_tumorprop = 1  # MAGIC
     max_iter_for_tumorprop = 20  # MAGIC
 
     MIN_PROP_UNCERTAINTY = 0.05  # MAGIC

@@ -23,7 +23,7 @@ quality:
 phasing:
   nu : 1.0
   logphase_shift : -2.0
-  npart_phasing : 3
+  npart_phasing : 1
 
 # TODO HACK max_iter_outer : 20 ->
 #           spatial_weight : 1.0 ->
@@ -34,7 +34,7 @@ hmrf:
   min_avgumi_per_clone : 10
   maxspots_pooling : 7
   tumorprop_threshold : 0.5
-  max_iter_outer : 20
+  max_iter_outer : 1
   nodepotential : max
   initialization_method : rectangle
   num_hmrf_initialization_start : 0

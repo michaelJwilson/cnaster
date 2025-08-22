@@ -167,6 +167,10 @@ def gmm_init(
             ).T
             valid = ~np.isnan(X_gmm_rdr) & ~np.isinf(X_gmm_rdr)
 
+            if not np.any(valid):
+                logger.error(f"No valid RDR data given sum(base_nb_mean)={sum(base_nb_mean)}")
+                raise RuntimeError()
+            
             offset = np.mean(X_gmm_rdr[valid])
             normalizetomax1 = np.max(X_gmm_rdr[valid]) - np.min(X_gmm_rdr[valid])
 
@@ -179,6 +183,10 @@ def gmm_init(
             ).T
             valid = ~np.isnan(X_gmm_rdr) & ~np.isinf(X_gmm_rdr)
 
+            if not np.any(valid):
+                logger.error(f"No valid RDR data given sum(base_nb_mean)={sum(base_nb_mean)}")
+                raise RuntimeError()
+                
             offset = 0
 
             # NB TODO? assumes X_gmm_rdr.min() = 0.

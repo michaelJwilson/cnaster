@@ -84,7 +84,7 @@ logger = logging.getLogger(__name__)
 
 
 def run_cnaster(config_path):
-    logger.info("----  Welcome to cnaSter  ----")
+    logger.info("----  Welcome to cnaster  ----")
     
     config = YAMLConfig.from_file(config_path)
 

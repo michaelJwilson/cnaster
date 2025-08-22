@@ -277,11 +277,15 @@ def run_cnaster(config_path):
     # TODO table_bininfo? table_rdrbaf? table_meta?
 
     # TODO
-    copy_single_X_rdr = copy.copy(single_X[:, 0, :])
-    copy_single_base_nb_mean = copy.copy(single_base_nb_mean)
+    # copy_single_X_rdr = copy.copy(single_X[:, 0, :])
+    # copy_single_base_nb_mean = copy.copy(single_base_nb_mean)
 
+    assert np.any(single_base_nb_mean > 0)
+    
+    copy_single_base_nb_mean = single_base_nb_mean.copy()
+    
     # NB baf-only run;
-    single_X[:, 0, :] = 0
+    # single_X[:, 0, :] = 0
     single_base_nb_mean[:, :] = 0
 
     logger.warning(
@@ -291,8 +295,12 @@ def run_cnaster(config_path):
     n_states_for_tumorprop = 5  # MAGIC
     n_clones_for_tumorprop = 3  # MAGIC
     n_rdrclones_for_tumorprop = 3  # MAGIC
+
+    # HACK max_outer_iter_for_tumorprop: 10 -> 1
+    #      max_iter_for_tumorprop: 20 -> 1
     max_outer_iter_for_tumorprop = 10  # MAGIC
     max_iter_for_tumorprop = 20  # MAGIC
+
     MIN_PROP_UNCERTAINTY = 0.05  # MAGIC
 
     logger.info("Solving for multislice_adjaceny.")
@@ -361,10 +369,13 @@ def run_cnaster(config_path):
     )
 
     # TODO HACK?
-    single_X[:, 0, :] = copy_single_X_rdr
+    # single_X[:, 0, :] = copy_single_X_rdr
     single_base_nb_mean = copy_single_base_nb_mean
 
     logger.warning(f"Adding back RDR; neglected in CalicoST?")
+
+    # TODO HACK
+    # assert np.any(single_base_nb_mean > 0)
     
     for bafc in range(n_baf_clones):
         logger.info(f"Solving for BAF clone {bafc}/{n_baf_clones}.")

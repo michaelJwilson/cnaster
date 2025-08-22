@@ -23,7 +23,7 @@ quality:
 phasing:
   nu : 1.0
   logphase_shift : -2.0
-  npart_phasing : 1
+  npart_phasing : 3
 
 # TODO HACK max_iter_outer : 20 ->
 #           spatial_weight : 1.0 ->

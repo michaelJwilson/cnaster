@@ -360,6 +360,12 @@ def run_cnaster(config_path):
         f"Refinining {n_baf_clones} BAF identified clones with RDR data assuming n_clones_rdr={n_rdrclones_for_tumorprop}"
     )
 
+    # TODO HACK?
+    single_X[:, 0, :] = copy_single_X_rdr
+    single_base_nb_mean = copy_single_base_nb_mean
+
+    logger.warning(f"Adding back RDR; neglected in CalicoST?")
+    
     for bafc in range(n_baf_clones):
         logger.info(f"Solving for BAF clone {bafc}/{n_baf_clones}.")
 

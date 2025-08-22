@@ -90,8 +90,6 @@ def run_cnaster(config_path):
 
     set_global_config(config)
 
-    exit(0)
-
     # NB start run_parse_n_load::parse_visium::load_joint_data
     (
         adata,
@@ -104,7 +102,7 @@ def run_cnaster(config_path):
         filter_gene_file=config.references.filtergenelist_file,
         filter_range_file=config.references.filterregion_file,
     )
-
+    
     # TODO CHECK
     barcodes = adata.obs.index
     coords = adata.obsm["X_pos"]
@@ -211,7 +209,7 @@ def run_cnaster(config_path):
     )
 
     logger.info(f"Solved for initial phase given Eagle & BAF in {(time.time() - start_time):.2f} seconds.")
-
+    
     df_gene_snp["phase"] = np.where(
         df_gene_snp.snp_id.isnull(),
         None,
@@ -321,7 +319,7 @@ def run_cnaster(config_path):
         spatial_weight=config.hmrf.spatial_weight,
         tumorprop_threshold=config.hmrf.tumorprop_threshold,
     )
-
+    
     # TODO HACK
     n_obs = single_X.shape[0]
 

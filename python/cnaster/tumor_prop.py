@@ -1,0 +1,328 @@
+def identify_normal_spots(
+    single_X,
+    single_total_bb_RD,
+    new_assignment,
+    pred_cnv,
+    p_binom,
+    min_count,
+    EPS_BAF=0.05,
+    COUNT_QUANTILE=0.05,
+    MIN_TOTAL=10,
+):
+    """
+    Attributes
+    ----------
+    single_X : array, shape (n_obs, 2, n_spots)
+        Observed transcript counts and B allele count per bin per spot.
+
+    single_total_bb_RD : array, shape (n_obs, n_spots)
+        Total allele count per bin per spot.
+
+    new_assignment : array, shape (n_spots,)
+        Clone assignment for each spot.
+
+    pred_cnv : array, shape (n_obs * n_clones)
+        Copy number states across bins for each clone.
+    """
+    # aggregate counts for each state, and evaluate the betabinomial likelihood given 0.5
+    # spots with the highest likelihood are identified as normal spots
+    n_obs = single_X.shape[0]
+    n_spots = single_X.shape[2]
+    n_clones = int(len(pred_cnv) / n_obs)
+    n_states = p_binom.shape[0]
+    reshaped_pred_cnv = pred_cnv.reshape((n_obs, n_clones), order="F")
+
+    baf_profiles = p_binom[reshaped_pred_cnv, 0].T
+    id_nearnormal_clone = np.argmin(
+        np.sum(np.maximum(np.abs(baf_profiles - 0.5) - EPS_BAF, 0), axis=1)
+    )
+    umi_quantile = np.quantile(np.sum(single_X[:, 0, :], axis=0), COUNT_QUANTILE)
+
+    baf_deviations = np.ones(n_spots)
+    for i in range(n_spots):
+        if (
+            new_assignment[i] == id_nearnormal_clone
+            and np.sum(single_X[:, 0, i]) >= umi_quantile
+        ):
+            # enumerate the partition of all clones to aggregate counts, and list the BAF of each partition
+            this_bafs = []
+            for c in range(n_clones):
+                agg_b_count = np.array(
+                    [
+                        np.sum(single_X[reshaped_pred_cnv[:, c] == s, 1, i])
+                        for s in range(n_states)
+                    ]
+                )
+                agg_t_count = np.array(
+                    [
+                        np.sum(single_total_bb_RD[reshaped_pred_cnv[:, c] == s, i])
+                        for s in range(n_states)
+                    ]
+                )
+                this_bafs.append(
+                    agg_b_count[agg_t_count >= MIN_TOTAL]
+                    / agg_t_count[agg_t_count >= MIN_TOTAL]
+                )
+            this_bafs = np.concatenate(this_bafs)
+            baf_deviations[i] = np.max(np.abs(this_bafs - 0.5))
+
+    sorted_idx = np.argsort(baf_deviations)
+    summed_counts = np.cumsum(np.sum(single_X[:, 0, sorted_idx], axis=0))
+    n_normal = np.where(summed_counts >= min_count)[0][0]
+
+    return baf_deviations <= baf_deviations[sorted_idx[n_normal]]
+
+
+def identify_loh_per_clone(
+    single_X,
+    new_assignment,
+    pred_cnv,
+    p_binom,
+    normal_candidate,
+    single_total_bb_RD,
+    MIN_SNPUMI=10,
+    MAX_RDR=1,
+    MIN_BAF_DEVIATION_RANGE=[0.25, 0.12],
+    MIN_BINS_PER_STATE=10,
+    MIN_BINS_ALL=25,
+):
+    """
+    Attributes
+    ----------
+    single_X : array, shape (n_obs, 2, n_spots)
+        Observed transcript counts and B allele count per bin per spot.
+
+    new_assignment : array, shape (n_spots,)
+        Clone assignment for each spot.
+
+    pred_cnv : array, shape (n_obs * n_clones)
+        Copy number states across bins for each clone.
+
+    p_binom : array, shape (n_states, 1)
+        Estimated BAF per copy number state (shared across clones).
+
+    Returns
+    ----------
+    loh_states : array
+        An array of copy number states that are identified as LOH.
+
+    is_B_loss : array
+        A boolean array indicating whether B allele is lost (alternative A allele is lost).
+
+    rdr_values : array
+        An array of RDR values corresponding to LOH states.
+    """
+    n_obs = single_X.shape[0]
+    n_clones = int(len(pred_cnv) / n_obs)
+    n_states = p_binom.shape[0]
+    reshaped_pred_cnv = pred_cnv.reshape((n_obs, n_clones), order="F")
+
+    # per-state RDR values
+    # first get the normal baseline expression per spot per bin
+    simple_rdr_normal = np.sum(single_X[:, 0, (normal_candidate == True)], axis=1)
+    simple_rdr_normal = simple_rdr_normal / np.sum(simple_rdr_normal)
+    simple_single_base_nb_mean = simple_rdr_normal.reshape(-1, 1) @ np.sum(
+        single_X[:, 0, :], axis=0
+    ).reshape(1, -1)
+    # then aggregate to clones
+    clone_index = [np.where(new_assignment == c)[0] for c in range(n_clones)]
+    X, base_nb_mean, _ = merge_pseudobulk_by_index(
+        single_X,
+        simple_single_base_nb_mean,
+        np.zeros(simple_single_base_nb_mean.shape),
+        clone_index,
+    )
+    rdr_values = []
+    for s in np.arange(n_states):
+        rdr_values.append(
+            np.sum(X[:, 0, :][reshaped_pred_cnv == s])
+            / np.sum(base_nb_mean[reshaped_pred_cnv == s])
+        )
+    rdr_values = np.array(rdr_values)
+
+    # SNP-covering UMI per clone
+    clone_snpumi = np.array(
+        [np.sum(single_total_bb_RD[:, new_assignment == c]) for c in range(n_clones)]
+    )
+
+    # clones that have a decent tumor proportion
+    # for each clone, if the clones_hightumor-th BAF deviation is large enough
+    k_baf_deviation = np.sort(np.abs(p_binom[reshaped_pred_cnv, 0] - 0.5), axis=0)[
+        -MIN_BINS_ALL, :
+    ]
+    # LOH states
+    for threshold in np.arange(
+        MIN_BAF_DEVIATION_RANGE[0], MIN_BAF_DEVIATION_RANGE[1] - 0.01, -0.02
+    ):
+        clones_hightumor = np.where(
+            (k_baf_deviation >= threshold) & (clone_snpumi >= MIN_SNPUMI * n_obs)
+        )[0]
+        if len(clones_hightumor) == 0:
+            continue
+        if len(clones_hightumor) == n_clones:
+            clones_hightumor = np.argsort(k_baf_deviation)[1:]
+        # LOH states
+        loh_states = np.where(
+            (np.abs(p_binom[:, 0] - 0.5) > threshold)
+            & (np.bincount(pred_cnv, minlength=n_states) >= MIN_BINS_PER_STATE)
+            & (rdr_values <= MAX_RDR)
+        )[0]
+        is_B_lost = p_binom[loh_states, 0] < 0.5
+        if np.all(
+            [
+                np.sum(pd.Series(reshaped_pred_cnv[:, c]).isin(loh_states))
+                >= MIN_BINS_ALL
+                for c in clones_hightumor
+            ]
+        ):
+            print(f"threshold = {threshold}")
+            print(f"clones with high tumor proportion: {clones_hightumor}")
+            print(f"BAF deviation threshold = {threshold}, LOH states: {loh_states}")
+            break
+
+    return loh_states, is_B_lost, rdr_values[loh_states], clones_hightumor
+
+
+def estimator_tumor_proportion(
+    single_X,
+    single_total_bb_RD,
+    assignments,
+    pred_cnv,
+    loh_states,
+    is_B_lost,
+    rdr_values,
+    clone_to_consider,
+    smooth_mat=None,
+    MIN_TOTAL=10,
+):
+    """
+    Attributes
+    ----------
+    single_X : array, shape (n_obs, 2, n_spots)
+        Observed transcript counts and B allele count per bin per spot.
+
+    single_total_bb_RD : array, shape (n_obs, n_spots)
+        Total allele count per bin per spot.
+
+    assignments : pd.DataFrame of size n_spots with columns "coarse", "combined"
+        Clone assignment for each spot.
+
+    pred_cnv : array, shape (n_obs * n_clones)
+        Copy number states across bins for each clone.
+
+    loh_states, is_B_lost, rdr_values: array
+        Copy number states and RDR values corresponding to LOH.
+
+    Formula
+    ----------
+    0.5 ( 1-theta ) / (theta * RDR + 1 - theta) = B_count / Total_count for each LOH state.
+    """
+
+    # def estimate_purity(T_loh, B_loh, rdr_values):
+    #     features =(T_loh / 2.0 + rdr_values * B_loh - B_loh)[T_loh>0].reshape(-1,1)
+    #     y = (T_loh / 2.0 - B_loh)[T_loh>0]
+    #     return np.linalg.lstsq(features, y, rcond=None)[0]
+    def estimate_purity(T_loh, B_loh, rdr_values):
+        idx = np.where(T_loh > 0)[0]
+        model = BAF_Binom(
+            endog=B_loh[idx],
+            exog=np.ones((len(idx), 1)),
+            weights=np.ones(len(idx)),
+            exposure=T_loh[idx],
+            offset=np.log(rdr_values[idx]),
+            scaling=0.5,
+        )
+        res = model.fit(disp=False)
+        return 1.0 / (1.0 + np.exp(res.params))
+
+    #
+    n_obs = single_X.shape[0]
+    n_spots = single_X.shape[2]
+    n_clones = int(len(pred_cnv) / n_obs)
+    reshaped_pred_cnv = pred_cnv.reshape((n_obs, n_clones), order="F")
+
+    clone_mapping = (
+        assignments.groupby(["coarse", "combined"]).agg("first").reset_index()
+    )
+
+    tumor_proportion = np.zeros(n_spots)
+    full_tumor_proportion = np.zeros((n_spots, n_clones))
+    for i in range(n_spots):
+        # get adjacent spots for smoothing
+        if smooth_mat is not None:
+            idx_adj = smooth_mat[i, :].nonzero()[1]
+        else:
+            idx_adj = np.array([i])
+        estimation_based_on_clones_single = np.ones(n_clones) * np.nan
+        estimation_based_on_clones_smoothed = np.ones(n_clones) * np.nan
+        summed_T_single = np.ones(n_clones)
+        summed_T_smoothed = np.ones(n_clones)
+        for c in clone_to_consider:
+            # single
+            B_loh = np.array(
+                [
+                    np.sum(single_X[:, 1, i][reshaped_pred_cnv[:, c] == s])
+                    if is_B_lost[j]
+                    else np.sum(single_total_bb_RD[:, i][reshaped_pred_cnv[:, c] == s])
+                    - np.sum(single_X[:, 1, i][reshaped_pred_cnv[:, c] == s])
+                    for j, s in enumerate(loh_states)
+                ]
+            )
+            T_loh = np.array(
+                [
+                    np.sum(single_total_bb_RD[:, i][reshaped_pred_cnv[:, c] == s])
+                    for s in loh_states
+                ]
+            )
+            if np.all(T_loh == 0):
+                continue
+            estimation_based_on_clones_single[c] = estimate_purity(
+                T_loh, B_loh, rdr_values
+            )
+            summed_T_single[c] = np.sum(T_loh)
+            # smoothed
+            B_loh = np.array(
+                [
+                    np.sum(single_X[:, 1, idx_adj][reshaped_pred_cnv[:, c] == s])
+                    if is_B_lost[j]
+                    else np.sum(
+                        single_total_bb_RD[:, idx_adj][reshaped_pred_cnv[:, c] == s]
+                    )
+                    - np.sum(single_X[:, 1, idx_adj][reshaped_pred_cnv[:, c] == s])
+                    for j, s in enumerate(loh_states)
+                ]
+            )
+            T_loh = np.array(
+                [
+                    np.sum(single_total_bb_RD[:, idx_adj][reshaped_pred_cnv[:, c] == s])
+                    for s in loh_states
+                ]
+            )
+            if np.all(T_loh == 0):
+                continue
+            estimation_based_on_clones_smoothed[c] = estimate_purity(
+                T_loh, B_loh, rdr_values
+            )
+            summed_T_smoothed[c] = np.sum(T_loh)
+        full_tumor_proportion[i, :] = estimation_based_on_clones_single
+        if (assignments.combined.values[i] in clone_to_consider) and summed_T_single[
+            assignments.combined.values[i]
+        ] >= MIN_TOTAL:
+            tumor_proportion[i] = estimation_based_on_clones_single[
+                assignments.combined.values[i]
+            ]
+        elif (
+            assignments.combined.values[i] in clone_to_consider
+        ) and summed_T_smoothed[assignments.combined.values[i]] >= MIN_TOTAL:
+            tumor_proportion[i] = estimation_based_on_clones_smoothed[
+                assignments.combined.values[i]
+            ]
+        elif not assignments.combined.values[i] in clone_to_consider:
+            tumor_proportion[i] = estimation_based_on_clones_single[
+                np.argmax(summed_T_single)
+            ]
+        else:
+            tumor_proportion[i] = np.nan
+
+    tumor_proportion = np.where(tumor_proportion < 0, 0, tumor_proportion)
+    return tumor_proportion, full_tumor_proportion

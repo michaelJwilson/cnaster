@@ -431,7 +431,7 @@ def run_cnaster(config_path):
             max_iter_outer=10,  # TODO MAGIC
             nodepotential=config.hmrf.nodepotential,
             hmmclass=hmm_nophasing,
-            params="smp",
+            params="sp", # TODO MAGIC
             t=config.hmm.t,
             random_state=config.hmm.gmm_random_state,
             fix_NB_dispersion=config.hmm.fix_NB_dispersion,
@@ -445,11 +445,13 @@ def run_cnaster(config_path):
             tumorprop_threshold=config.hmrf.tumorprop_threshold,
         )
 
-        combined_assignment[idx_spots] = clone_res["new_assignment"] + offset_clone
-        offset_clone += 1 + np.max(clone_res["new_assignment"])
-        combined_p_binom.append(clone_res["new_p_binom"])
-        combined_pred_cnv.append(clone_res["pred_cnv"] + offset_state)
-        offset_state += clone_res["new_p_binom"].shape[0]
+        res = clone_res[prefix]
+        
+        combined_assignment[idx_spots] = res["new_assignment"] + offset_clone
+        offset_clone += 1 + np.max(res["new_assignment"])
+        combined_p_binom.append(res["new_p_binom"])
+        combined_pred_cnv.append(res["pred_cnv"] + offset_state)
+        offset_state += res["new_p_binom"].shape[0]
 
     combined_p_binom = np.vstack(combined_p_binom)
     combined_pred_cnv = np.concatenate(combined_pred_cnv)

@@ -84,10 +84,15 @@ logger = logging.getLogger(__name__)
 
 
 def run_cnaster(config_path):
+    logger.info("----  Welcome to cnaSter  ----")
+    
     config = YAMLConfig.from_file(config_path)
 
     set_global_config(config)
 
+    exit(0)
+
+    # NB start run_parse_n_load::parse_visium::load_joint_data
     (
         adata,
         cell_snp_Aallele,
@@ -111,7 +116,7 @@ def run_cnaster(config_path):
             sample_list.append(adata.obs["sample"].iloc[i])
 
     logger.info(f"Found {len(sample_list)} unique samples, e.g. {sample_list[:3]}")
-
+    
     # NB assign index to unique sample names.
     sample_ids = np.zeros(adata.shape[0], dtype=int)
 
@@ -137,12 +142,14 @@ def run_cnaster(config_path):
 
     logger.info(f"Forming gene & snp meta data.")
 
+    # NB parse_visium::combine_gene_snps
     df_gene_snp = form_gene_snp_table(
         unique_snp_ids, config.references.hgtable_file, adata
     )
 
     logger.info(f"Assigning initial blocks")
 
+    # NB parse_visium::create_haplotype_block_ranges
     df_gene_snp = assign_initial_blocks(
         df_gene_snp, adata, cell_snp_Aallele, cell_snp_Ballele, unique_snp_ids
     )
@@ -170,6 +177,7 @@ def run_cnaster(config_path):
         config.phasing.logphase_shift,
     )
 
+    # NB equivalent to parse_visium::perform_partition
     # TODO (requires paste).
     initial_clone_for_phasing = initialize_clones(
         coords,
@@ -264,6 +272,9 @@ def run_cnaster(config_path):
     # DEPRECATE
     # n_pooled = np.median(np.sum(smooth_mat > 0, axis=0).A.flatten())
 
+    # NB end run_parse_n_load::parse_visium.
+    # TODO table_bininfo? table_rdrbaf? table_meta? 
+    
     # TODO
     copy_single_X_rdr = copy.copy(single_X[:, 0, :])
     copy_single_base_nb_mean = copy.copy(single_base_nb_mean)

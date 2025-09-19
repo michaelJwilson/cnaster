@@ -66,7 +66,7 @@ formatter = RuntimeFormatter(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 for handler in logger.handlers[:]:
@@ -81,11 +81,9 @@ stream_handler.setFormatter(formatter)
 logger.addHandler(file_handler)
 logger.addHandler(stream_handler)
 
-logger = logging.getLogger(__name__)
 
-
-def run_cnaster(config_path):
-    logger.info("----  Welcome to cnaster  ----")
+def run_cnaster_tumor_prop(config_path):
+    logger.info("----  Welcome to cnaster tumor_prop ----")
 
     config = YAMLConfig.from_file(config_path)
 
@@ -115,7 +113,7 @@ def run_cnaster(config_path):
             sample_list.append(adata.obs["sample"].iloc[i])
 
     logger.info(f"Found {len(sample_list)} unique samples, e.g. {sample_list[:3]}")
-
+    
     # NB assign index to unique sample names.
     sample_ids = np.zeros(adata.shape[0], dtype=int)
 
@@ -123,21 +121,8 @@ def run_cnaster(config_path):
         index = np.where(adata.obs["sample"] == sname)[0]
         sample_ids[index] = s
 
+    # LEGACY?
     single_tumor_prop = None
-
-    """
-    # TODO
-    if config.preprocessing.tumorprop_file is not None:
-        df_tumorprop = pd.read_csv(
-            config.preprocessing.tumorprop_file, sep="\t", header=0, index_col=0
-        )
-        df_tumorprop = df_tumorprop[["Tumor"]]
-        df_tumorprop.columns = ["tumor_proportion"]
-
-        adata.obs = adata.obs.join(df_tumorprop)
-
-        single_tumor_prop = adata.obs["tumor_proportion"]
-    """
 
     logger.info(f"Forming gene & snp meta data.")
 
@@ -167,7 +152,7 @@ def run_cnaster(config_path):
         cell_snp_Ballele,
         unique_snp_ids,
     )
-
+    
     # NB 1D array / list?
     log_sitewise_transmat = get_sitewise_transmat(
         df_gene_snp,
@@ -321,7 +306,7 @@ def run_cnaster(config_path):
         single_total_bb_RD,
         None,
         initial_clone_index,
-        n_states_for_tumorprop,  # TODO
+        n_states_for_tumorprop, # TODO
         log_sitewise_transmat,
         smooth_mat=smooth_mat,
         adjacency_mat=adjacency_mat,
@@ -342,7 +327,7 @@ def run_cnaster(config_path):
         spatial_weight=config.hmrf.spatial_weight,
         tumorprop_threshold=config.hmrf.tumorprop_threshold,
     )
-
+    
     n_obs = single_X.shape[0]
 
     # NB 2.5 mins.
@@ -357,22 +342,20 @@ def run_cnaster(config_path):
     # TODO CHECK
     n_baf_clones = len(merging_groups)
     combined_assignment = copy.copy(merged_res["new_assignment"])
-    offset_clone = 0
-    combined_p_binom = []
-    offset_state = 0
-    combined_pred_cnv = []
-
+    offset_clone, offset_state = 0, 0
+    
+    combined_p_binom, combined_pred_cnv = [], []
     clone_res = {}
 
     logger.info(
         f"Refinining {n_baf_clones} BAF identified clones with RDR data assuming n_clones_rdr={n_rdrclones_for_tumorprop}"
     )
 
+    logger.warning(f"Adding back RDR; neglected in CalicoST?")
+
     # TODO HACK?
     # single_X[:, 0, :] = copy_single_X_rdr
     single_base_nb_mean = copy_single_base_nb_mean
-
-    logger.warning(f"Adding back RDR; neglected in CalicoST?")
 
     # TODO HACK
     # assert np.any(single_base_nb_mean > 0)
@@ -380,10 +363,9 @@ def run_cnaster(config_path):
     for bafc in range(n_baf_clones):
         logger.info(f"Solving for BAF clone {bafc}/{n_baf_clones}.")
 
-        prefix = f"clone{bafc}"
         idx_spots = np.where(merged_res['new_assignment'] == bafc)[0]
 
-        # NB minimum B allele read count on pseudobulk to split clones.
+        # NB minimum B-allele read count on pseudobulk to split clones.
         if np.sum(single_total_bb_RD[:, idx_spots]) < single_X.shape[0] * 50:  # MAGIC
             combined_assignment[idx_spots] = offset_clone
             offset_clone += 1
@@ -405,6 +387,8 @@ def run_cnaster(config_path):
             initial_assignment[idx] = c
 
         # NB
+        prefix = f"clone{bafc}"
+        
         clone_res[prefix] = {
             "barcodes": barcodes[idx_spots],
             "num_iterations": 0,
@@ -414,6 +398,7 @@ def run_cnaster(config_path):
         # HMRF + HMM using RDR data.
         copy_slice_sample_ids = copy.copy(sample_ids[idx_spots])
 
+        # TODO overwrites barcodes?
         clone_res[prefix] = clone_res[prefix] | hmrfmix_concatenate_pipeline(
             None,
             None,
@@ -456,7 +441,6 @@ def run_cnaster(config_path):
     combined_p_binom = np.vstack(combined_p_binom)
     combined_pred_cnv = np.concatenate(combined_pred_cnv)
 
-    """
     normal_candidate = identify_normal_spots(
         single_X,
         single_total_bb_RD,
@@ -465,6 +449,7 @@ def run_cnaster(config_path):
         merged_res["new_p_binom"],
         min_count=single_X.shape[0] * 200, # TODO
     )
+    
     loh_states, is_B_lost, rdr_values, clones_hightumor = identify_loh_per_clone(
         single_X,
         combined_assignment,
@@ -473,10 +458,11 @@ def run_cnaster(config_path):
         normal_candidate,
         single_total_bb_RD,
     )
+    
     assignments = pd.DataFrame(
         {"coarse": merged_res["new_assignment"], "combined": combined_assignment}
     )
-    
+    """
     # NB pool across adjacent spot to increase the UMIs covering LOH region.
     _, tp_smooth_mat = multislice_adjacency(
         sample_ids,
@@ -518,9 +504,9 @@ def run_cnaster(config_path):
     logger.info(f"Done in {(time.time() - start_time)/60.:.2f} minutes.")
 
 
-# NB run_cnaster config.yaml
+# NB run_cnaster_tumor_prop config.yaml
 def main():
-    parser = argparse.ArgumentParser(description="Run CNAster pipeline")
+    parser = argparse.ArgumentParser(description="Run CNAster tumor_prop analysis")
     parser.add_argument(
         "config_path",
         type=str,
@@ -529,7 +515,7 @@ def main():
 
     args = parser.parse_args()
 
-    run_cnaster(args.config_path)
+    run_cnaster_tumor_prop(args.config_path)
 
 
 if __name__ == "__main__":

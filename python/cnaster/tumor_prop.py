@@ -1,8 +1,11 @@
 import scipy
+import logging
 import numpy as np
 import pandas as pd
 from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
 from statsmodels.base.model import GenericLikelihoodModel
+
+logger = logging.getLogger(__name__)
 
 
 class BAF_Binom(GenericLikelihoodModel):
@@ -79,26 +82,34 @@ def identify_normal_spots(
     """
     # aggregate counts for each state, and evaluate the betabinomial likelihood given 0.5
     # spots with the highest likelihood are identified as normal spots
-    n_obs = single_X.shape[0]
-    n_spots = single_X.shape[2]
+    n_obs, _, n_spots = single_X.shape
+
+    # NB clones are stacked along genome axis.
     n_clones = int(len(pred_cnv) / n_obs)
     n_states = p_binom.shape[0]
     reshaped_pred_cnv = pred_cnv.reshape((n_obs, n_clones), order="F")
 
     baf_profiles = p_binom[reshaped_pred_cnv, 0].T
+
+    # NB clone closest to normal given BAF and ignoring BAF deviations < EPS_BAF.
     id_nearnormal_clone = np.argmin(
         np.sum(np.maximum(np.abs(baf_profiles - 0.5) - EPS_BAF, 0), axis=1)
     )
+
     umi_quantile = np.quantile(np.sum(single_X[:, 0, :], axis=0), COUNT_QUANTILE)
 
     baf_deviations = np.ones(n_spots)
+
     for i in range(n_spots):
         if (
             new_assignment[i] == id_nearnormal_clone
-            and np.sum(single_X[:, 0, i]) >= umi_quantile
+            and np.sum(single_X[:, 0, i])
+            >= umi_quantile  # NB only consider spots as normal reference if UMIs > umi_quantile.
         ):
             # enumerate the partition of all clones to aggregate counts, and list the BAF of each partition
             this_bafs = []
+
+            # NB each reference clone defines the genomic bins in a given state, recompute BAF by aggregating for each state and clone.
             for c in range(n_clones):
                 agg_b_count = np.array(
                     [
@@ -112,17 +123,21 @@ def identify_normal_spots(
                         for s in range(n_states)
                     ]
                 )
-                this_bafs.append(
-                    agg_b_count[agg_t_count >= MIN_TOTAL]
-                    / agg_t_count[agg_t_count >= MIN_TOTAL]
-                )
+
+                isin = agg_t_count >= MIN_TOTAL
+
+                this_bafs.append(agg_b_count[isin] / agg_t_count[isin])
+
             this_bafs = np.concatenate(this_bafs)
             baf_deviations[i] = np.max(np.abs(this_bafs - 0.5))
 
     sorted_idx = np.argsort(baf_deviations)
     summed_counts = np.cumsum(np.sum(single_X[:, 0, sorted_idx], axis=0))
+
+    # NB assign to normal the spots with smallest BAF deviation from 0.5 until enough UMI are included.
     n_normal = np.where(summed_counts >= min_count)[0][0]
 
+    # NB boolean mask if the spots are considered normal.
     return baf_deviations <= baf_deviations[sorted_idx[n_normal]]
 
 
@@ -170,21 +185,25 @@ def identify_loh_per_clone(
     n_states = p_binom.shape[0]
     reshaped_pred_cnv = pred_cnv.reshape((n_obs, n_clones), order="F")
 
-    # per-state RDR values
-    # first get the normal baseline expression per spot per bin
+    # NB normalized RDR for (assumed) normal spots.
     simple_rdr_normal = np.sum(single_X[:, 0, (normal_candidate == True)], axis=1)
     simple_rdr_normal = simple_rdr_normal / np.sum(simple_rdr_normal)
+
+    # NB (n_obs x n_spots) matrix for the total spot read count, distributed across bins according to the "normal" profile.
     simple_single_base_nb_mean = simple_rdr_normal.reshape(-1, 1) @ np.sum(
         single_X[:, 0, :], axis=0
     ).reshape(1, -1)
-    # then aggregate to clones
+
     clone_index = [np.where(new_assignment == c)[0] for c in range(n_clones)]
     X, base_nb_mean, _ = merge_pseudobulk_by_index_mix(
         single_X,
         simple_single_base_nb_mean,
-        np.zeros(simple_single_base_nb_mean.shape),
+        np.zeros(
+            simple_single_base_nb_mean.shape
+        ),  # NB single_total_bb_RD assumed zero.
         clone_index,
     )
+
     rdr_values = []
     for s in np.arange(n_states):
         rdr_values.append(
@@ -193,7 +212,7 @@ def identify_loh_per_clone(
         )
     rdr_values = np.array(rdr_values)
 
-    # SNP-covering UMI per clone
+    # NB snp-covering umi per clone.
     clone_snpumi = np.array(
         [np.sum(single_total_bb_RD[:, new_assignment == c]) for c in range(n_clones)]
     )
@@ -228,9 +247,11 @@ def identify_loh_per_clone(
                 for c in clones_hightumor
             ]
         ):
-            print(f"threshold = {threshold}")
-            print(f"clones with high tumor proportion: {clones_hightumor}")
-            print(f"BAF deviation threshold = {threshold}, LOH states: {loh_states}")
+            logger.info(f"threshold = {threshold}")
+            logger.info(f"clones with high tumor proportion: {clones_hightumor}")
+            logger.info(
+                f"BAF deviation threshold = {threshold}, LOH states: {loh_states}"
+            )
             break
 
     return loh_states, is_B_lost, rdr_values[loh_states], clones_hightumor

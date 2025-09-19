@@ -27,9 +27,9 @@ class BAF_Binom(GenericLikelihoodModel):
     exposure : array, (n_samples,)
         Total number of trials. In BAF case, this is the total number of SNP-covering UMIs.
     """
-
     def __init__(self, endog, exog, weights, exposure, offset, scaling, **kwargs):
         super(BAF_Binom, self).__init__(endog, exog, **kwargs)
+        
         self.weights = weights
         self.exposure = exposure
         self.offset = offset
@@ -195,7 +195,7 @@ def identify_loh_per_clone(
     ).reshape(1, -1)
 
     clone_index = [np.where(new_assignment == c)[0] for c in range(n_clones)]
-    X, base_nb_mean, _ = merge_pseudobulk_by_index_mix(
+    X, base_nb_mean, _, _ = merge_pseudobulk_by_index_mix(
         single_X,
         simple_single_base_nb_mean,
         np.zeros(
@@ -217,22 +217,24 @@ def identify_loh_per_clone(
         [np.sum(single_total_bb_RD[:, new_assignment == c]) for c in range(n_clones)]
     )
 
-    # clones that have a decent tumor proportion
-    # for each clone, if the clones_hightumor-th BAF deviation is large enough
+    # NB for each clone, sort the BAF deviations and select the largest ones (the MIN_BINS_ALL-th, e.g. 25th, largest).
     k_baf_deviation = np.sort(np.abs(p_binom[reshaped_pred_cnv, 0] - 0.5), axis=0)[
         -MIN_BINS_ALL, :
     ]
+    
     # LOH states
     for threshold in np.arange(
-        MIN_BAF_DEVIATION_RANGE[0], MIN_BAF_DEVIATION_RANGE[1] - 0.01, -0.02
+        MIN_BAF_DEVIATION_RANGE[0], MIN_BAF_DEVIATION_RANGE[1] - 0.01, -0.02 # MAGICs
     ):
         clones_hightumor = np.where(
             (k_baf_deviation >= threshold) & (clone_snpumi >= MIN_SNPUMI * n_obs)
         )[0]
+        
         if len(clones_hightumor) == 0:
             continue
         if len(clones_hightumor) == n_clones:
             clones_hightumor = np.argsort(k_baf_deviation)[1:]
+            
         # LOH states
         loh_states = np.where(
             (np.abs(p_binom[:, 0] - 0.5) > threshold)
@@ -247,12 +249,12 @@ def identify_loh_per_clone(
                 for c in clones_hightumor
             ]
         ):
-            logger.info(f"threshold = {threshold}")
-            logger.info(f"clones with high tumor proportion: {clones_hightumor}")
             logger.info(
-                f"BAF deviation threshold = {threshold}, LOH states: {loh_states}"
+                f"Found BAF deviation threshold = {threshold} with LOH states: {loh_states} yields clones with high tumor proportion: {clones_hightumor}."
             )
             break
+    else:
+        logger.warning("Failed; propagating current BAF deviation threshold = {threshold} with LOH states: {loh_states} and clones with high tumor proportion: {clones_hightumor}.")
 
     return loh_states, is_B_lost, rdr_values[loh_states], clones_hightumor
 
@@ -289,13 +291,8 @@ def estimator_tumor_proportion(
 
     Formula
     ----------
-    0.5 ( 1-theta ) / (theta * RDR + 1 - theta) = B_count / Total_count for each LOH state.
+    0.5 ( 1. - theta ) / (theta * RDR + 1. - theta) = B_count / Total_count for each LOH state.
     """
-
-    # def estimate_purity(T_loh, B_loh, rdr_values):
-    #     features =(T_loh / 2.0 + rdr_values * B_loh - B_loh)[T_loh>0].reshape(-1,1)
-    #     y = (T_loh / 2.0 - B_loh)[T_loh>0]
-    #     return np.linalg.lstsq(features, y, rcond=None)[0]
     def estimate_purity(T_loh, B_loh, rdr_values):
         idx = np.where(T_loh > 0)[0]
         model = BAF_Binom(
@@ -309,18 +306,13 @@ def estimator_tumor_proportion(
         res = model.fit(disp=False)
         return 1.0 / (1.0 + np.exp(res.params))
 
-    n_obs = single_X.shape[0]
-    n_spots = single_X.shape[2]
+    n_obs, _, n_spots = single_X.shape[0]
     n_clones = int(len(pred_cnv) / n_obs)
     reshaped_pred_cnv = pred_cnv.reshape((n_obs, n_clones), order="F")
 
-    # DEPRECATE
-    # clone_mapping = (
-    #     assignments.groupby(["coarse", "combined"]).agg("first").reset_index()
-    # )
-
     tumor_proportion = np.zeros(n_spots)
     full_tumor_proportion = np.zeros((n_spots, n_clones))
+    
     for i in range(n_spots):
         # get adjacent spots for smoothing
         if smooth_mat is not None:

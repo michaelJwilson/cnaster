@@ -462,7 +462,7 @@ def run_cnaster_tumor_prop(config_path):
     assignments = pd.DataFrame(
         {"coarse": merged_res["new_assignment"], "combined": combined_assignment}
     )
-    """
+    
     # NB pool across adjacent spot to increase the UMIs covering LOH region.
     _, tp_smooth_mat = multislice_adjacency(
         sample_ids,
@@ -471,9 +471,9 @@ def run_cnaster_tumor_prop(config_path):
         single_total_bb_RD,
         exp_counts,
         across_slice_adjacency_mat=None,
-        construct_adjacency_method=config["construct_adjacency_method"],
+        construct_adjacency_method=config.hmrf.construct_adjacency_method,
         maxspots_pooling=7,
-        construct_adjacency_w=config["construct_adjacency_w"],
+        construct_adjacency_w=config.hmrf.construct_adjacency_w,
     )
     single_tumor_prop, _ = estimator_tumor_proportion(
         single_X,
@@ -495,9 +495,10 @@ def run_cnaster_tumor_prop(config_path):
     )
     single_tumor_prop[normal_candidate] = 0
     
+    """
     # NB save single_tumor_prop to file
     pd.DataFrame({"Tumor": single_tumor_prop}, index=barcodes).to_csv(
-        f"{config['output_dir']}/loh_estimator_tumor_prop.tsv", header=True, sep="\t"
+        f"{config.paths.output_dir}/loh_estimator_tumor_prop.tsv", header=True, sep="\t"
     )
     """
 

@@ -306,7 +306,7 @@ def estimator_tumor_proportion(
         res = model.fit(disp=False)
         return 1.0 / (1.0 + np.exp(res.params))
 
-    n_obs, _, n_spots = single_X.shape[0]
+    n_obs, _, n_spots = single_X.shape
     n_clones = int(len(pred_cnv) / n_obs)
     reshaped_pred_cnv = pred_cnv.reshape((n_obs, n_clones), order="F")
 

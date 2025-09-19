@@ -33,7 +33,11 @@ from cnaster.spatial import (
     multislice_adjacency,
     rectangle_initialize_initial_clone,
 )
-from cnaster.tumor_prop import identify_normal_spots, identify_loh_per_clone, estimator_tumor_proportion
+from cnaster.tumor_prop import (
+    identify_normal_spots,
+    identify_loh_per_clone,
+    estimator_tumor_proportion,
+)
 from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
 from cnaster.neyman_pearson import (
     neyman_pearson_similarity,
@@ -113,7 +117,7 @@ def run_cnaster_tumor_prop(config_path):
             sample_list.append(adata.obs["sample"].iloc[i])
 
     logger.info(f"Found {len(sample_list)} unique samples, e.g. {sample_list[:3]}")
-    
+
     # NB assign index to unique sample names.
     sample_ids = np.zeros(adata.shape[0], dtype=int)
 
@@ -152,7 +156,7 @@ def run_cnaster_tumor_prop(config_path):
         cell_snp_Ballele,
         unique_snp_ids,
     )
-    
+
     # NB 1D array / list?
     log_sitewise_transmat = get_sitewise_transmat(
         df_gene_snp,
@@ -266,9 +270,9 @@ def run_cnaster_tumor_prop(config_path):
     # copy_single_base_nb_mean = copy.copy(single_base_nb_mean)
 
     # assert np.any(single_base_nb_mean > 0)
-    
+
     copy_single_base_nb_mean = single_base_nb_mean.copy()
-    
+
     # NB baf-only run;
     # single_X[:, 0, :] = 0
     single_base_nb_mean[:, :] = 0
@@ -306,7 +310,7 @@ def run_cnaster_tumor_prop(config_path):
         single_total_bb_RD,
         None,
         initial_clone_index,
-        n_states_for_tumorprop, # TODO
+        n_states_for_tumorprop,  # TODO
         log_sitewise_transmat,
         smooth_mat=smooth_mat,
         adjacency_mat=adjacency_mat,
@@ -327,7 +331,7 @@ def run_cnaster_tumor_prop(config_path):
         spatial_weight=config.hmrf.spatial_weight,
         tumorprop_threshold=config.hmrf.tumorprop_threshold,
     )
-    
+
     n_obs = single_X.shape[0]
 
     # NB 2.5 mins.
@@ -343,7 +347,7 @@ def run_cnaster_tumor_prop(config_path):
     n_baf_clones = len(merging_groups)
     combined_assignment = copy.copy(merged_res["new_assignment"])
     offset_clone, offset_state = 0, 0
-    
+
     combined_p_binom, combined_pred_cnv = [], []
     clone_res = {}
 
@@ -359,11 +363,11 @@ def run_cnaster_tumor_prop(config_path):
 
     # TODO HACK
     # assert np.any(single_base_nb_mean > 0)
-    
+
     for bafc in range(n_baf_clones):
         logger.info(f"Solving for BAF clone {bafc}/{n_baf_clones}.")
 
-        idx_spots = np.where(merged_res['new_assignment'] == bafc)[0]
+        idx_spots = np.where(merged_res["new_assignment"] == bafc)[0]
 
         # NB minimum B-allele read count on pseudobulk to split clones.
         if np.sum(single_total_bb_RD[:, idx_spots]) < single_X.shape[0] * 50:  # MAGIC
@@ -388,7 +392,7 @@ def run_cnaster_tumor_prop(config_path):
 
         # NB
         prefix = f"clone{bafc}"
-        
+
         clone_res[prefix] = {
             "barcodes": barcodes[idx_spots],
             "num_iterations": 0,
@@ -416,7 +420,7 @@ def run_cnaster_tumor_prop(config_path):
             max_iter_outer=10,  # TODO MAGIC
             nodepotential=config.hmrf.nodepotential,
             hmmclass=hmm_nophasing,
-            params="sp", # TODO MAGIC
+            params="sp",  # TODO MAGIC
             t=config.hmm.t,
             random_state=config.hmm.gmm_random_state,
             fix_NB_dispersion=config.hmm.fix_NB_dispersion,
@@ -431,7 +435,7 @@ def run_cnaster_tumor_prop(config_path):
         )
 
         res = clone_res[prefix]
-        
+
         combined_assignment[idx_spots] = res["new_assignment"] + offset_clone
         offset_clone += 1 + np.max(res["new_assignment"])
         combined_p_binom.append(res["new_p_binom"])
@@ -447,9 +451,9 @@ def run_cnaster_tumor_prop(config_path):
         merged_res["new_assignment"],
         merged_res["pred_cnv"],
         merged_res["new_p_binom"],
-        min_count=single_X.shape[0] * 200, # TODO
+        min_count=single_X.shape[0] * 200,  # TODO
     )
-    
+
     loh_states, is_B_lost, rdr_values, clones_hightumor = identify_loh_per_clone(
         single_X,
         combined_assignment,
@@ -458,11 +462,11 @@ def run_cnaster_tumor_prop(config_path):
         normal_candidate,
         single_total_bb_RD,
     )
-    
+
     assignments = pd.DataFrame(
         {"coarse": merged_res["new_assignment"], "combined": combined_assignment}
     )
-    
+
     # NB pool across adjacent spot to increase the UMIs covering LOH region.
     _, tp_smooth_mat = multislice_adjacency(
         sample_ids,
@@ -486,7 +490,7 @@ def run_cnaster_tumor_prop(config_path):
         clones_hightumor,
         smooth_mat=tp_smooth_mat,
     )
-    
+
     # NB post-processing to remove negative tumor proportions
     single_tumor_prop = np.where(
         single_tumor_prop < MIN_PROP_UNCERTAINTY,
@@ -494,14 +498,16 @@ def run_cnaster_tumor_prop(config_path):
         single_tumor_prop,
     )
     single_tumor_prop[normal_candidate] = 0
-    
-    """
-    # NB save single_tumor_prop to file
-    pd.DataFrame({"Tumor": single_tumor_prop}, index=barcodes).to_csv(
-        f"{config.paths.output_dir}/loh_estimator_tumor_prop.tsv", header=True, sep="\t"
-    )
-    """
 
+    result = {"tumor_proportion": single_tumor_prop}
+    output_path = f"{config.paths.output_dir}/loh_estimator_tumor_prop.tsv"
+
+    # NB write tumor_prop to tsv.
+    pd.DataFrame(result, index=barcodes).to_csv(
+        output_path, header=True, sep="\t", index_label="barcode"
+    )
+
+    # NB complete in ~7.5 minutes.
     logger.info(f"Done in {(time.time() - start_time)/60.:.2f} minutes.")
 
 

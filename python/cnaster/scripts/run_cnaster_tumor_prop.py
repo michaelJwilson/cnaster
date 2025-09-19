@@ -502,7 +502,7 @@ def run_cnaster_tumor_prop(config_path):
     result = {"tumor_proportion": single_tumor_prop}
     output_path = f"{config.paths.output_dir}/loh_estimator_tumor_prop.tsv"
 
-    # NB write tumor_prop to tsv.
+    # TODO add (x, y) coordinates.
     pd.DataFrame(result, index=barcodes).to_csv(
         output_path, header=True, sep="\t", index_label="barcode"
     )

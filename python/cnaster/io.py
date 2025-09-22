@@ -17,6 +17,13 @@ logger = logging.getLogger(__name__)
 def get_sample_sheet(sample_sheet_path):
     df_meta = pd.read_csv(sample_sheet_path, sep="\t")
 
+    required_columns = {"bam", "sample_id", "spaceranger_dir", "snp_dir"}
+
+    # TODO
+    assert required_columns.issubset(df_meta.columns), (
+        f"sample_sheet is missing required columns: {required_columns - set(df_meta.columns)}"
+    )   
+
     logger.info(f"Input sample_sheet_path={sample_sheet_path} contains:\n{df_meta}")
 
     return df_meta
@@ -77,6 +84,8 @@ def get_spatial_positions(spaceranger_dir, filter_in_tissue=True):
 
     # TODO alignment defined for in_tissue == True only?
     if filter_in_tissue:
+        logger.warning(f"Filtering spatial positions to in_tissue == True.")
+
         result = df_this_pos[df_this_pos.in_tissue == True]
     else:
         result = df_this_pos
@@ -85,7 +94,7 @@ def get_spatial_positions(spaceranger_dir, filter_in_tissue=True):
 
 
 def get_spaceranger_counts(spaceranger_dir):
-    # NB https://scanpy.readthedocs.io/en/stable/generated/scanpy.read_10x_h5.html
+    # NB see https://scanpy.readthedocs.io/en/stable/generated/scanpy.read_10x_h5.html
     if Path(f"{spaceranger_dir}/filtered_feature_bc_matrix.h5").exists():
         adatatmp = sc.read_10x_h5(f"{spaceranger_dir}/filtered_feature_bc_matrix.h5")
         logger.info(f"Reading {spaceranger_dir}/filtered_feature_bc_matrix.h5")
@@ -125,6 +134,9 @@ def get_spaceranger_counts(spaceranger_dir):
     adatatmp.var_names_make_unique()
 
     logger.info(f"Read features of shape {adatatmp.shape} from {spaceranger_dir}")
+
+    logger.info(f"Example cell names: {adatatmp.obs_names[:5]}")
+    logger.info(f"Example gene names: {adatatmp.var_names[:5]}")
 
     # NB data matrix X (ndarray/csr matrix, dask ...): observations/cells are named by their barcode and variables/genes by gene name
     return adatatmp
@@ -290,6 +302,8 @@ def load_input_data(
             if adata is None
             else anndata.concat([adata, adatatmp], join="outer")
         )
+
+    exit(0)
 
     # NB filter by spots:  shared barcodes between adata and SNPs.
     shared_barcodes = set(list(snp_barcodes.barcodes)) & set(list(adata.obs.index))

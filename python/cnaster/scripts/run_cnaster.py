@@ -122,10 +122,6 @@ def run_cnaster(config_path):
         index = np.where(adata.obs["sample"] == sname)[0]
         sample_ids[index] = s
 
-    single_tumor_prop = None
-
-    """
-    # TODO
     if config.preprocessing.tumorprop_file is not None:
         df_tumorprop = pd.read_csv(
             config.preprocessing.tumorprop_file, sep="\t", header=0, index_col=0
@@ -136,7 +132,8 @@ def run_cnaster(config_path):
         adata.obs = adata.obs.join(df_tumorprop)
 
         single_tumor_prop = adata.obs["tumor_proportion"]
-    """
+    else:
+        single_tumor_prop = None
 
     logger.info(f"Forming gene & snp meta data.")
 

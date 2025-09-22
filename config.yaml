@@ -2,10 +2,11 @@ paths:
   sample_sheet: /u/mw9568/research/repos/cnaster/sample_sheet.tsv
   output_dir : /n/fs/scratch/mw9568/cnaster
   cache_dir : /n/fs/scratch/mw9568/cnaster/.cache
-  
+
+# NB /n/fs/scratch/mw9568/cnaster/loh_estimator_tumor_prop.tsv
 preprocessing:
   normalidx_file : None
-  tumorprop_file : None
+  tumorprop_file : None 
 
 run:
   bafonly : False

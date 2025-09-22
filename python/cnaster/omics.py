@@ -9,14 +9,18 @@ logger = logging.getLogger(__name__)
 
 
 def form_gene_snp_table(unique_snp_ids, hgtable_file, adata):
+    logger.info(f"Retrieving reference genes: {hgtable_file}")
+    
     # NB read gene info and keep only chr1-chr22 and genes appearing in adata
     df_hgtable = get_reference_genes(hgtable_file)
 
+    logger.info(f"Filtering reference genes to those in visium: {hgtable_file}")
+    
     # NB TODO? limits reference genes to those present in (filtered) AnnData UMIs.
     df_hgtable = df_hgtable[df_hgtable.name2.isin(adata.var.index)]
 
-    # a data frame including both gene and SNP info: CHR, START, END, snp_id, gene, is_interval
-    df_gene_snp = pd.DataFrame(
+    # NB a data frame including both gene and SNP info: CHR, START, END, snp_id, gene, is_interval
+    df_gene = pd.DataFrame(
         {
             "CHR": [int(x[3:]) for x in df_hgtable.chrom.to_numpy()],
             "START": df_hgtable.cdsStart.to_numpy(),
@@ -27,13 +31,14 @@ def form_gene_snp_table(unique_snp_ids, hgtable_file, adata):
         }
     )
 
-    # add SNP info
+    # NB add SNP info
     snp_chr = np.array([int(x.split("_")[0]) for x in unique_snp_ids])
     snp_pos = np.array([int(x.split("_")[1]) for x in unique_snp_ids])
 
+    # NB vertical concatenation
     df_gene_snp = pd.concat(
         [
-            df_gene_snp,
+            df_gene,
             pd.DataFrame(
                 {
                     "CHR": snp_chr,
@@ -48,8 +53,12 @@ def form_gene_snp_table(unique_snp_ids, hgtable_file, adata):
         ignore_index=True,
     )
 
+    logger.info(f"Sorting df_gene_snp")
+    
     df_gene_snp.sort_values(by=["CHR", "START"], inplace=True)
 
+    logger.info(f"Assigning genes to SNPs")
+    
     # NB assign genes to each SNP:  for each SNP (with not null snp_id), find the previous gene (is_interval == True)
     #    such that the SNP start position is within the gene start & end interval.
     vec_is_interval = df_gene_snp.is_interval.to_numpy()
@@ -80,6 +89,9 @@ def form_gene_snp_table(unique_snp_ids, hgtable_file, adata):
 
             j -= 1
 
+    
+    logger.info(f"Assigned genes to SNPs")
+    
     # NB remove SNPs that have no corresponding genes.
     isin = ~df_gene_snp.gene.isnull()
 

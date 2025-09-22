@@ -348,7 +348,8 @@ def load_input_data(
             :, indicator
         ]
 
-    # NB filter out genes that are expressed in <min_percent_expressed_spots cells
+    # TODO investigate this cut ....
+    # NB filter out genes that are expressed in < min_percent_expressed_spots cells
     # TODO apply @ get_spaceranger_counts
     indicator = (
         np.sum(adata.X > 0, axis=0) >= min_percent_expressed_spots * adata.shape[0]

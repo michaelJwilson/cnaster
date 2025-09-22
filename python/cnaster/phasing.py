@@ -28,10 +28,10 @@ def initial_phase_given_partition(
     threshold,
     min_snpumi=2e3,
 ):
-    EPS_BAF = 0.05
-    MIN_SEGMENT_SIZE = 10
-    BAF_CHANGE_THRESHOLD = 0.1
-    DEFAULT_DIPLOID_STATE = 2
+    EPS_BAF = 0.05 # MAGIC
+    MIN_SEGMENT_SIZE = 10 # MAGIC
+    BAF_CHANGE_THRESHOLD = 0.1 # MAGIC
+    DEFAULT_DIPLOID_STATE = 2 # MAGIC
 
     logger.info(f"Starting phasing assuming {len(initial_clone_index)} clones.")
 

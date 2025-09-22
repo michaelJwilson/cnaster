@@ -102,8 +102,9 @@ def run_cnaster(config_path):
         filter_gene_file=config.references.filtergenelist_file,
         filter_range_file=config.references.filterregion_file,
     )
-    
-    # TODO CHECK
+
+    # TODO check.
+    # NB e.g. 'AAACAAGTATCTCCCA-1_HT112C1-U1' currently.
     barcodes = adata.obs.index
     coords = adata.obsm["X_pos"]
 
@@ -113,26 +114,40 @@ def run_cnaster(config_path):
         if adata.obs["sample"].iloc[i] != sample_list[-1]:
             sample_list.append(adata.obs["sample"].iloc[i])
 
+    # NB e.g. HT112C1-U1.
     logger.info(f"Found {len(sample_list)} unique samples, e.g. {sample_list[:3]}")
     
     # NB assign index to unique sample names.
-    sample_ids = np.zeros(adata.shape[0], dtype=int)
+    sample_ids = -np.ones(adata.shape[0], dtype=int)
 
     for s, sname in enumerate(sample_list):
         index = np.where(adata.obs["sample"] == sname)[0]
         sample_ids[index] = s
 
+    assert np.all(sample_ids >= 0), f"Failed to assign unique integer to all samples in list. Bug?"
+        
     if config.preprocessing.tumorprop_file is not None:
+        logger.info(f"Reading pre-processed tumorprop file={config.preprocessing.tumorprop_file}")
+        
         df_tumorprop = pd.read_csv(
             config.preprocessing.tumorprop_file, sep="\t", header=0, index_col=0
         )
+
+        print(df_tumorprop)
+        print(adata.obs)
+        
         df_tumorprop = df_tumorprop[["Tumor"]]
         df_tumorprop.columns = ["tumor_proportion"]
 
+        assert np.all(adata.obs.index == df_tumorprop.index), "Detected mis-alignment of AnnData & tumor prop. sample ordering."
+        
+        # TODO assert on tumor prop. ordering.
+        # NB assumes spot-aligned(!)
         adata.obs = adata.obs.join(df_tumorprop)
 
         single_tumor_prop = adata.obs["tumor_proportion"]
     else:
+        logger.info(f"No pre-processed tumorprop. file provided.")        
         single_tumor_prop = None
 
     logger.info(f"Forming gene & snp meta data.")
@@ -206,6 +221,8 @@ def run_cnaster(config_path):
     )
 
     logger.info(f"Solved for initial phase given Eagle & BAF in {(time.time() - start_time):.2f} seconds.")
+
+    exit(0)
     
     df_gene_snp["phase"] = np.where(
         df_gene_snp.snp_id.isnull(),

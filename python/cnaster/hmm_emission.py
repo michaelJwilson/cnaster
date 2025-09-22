@@ -280,6 +280,8 @@ class Weighted_NegativeBinomial_mix:
             )
             return
 
+        # NB instigate compression of likelihood: do not repeat evaluation of probabilities given
+        #    'same' counts (up to decimals definition below).
         cls = np.argmax(self.exog, axis=-1)
         counts = np.vstack([self.endog, self.exposure, cls]).T
 

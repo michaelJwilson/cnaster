@@ -195,7 +195,9 @@ def load_input_data(
     # NB see https://github.com/raphael-group/CalicoST/blob/5e4a8a1230e71505667d51390dc9c035a69d60d9/src/calicost/utils_IO.py#L127
     df_meta = get_sample_sheet(config.paths.sample_sheet)
 
-    # TODO HACK assumes snps derived from aggregation of all provided samples.
+    # TODO HACK assumes snps derived from aggregation of all provided samples,
+    assert np.all(df_meta["snp_dir"] == df_meta["snp_dir"].iloc[0])
+    
     snp_dir = df_meta["snp_dir"].iloc[0]
 
     # TODO sample_id not defined?  barcodes uniquely identify each spot per slice,
@@ -283,10 +285,7 @@ def load_input_data(
         # NB index by {barcode}_{sample} (TBC)
         adatatmp.obs.index = [f"{x}_{sname}" for x in adatatmp.obs.index]
 
-        if adata is None:
-            adata = adatatmp
-        else:
-            adata = anndata.concat([adata, adatatmp], join="outer")
+        adata = adatatmp if adata is None else anndata.concat([adata, adatatmp], join="outer")
 
     # NB filter by spots:  shared barcodes between adata and SNPs.
     shared_barcodes = set(list(snp_barcodes.barcodes)) & set(list(adata.obs.index))

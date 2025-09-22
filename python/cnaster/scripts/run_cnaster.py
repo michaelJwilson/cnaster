@@ -132,9 +132,6 @@ def run_cnaster(config_path):
         df_tumorprop = pd.read_csv(
             config.preprocessing.tumorprop_file, sep="\t", header=0, index_col=0
         )
-
-        print(df_tumorprop)
-        print(adata.obs)
         
         df_tumorprop = df_tumorprop[["Tumor"]]
         df_tumorprop.columns = ["tumor_proportion"]
@@ -300,6 +297,8 @@ def run_cnaster(config_path):
     initial_clone_index = rectangle_initialize_initial_clone(
         coords, config.hmrf.n_clones, random_state=0
     )
+
+    exit(0)
     
     logger.info("Solving HMM+HMRF for copy state and clones with BAF only.")
     
@@ -333,8 +332,6 @@ def run_cnaster(config_path):
         spatial_weight=config.hmrf.spatial_weight,
         tumorprop_threshold=config.hmrf.tumorprop_threshold,
     )
-
-    exit(0)
     
     # TODO HACK
     n_obs = single_X.shape[0]

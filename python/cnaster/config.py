@@ -45,7 +45,7 @@ class JSONConfig:
     @classmethod
     def from_file(cls, path):
         with Path.open(path, "r") as f:
-            # Remove comments if present (JSON standard does not allow them)
+            # NB remove comments if present (JSON standard does not allow them)
             lines = [line for line in f if not line.strip().startswith("//")]
             d = json.loads("".join(lines))
         return cls(d)

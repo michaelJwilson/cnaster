@@ -15,6 +15,10 @@ _global_config = None
 
 
 def set_global_config(config):
+    assert config is None or isinstance(
+        config, YAMLConfig
+    ), "Global config must be None or a YAMLConfig instance"
+
     global _global_config
     _global_config = config
 
@@ -23,32 +27,12 @@ def get_global_config():
     if _global_config is None:
         logger.warning("cnaster config has not been defined.")
 
+    else:
+        assert isinstance(
+            _global_config, YAMLConfig
+        ), "Global config must be None or a YAMLConfig instance"
+    
     return _global_config
-
-
-class JSONConfig:
-    def __init__(self, d):
-        for k, v in d.items():
-            if isinstance(v, dict):
-                v = JSONConfig(v)
-
-            setattr(self, k, v)
-
-    def __iter__(self):
-        return iter(
-            xx for xx in dir(self) if (xx != "from_file") and not xx.startswith("_")
-        )
-
-    def __str__(self):
-        return json.dumps(self, indent=4)
-
-    @classmethod
-    def from_file(cls, path):
-        with Path.open(path, "r") as f:
-            # Remove comments if present (JSON standard does not allow them)
-            lines = [line for line in f if not line.strip().startswith("//")]
-            d = json.loads("".join(lines))
-        return cls(d)
 
 
 class YAMLConfig:
@@ -95,3 +79,28 @@ class YAMLConfig:
         logger.info(f"Read configuration:\n{config}")
 
         return config
+
+
+class JSONConfig:
+    def __init__(self, d):
+        for k, v in d.items():
+            if isinstance(v, dict):
+                v = JSONConfig(v)
+
+            setattr(self, k, v)
+
+    def __iter__(self):
+        return iter(
+            xx for xx in dir(self) if (xx != "from_file") and not xx.startswith("_")
+        )
+
+    def __str__(self):
+        return json.dumps(self, indent=4)
+
+    @classmethod
+    def from_file(cls, path):
+        with Path.open(path, "r") as f:
+            # Remove comments if present (JSON standard does not allow them)
+            lines = [line for line in f if not line.strip().startswith("//")]
+            d = json.loads("".join(lines))
+        return cls(d)

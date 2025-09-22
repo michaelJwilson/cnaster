@@ -22,6 +22,7 @@ def get_sample_sheet(sample_sheet_path):
     return df_meta
 
 
+# TODO check (e.g. sample sheet with john): AAACAAGTATCTCCCA-1_HT112C1-U1 == {spot}-1_{sample_id}-{slice}.
 def get_aggregated_barcodes(barcode_file):
     # NB see https://github.com/raphael-group/CalicoST/blob/5e4a8a1230e71505667d51390dc9c035a69d60d9/calicost.smk#L32
     df_barcode = pd.read_csv(barcode_file, header=None, names=["combined_barcode"])
@@ -100,7 +101,7 @@ def get_spaceranger_counts(spaceranger_dir):
 
         raise RuntimeError()
 
-    # TODO
+    # TODO comment on adatatmp.x (nobs x nvars for space ranger).
     adatatmp.layers["count"] = adatatmp.X.toarray()
 
     is_nan = np.isnan(adatatmp.layers["count"])
@@ -224,11 +225,11 @@ def load_input_data(
 
     unique_snp_ids = np.load(f"{snp_dir}/unique_snp_ids.npy", allow_pickle=True)
 
-    ##### read SNP counts #####
+    # NB read SNP counts
     cell_snp_Aallele = scipy.sparse.load_npz(f"{snp_dir}/cell_snp_Aallele.npz")
     cell_snp_Ballele = scipy.sparse.load_npz(f"{snp_dir}/cell_snp_Ballele.npz")
 
-    ##### read anndata and coordinate #####
+    # NB read anndata and spatial coordinate
     adata = None
 
     # NB df_meta provides the sample_ids, one per bam.
@@ -241,14 +242,13 @@ def load_input_data(
         df_this_barcode = copy.copy(df_agg_barcode.iloc[index, :])
         df_this_barcode.index = df_this_barcode.barcode
 
-        # NB limited to in tissue by default.
+        # NB limited to "in tissue" by default.
         df_this_pos = get_spatial_positions(df_meta["spaceranger_dir"].iloc[i])
 
-        # NB read filtered_feature_bc_matrix.h5(ad) from spaceranger_dir for
-        #    for this sample.
+        # NB read filtered_feature_bc_matrix.h5(ad) from spaceranger_dir for this sample.
         adatatmp = get_spaceranger_counts(df_meta["spaceranger_dir"].iloc[i])
 
-        # NB reorder anndata spots to have the order of df_this_barcode (with enum)
+        # NB reorder anndata spots to have the order of "df_this_barcode" (with enum)
         idx_argsort = pd.Categorical(
             adatatmp.obs.index, categories=list(df_this_barcode.barcode), ordered=True
         ).argsort()
@@ -288,9 +288,7 @@ def load_input_data(
         else:
             adata = anndata.concat([adata, adatatmp], join="outer")
 
-    ##### filter by spots #####
-
-    # NB shared barcodes between adata and SNPs.
+    # NB filter by spots:  shared barcodes between adata and SNPs.
     shared_barcodes = set(list(snp_barcodes.barcodes)) & set(list(adata.obs.index))
 
     isin = snp_barcodes.barcodes.isin(shared_barcodes).to_numpy()

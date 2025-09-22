@@ -25,7 +25,7 @@ def logsumexp(x):
     return x_max + np.log(np.sum(np.exp(x - x_max)))
 
 
-@njit(cache=True)
+# @njit(cache=True)
 def pool_hmrf_data(
     single_X,
     single_base_nb_mean,

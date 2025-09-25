@@ -144,15 +144,13 @@ def run_cnaster(config_path):
         df_tumorprop = df_tumorprop[["Tumor"]]
         df_tumorprop.columns = ["tumor_proportion"]
 
-        assert np.all(adata.obs.index == df_tumorprop.index), "Detected mis-alignment of AnnData & tumor prop. sample ordering."
+        assert np.all(adata.obs.index == df_tumorprop.index), "Detected mis-alignment of AnnData & tumor prop. barcode/sample ordering."
         
-        # TODO assert on tumor prop. ordering.
-        # NB assumes spot-aligned(!)
         adata.obs = adata.obs.join(df_tumorprop)
 
         single_tumor_prop = adata.obs["tumor_proportion"]
     else:
-        logger.info(f"No pre-processed tumorprop. file provided.")        
+        logger.info(f"No (pre-processed) tumorprop. file provided.")        
         single_tumor_prop = None
 
     logger.info(f"Forming gene & snp meta data.")

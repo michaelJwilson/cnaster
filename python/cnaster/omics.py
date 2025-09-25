@@ -31,7 +31,7 @@ def form_gene_snp_table(unique_snp_ids, hgtable_file, adata):
         }
     )
 
-    # NB add SNP info
+    # NB add SNP info: {contig}_{pos}_{ref}_{alt}.
     snp_chr = np.array([int(x.split("_")[0]) for x in unique_snp_ids])
     snp_pos = np.array([int(x.split("_")[1]) for x in unique_snp_ids])
 
@@ -59,14 +59,19 @@ def form_gene_snp_table(unique_snp_ids, hgtable_file, adata):
 
     logger.info(f"Assigning genes to SNPs")
     
-    # NB assign genes to each SNP:  for each SNP (with not null snp_id), find the previous gene (is_interval == True)
-    #    such that the SNP start position is within the gene start & end interval.
+    """
+    Assigns genes to each SNP:  for each SNP (with not null snp_id), find the previous gene (is_interval == True)
+    such that the SNP start position is within the gene start & end interval.
+    """
+
+    # NB == is_gene
     vec_is_interval = df_gene_snp.is_interval.to_numpy()
 
     vec_chr = df_gene_snp.CHR.to_numpy()
     vec_start = df_gene_snp.START.to_numpy()
     vec_end = df_gene_snp.END.to_numpy()
 
+    # NB loops over SNPs.
     for i in np.where(df_gene_snp.gene.isnull())[0]:
         # TODO first SNP has no gene.
         if i == 0:
@@ -74,10 +79,11 @@ def form_gene_snp_table(unique_snp_ids, hgtable_file, adata):
 
         this_pos = vec_start[i]
 
-        # NB decrement row indexes up to 50 behind (on same contig).
+        # NB look for an overlapping gene, closest in START, in the previous 50 rows (on same contig).
         j = i - 1
 
         # TODO? overlapping genes: closest in start.
+        # MAGIC 50 row lookup.
         while j >= 0 and j >= (i - 50) and (vec_chr[i] == vec_chr[j]):
             if (
                 vec_is_interval[j]

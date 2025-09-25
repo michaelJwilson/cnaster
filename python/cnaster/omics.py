@@ -160,13 +160,15 @@ def assign_initial_blocks(
         )
     )
 
-    # (chr, start, end) for first gene. 
+    # NB (chr, start, end) for first gene. 
     first_interval = tmp_block_genome_intervals[0]
 
     block_genome_intervals = [first_interval]
     merged = 0
 
     # NB called snps are limited to transcripts, ergo limited to genes.
+    #
+    #    initial intervals are gene ranges merged based on overlap.
     for next_interval in tmp_block_genome_intervals[1:]:
         contig, start, end = next_interval
 
@@ -194,7 +196,7 @@ def assign_initial_blocks(
     block_ranges = []
 
     for x in block_genome_intervals:
-        # NB overlap of df_gene_snp with block interval.
+        # NB overlap of df_gene_snp with block_genome_interval.
         indexes = np.where(
             (df_gene_snp.CHR.to_numpy() == x[0])
             & (
@@ -213,13 +215,17 @@ def assign_initial_blocks(
     )
 
     # NB record the initial block id in df_gene_snps
-    # TODO? check for overwrite.
-    df_gene_snp["initial_block_id"] = 0
+    # BUG previously 0, spuriously assigned to the zeroth block.
+    df_gene_snp["initial_block_id"] = -1
 
     for i, x in enumerate(block_ranges):
         df_gene_snp.iloc[x[0] : x[1], -1] = i
 
+    assert np.all(df_gene_snp["initial_block_id"].values) >= 0, "TODO!"
+    
     logger.info("Initialized block assignment based on gene overlap")
+
+    exit(0)
 
     summarize_block_ids(df_gene_snp["initial_block_id"])
 

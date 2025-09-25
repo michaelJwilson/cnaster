@@ -524,6 +524,14 @@ def load_input_data(
 
     logger.info(f"Realized AnnData:\n{adata}")
 
+    # NB barcode consistency
+    assert adata.layers["count"].shape[0] == cell_snp_Aallele.shape[0]
+    assert cell_snp_Aallele.shape[0] == cell_snp_Ballele.shape[0]
+    
+    # NB SNP consistency; 17_797 anndata genes vs 16_681 SNPs.
+    assert len(unique_snp_ids) == cell_snp_Aallele.shape[1]
+    assert cell_snp_Aallele.shape[1] ==	cell_snp_Ballele.shape[1]
+    
     # TODO dense arrays.
     return (
         adata,

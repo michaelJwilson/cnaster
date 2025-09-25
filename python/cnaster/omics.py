@@ -90,9 +90,10 @@ def form_gene_snp_table(
 
         this_pos = vec_start[i]
 
-        # NB look for an overlapping gene, closest in START, in the previous 50 rows (on same contig).
+        # NB look for an overlapping gene, closest in START, in the previous {num_preceeding_rows} rows (on same contig).
         j = i - 1
-
+        match = False
+        
         # NB assigns closest in start.
         while j >= 0 and j >= (i - num_preceeding_rows) and (vec_chr[j] == vec_chr[i]):
             if (
@@ -101,10 +102,22 @@ def form_gene_snp_table(
                 and vec_end[j] > this_pos
             ):
                 df_gene_snp.iloc[i, 4] = df_gene_snp.iloc[j]["gene"]
+                match = True
                 break
+            
+            j -= 1        
 
-            j -= 1
-    
+        if not match:
+            logger.info(f"Failed to find a match for SNP chr{vec_chr[i]}:{this_pos} with preceeding ranges:")
+
+            j = i - 1
+            
+            while j >= 0 and j >= (i - num_preceeding_rows) and (vec_chr[j] == vec_chr[i]):
+                if vec_is_interval[j]:
+                    print(i, vec_chr[i], this_pos, vec_start[j], vec_end[j])
+
+                j -= 1
+                
     logger.info(f"Assigned SNPs to genes.")
     
     # NB remove SNPs that have no corresponding genes.

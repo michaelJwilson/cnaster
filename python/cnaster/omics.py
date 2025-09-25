@@ -8,7 +8,13 @@ from cnaster.reference import get_reference_genes, get_reference_recomb_rates
 logger = logging.getLogger(__name__)
 
 
-def form_gene_snp_table(unique_snp_ids, hgtable_file, adata):
+# TODO assumes reference gene contains all those present in Visium anndata.
+def form_gene_snp_table(
+        unique_snp_ids,
+        hgtable_file,
+        adata,
+        num_preceeding_rows=50 # MAGIC
+):
     logger.info(f"Retrieving reference genes: {hgtable_file}")
     
     # NB read gene info and keep only chr1-chr22 and genes appearing in adata
@@ -83,8 +89,7 @@ def form_gene_snp_table(unique_snp_ids, hgtable_file, adata):
         j = i - 1
 
         # TODO? overlapping genes: closest in start.
-        # MAGIC 50 row lookup.
-        while j >= 0 and j >= (i - 50) and (vec_chr[i] == vec_chr[j]):
+        while j >= 0 and j >= (i - num_preceeding_rows) and (vec_chr[i] == vec_chr[j]):
             if (
                 vec_is_interval[j]
                 and vec_start[j] <= this_pos
@@ -102,7 +107,7 @@ def form_gene_snp_table(unique_snp_ids, hgtable_file, adata):
     isin = ~df_gene_snp.gene.isnull()
 
     logger.info(
-        f"Retaining {100.0 * np.mean(isin[~df_gene_snp.is_interval]):.3f}% of SNPs with known gene (given Gencode filtered by AnnData)."
+        f"Retaining {100.0 * np.mean(isin[~df_gene_snp.is_interval]):.3f}% of SNPs with known gene (given Gencode filtered by AnnData) for num_preceeding_rows={num_preceeding_rows}."
     )
 
     df_gene_snp = df_gene_snp[isin]
@@ -138,12 +143,12 @@ def assign_initial_blocks(
     Returns
     ----------
     df_gene_snp : data frame, names: (CHR, START, END, snp_id, gene, is_interval, block_id)
-        Gene and SNP info combined into a single dataframe sorted by (CHR, START).
+         Gene and SNP info combined into a single dataframe sorted by (CHR, START).
         "is_interval"=True is a gene, otherwise SNP.
         "gene" contains the name of a gene, or the gene a SNP belongs.
     """
-    # TODO un-necessary?
-    # NB first level: partition of genome: by gene regions (if two genes overlap, they are grouped to one region).
+    # NB first level: partition of genome by gene range (if two genes overlap, they are grouped to one range);
+    # NB == is_gene.
     is_interval = df_gene_snp.is_interval
 
     # TODO UGH.
@@ -155,11 +160,13 @@ def assign_initial_blocks(
         )
     )
 
+    # (chr, start, end) for first gene. 
     first_interval = tmp_block_genome_intervals[0]
 
     block_genome_intervals = [first_interval]
     merged = 0
 
+    # NB called snps are limited to transcripts, ergo limited to genes.
     for next_interval in tmp_block_genome_intervals[1:]:
         contig, start, end = next_interval
 

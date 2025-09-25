@@ -156,6 +156,7 @@ def run_cnaster(config_path):
     logger.info(f"Forming gene & snp meta data.")
 
     # NB parse_visium::combine_gene_snps
+    #    chr, start, end, snp_id, gene, is_interval (is_gene).
     df_gene_snp = form_gene_snp_table(
         unique_snp_ids, config.references.hgtable_file, adata
     )

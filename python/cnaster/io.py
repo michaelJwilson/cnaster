@@ -88,7 +88,7 @@ def get_spatial_positions(spaceranger_dir, filter_in_tissue=True):
 
     # TODO alignment defined for in_tissue == True only?
     if filter_in_tissue:
-        logger.warning(f"Filtering spatial positions to in_tissue == True.")
+        logger.warning(f"Filtering spatial positions to in_tissue == True (retained {100. * np.mean(df_this_pos.in_tissue)}%).")
 
         result = df_this_pos[df_this_pos.in_tissue == True]
     else:
@@ -138,10 +138,10 @@ def get_spaceranger_counts(spaceranger_dir):
     #    see https://anndata.readthedocs.io/en/latest/generated/anndata.AnnData.var_names_make_unique.html
     adatatmp.var_names_make_unique()
 
-    logger.info(f"Read features of shape {adatatmp.shape} from {spaceranger_dir}")
+    logger.info(f"Read counts of shape {adatatmp.shape}, i.e. (barcodes, genes) from {spaceranger_dir}")
 
-    logger.info(f"Example cell names: {adatatmp.obs_names[:5]}")
-    logger.info(f"Example gene names: {adatatmp.var_names[:5]}")
+    logger.info(f"Example names for {len(adatatmp.obs_names)} barcodes: {adatatmp.obs_names[:5]}")
+    logger.info(f"Example names for {len(adatatmp.var_names)} genes: {adatatmp.var_names[:5]}")
 
     # NB data matrix X (ndarray/csr matrix, dask ...): observations/cells are named by their barcode and variables/genes by gene name.
     return adatatmp
@@ -206,7 +206,7 @@ def load_input_data(
     filter_range_file=None,
     normal_idx_file=None,
     min_snp_umis=50,
-    min_percent_expressed_spots=5.0e-3, # NB half a percent.
+    min_percent_expressed_spots=5.0e-3, # BUG actually a fraction.
     local_outlier_filter=True,
 ):
     # NB see https://github.com/raphael-group/CalicoST/blob/5e4a8a1230e71505667d51390dc9c035a69d60d9/src/calicost/utils_IO.py#L127
@@ -255,7 +255,7 @@ def load_input_data(
 
     # NB df_meta provides the sample_ids, one per bam.
     for i, sname in enumerate(df_meta.sample_id.to_numpy()):
-        logger.info(f"Solving for spaceranger sample {sname}.")
+        logger.info(f"Reading (spot, gene) UMIs for spaceranger sample {sname}.")
 
         index = np.where(df_agg_barcode["sample_id"] == sname)[0]
 
@@ -283,7 +283,7 @@ def load_input_data(
         isin = adatatmp.obs.index.isin(shared_barcodes)
 
         logger.info(
-            f"Retaining {100.0 * np.mean(isin):.3f}% of barcodes (shared with bam & filtered matrix) for {sname}."
+            f"Retaining {100.0 * np.mean(isin):.3f}% of spots based on (in-tissue) position and UMIs."
         )
 
         # TODO filter before sort.
@@ -385,13 +385,13 @@ def load_input_data(
     # TODO gencode gene list is not all sampled by (3') visium umis.
     # TODO excludes 50% of genes, but retains 99.97% of UMIs; resolves gene definition to house-keeping?
     logger.info(
-        f"Retaining {100.0 * np.mean(indicator):.3f}% of genes with sufficient expression across spots ({100.0 * ratio:.2f}% of total UMIs) @ {min_percent_expressed_spots}% min. percent spots threshold."
+        f"Retaining {100.0 * np.mean(indicator):.3f}% of genes with sufficient expression across spots ({100.0 * ratio:.2f}% of total UMIs) @ {min_percent_expressed_spots} fraction of spots."
     )
 
     adata = adata[:, indicator]
 
     logger.info(
-        f"Median UMI after gene selection for expression < {100.0 * min_percent_expressed_spots:.3f}% of cells = {np.median(np.sum(adata.layers['count'], axis=1))}"
+        f"Median spot UMI after filtering genes based on num. spots expressed = {np.median(np.sum(adata.layers['count'], axis=1)):.3e}"
     )
 
     if filter_gene_file is not None:

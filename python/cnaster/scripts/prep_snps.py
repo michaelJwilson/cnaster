@@ -7,7 +7,7 @@ import pandas as pd
 
 def prep_snps(cellsnplite_results_dir, output_dir, vaf_threshold=0.1):
     """
-    Assumes the number of REF/ALT alleles per spot provided by cellsnplite.
+    Assumes the number of REF/ALT alleles per snp, per spot provided by cellsnplite.
     """
     # NB reads first entry in list.
     cellsnp_base = [

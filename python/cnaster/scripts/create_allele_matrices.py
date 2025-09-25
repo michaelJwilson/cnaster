@@ -7,6 +7,9 @@ import scipy.io
 
 
 def cell_by_gene_lefthap_counts(cellsnp_folder, eagle_results_dir, barcode_list):
+    """
+    Assumes (pseudo-bulk) phased SNPs provided by Eagle2.
+    """
     # NB create a (snp_id, GT) map from Eagle2 output.
     snp_gt_map = {}
 

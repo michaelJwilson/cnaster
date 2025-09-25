@@ -6,6 +6,10 @@ import pandas as pd
 
 
 def prep_snps(cellsnplite_results_dir, output_dir, vaf_threshold=0.1):
+    """
+    Assumes the number of REF/ALT alleles per spot provided by cellsnplite.
+    """
+    # NB reads first entry in list.
     cellsnp_base = [
         str(x) for x in Path(cellsnplite_results_dir).glob("cellSNP.base*")
     ][0]
@@ -19,21 +23,26 @@ def prep_snps(cellsnplite_results_dir, output_dir, vaf_threshold=0.1):
 
     df_snp["CHROM"] = [f"chr{x}" for x in df_snp.tmpCHR]
 
+    # NB the number of reads supporting each allele (reference and alternate) at this position,
+    #    e.g., AD=10,3 means 10 reads support the reference allele, 3 reads support the alternate.
     df_snp["AD"] = [int(x.split(";")[0].split("=")[-1]) for x in df_snp.INFO]
+
+    # NB total number of reads covering this position for the sample, e.g., DP=13 means 13 reads cover the site.
     df_snp["DP"] = [int(x.split(";")[1].split("=")[-1]) for x in df_snp.INFO]
 
-    # NB OTH: count of "other" alleles not classified as the main alternative
+    # NB OTH: count of "other" alleles not classified as the main alternative.
     df_snp["OTH"] = [int(x.split(";")[2].split("=")[-1]) for x in df_snp.INFO]
 
     # NB remove records with read Depth (DP) == 0;
     df_snp = df_snp[df_snp.DP > 0]
 
+    # NB we want (germline) hets.
     df_snp = df_snp[
         (
             (df_snp.AD >= 2)  # at least two alternative counts.
             & (df_snp.DP - df_snp.AD >= 2)  # at least two reference alleles.
-            & (df_snp.AD / df_snp.DP >= vaf_threshold)
-            & (df_snp.AD / df_snp.DP <= 1.0 - vaf_threshold)
+            & (df_snp.AD / df_snp.DP >= vaf_threshold) # exclude hom-ref.
+            & (df_snp.AD / df_snp.DP <= 1.0 - vaf_threshold) # exclude hom-alt.
         )
         | ((df_snp.AD == df_snp.DP) & (df_snp.DP >= 10))
         | ((df_snp.AD == 0) & (df_snp.DP >= 10))
@@ -43,8 +52,8 @@ def prep_snps(cellsnplite_results_dir, output_dir, vaf_threshold=0.1):
     df_snp["FORMAT"] = "GT"
 
     # NB "genotyping"
-    gt_column = np.array(["0/0"] * df_snp.shape[0])
-    gt_column[(df_snp.AD == df_snp.DP)] = "1/1"
+    gt_column = np.array(["0/0"] * df_snp.shape[0]) # all reads are REF.
+    gt_column[(df_snp.AD == df_snp.DP)] = "1/1" # all reads are ALT.
     gt_column[(df_snp.AD > 0) & (df_snp.DP - df_snp.AD > 0)] = "0/1"
 
     df_snp["SAMPLE_ID"] = gt_column
@@ -52,7 +61,7 @@ def prep_snps(cellsnplite_results_dir, output_dir, vaf_threshold=0.1):
     for c in range(1, 23):
         df = df_snp[(df_snp.tmpCHR == c) | (df_snp.tmpCHR == str(c))]
 
-        # NB remove records that have duplicated snp_id; why duplicated?
+        # NB remove records that have duplicated snp_id; why duplicated? presumably encodes one alt per row | pos.
         snp_id = [
             f"{row.tmpCHR}_{row.POS}_{row.REF}_{row.ALT}" for i, row in df.iterrows()
         ]

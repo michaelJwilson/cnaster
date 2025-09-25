@@ -104,8 +104,6 @@ def form_gene_snp_table(
                 break
 
             j -= 1
-
-        # logger.info(f"Failed to assign {df_gene_snp.iloc[i]} with last range {df_gene_snp.iloc[j]}.")
     
     logger.info(f"Assigned SNPs to genes.")
     

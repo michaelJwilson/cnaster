@@ -10,13 +10,10 @@ logger = logging.getLogger(__name__)
 
 # TODO assumes reference gene contains all those present in Visium anndata.
 def form_gene_snp_table(
-    unique_snp_ids,
-    hgtable_file,
-    adata,
-    num_preceeding_rows=50 # MAGIC
+    unique_snp_ids, hgtable_file, adata, num_preceeding_rows=50  # MAGIC
 ):
     logger.info(f"Retrieving reference genes: {hgtable_file}")
-    
+
     # NB read gene info and keep only chr1-chr22 and genes appearing in adata
     df_hgtable = get_reference_genes(hgtable_file)
 
@@ -25,8 +22,10 @@ def form_gene_snp_table(
     common_genes = set(df_hgtable.name2) & set(adata.var.index)
 
     # TODO check.
-    logger.info(f"Found {100. * len(common_genes) / len(adata.var.index)}% of Visium genes to be in reference.")
-    
+    logger.info(
+        f"Found {100. * len(common_genes) / len(adata.var.index)}% of Visium genes to be in reference."
+    )
+
     # NB limits reference genes to those present in (filtered) AnnData UMIs.
     df_hgtable = df_hgtable[df_hgtable.name2.isin(adata.var.index)]
 
@@ -45,6 +44,7 @@ def form_gene_snp_table(
     # NB add SNP info: {contig}_{pos}_{ref}_{alt}.
     snp_chr = np.array([int(x.split("_")[0]) for x in unique_snp_ids])
     snp_pos = np.array([int(x.split("_")[1]) for x in unique_snp_ids])
+    snp_end = snp_pos + 1
 
     # NB vertical concatenation
     df_gene_snp = pd.concat(
@@ -54,7 +54,7 @@ def form_gene_snp_table(
                 {
                     "CHR": snp_chr,
                     "START": snp_pos,
-                    "END": snp_pos + 1,
+                    "END": snp_end,
                     "snp_id": unique_snp_ids,
                     "gene": None,
                     "is_interval": False,
@@ -65,11 +65,11 @@ def form_gene_snp_table(
     )
 
     logger.info(f"Sorting df_gene_snp")
-    
+
     df_gene_snp.sort_values(by=["CHR", "START"], inplace=True)
 
     logger.info(f"Assigning genes to SNPs")
-    
+
     """
     Assigns genes to each SNP:  for each SNP (with not null snp_id), find the previous gene (is_interval == True)
     such that the SNP start position is within the gene start & end interval.
@@ -81,7 +81,7 @@ def form_gene_snp_table(
     vec_chr = df_gene_snp.CHR.to_numpy()
     vec_start = df_gene_snp.START.to_numpy()
     vec_end = df_gene_snp.END.to_numpy()
-
+    
     # NB loops over SNPs.
     for i in np.where(df_gene_snp.gene.isnull())[0]:
         # TODO first SNP has no gene.
@@ -92,8 +92,7 @@ def form_gene_snp_table(
 
         # NB look for an overlapping gene, closest in START, in the previous {num_preceeding_rows} rows (on same contig).
         j = i - 1
-        match = False
-        
+
         # NB assigns closest in start.
         while j >= 0 and j >= (i - num_preceeding_rows) and (vec_chr[j] == vec_chr[i]):
             if (
@@ -102,31 +101,21 @@ def form_gene_snp_table(
                 and vec_end[j] > this_pos
             ):
                 df_gene_snp.iloc[i, 4] = df_gene_snp.iloc[j]["gene"]
-                match = True
                 break
-            
-            j -= 1        
 
-        if not match:
-            logger.info(f"Failed to find a match for SNP chr{vec_chr[i]}:{this_pos} with preceeding ranges:")
+            j -= 1
 
-            j = i - 1
-            
-            while j >= 0 and j >= (i - num_preceeding_rows) and (vec_chr[j] == vec_chr[i]):
-                if vec_is_interval[j]:
-                    print(i, vec_chr[i], this_pos, vec_start[j], vec_end[j])
-
-                j -= 1
-                
     logger.info(f"Assigned SNPs to genes.")
-    
+
     # NB remove SNPs that have no corresponding genes.
     isin = ~df_gene_snp.gene.isnull()
 
-    # NB retaining 84.623% of SNPs with known gene (given Gencode filtered by AnnData) for num_preceeding_rows=50.
+    # TODO retaining 84.623% of SNPs with known gene (given Gencode filtered by AnnData) for num_preceeding_rows=50.
     logger.info(
         f"Retaining {100.0 * np.mean(isin[~df_gene_snp.is_interval]):.3f}% of SNPs with known gene (given Gencode filtered by AnnData) for num_preceeding_rows={num_preceeding_rows}."
     )
+
+    logger.info(f"Failed to find overlapping gene for:\n{df_gene_snp[df_gene_snp.gene.isnull()]}")
     
     df_gene_snp = df_gene_snp[isin]
 
@@ -141,10 +130,10 @@ def summarize_block_ids(block_ids):
 
     logger.info("Breakdown of snps per block:")
 
-    print("# SNPs/block\t# occurrences")
+    logger.info("# SNPs/block\t# occurrences")
 
     for ii, cnt in zip(ids, cnts):
-        print(f"{ii}\t{cnt}")
+        logger.info(f"{ii}\t{cnt}")
 
 
 def assign_initial_blocks(
@@ -156,7 +145,8 @@ def assign_initial_blocks(
     initial_min_umi=15,
 ):
     """
-    Initially assigns SNPs to fragments/blocks along the genome.
+    Initially assigns SNPs to blocks along the genome, based on merging overlapping gene intervals
+    and requiring blocks have a minimm number of SNP covering reads.
 
     Returns
     ----------
@@ -169,7 +159,7 @@ def assign_initial_blocks(
     # NB == is_gene.
     is_interval = df_gene_snp.is_interval
 
-    # TODO UGH.
+    # NB merge overlapping genes.
     tmp_block_genome_intervals = list(
         zip(
             df_gene_snp[is_interval].CHR.to_numpy(),
@@ -178,7 +168,7 @@ def assign_initial_blocks(
         )
     )
 
-    # NB (chr, start, end) for first gene. 
+    # NB (chr, start, end) for first gene.
     first_interval = tmp_block_genome_intervals[0]
 
     block_genome_intervals = [first_interval]
@@ -207,7 +197,7 @@ def assign_initial_blocks(
 
     # NB TODO 20%?
     logger.info(
-        f"Merged {100.0 * merged / len(tmp_block_genome_intervals):.3f}% of gene ranges based on overlap."
+        f"Merged {100.0 * merged / len(tmp_block_genome_intervals):.3f}% of geness to ranges as overlapping."
     )
 
     # NB map block_genome_intervals to block_ranges for rows of df_gene_snp.
@@ -233,22 +223,20 @@ def assign_initial_blocks(
     )
 
     # NB record the initial block id in df_gene_snps
-    # BUG previously 0, spuriously assigned to the zeroth block.
+    # BUG previously 0, spuriously assigned to the zeroth block - safe as discarded all snps that don't overlap a gene (merged to block).
     df_gene_snp["initial_block_id"] = -1
 
     for i, x in enumerate(block_ranges):
         df_gene_snp.iloc[x[0] : x[1], -1] = i
 
     assert np.all(df_gene_snp["initial_block_id"].values) >= 0, "TODO!"
-    
-    logger.info("Initialized block assignment based on gene overlap")
 
-    exit(0)
+    logger.info("Assigned SNPs to initial blocks (intervals formed by overlapping genes).")
 
     summarize_block_ids(df_gene_snp["initial_block_id"])
 
     # NB second level: group the first level blocks into "haplotype blocks" such that the minimum SNP-covering UMI counts >= initial_min_umi.
-    # TODO requires PHASE SET / PS tag?
+    #    maps snp id, {chr}_{pos}_{ref}_{alt} to integer index.
     map_snp_index = {x: i for i, x in enumerate(unique_snp_ids)}
     initial_block_chr = df_gene_snp.CHR.to_numpy()[
         np.array([x[0] for x in block_ranges])
@@ -265,7 +253,6 @@ def assign_initial_blocks(
 
             reach_end = t == len(block_ranges)
 
-            # TODO BUG? (not reach_end) and ...
             change_chr = initial_block_chr[s] != initial_block_chr[t - 1]
 
             # NB count SNP-covering UMI

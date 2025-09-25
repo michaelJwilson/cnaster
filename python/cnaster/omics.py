@@ -13,7 +13,7 @@ def form_gene_snp_table(
     unique_snp_ids,
     hgtable_file,
     adata,
-    num_preceeding_rows=10_000 # MAGIC
+    num_preceeding_rows=50 # MAGIC
 ):
     logger.info(f"Retrieving reference genes: {hgtable_file}")
     
@@ -94,7 +94,7 @@ def form_gene_snp_table(
         j = i - 1
 
         # NB assigns closest in start.
-        while j >= 0 and j >= (i - num_preceeding_rows) and (vec_chr[i] == vec_chr[j]):
+        while j >= 0 and j >= (i - num_preceeding_rows) and (vec_chr[j] == vec_chr[i]):
             if (
                 vec_is_interval[j]
                 and vec_start[j] <= this_pos
@@ -105,8 +105,9 @@ def form_gene_snp_table(
 
             j -= 1
 
+        # logger.info(f"Failed to assign {df_gene_snp.iloc[i]} with last range {df_gene_snp.iloc[j]}.")
     
-    logger.info(f"Assigned genes to SNPs")
+    logger.info(f"Assigned SNPs to genes.")
     
     # NB remove SNPs that have no corresponding genes.
     isin = ~df_gene_snp.gene.isnull()
@@ -115,8 +116,6 @@ def form_gene_snp_table(
     logger.info(
         f"Retaining {100.0 * np.mean(isin[~df_gene_snp.is_interval]):.3f}% of SNPs with known gene (given Gencode filtered by AnnData) for num_preceeding_rows={num_preceeding_rows}."
     )
-
-    logger.info(f"\n{df_gene_snp[~isin]}")
     
     df_gene_snp = df_gene_snp[isin]
 

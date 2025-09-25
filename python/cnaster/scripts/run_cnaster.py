@@ -91,6 +91,11 @@ def run_cnaster(config_path):
     set_global_config(config)
 
     # NB start run_parse_n_load::parse_visium::load_joint_data
+    #    adata: (barcode x gene) transcripts ('count') + 'tumor_annotation' + 'X_pos' + slice ('sample').
+    #    cell_snp_Aallele: haplotype H0 counts (barcode x snp).
+    #    cell_snp_Ballele: haplotype H1 counts (barcode x snp).
+    #    unique_snp_ids: {contig}_{pos}_{ref}_{alt} for all snps.
+    #    across_slice_adjacency_mat: ...
     (
         adata,
         cell_snp_Aallele,
@@ -103,13 +108,16 @@ def run_cnaster(config_path):
         filter_range_file=config.references.filterregion_file,
     )
 
-    # TODO check.
     # NB e.g. 'AAACAAGTATCTCCCA-1_HT112C1-U1' currently.
     barcodes = adata.obs.index
+
+    # NB (x,y) per spot.
     coords = adata.obsm["X_pos"]
 
     sample_list = [adata.obs["sample"].iloc[0]]
 
+    # NB loop through rows (barcodes x samples) and collect sample names;
+    #    assumes sorted by sample and is unique in this case.
     for i in range(1, adata.shape[0]):
         if adata.obs["sample"].iloc[i] != sample_list[-1]:
             sample_list.append(adata.obs["sample"].iloc[i])
@@ -117,7 +125,7 @@ def run_cnaster(config_path):
     # NB e.g. HT112C1-U1.
     logger.info(f"Found {len(sample_list)} unique samples, e.g. {sample_list[:3]}")
     
-    # NB assign index to unique sample names.
+    # NB array: assigns to each transcript row (barcode x sample) unique index according to sample names.
     sample_ids = -np.ones(adata.shape[0], dtype=int)
 
     for s, sname in enumerate(sample_list):

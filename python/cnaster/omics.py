@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 def form_gene_snp_table(
     unique_snp_ids, hgtable_file, adata, num_preceeding_rows=50  # MAGIC
 ):
+    logger.info(f"Forming gene & snp meta data.")    
     logger.info(f"Retrieving reference genes: {hgtable_file}")
 
     # NB read gene info and keep only chr1-chr22 and genes appearing in adata
@@ -155,6 +156,8 @@ def assign_initial_blocks(
         "is_interval"=True is a gene, otherwise SNP.
         "gene" contains the name of a gene, or the gene a SNP belongs.
     """
+    logger.info(f"Assigning initial blocks")
+    
     # NB first level: partition of genome by gene range (if two genes overlap, they are grouped to one range);
     # NB == is_gene.
     is_interval = df_gene_snp.is_interval
@@ -361,8 +364,13 @@ def summarize_counts_for_blocks(
     log_sitewise_transmat : array, (n_blocks,)
         Log phase switch probability between each pair of adjacent blocks.
     """
+    logger.info(f"Summarizing counts for blocks")
+
+    # NB block_ids formed by merging overlapping genes into intervals, merging said intervals
+    #    until a threshold min. snp-covering reads and assigning counts to intervals below. 
     blocks = df_gene_snp.block_id.unique()
 
+    # NB (num. intervals, 2, num. spots).    
     single_X = np.zeros((len(blocks), 2, adata.shape[0]), dtype=int)
 
     single_base_nb_mean = np.zeros((len(blocks), adata.shape[0]))
@@ -375,8 +383,9 @@ def summarize_counts_for_blocks(
         {"snp_id": list, "gene": list}
     )
 
+    # NB loop over blocks.
     for b in range(df_block_contents.shape[0]):
-        # BAF (SNPs)
+        # NB BAF (SNPs)
         involved_snps_ids = [
             x for x in df_block_contents.snp_id.to_numpy()[b] if x is not None
         ]
@@ -384,10 +393,10 @@ def summarize_counts_for_blocks(
         involved_snp_idx = np.array([map_snp_index[x] for x in involved_snps_ids])
 
         if len(involved_snp_idx) > 0:
-            # NB sum haplotype A allele across block: not A is defined by Eagle2 0/1 vs 1/0;
+            # NB sum haplotype A counts for SNPs in block.
             single_X[b, 1, :] = np.sum(cell_snp_Aallele[:, involved_snp_idx], axis=1)
 
-            # NB Eagle2 phased "REF" vs "ALT" counts.
+            # NB sum haplotype A + haplotype B counts for SNPs in block.
             single_total_bb_RD[b, :] = np.sum(
                 cell_snp_Aallele[:, involved_snp_idx], axis=1
             ) + np.sum(cell_snp_Ballele[:, involved_snp_idx], axis=1)
@@ -403,12 +412,13 @@ def summarize_counts_for_blocks(
                 adata.layers["count"][:, adata.var.index.isin(involved_genes)], axis=1
             )
 
-    # NB array of number of unique block ids by chromosome.
+    # NB array of number of unique blocks by contig.
     lengths = np.zeros(len(df_gene_snp.CHR.unique()), dtype=int)
 
     for i, c in enumerate(df_gene_snp.CHR.unique()):
         lengths[i] = len(df_gene_snp[df_gene_snp.CHR == c].block_id.unique())
 
+    # NB single_base_nb_mean is currently all zeros.
     return (
         lengths,
         single_X,

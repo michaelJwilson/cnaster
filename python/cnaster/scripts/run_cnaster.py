@@ -153,22 +153,16 @@ def run_cnaster(config_path):
         logger.info(f"No (pre-processed) tumorprop. file provided.")        
         single_tumor_prop = None
 
-    logger.info(f"Forming gene & snp meta data.")
-
     # NB parse_visium::combine_gene_snps
     #    chr, start, end, snp_id, gene, is_interval (is_gene).
     df_gene_snp = form_gene_snp_table(
         unique_snp_ids, config.references.hgtable_file, adata
     )
-    
-    logger.info(f"Assigning initial blocks")
 
     # NB parse_visium::create_haplotype_block_ranges
     df_gene_snp = assign_initial_blocks(
         df_gene_snp, adata, cell_snp_Aallele, cell_snp_Ballele, unique_snp_ids
     )
-
-    logger.info(f"Summarizing counts for blocks")
 
     (
         lengths,

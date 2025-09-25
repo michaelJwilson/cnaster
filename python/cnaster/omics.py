@@ -10,10 +10,10 @@ logger = logging.getLogger(__name__)
 
 # TODO assumes reference gene contains all those present in Visium anndata.
 def form_gene_snp_table(
-        unique_snp_ids,
-        hgtable_file,
-        adata,
-        num_preceeding_rows=50 # MAGIC
+    unique_snp_ids,
+    hgtable_file,
+    adata,
+    num_preceeding_rows=10_000 # MAGIC
 ):
     logger.info(f"Retrieving reference genes: {hgtable_file}")
     
@@ -21,6 +21,11 @@ def form_gene_snp_table(
     df_hgtable = get_reference_genes(hgtable_file)
 
     logger.info(f"Filtering reference genes to those in visium: {hgtable_file}")
+
+    common_genes = set(df_hgtable.name2) & set(adata.var.index)
+
+    # TODO check.
+    logger.info(f"Found {100. * len(common_genes) / len(adata.var.index)}% of Visium genes to be in reference.")
     
     # NB TODO? limits reference genes to those present in (filtered) AnnData UMIs.
     df_hgtable = df_hgtable[df_hgtable.name2.isin(adata.var.index)]
@@ -88,7 +93,7 @@ def form_gene_snp_table(
         # NB look for an overlapping gene, closest in START, in the previous 50 rows (on same contig).
         j = i - 1
 
-        # TODO? overlapping genes: closest in start.
+        # NB assigns closest in start.
         while j >= 0 and j >= (i - num_preceeding_rows) and (vec_chr[i] == vec_chr[j]):
             if (
                 vec_is_interval[j]
@@ -106,10 +111,13 @@ def form_gene_snp_table(
     # NB remove SNPs that have no corresponding genes.
     isin = ~df_gene_snp.gene.isnull()
 
+    # NB retaining 84.623% of SNPs with known gene (given Gencode filtered by AnnData) for num_preceeding_rows=50.
     logger.info(
         f"Retaining {100.0 * np.mean(isin[~df_gene_snp.is_interval]):.3f}% of SNPs with known gene (given Gencode filtered by AnnData) for num_preceeding_rows={num_preceeding_rows}."
     )
 
+    logger.info(f"\n{df_gene_snp[~isin]}")
+    
     df_gene_snp = df_gene_snp[isin]
 
     logger.info(f"Created gene-SNP table:\n{df_gene_snp.head()}")

@@ -27,7 +27,7 @@ def form_gene_snp_table(
     # TODO check.
     logger.info(f"Found {100. * len(common_genes) / len(adata.var.index)}% of Visium genes to be in reference.")
     
-    # NB TODO? limits reference genes to those present in (filtered) AnnData UMIs.
+    # NB limits reference genes to those present in (filtered) AnnData UMIs.
     df_hgtable = df_hgtable[df_hgtable.name2.isin(adata.var.index)]
 
     # NB a data frame including both gene and SNP info: CHR, START, END, snp_id, gene, is_interval

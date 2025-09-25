@@ -7,12 +7,13 @@ import scipy.io
 
 
 def cell_by_gene_lefthap_counts(cellsnp_folder, eagle_results_dir, barcode_list):
-    # create a (snp_id, GT) map from eagle2 output
+    # NB create a (snp_id, GT) map from Eagle2 output.
     snp_gt_map = {}
 
     for c in range(1, 23):
         fname = [str(x) for x in Path(eagle_results_dir).glob(f"*chr{c}.phased.vcf.gz")]
 
+        # BUG == 0.
         assert len(fname) > 0
 
         fname = fname[0]
@@ -35,10 +36,10 @@ def cell_by_gene_lefthap_counts(cellsnp_folder, eagle_results_dir, barcode_list)
             ],
         )
 
-        # TODO phased?
-        # only keep heterozygous SNPs;
+        # NB only keep (phased) hets.
         tmpdf = tmpdf[(tmpdf.PHASE == "0|1") | (tmpdf.PHASE == "1|0")]
 
+        # NB construct SNP ID. 
         this_snp_ids = (
             str(c) + "_" + tmpdf.POS.astype(str) + "_" + tmpdf.REF + "_" + tmpdf.ALT
         ).to_numpy()
@@ -47,9 +48,10 @@ def cell_by_gene_lefthap_counts(cellsnp_folder, eagle_results_dir, barcode_list)
 
         assert len(this_snp_ids) == len(this_gt)
 
+        # NB caches phased GT {0|1, 1|0} per SNP by key.
         snp_gt_map.update({this_snp_ids[i]: this_gt[i] for i in range(len(this_gt))})
 
-    # cellsnp-lite output
+    # NB cellsnp-lite output.
     cellsnp_base = [str(x) for x in Path(cellsnp_folder).glob("cellSNP.base*")][0]
     df_snp = pd.read_csv(
         cellsnp_base,
@@ -67,33 +69,38 @@ def cell_by_gene_lefthap_counts(cellsnp_folder, eagle_results_dir, barcode_list)
         + "_"
         + df_snp.ALT
     )
+    
     tmpdf = pd.read_csv(cellsnp_folder + "/cellSNP.samples.tsv", header=None)
     sample_list = np.array(list(tmpdf.iloc[:, 0]))
     barcode_mapper = {x: i for i, x in enumerate(sample_list)}
 
-    # DP and AD
+    # NB DP & AD rows == SNPs, columns == spot barcodes.
     DP = scipy.io.mmread(cellsnp_folder + "/cellSNP.tag.DP.mtx").tocsr()
     AD = scipy.io.mmread(cellsnp_folder + "/cellSNP.tag.AD.mtx").tocsr()
 
-    # retain only SNPs that are phased
+    # NB retain only SNPs that are phased
     is_phased = (df_snp.snp_id.isin(snp_gt_map)).to_numpy()
     df_snp = df_snp[is_phased]
     df_snp["GT"] = [snp_gt_map[x] for x in df_snp.snp_id]
+
     DP = DP[is_phased, :]
     AD = AD[is_phased, :]
 
-    # phasing
+    # NB phased counts: from REF/ALT to H0/H1; DP stays the same, as 'ALT' switches to match H0 counts.
     phased_AD = np.where(
         (df_snp.GT.to_numpy() == "0|1").reshape(-1, 1), AD.A, (DP - AD).A
     )
+
+    # NB sparse matrix for H0 counts (SNP, spot/barcode).
     phased_AD = scipy.sparse.csr_matrix(phased_AD)
 
-    # re-order based on barcode_list
+    # NB re-order based on barcode_list
     index = np.array([barcode_mapper[x] for x in barcode_list if x in barcode_mapper])
     DP = DP[:, index]
     phased_AD = phased_AD[:, index]
 
-    # returned matrix has shape (N_cells, N_snps), which is the transpose of the original matrix
+    # returned matrix has shape (N_spots, N_snps), which is the transpose of the original matrix.
+    # return H0, H1 counts and snp_id array.
     return (DP - phased_AD).T, phased_AD.T, df_snp.snp_id.to_numpy()
 
 

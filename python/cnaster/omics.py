@@ -660,21 +660,28 @@ def summarize_counts_for_bins(
     log_sitewise_transmat : array, (n_blocks,)
         Log phase switch probability between each pair of adjacent blocks.
     """
+    logger.info(f"Summarizing counts for bins.")
+    
     bins = df_gene_snp.bin_id.unique()
 
-    # NB last axis is the number of barcodes.
+    # NB last axis is the number of spot (barcodes).
     bin_single_X = np.zeros((len(bins), 2, adata.shape[0]), dtype=int)
 
     bin_single_base_nb_mean = np.zeros((len(bins), adata.shape[0]))
     bin_single_total_bb_RD = np.zeros((len(bins), adata.shape[0]), dtype=int)
 
-    # NB summarize counts of involved genes and SNPs within each block
+    has_assigned_bin = ~df_gene_snp.bin_id.isnull()
+
+    logger.info(f"Retaining {100. * np.mean(has_assigned_bin)} of bins with assigned block.")
+    
+    # NB summarize counts of involved genes and blocks within each bin.
     df_bin_contents = (
-        df_gene_snp[~df_gene_snp.bin_id.isnull()]
+        df_gene_snp[has_assigned_bin]
         .groupby("bin_id")
         .agg({"block_id": set, "gene": set})
     )
 
+    # NB loop over bins (phased blocks meeting max. length and min. UMI requirements).
     for b in range(df_bin_contents.shape[0]):
         # BAF (SNPs)
         involved_blocks = [
@@ -687,7 +694,10 @@ def summarize_counts_for_bins(
             single_total_bb_RD[involved_blocks, :] - single_X[involved_blocks, 1, :],
         )
 
+        # NB H0 counts for each bin (summed over blocks).
         bin_single_X[b, 1, :] = np.sum(this_phased, axis=0)
+
+        # NB H0+H1 counts for each bin (summed over blocks).
         bin_single_total_bb_RD[b, :] = np.sum(
             single_total_bb_RD[involved_blocks, :], axis=0
         )
@@ -696,6 +706,8 @@ def summarize_counts_for_bins(
         involved_genes = [
             x for x in df_bin_contents.gene.to_numpy()[b] if x is not None
         ]
+
+        # NB all transcripts for genes in this bin.
         bin_single_X[b, 0, :] = np.sum(
             adata.layers["count"][:, adata.var.index.isin(involved_genes)], axis=1
         )
@@ -730,7 +742,7 @@ def summarize_counts_for_bins(
         val for pair in zip(sorted_chr_pos_first, sorted_chr_pos_last) for val in pair
     ]
 
-    # TODO why is this required at this stage?
+    # 
     ref_positions_cM = get_reference_recomb_rates(geneticmap_file)
 
     position_cM = assign_centiMorgans(tmp_sorted_chr_pos, ref_positions_cM)

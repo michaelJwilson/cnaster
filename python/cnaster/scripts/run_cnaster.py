@@ -263,7 +263,7 @@ def run_cnaster(config_path):
         geneticmap_file=config.references.geneticmap_file,
     )
 
-    # NB expression count dataframe
+    # NB sparse transcript counts (spot, gene).
     exp_counts = pd.DataFrame.sparse.from_spmatrix(
         scipy.sparse.csc_matrix(adata.layers["count"]),
         index=adata.obs.index,

@@ -8,8 +8,8 @@ python/cnaster/sim/scripts/__pycache__/
 
 results/
 work/
-.nextflow*
 NOTES.md
+.nextflow*
 *~
 
 # HACK

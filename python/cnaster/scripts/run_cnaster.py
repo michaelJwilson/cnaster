@@ -161,6 +161,7 @@ def run_cnaster(config_path):
         df_gene_snp, adata, cell_snp_Aallele, cell_snp_Ballele, unique_snp_ids
     )
 
+    # NB num. of blocks per contig; SN-based H0 and H0+H1 counts block; total UMIs per block.
     (
         lengths,
         single_X,
@@ -194,9 +195,9 @@ def run_cnaster(config_path):
         y_part=config.phasing.npart_phasing,
     )
 
-    logger.warning("Assuming 5 BAF states for phasing.")
+    logger.warning("Assuming five BAF states for phasing.")
 
-    # TODO updates mu? as initialization?
+    # NB single_base_nb_mean initialized to zero - requires normal spot. determination.
     phase_indicator, refined_lengths = initial_phase_given_partition(
         single_X,
         lengths,
@@ -206,14 +207,14 @@ def run_cnaster(config_path):
         initial_clone_for_phasing,
         5,  # MAGIC n_states
         log_sitewise_transmat,
-        "sp",  # MAGIC params (start prob. and baf states).
+        "sp",  # MAGIC params (start prob. & baf states, no transition).
         config.hmm.t_phaseing,
         config.hmm.gmm_random_state,
         config.hmm.fix_NB_dispersion,
         config.hmm.shared_NB_dispersion,
         config.hmm.fix_BB_dispersion,
         config.hmm.shared_BB_dispersion,
-        config.hmm.max_iter,  # MAGIC max_iter
+        config.hmm.max_iter,
         1.0e-3,  # MAGIC tol on HMM parameter end.
         threshold=config.hmrf.tumorprop_threshold,
     )

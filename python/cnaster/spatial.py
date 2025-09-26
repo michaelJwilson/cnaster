@@ -307,7 +307,7 @@ def multislice_adjacency(
     maxspots_pooling,
     construct_adjacency_w,
 ):
-    logger.info("Solving for multi-slice adjaceny matrix.")
+    logger.info("Solving for multi-slice adjacency (and smooth) matrix.")
 
     # NB smooth_mat contains the edges of spots that are directly pooled.
     adjacency_mat, smooth_mat = [], []

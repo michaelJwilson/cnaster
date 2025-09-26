@@ -270,25 +270,24 @@ def run_cnaster(config_path):
         columns=adata.var.index,
     )
 
-    # NB smooth & adjacency matrix for each sample
+    # NB smooth pooling matrix & distance based (exponential decay) adjacency.
     adjacency_mat, smooth_mat = multislice_adjacency(
         sample_ids,
         sample_list,
         coords,
-        single_total_bb_RD,
-        exp_counts,
+        single_total_bb_RD, # NEGLECTED?
+        exp_counts, # NEGLECTED? 
         across_slice_adjacency_mat,
         construct_adjacency_method=config.hmrf.construct_adjacency_method,
         maxspots_pooling=config.hmrf.maxspots_pooling,
         construct_adjacency_w=config.hmrf.construct_adjacency_w,
     )
 
-    # DEPRECATE
-    # n_pooled = np.median(np.sum(smooth_mat > 0, axis=0).A.flatten())
-
+    # TODO table_bininfo? table_rdrbaf? table_meta?
     # NB end run_parse_n_load::parse_visium.
     # TODO table_bininfo? table_rdrbaf? table_meta?
 
+    # NB this should fail, as has to be set based on normal spots.
     # assert np.any(single_base_nb_mean > 0)
 
     # TODO
@@ -298,8 +297,6 @@ def run_cnaster(config_path):
     # NB baf-only run;
     single_X[:, 0, :] = 0
     single_base_nb_mean[:, :] = 0
-
-    logger.info("Solving for multislice_adjaceny.")
 
     initial_clone_index = rectangle_initialize_initial_clone(
         coords, config.hmrf.n_clones, random_state=0

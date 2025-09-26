@@ -22,7 +22,7 @@ def pipeline_baum_welch(
     tumor_prop=None,
     hmmclass=hmm_sitewise,
     params="smp",
-    t=1 - 1e-6,
+    t=1. - 1.e-6,
     random_state=0,
     in_log_space=True,
     only_minor=False,
@@ -39,7 +39,7 @@ def pipeline_baum_welch(
     tol=1e-4,
     **kwargs,
 ):
-    logger.info(f"Solving HMM for X={X.shape} with {hmmclass.__name__} instance.")
+    logger.info(f"Solving HMM for X={X.shape} with {hmmclass.__name__} instance and parameters={params}; t={t}.")
 
     # NB this may be num_clones, or one clone for phasing.
     n_spots = X.shape[2]
@@ -58,6 +58,7 @@ def pipeline_baum_welch(
         )
         """
 
+        # NB emission parameters are initialized prior to HMM.
         tmp_log_mu, tmp_p_binom = gmm_init(
             n_states,
             X,
@@ -85,9 +86,11 @@ def pipeline_baum_welch(
 
     hmm_model = hmmclass(params=params, t=t)
 
-    # TODO HACK "log_gamma"
+    # TODO HACK "log_gamma" utilizes last determined posterior for speed.
     remain_kwargs = {k: v for k, v in kwargs.items() if k in ["lambd", "sample_length"]}
 
+    logger.info(f"Assuming kwargs={remain_kwargs.keys()}")
+    
     (
         new_log_mu,
         new_alphas,
@@ -129,18 +132,22 @@ def pipeline_baum_welch(
         to_log.append(f"p_binom=\n{new_p_binom}")
 
     logger.info("\n".join(to_log))
-
+    logger.info("Computing emission prob. given best-fit parameters.")
+    
     if tumor_prop is None:
         (
-            log_emission_rdr,
-            log_emission_baf,
+            log_emission_rdr, # NB emission prob. for RDR.
+            log_emission_baf, # NB emission prob. for BAF.
         ) = hmmclass.compute_emission_probability_nb_betabinom(
             X, base_nb_mean, new_log_mu, new_alphas, total_bb_RD, new_p_binom, new_taus
         )
     else:
+        # NB re-normalize logmu according to the inferred copy number states, denominator is
+        #    the total expected read count.
         if ("m" in params) and ("sample_length" in kwargs):
             logmu_shift = []
 
+            # NB presumably one per contig.
             for c in range(len(kwargs["sample_length"])):
                 this_pred_cnv = (
                     np.argmax(
@@ -195,6 +202,7 @@ def pipeline_baum_welch(
                 tumor_prop,
             )
 
+    # NB assumed independent.
     log_emission = log_emission_rdr + log_emission_baf
 
     log_alpha = hmmclass.forward_lattice(
@@ -205,6 +213,7 @@ def pipeline_baum_welch(
         log_sitewise_transmat,
     )
 
+    # NB forward determines the total likelihood.
     llf = np.sum(scipy.special.logsumexp(log_alpha[:, np.cumsum(lengths) - 1], axis=0))
 
     log_beta = hmmclass.backward_lattice(
@@ -218,10 +227,10 @@ def pipeline_baum_welch(
     # NB compute state posterior.
     log_gamma = compute_posterior_obs(log_alpha, log_beta)
 
-    # NB with phasing.
+    # NB pred > n_states indicates a phase switch.
     pred = np.argmax(log_gamma, axis=0)
 
-    # NB copy number only.
+    # NB copy state only, lost phase.
     pred_cnv = pred % n_states
 
     """

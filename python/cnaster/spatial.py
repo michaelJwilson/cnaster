@@ -287,6 +287,9 @@ def choose_adjacency_by_readcounts(
 
     smooth_mat.setdiag(1)
 
+    # MAGIC see below.
+    logger.info(f"Assuming max. length scale (band width) = {15 * (unit_xsquared + unit_ysquared)}")
+    
     for bandwidth in np.arange(
         unit_xsquared + unit_ysquared, # NB sq. hypotenuse
         15 * (unit_xsquared + unit_ysquared), # MAGIC

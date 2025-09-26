@@ -25,7 +25,7 @@ def logsumexp(x):
     return x_max + np.log(np.sum(np.exp(x - x_max)))
 
 
-# @njit(cache=True)
+@njit(cache=True)
 def pool_hmrf_data(
     single_X,
     single_base_nb_mean,
@@ -78,8 +78,7 @@ def pool_hmrf_data(
     mean_tumor_prop : array, shape (n_spots,)
         Mean tumor proportions for each spot.
     """
-    logger.info("Pooling hmrf data by smooth mat. (reduces necessary computation).")
-    
+    # NB no logger comments in jit compiled.
     n_obs, n_comp, N = single_X.shape
 
     pooled_X = np.zeros((n_obs, n_comp, N), dtype=single_X.dtype)
@@ -294,6 +293,8 @@ def aggr_hmrfmix_reassignment_concatenate(
     logger.info(
         f"Solving (pooled) emission likelihood for X.shape={single_X.shape}, n_states={n_states} and {n_clones} clones with {hmmclass.__name__} and use_mixture={use_mixture}."
     )
+
+    logger.info("Pooling hmrf data by smooth mat. (reduces necessary computation).")
 
     # NB pool data by smooth mat: reduces spots to calculate likelihood for, i.e. faster.
     pooled_X, pooled_base_nb_mean, pooled_total_bb_RD, _, weighted_tp = pool_hmrf_data(
@@ -583,6 +584,7 @@ def hmrfmix_concatenate_pipeline(
 
     logger.info(f"Assuming hmrf inertia={inertia} and {hmmclass.__name__} instance.")
 
+    # NB required for remain_kwargs construction.
     res = {}
 
     for r in range(max_iter_outer):

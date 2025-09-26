@@ -304,8 +304,6 @@ def run_cnaster(config_path):
     )
 
     logger.info("Solving HMM+HMRF for copy states and clone assignment with BAF only.")
-
-    exit(0)
     
     res = hmrfmix_concatenate_pipeline(
         None,
@@ -341,6 +339,7 @@ def run_cnaster(config_path):
     # NB number of bins/segments/blocks
     n_obs = single_X.shape[0]
 
+    # NB new pseduo-bulk given new assignment of spots to clones.
     X, base_nb_mean, total_bb_RD, tumor_prop = merge_pseudobulk_by_index_mix(
         single_X,
         single_base_nb_mean,
@@ -357,8 +356,7 @@ def run_cnaster(config_path):
     if tumor_prop is not None:
         tumor_prop = np.repeat(tumor_prop, X.shape[0]).reshape(-1, 1)
 
-    logger.info("Merging similar clones assuming Neyman-Pearson")
-
+    # NB merge similar clones based on Neyman-Pearson
     merging_groups, merged_res = neyman_pearson_similarity(
         X,
         base_nb_mean,
@@ -382,15 +380,23 @@ def run_cnaster(config_path):
     )
 
     # TODO
-    # NB re-phase
     n_obs = single_X.shape[0]
 
+    # NB clone assignment based on BAF only, after merging similar clones.
     merged_baf_assignment = copy.copy(merged_res["new_assignment"])
     n_baf_clones = len(np.unique(merged_baf_assignment))
+
+    # NB MAP copy state.
     pred = np.argmax(merged_res["log_gamma"], axis=0)
+
+    # NB split into per-contig list, vs single concatenated array.
     pred = np.array(
         [pred[(c * n_obs) : (c * n_obs + n_obs)] for c in range(n_baf_clones)]
     )
+
+    logger.info(f"Found {100. * np.mean(pred[:, :] < config.hmm.n_states)}% of BAF-only copy states to have phase 0.")
+    
+    # DEPRECATE?  baf-only clones are determined with hmm_nophasing.
     merged_baf_profiles = np.array(
         [
             np.where(
@@ -402,10 +408,8 @@ def run_cnaster(config_path):
         ]
     )
 
-    logger.info(
-        f"Refinining {n_baf_clones} BAF identified clones with RDR data assuming n_clones_rdr={config.hmrf.n_clones_rdr}"
-    )
-
+    logger.info(f"Determining normal spots based on BAF-only clones.")
+    
     # NB refine BAF-identified clones
     if (config.preprocessing.normalidx_file is None) and (
         config.preprocessing.tumorprop_file is None
@@ -508,6 +512,10 @@ def run_cnaster(config_path):
     single_X[:, 0, :] = copy_single_X_rdr
     single_base_nb_mean = copy_single_base_nb_mean
     n_obs = single_X.shape[0]
+
+    logger.info(
+        f"Refinining {n_baf_clones} BAF identified clones with RDR data assuming n_clones_rdr={config.hmrf.n_clones_rdr}"
+    )
 
     clone_res = {}
 

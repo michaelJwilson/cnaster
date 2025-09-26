@@ -285,16 +285,15 @@ def run_cnaster(config_path):
 
     # TODO table_bininfo? table_rdrbaf? table_meta?
     # NB end run_parse_n_load::parse_visium.
-    # TODO table_bininfo? table_rdrbaf? table_meta?
 
-    # NB this should fail, as has to be set based on normal spots.
-    # assert np.any(single_base_nb_mean > 0)
-
+    # NB by construction, require normal spots (based on BAF to determine baseline).
+    assert np.all(single_base_nb_mean == 0)
+    
     # TODO
     copy_single_X_rdr = copy.copy(single_X[:, 0, :])
     copy_single_base_nb_mean = copy.copy(single_base_nb_mean)
 
-    # NB baf-only run;
+    # NB baf-only run: zero transcript counts for all segments/spots.
     single_X[:, 0, :] = 0
     single_base_nb_mean[:, :] = 0
 

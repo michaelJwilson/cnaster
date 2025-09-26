@@ -421,7 +421,8 @@ class hmm_sitewise:
             log_transmat = np.zeros((1, 1))
 
         # NB a trick to speed up BetaBinom optimization: taking only unique values of
-        #   e.g. (B allele count, total SNP covering read count)
+        #    e.g. (B allele count, total SNP covering read count) for HMM and aggregating
+        #    posterior accordingly.
         logger.info("Constructing NB compression in (X[:, 0, :], base_nb_mean).")
 
         # NB latter is all zero for initial BAF only runs.
@@ -492,8 +493,7 @@ class hmm_sitewise:
 
             # ----  M step  ----
             if "s" in self.params:
-                new_log_startprob = update_startprob_sitewise(lengths, log_gamma)
-                new_log_startprob = new_log_startprob.flatten()
+                new_log_startprob = update_startprob_sitewise(lengths, log_gamma).flatten()
             else:
                 new_log_startprob = log_startprob
 
@@ -502,6 +502,7 @@ class hmm_sitewise:
             else:
                 new_log_transmat = log_transmat
 
+            # TODO? logmu_shift?
             if "m" in self.params:
                 if tumor_prop is None:
                     (

@@ -297,11 +297,11 @@ def run_cnaster(config_path):
     single_X[:, 0, :] = 0
     single_base_nb_mean[:, :] = 0
 
+    # NB non-contiguous assignment of clones to an unequal grid partitioning
+    #    of input coordinates.
     initial_clone_index = rectangle_initialize_initial_clone(
         coords, config.hmrf.n_clones, random_state=0
     )
-
-    exit(0)
 
     logger.info("Solving HMM+HMRF for copy state and clones with BAF only.")
 

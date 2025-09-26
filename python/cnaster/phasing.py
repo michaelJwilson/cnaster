@@ -28,14 +28,9 @@ def initial_phase_given_partition(
     threshold,
     min_snpumi=2e3,
 ):
-    EPS_BAF = 0.05  # MAGIC
-    MIN_SEGMENT_SIZE = 10  # MAGIC
-    BAF_CHANGE_THRESHOLD = 0.1  # MAGIC
-    DEFAULT_DIPLOID_STATE = 2  # MAGIC
-
     logger.info(f"Starting phasing assuming {len(initial_clone_index)} clones.")
 
-    # NB merge across initial clones.
+    # NB aggregate given initial clones.
     X, base_nb_mean, total_bb_RD, tumor_prop = merge_pseudobulk_by_index_mix(
         single_X,
         single_base_nb_mean,
@@ -45,24 +40,21 @@ def initial_phase_given_partition(
         threshold=threshold,
     )
 
-    logger.info(f"Created pseudobulk with shape {X.shape}.")
-
-    # NB (segments, initial clones).
+    # NB (initial clones, segments).
     baf_profiles = np.zeros((X.shape[2], X.shape[0]))
 
     # NB loop over initial clones.
     for i in range(X.shape[2]):
         logger.info(f"Solving for phasing of initial clone {i} of {X.shape[2]}.")
 
-        # NB assumes BAF = 0.5 for insufficient snp umi count.
+        # NB assumes BAF = 0.5 for insufficient snp umi count; initial binning chosen so this is not the case
+        #    for pseudobulk of all spots?
         if np.sum(total_bb_RD[:, i]) < min_snpumi:
             logger.warning(f"Insufficient SNP UMI to infer BAF, assuming 0.5;")
             baf_profiles[i, :] = 0.5
         else:
-            prefix = None
-
             res = pipeline_baum_welch(
-                prefix,
+                None,
                 X[:, :, i : (i + 1)],
                 lengths,
                 n_states,
@@ -87,29 +79,36 @@ def initial_phase_given_partition(
                 tol=tol,
             )
 
-            # NB MAP estimate
+            # NB MAP estimate of state given log posterior; pred. > n_states indicates switch-error.
             pred = np.argmax(res["log_gamma"], axis=0)
 
             # NB BAF by mirroring by inferred haplotype.
             this_baf_profiles = np.where(
                 pred < n_states,
                 res["new_p_binom"][pred % n_states, 0],
-                1.0 - res["new_p_binom"][pred % n_states, 0],
+                1.0 - res["new_p_binom"][pred % n_states, 0], # BAF evidence for switch-error so flip.
             )
 
             # NB TODO attractor to 0.5 if sufficiently close, independent of coverage.
+            EPS_BAF = 0.05  # MAGIC
             this_baf_profiles[np.abs(this_baf_profiles - 0.5) < EPS_BAF] = 0.5
 
+            # NB solved for baf_profile of this clone, mitigating switch errors.
             baf_profiles[i, :] = this_baf_profiles
 
+    mirror_baf_profiles = np.where(baf_profiles < 0.5, baf_profiles, 1.0 - baf_profiles)
+            
     # NB compute population-level BAF with weighted mean by clone size.
     if single_tumor_prop is None:
-        n_total_spots = np.sum([len(x) for x in initial_clone_index])
+        num_spots_per_clone = [len(x) for x in initial_clone_index]
+        n_total_spots = np.sum(num_spots_per_clone)
+        
         population_baf = (
             np.array([1.0 * len(x) / n_total_spots for x in initial_clone_index])
             @ baf_profiles
         )
     else:
+        # NB tumor_prop is the mean of each clone.
         n_total_spots = np.sum(
             [len(x) * tumor_prop[i] for i, x in enumerate(initial_clone_index)]
         )
@@ -125,13 +124,15 @@ def initial_phase_given_partition(
             @ baf_profiles
         )
 
-    # TODO?  assign inferred BAF to minor.
-    mirror_baf_profiles = np.where(baf_profiles < 0.5, baf_profiles, 1.0 - baf_profiles)
-
+    # NB makes sense: phasing determined with all clones; copy state BAF phased appropriately.
     phase_indicator = population_baf < 0.5
     refined_lengths = []
     cumlen = 0
 
+    MIN_SEGMENT_SIZE = 10  # MAGIC
+    BAF_CHANGE_THRESHOLD = 0.1  # MAGIC 
+    
+    # NB le is the number of blocks per contig.
     for le in lengths:
         s = 0
 
@@ -144,6 +145,7 @@ def initial_phase_given_partition(
                 )
                 > BAF_CHANGE_THRESHOLD
             ):
+                # NB new blocks are a min. size and set by change in BAF.
                 refined_lengths.append(i - s)
                 s = i
 

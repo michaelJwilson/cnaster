@@ -13,6 +13,8 @@ def merge_pseudobulk_by_index_mix(
     threshold=0.5,
 ):
     n_obs = single_X.shape[0]
+
+    # NB overloads 'spots' as clones.
     n_spots = len(clone_index)
 
     X = np.zeros((n_obs, 2, n_spots))
@@ -33,14 +35,14 @@ def merge_pseudobulk_by_index_mix(
             continue
 
         if single_tumor_prop is not None:
+            # NB spots in this clone with a given proportion.
             tumor_mask = single_tumor_prop[idx] > threshold
 
             idx = idx[tumor_mask]
 
-            # NB assumes mean tumor proportion for all spots assigned to a clone?
+            # NB assumes mean tumor proportion for all spots assigned to this clone.
             tumor_prop[k] = np.mean(single_tumor_prop[idx]) if len(idx) > 0 else 0.0
 
-        # TODO assumes simple aggregation.
         X[:, :, k] = np.sum(single_X[:, :, idx], axis=2)
 
         base_nb_mean[:, k] = np.sum(single_base_nb_mean[:, idx], axis=1)

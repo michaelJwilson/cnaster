@@ -612,16 +612,17 @@ def run_cnaster(config_path):
         )
         
         clone_res[prefix] = merge_dicts(clone_res[prefix], new_clone_res)
-
-    exit(0)
         
     # TODO HACK
     logger.info(f"Combining results across clones.")
 
+    exit(0)
+    
+    # NB combined assignment for all spots.
     res_combine = {"prev_assignment": np.zeros(single_X.shape[2], dtype=int)}
     offset_clone = 0
 
-    # NB Neyman-Pearson and min. spot merging across RDR redefined clones.
+    # NB Neyman-Pearson and min. spot merging across baf clones split by rdr.
     for bafc in range(n_baf_clones):
         prefix = f"clone{bafc}"
         res = clone_res[prefix]

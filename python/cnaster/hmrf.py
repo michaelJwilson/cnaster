@@ -78,6 +78,8 @@ def pool_hmrf_data(
     mean_tumor_prop : array, shape (n_spots,)
         Mean tumor proportions for each spot.
     """
+    logger.info("Pooling hmrf data by smooth mat. (reduces necessary computation).")
+    
     n_obs, n_comp, N = single_X.shape
 
     pooled_X = np.zeros((n_obs, n_comp, N), dtype=single_X.dtype)
@@ -178,6 +180,7 @@ def pool_hmrf_data(
     )
 
 
+# NB aggregate by smooth mat. with tumor/normal mix, spot reassignment, concatenated by clone?
 def aggr_hmrfmix_reassignment_concatenate(
     single_X,
     single_base_nb_mean,
@@ -267,10 +270,9 @@ def aggr_hmrfmix_reassignment_concatenate(
         return_posterior=return_posterior,
     )
     """
-
     n_obs, _, N = single_X.shape
 
-    # NB pred is the argmax posterior by genome, concatenated by clones.
+    # NB pred is the argmax posterior by genome, concatenated across clones.
     n_clones = int(len(pred) / n_obs)
     n_states = res["new_p_binom"].shape[0]
 
@@ -279,9 +281,6 @@ def aggr_hmrfmix_reassignment_concatenate(
     # NB clone assignment for all spots.
     new_assignment = copy.copy(prev_assignment)
 
-    single_llf = np.zeros((N, n_clones))
-    posterior = np.zeros((N, n_clones))
-
     # NB utilize tumor mixture model?
     use_mixture = single_tumor_prop is not None
 
@@ -289,15 +288,14 @@ def aggr_hmrfmix_reassignment_concatenate(
     lambd = (
         np.sum(single_base_nb_mean, axis=1) / np.sum(single_base_nb_mean)
         if use_mixture
-        else None
+        else None # TODO BUG?
     )
 
     logger.info(
-        f"Solving emission likelihood for X.shape={single_X.shape}, n_states={n_states} and {n_clones} clones with {hmmclass.__name__} and use_mixture={use_mixture}."
+        f"Solving (pooled) emission likelihood for X.shape={single_X.shape}, n_states={n_states} and {n_clones} clones with {hmmclass.__name__} and use_mixture={use_mixture}."
     )
 
-    logger.info("Pooling hmrf data")
-
+    # NB pool data by smooth mat: reduces spots to calculate likelihood for, i.e. faster.
     pooled_X, pooled_base_nb_mean, pooled_total_bb_RD, _, weighted_tp = pool_hmrf_data(
         single_X,
         single_base_nb_mean,
@@ -326,7 +324,7 @@ def aggr_hmrfmix_reassignment_concatenate(
             res["new_p_binom"],
             res["new_taus"],
             np.ones((n_obs, 1))
-            * np.mean(single_tumor_prop[idx]),  # TODO BUG too many args???
+            * np.mean(single_tumor_prop[idx]),  # TODO BUG  idx is not defined (!)
             weighted_tp.reshape(-1, 1),  # NB cast (n_obs,) to (n_obs, 1).
         )
     else:
@@ -345,16 +343,20 @@ def aggr_hmrfmix_reassignment_concatenate(
 
     logger.info(f"TODO: post-processing likelihood")
 
+    # NB log likelihood of each spot given that its label is each clone, i.e. unary Potts term.
+    single_llf = np.zeros((N, n_clones))
+    
     # TODO numba
     for i in range(N):
-        # NB neighbor spots pooled with i.
+        # NB spot i pooled with 'neighbor' spots in idx.
         idx = smooth_mat[i, :].nonzero()[1]
 
         if use_mixture:
-            # filter out NaN tumor proportions
+            # NB filter out NaN tumor proportions
             idx = idx[~np.isnan(single_tumor_prop[idx])]
 
-        # TODO pooled_X treated as a bool.
+        # TODO pooled_X treated as a bool
+        # NB there are available RDR and BAF counts given these neighbors..
         if (
             np.sum(single_base_nb_mean[:, idx] > 0) > 0
             and np.sum(single_total_bb_RD[:, idx] > 0) > 0
@@ -385,6 +387,9 @@ def aggr_hmrfmix_reassignment_concatenate(
 
     adj_list = cast_csr(adjacency_mat)
 
+    # NB Posterior probabilities if return_posterior=True.                                                                                                                                         
+    posterior = np.zeros((N, n_clones))
+    
     # NB updates new_assignment and posterior in place.
     niter = icm_update(
         single_llf,
@@ -498,29 +503,35 @@ def hmrfmix_concatenate_pipeline(
     spatial_weight=1.0 / 6.0,
     tumorprop_threshold=0.5,
 ):
+    # NB num. of genomic bins, num. pseudobulk (clones, spots, ...)
     n_obs, _, n_spots = single_X.shape
+
+    # NB num. of clones in initial assignment.
     n_clones = len(initial_clone_index)
 
-    # NB map sample_ids to integer enum.
+    # NB map sample_ids to integer enum, i.e. per slice.
     unique_sample_ids = np.unique(sample_ids)
     n_samples = len(unique_sample_ids)
 
+    logger.info(f"Solving for {n_samples} samples/slices.")
+    
     tmp_map_index = {unique_sample_ids[i]: i for i in range(len(unique_sample_ids))}
     sample_ids = np.array([tmp_map_index[x] for x in sample_ids])
 
-    # TODO BUG? baseline expression by summing over all clones; relative to genome-wide.
-    # NB not applicable for BAF only.
     norm = np.sum(single_base_nb_mean)
 
     # DEPRECATE
     assert np.isscalar(norm)
 
+    # NB baseline expression by summing over all clones; should be zero for BAF only.   
     if norm == 0.0:
-        logger.warning(f"Found nb_mean=0 across all spots,segments.")
+        logger.warning(f"Found nb_mean=0 across all spots,segments; corresponds to BAF only run.")
 
+    # NB normalized baseline expression.
     with np.errstate(divide="ignore", invalid="ignore"):
         lambd = np.sum(single_base_nb_mean, axis=1) / norm
 
+    # NB aggregation to pseudobulk based on current clone assignment of spots.
     X, base_nb_mean, total_bb_RD, tumor_prop = merge_pseudobulk_by_index_mix(
         single_X,
         single_base_nb_mean,
@@ -529,7 +540,9 @@ def hmrfmix_concatenate_pipeline(
         single_tumor_prop,
         threshold=tumorprop_threshold,
     )
-
+    
+    # NB transform (n_obs, 2, n_clones) to (n_obs * n_clones, 2, 1) for HMM processing.
+    #    i.e. stack bins per clone lengthwise, useful for fitting shared copy state.
     (
         clone_stack_X,
         clone_stack_base_nb_mean,
@@ -540,7 +553,7 @@ def hmrfmix_concatenate_pipeline(
     ) = clone_stack_obs(
         X, base_nb_mean, total_bb_RD, lengths, log_sitewise_transmat, tumor_prop
     )
-
+    
     if (init_log_mu is None) or (init_p_binom is None):
         init_log_mu, init_p_binom = gmm_init(
             n_states,
@@ -568,7 +581,7 @@ def hmrfmix_concatenate_pipeline(
         np.ones((n_clones, n_samples)) * (-np.log(n_clones)) if inertia else None
     )
 
-    logger.info(f"Assuming hmrf inertia={inertia}")
+    logger.info(f"Assuming hmrf inertia={inertia} and {hmmclass.__name__} instance.")
 
     res = {}
 
@@ -579,13 +592,14 @@ def hmrfmix_concatenate_pipeline(
             f"----****  Solving iteration {r}/{max_iter_outer} of copy number state fitting & clone assignment (HMM + HMRF) ****----"
         )
 
-        # NB [num_obs for each clone / sample].
+        # NB segments for each clone stacked.
         sample_length = np.ones(X.shape[2], dtype=int) * X.shape[0]
 
         remain_kwargs = {"sample_length": sample_length, "lambd": lambd}
 
         """
         # TODO HACK BUG?
+        # NB utilize last state posterior. 
         if "log_gamma" in res:
             remain_kwargs["log_gamma"] = res["log_gamma"]
         """
@@ -616,6 +630,7 @@ def hmrfmix_concatenate_pipeline(
             **remain_kwargs,
         )
 
+        # NB MAP copy state, no phasing.
         pred = np.argmax(res["log_gamma"], axis=0)
 
         # NB TODO 'max' clone assignment.
@@ -638,7 +653,7 @@ def hmrfmix_concatenate_pipeline(
         # NB handle the case when one clone has zero spots.
         if len(np.unique(new_assignment)) < X.shape[2]:
             logger.warning(
-                f"Iteration {r}: clone has no spots assigned. Re-indexing clones."
+                f"Iteration {r}: clone has no spots assigned.  Re-indexing clones."
             )
 
             res["assignment_before_reindex"] = new_assignment
@@ -674,6 +689,7 @@ def hmrfmix_concatenate_pipeline(
             threshold=tumorprop_threshold,
         )
 
+        # DEPRECATE? TODO.
         (
             clone_stack_X,
             clone_stack_base_nb_mean,
@@ -698,7 +714,7 @@ def hmrfmix_concatenate_pipeline(
         if (
             # TODO config.hmrf.assignment_ari_tolerance: 0.9?
             adjusted_rand_score(last_assignment, res["new_assignment"]) > 0.99
-            or len(np.unique(res["new_assignment"])) == 1
+            or len(np.unique(res["new_assignment"])) == 1 # NB single clone assigned.
         ):
             break
 

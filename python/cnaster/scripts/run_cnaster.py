@@ -262,8 +262,6 @@ def run_cnaster(config_path):
         logphase_shift=config.phasing.logphase_shift,
         geneticmap_file=config.references.geneticmap_file,
     )
-
-    exit(0)
     
     # NB sparse transcript counts (spot, gene).
     exp_counts = pd.DataFrame.sparse.from_spmatrix(

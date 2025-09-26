@@ -173,36 +173,47 @@ def rectangle_initialize_initial_clone(coords, n_clones, random_state=0):
 
 
 def compute_adjacency_mat_v2(coords, unit_xsquared=9, unit_ysquared=3, ratio=1):
+    # NB x,y separations for all spot pairs.
     x_dist = coords[:, 0][None, :] - coords[:, 0][:, None]
     y_dist = coords[:, 1][None, :] - coords[:, 1][:, None]
 
+    # NB arbitrary normalized. y different than x!
     pairwise_squared_dist = x_dist**2 * unit_xsquared + y_dist**2 * unit_ysquared
 
+    # NB (# spot, # spot) adjacency matrix.
     A = np.zeros((coords.shape[0], coords.shape[0]), dtype=np.int8)
 
+    # NB loop over spots.
     for i in range(coords.shape[0]):
         indexes = np.where(
             pairwise_squared_dist[i, :] <= ratio * (unit_xsquared + unit_ysquared)
         )[0]
 
+        # NB drop the spot itself.
         indexes = np.array([j for j in indexes if j != i])
 
         if len(indexes) > 0:
             A[i, indexes] = 1
 
+    # NB return as sparse matrix.
     return scipy.sparse.csr_matrix(A)
 
 
 def compute_weighted_adjacency(
     coords, unit_xsquared=9, unit_ysquared=3, bandwidth=12, decay=5
 ):
+    # NB x,y separations for all spot pairs.
     x_dist = coords[:, 0][None, :] - coords[:, 0][:, None]
     y_dist = coords[:, 1][None, :] - coords[:, 1][:, None]
 
+    # NB arbitrary normalized. y different than x! 
     pairwise_squared_dist = x_dist**2 * unit_xsquared + y_dist**2 * unit_ysquared
 
+    logger.info(f"Solving for inter-slice? Potts adjacency with exponential kernel based on squared distance with bandwidth,decay={bandwidth},{decay}.")
+    
     kern = np.exp(-((pairwise_squared_dist / bandwidth) ** decay))
 
+    # NB (spot, spot) adjacency.
     A = np.zeros((coords.shape[0], coords.shape[0]))
 
     for i in range(coords.shape[0]):
@@ -218,28 +229,41 @@ def compute_weighted_adjacency(
 def choose_adjacency_by_readcounts(
     coords, single_total_bb_RD, maxspots_pooling=7, unit_xsquared=9, unit_ysquared=3
 ):
+    logger.info(f"Assigning adjaceny matrix based on read counts, assuming unit_xsquared,unit_ysquared={unit_xsquared},{unit_ysquared}.")
+
+    # NB x_dist for every spot pair.
     x_dist = coords[:, 0][None, :] - coords[:, 0][:, None]
+
+    # NB y_dist for every spot pair.
     y_dist = coords[:, 1][None, :] - coords[:, 1][:, None]
 
+    # NB x and y dists have independent scale factors.
     tmp_pairwise_squared_dist = x_dist**2 * unit_xsquared + y_dist**2 * unit_ysquared
 
+    # NB sets the diagonal (self-distances) to the maximum so they are not considered as nearest neighbors.
+    # TODO np.inf
     np.fill_diagonal(tmp_pairwise_squared_dist, np.max(tmp_pairwise_squared_dist))
 
+    # NB given the minimum neighbor distance for all spots, find the median and normalize by the sum of scaling factors.
+    #    used to set a baseline for neighborhood size.
     base_ratio = np.median(np.min(tmp_pairwise_squared_dist, axis=0)) / (
         unit_xsquared + unit_ysquared
     )
 
     s_ratio = 0
-
+    
     for ratio in range(10):
         smooth_mat = compute_adjacency_mat_v2(
             coords, unit_xsquared, unit_ysquared, ratio * base_ratio
         )
 
+        # NB each spot pooled with itself.
         smooth_mat.setdiag(1)
 
         if np.median(np.sum(smooth_mat > 0, axis=0).A.flatten()) > maxspots_pooling:
+            # NB logic is previous once threshold is crossed.
             s_ratio = ratio - 1
+            logger.info(f"Solved for smooth. mat when spots pooled by distance such that median of pooled spots (per spot) > {maxspots_pooling}.")            
             break
 
         s_ratio = ratio
@@ -251,8 +275,8 @@ def choose_adjacency_by_readcounts(
     smooth_mat.setdiag(1)
 
     for bandwidth in np.arange(
-        unit_xsquared + unit_ysquared,
-        15 * (unit_xsquared + unit_ysquared),
+        unit_xsquared + unit_ysquared, # NB sq. hypotenuse
+        15 * (unit_xsquared + unit_ysquared), # MAGIC
         unit_xsquared + unit_ysquared,
     ):
         adjacency_mat = compute_weighted_adjacency(
@@ -261,11 +285,12 @@ def choose_adjacency_by_readcounts(
 
         adjacency_mat.setdiag(1)
 
+        # NB where smooth connection is stronger than exponential, we rely on smooth. 
         adjacency_mat = adjacency_mat - smooth_mat
         adjacency_mat[adjacency_mat < 0] = 0
 
-        if np.median(np.sum(adjacency_mat, axis=0).A.flatten()) >= 6:
-            logger.info(f"Found readcount-based adjacency bandwidth: {bandwidth}")
+        if np.median(np.sum(adjacency_mat, axis=0).A.flatten()) >= 6: # MAGIC
+            logger.info(f"Solved for adjacency matrix with length scale {bandwidth} and median of total edge > 6 (MAGIC).")
             break
 
     return smooth_mat, adjacency_mat
@@ -282,12 +307,17 @@ def multislice_adjacency(
     maxspots_pooling,
     construct_adjacency_w,
 ):
-    logger.info("Solving for multislice_adjaceny.")
-    
+    logger.info("Solving for multi-slice adjaceny matrix.")
+
+    # NB smooth_mat contains the edges of spots that are directly pooled.
     adjacency_mat, smooth_mat = [], []
 
+    # NB loop over slices.
     for i, sname in enumerate(sample_list):
+        # NB spots per slice.
         index = np.where(sample_ids == i)[0]
+
+        # NB (x,y) for these spots.
         this_coords = np.array(coords[index, :])
 
         tmpsmooth_mat, tmpadjacency_mat = choose_adjacency_by_readcounts(
@@ -299,12 +329,17 @@ def multislice_adjacency(
         adjacency_mat.append(tmpadjacency_mat.toarray())
         smooth_mat.append(tmpsmooth_mat.toarray())
 
+    # NB sets block diagonals corresponding to inter-slice.
     adjacency_mat = scipy.linalg.block_diag(*adjacency_mat)
+    
+    # NB realize as sparse.
     adjacency_mat = scipy.sparse.csr_matrix(adjacency_mat)
 
+    # NB add intra-slice adjacency.
     if across_slice_adjacency_mat is not None:
         adjacency_mat += across_slice_adjacency_mat
 
+    # NB realize as block diagonal for inter-slice pooling.
     smooth_mat = scipy.linalg.block_diag(*smooth_mat)
     smooth_mat = scipy.sparse.csr_matrix(smooth_mat)
 

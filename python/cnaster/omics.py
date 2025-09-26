@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 def form_gene_snp_table(
     unique_snp_ids, hgtable_file, adata, num_preceeding_rows=50  # MAGIC
 ):
-    logger.info(f"Forming gene & snp meta data.")    
+    logger.info(f"Forming gene & snp meta data.")
     logger.info(f"Retrieving reference genes: {hgtable_file}")
 
     # NB read gene info and keep only chr1-chr22 and genes appearing in adata
@@ -82,7 +82,7 @@ def form_gene_snp_table(
     vec_chr = df_gene_snp.CHR.to_numpy()
     vec_start = df_gene_snp.START.to_numpy()
     vec_end = df_gene_snp.END.to_numpy()
-    
+
     # NB loops over SNPs.
     for i in np.where(df_gene_snp.gene.isnull())[0]:
         # TODO first SNP has no gene.
@@ -116,8 +116,10 @@ def form_gene_snp_table(
         f"Retaining {100.0 * np.mean(isin[~df_gene_snp.is_interval]):.3f}% of SNPs with known gene (given Gencode filtered by AnnData) for num_preceeding_rows={num_preceeding_rows}."
     )
 
-    logger.info(f"Failed to find overlapping gene for:\n{df_gene_snp[df_gene_snp.gene.isnull()]}")
-    
+    logger.info(
+        f"Failed to find overlapping gene for:\n{df_gene_snp[df_gene_snp.gene.isnull()]}"
+    )
+
     df_gene_snp = df_gene_snp[isin]
 
     logger.info(f"Created gene-SNP table:\n{df_gene_snp.head()}")
@@ -157,7 +159,7 @@ def assign_initial_blocks(
         "gene" contains the name of a gene, or the gene a SNP belongs.
     """
     logger.info(f"Assigning initial blocks")
-    
+
     # NB first level: partition of genome by gene range (if two genes overlap, they are grouped to one range);
     # NB == is_gene.
     is_interval = df_gene_snp.is_interval
@@ -234,7 +236,9 @@ def assign_initial_blocks(
 
     assert np.all(df_gene_snp["initial_block_id"].values) >= 0, "TODO!"
 
-    logger.info("Assigned SNPs to initial blocks (intervals formed by overlapping genes).")
+    logger.info(
+        "Assigned SNPs to initial blocks (intervals formed by overlapping genes)."
+    )
 
     summarize_block_ids(df_gene_snp["initial_block_id"])
 
@@ -367,10 +371,10 @@ def summarize_counts_for_blocks(
     logger.info(f"Summarizing counts for blocks")
 
     # NB block_ids formed by merging overlapping genes into intervals, merging said intervals
-    #    until a threshold min. snp-covering reads and assigning counts to intervals below. 
+    #    until a threshold min. snp-covering reads and assigning counts to intervals below.
     blocks = df_gene_snp.block_id.unique()
 
-    # NB (num. intervals, 2, num. spots).    
+    # NB (num. intervals, 2, num. spots).
     single_X = np.zeros((len(blocks), 2, adata.shape[0]), dtype=int)
 
     single_base_nb_mean = np.zeros((len(blocks), adata.shape[0]))
@@ -431,8 +435,10 @@ def get_sitewise_transmat(df_gene_snp, geneticmap_file, nu, logphase_shift):
     """
     Phase switch probability from recombination rate / genetic distance [cM].
     """
-    logger.info(f"Constructing sitewise transition matrix for phasing given recombination rates.")
-    
+    logger.info(
+        f"Constructing sitewise transition matrix for phasing given recombination rates."
+    )
+
     # NB define recombination rates.
     ref_positions_cM = get_reference_recomb_rates(geneticmap_file)
 

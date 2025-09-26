@@ -27,9 +27,10 @@ class BAF_Binom(GenericLikelihoodModel):
     exposure : array, (n_samples,)
         Total number of trials. In BAF case, this is the total number of SNP-covering UMIs.
     """
+
     def __init__(self, endog, exog, weights, exposure, offset, scaling, **kwargs):
         super(BAF_Binom, self).__init__(endog, exog, **kwargs)
-        
+
         self.weights = weights
         self.exposure = exposure
         self.offset = offset
@@ -221,20 +222,20 @@ def identify_loh_per_clone(
     k_baf_deviation = np.sort(np.abs(p_binom[reshaped_pred_cnv, 0] - 0.5), axis=0)[
         -MIN_BINS_ALL, :
     ]
-    
+
     # LOH states
     for threshold in np.arange(
-        MIN_BAF_DEVIATION_RANGE[0], MIN_BAF_DEVIATION_RANGE[1] - 0.01, -0.02 # MAGICs
+        MIN_BAF_DEVIATION_RANGE[0], MIN_BAF_DEVIATION_RANGE[1] - 0.01, -0.02  # MAGICs
     ):
         clones_hightumor = np.where(
             (k_baf_deviation >= threshold) & (clone_snpumi >= MIN_SNPUMI * n_obs)
         )[0]
-        
+
         if len(clones_hightumor) == 0:
             continue
         if len(clones_hightumor) == n_clones:
             clones_hightumor = np.argsort(k_baf_deviation)[1:]
-            
+
         # LOH states
         loh_states = np.where(
             (np.abs(p_binom[:, 0] - 0.5) > threshold)
@@ -254,7 +255,9 @@ def identify_loh_per_clone(
             )
             break
     else:
-        logger.warning("Failed; propagating current BAF deviation threshold = {threshold} with LOH states: {loh_states} and clones with high tumor proportion: {clones_hightumor}.")
+        logger.warning(
+            "Failed; propagating current BAF deviation threshold = {threshold} with LOH states: {loh_states} and clones with high tumor proportion: {clones_hightumor}."
+        )
 
     return loh_states, is_B_lost, rdr_values[loh_states], clones_hightumor
 
@@ -293,6 +296,7 @@ def estimator_tumor_proportion(
     ----------
     0.5 ( 1. - theta ) / (theta * RDR + 1. - theta) = B_count / Total_count for each LOH state.
     """
+
     def estimate_purity(T_loh, B_loh, rdr_values):
         idx = np.where(T_loh > 0)[0]
         model = BAF_Binom(
@@ -312,7 +316,7 @@ def estimator_tumor_proportion(
 
     tumor_proportion = np.zeros(n_spots)
     full_tumor_proportion = np.zeros((n_spots, n_clones))
-    
+
     for i in range(n_spots):
         # get adjacent spots for smoothing
         if smooth_mat is not None:

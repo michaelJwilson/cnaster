@@ -31,8 +31,9 @@ def get_global_config():
         assert isinstance(
             _global_config, YAMLConfig
         ), "Global config must be None or a YAMLConfig instance"
-    
+
     return _global_config
+
 
 class YAMLConfig:
     def __init__(self, config_dict: Dict[str, Any]):

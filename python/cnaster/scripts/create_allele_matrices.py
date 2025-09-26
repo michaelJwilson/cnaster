@@ -42,7 +42,7 @@ def cell_by_gene_lefthap_counts(cellsnp_folder, eagle_results_dir, barcode_list)
         # NB only keep (phased) hets.
         tmpdf = tmpdf[(tmpdf.PHASE == "0|1") | (tmpdf.PHASE == "1|0")]
 
-        # NB construct SNP ID. 
+        # NB construct SNP ID.
         this_snp_ids = (
             str(c) + "_" + tmpdf.POS.astype(str) + "_" + tmpdf.REF + "_" + tmpdf.ALT
         ).to_numpy()
@@ -72,7 +72,7 @@ def cell_by_gene_lefthap_counts(cellsnp_folder, eagle_results_dir, barcode_list)
         + "_"
         + df_snp.ALT
     )
-    
+
     tmpdf = pd.read_csv(cellsnp_folder + "/cellSNP.samples.tsv", header=None)
     sample_list = np.array(list(tmpdf.iloc[:, 0]))
     barcode_mapper = {x: i for i, x in enumerate(sample_list)}

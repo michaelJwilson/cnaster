@@ -41,8 +41,8 @@ def prep_snps(cellsnplite_results_dir, output_dir, vaf_threshold=0.1):
         (
             (df_snp.AD >= 2)  # at least two alternative counts.
             & (df_snp.DP - df_snp.AD >= 2)  # at least two reference alleles.
-            & (df_snp.AD / df_snp.DP >= vaf_threshold) # exclude hom-ref.
-            & (df_snp.AD / df_snp.DP <= 1.0 - vaf_threshold) # exclude hom-alt.
+            & (df_snp.AD / df_snp.DP >= vaf_threshold)  # exclude hom-ref.
+            & (df_snp.AD / df_snp.DP <= 1.0 - vaf_threshold)  # exclude hom-alt.
         )
         | ((df_snp.AD == df_snp.DP) & (df_snp.DP >= 10))
         | ((df_snp.AD == 0) & (df_snp.DP >= 10))
@@ -52,8 +52,8 @@ def prep_snps(cellsnplite_results_dir, output_dir, vaf_threshold=0.1):
     df_snp["FORMAT"] = "GT"
 
     # NB "genotyping"
-    gt_column = np.array(["0/0"] * df_snp.shape[0]) # all reads are REF.
-    gt_column[(df_snp.AD == df_snp.DP)] = "1/1" # all reads are ALT.
+    gt_column = np.array(["0/0"] * df_snp.shape[0])  # all reads are REF.
+    gt_column[(df_snp.AD == df_snp.DP)] = "1/1"  # all reads are ALT.
     gt_column[(df_snp.AD > 0) & (df_snp.DP - df_snp.AD > 0)] = "0/1"
 
     df_snp["SAMPLE_ID"] = gt_column

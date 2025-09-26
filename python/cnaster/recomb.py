@@ -18,8 +18,10 @@ def compute_numbat_phase_switch_prob(
         list of (chr, pos) pairs of SNPs. It is used to identify start of a new chr.
     """
     logger.info(f"Computing numbat phase switch probabilities assuming nu={nu}.")
-    logger.info(f"position_cM has {100. * np.mean(np.isnan(position_cM))}% NAN content.")
-    
+    logger.info(
+        f"position_cM has {100. * np.mean(np.isnan(position_cM))}% NAN content."
+    )
+
     phase_switch_prob = min_prob * np.ones(len(position_cM))
 
     for i, cm in enumerate(position_cM[:-1]):
@@ -42,8 +44,10 @@ def compute_numbat_phase_switch_prob(
 
     under_flowed = phase_switch_prob < min_prob
 
-    logger.info(f"Reassigning under flowed phase_switch_prob. for {100. * np.mean(under_flowed)}% given {min_prob} threshold.")
-    
+    logger.info(
+        f"Reassigning under flowed phase_switch_prob. for {100. * np.mean(under_flowed)}% given {min_prob} threshold."
+    )
+
     phase_switch_prob[phase_switch_prob < min_prob] = min_prob
 
     return phase_switch_prob

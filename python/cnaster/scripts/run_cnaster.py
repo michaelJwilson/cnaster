@@ -85,7 +85,7 @@ logger = logging.getLogger(__name__)
 
 def run_cnaster(config_path):
     logger.info("----  Welcome to cnaster  ----")
-    
+
     config = YAMLConfig.from_file(config_path)
 
     set_global_config(config)
@@ -121,7 +121,7 @@ def run_cnaster(config_path):
 
     # NB e.g. HT112C1-U1.
     logger.info(f"Found {len(sample_list)} unique samples, e.g. {sample_list[:3]}")
-    
+
     # NB array: assigns to each transcript row (barcode x sample) unique index according to sample names.
     sample_ids = -np.ones(adata.shape[0], dtype=int)
 
@@ -129,25 +129,31 @@ def run_cnaster(config_path):
         index = np.where(adata.obs["sample"] == sname)[0]
         sample_ids[index] = s
 
-    assert np.all(sample_ids >= 0), f"Failed to assign unique integer to all samples in list. Bug?"
-        
+    assert np.all(
+        sample_ids >= 0
+    ), f"Failed to assign unique integer to all samples in list. Bug?"
+
     if config.preprocessing.tumorprop_file is not None:
-        logger.info(f"Reading pre-processed tumorprop file={config.preprocessing.tumorprop_file}")
-        
+        logger.info(
+            f"Reading pre-processed tumorprop file={config.preprocessing.tumorprop_file}"
+        )
+
         df_tumorprop = pd.read_csv(
             config.preprocessing.tumorprop_file, sep="\t", header=0, index_col=0
         )
-        
+
         df_tumorprop = df_tumorprop[["Tumor"]]
         df_tumorprop.columns = ["tumor_proportion"]
 
-        assert np.all(adata.obs.index == df_tumorprop.index), "Detected mis-alignment of AnnData & tumor prop. barcode/sample ordering."
-        
+        assert np.all(
+            adata.obs.index == df_tumorprop.index
+        ), "Detected mis-alignment of AnnData & tumor prop. barcode/sample ordering."
+
         adata.obs = adata.obs.join(df_tumorprop)
 
         single_tumor_prop = adata.obs["tumor_proportion"]
     else:
-        logger.info(f"No (pre-processed) tumorprop. file provided.")        
+        logger.info(f"No (pre-processed) tumorprop. file provided.")
         single_tumor_prop = None
 
     # NB parse_visium::combine_gene_snps
@@ -182,15 +188,15 @@ def run_cnaster(config_path):
         config.phasing.nu,
         config.phasing.logphase_shift,
     )
-    
-    # NB (x,y) per spot.                                                                                                                                                                                                                                                
+
+    # NB (x,y) per spot.
     coords = adata.obsm["X_pos"]
-    
+
     # NB equivalent to parse_visium::perform_partition
     # TODO (requires paste).
     initial_clone_for_phasing = initialize_clones(
         coords,
-        sample_ids, # NB for all spots in all slices.
+        sample_ids,  # NB for all spots in all slices.
         x_part=config.phasing.npart_phasing,
         y_part=config.phasing.npart_phasing,
     )
@@ -219,8 +225,10 @@ def run_cnaster(config_path):
         threshold=config.hmrf.tumorprop_threshold,
     )
 
-    logger.info(f"Solved for initial phase given Eagle & BAF in {(time.time() - start_time):.2f} seconds.")
-    
+    logger.info(
+        f"Solved for initial phase given Eagle & BAF in {(time.time() - start_time):.2f} seconds."
+    )
+
     df_gene_snp["phase"] = np.where(
         df_gene_snp.snp_id.isnull(),
         None,
@@ -282,10 +290,10 @@ def run_cnaster(config_path):
     # n_pooled = np.median(np.sum(smooth_mat > 0, axis=0).A.flatten())
 
     # NB end run_parse_n_load::parse_visium.
-    # TODO table_bininfo? table_rdrbaf? table_meta? 
+    # TODO table_bininfo? table_rdrbaf? table_meta?
 
     # assert np.any(single_base_nb_mean > 0)
-    
+
     # TODO
     copy_single_X_rdr = copy.copy(single_X[:, 0, :])
     copy_single_base_nb_mean = copy.copy(single_base_nb_mean)
@@ -301,9 +309,9 @@ def run_cnaster(config_path):
     )
 
     exit(0)
-    
+
     logger.info("Solving HMM+HMRF for copy state and clones with BAF only.")
-    
+
     res = hmrfmix_concatenate_pipeline(
         None,
         None,
@@ -334,7 +342,7 @@ def run_cnaster(config_path):
         spatial_weight=config.hmrf.spatial_weight,
         tumorprop_threshold=config.hmrf.tumorprop_threshold,
     )
-    
+
     # TODO HACK
     n_obs = single_X.shape[0]
 

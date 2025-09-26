@@ -20,9 +20,9 @@ def get_sample_sheet(sample_sheet_path):
     required_columns = {"bam", "sample_id", "spaceranger_dir", "snp_dir"}
 
     # TODO
-    assert required_columns.issubset(df_meta.columns), (
-        f"sample_sheet is missing required columns: {required_columns - set(df_meta.columns)}"
-    )   
+    assert required_columns.issubset(
+        df_meta.columns
+    ), f"sample_sheet is missing required columns: {required_columns - set(df_meta.columns)}"
 
     logger.info(f"Input sample_sheet_path={sample_sheet_path} contains:\n{df_meta}")
 
@@ -54,9 +54,7 @@ def get_aggregated_barcodes(barcode_file):
 
 
 def get_spatial_positions(spaceranger_dir, filter_in_tissue=True):
-    """
-    
-    """
+    """ """
     # TODO x,y vs row,col?  sub-pixel position?
     names = ("barcode", "in_tissue", "x", "y", "pixel_row", "pixel_col")
 
@@ -88,7 +86,9 @@ def get_spatial_positions(spaceranger_dir, filter_in_tissue=True):
 
     # TODO alignment defined for in_tissue == True only?
     if filter_in_tissue:
-        logger.warning(f"Filtering spatial positions to in_tissue == True (retained {100. * np.mean(df_this_pos.in_tissue)}%).")
+        logger.warning(
+            f"Filtering spatial positions to in_tissue == True (retained {100. * np.mean(df_this_pos.in_tissue)}%)."
+        )
 
         result = df_this_pos[df_this_pos.in_tissue == True]
     else:
@@ -138,10 +138,16 @@ def get_spaceranger_counts(spaceranger_dir):
     #    see https://anndata.readthedocs.io/en/latest/generated/anndata.AnnData.var_names_make_unique.html
     adatatmp.var_names_make_unique()
 
-    logger.info(f"Read counts of shape {adatatmp.shape}, i.e. (barcodes, genes) from {spaceranger_dir}")
+    logger.info(
+        f"Read counts of shape {adatatmp.shape}, i.e. (barcodes, genes) from {spaceranger_dir}"
+    )
 
-    logger.info(f"Example names for {len(adatatmp.obs_names)} barcodes: {adatatmp.obs_names[:5]}")
-    logger.info(f"Example names for {len(adatatmp.var_names)} genes: {adatatmp.var_names[:5]}")
+    logger.info(
+        f"Example names for {len(adatatmp.obs_names)} barcodes: {adatatmp.obs_names[:5]}"
+    )
+    logger.info(
+        f"Example names for {len(adatatmp.var_names)} genes: {adatatmp.var_names[:5]}"
+    )
 
     # NB data matrix X (ndarray/csr matrix, dask ...): observations/cells are named by their barcode and variables/genes by gene name.
     return adatatmp
@@ -206,7 +212,7 @@ def load_input_data(
     filter_range_file=None,
     normal_idx_file=None,
     min_snp_umis=50,
-    min_percent_expressed_spots=5.0e-3, # BUG actually a fraction.
+    min_percent_expressed_spots=5.0e-3,  # BUG actually a fraction.
     local_outlier_filter=True,
 ):
     # NB see https://github.com/raphael-group/CalicoST/blob/5e4a8a1230e71505667d51390dc9c035a69d60d9/src/calicost/utils_IO.py#L127
@@ -373,10 +379,11 @@ def load_input_data(
             :, indicator
         ]
 
-    # NB filter out genes that are expressed in < min_percent_expressed_spots spots.    
+    # NB filter out genes that are expressed in < min_percent_expressed_spots spots.
     indicator = (
         # NB number of barcodes expressing a particular gene;        num. spots.
-        np.sum(adata.X > 0, axis=0) >= min_percent_expressed_spots * adata.shape[0]
+        np.sum(adata.X > 0, axis=0)
+        >= min_percent_expressed_spots * adata.shape[0]
     ).A.flatten()
 
     # NB ratio of total UMIs across all spots for gene selection vs all.
@@ -527,11 +534,11 @@ def load_input_data(
     # NB barcode consistency
     assert adata.layers["count"].shape[0] == cell_snp_Aallele.shape[0]
     assert cell_snp_Aallele.shape[0] == cell_snp_Ballele.shape[0]
-    
+
     # NB SNP consistency; 17_797 anndata genes vs 16_681 SNPs.
     assert len(unique_snp_ids) == cell_snp_Aallele.shape[1]
-    assert cell_snp_Aallele.shape[1] ==	cell_snp_Ballele.shape[1]
-    
+    assert cell_snp_Aallele.shape[1] == cell_snp_Ballele.shape[1]
+
     # TODO dense arrays.
     return (
         adata,

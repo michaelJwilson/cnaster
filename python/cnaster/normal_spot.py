@@ -181,13 +181,15 @@ def normal_baf_bin_filter(
     min_betabinom_tau=30,
 ):
     """
-    Remove bins that potentially contain somatic mutations based on normal spot BAF.
+    Remove bins that potentially contain allele-specific expression based on normal spot BAF.
     """
     logger.info("Selecting bins for removal based on normal spot BAF.")
 
-    # NB pool b-allele counts for each bin across all normal spots
+    # NB pool b-allele counts for each bin across all normal spots; 1D genomic segments.
     tmpX = np.sum(single_X[:, 1, index_normal], axis=1)
     tmptotal_bb_RD = np.sum(single_total_bb_RD[:, index_normal], axis=1)
+
+    # TODO
     model = Weighted_BetaBinom(
         tmpX, np.ones(len(tmpX)), weights=np.ones(len(tmpX)), exposure=tmptotal_bb_RD
     )
@@ -196,10 +198,13 @@ def normal_baf_bin_filter(
     settings = get_em_solver_params()
 
     tmpres = model.fit(**settings)
+
+    # TODO warn if patched.
+    # NB patches parameters assuming min_betabinom_tau=30;
     tmpres.params[0] = 0.5
     tmpres.params[-1] = max(tmpres.params[-1], min_betabinom_tau)
 
-    # NB remove bins if "normal" b-allele frequencies fall out of 5%-95% probability range
+    # NB remove bins if "normal" b-allele probabilities fall out of (5%-95%) confidence interval.
     removal_indicator1 = tmpX < scipy.stats.betabinom.ppf(
         confidence_interval[0],
         tmptotal_bb_RD,
@@ -216,6 +221,11 @@ def normal_baf_bin_filter(
     index_removal = np.where(removal_indicator1 | removal_indicator2)[0]
     index_remaining = np.where(~(removal_indicator1 | removal_indicator2))[0]
 
+    logger.info(
+        f"Removing {100. * np.mean(removal_indicator1 | removal_indicator2)}% of genomic bins with potential allele-specific expression based on normal spot candidates."
+    )
+
+    # NB below constructs single_X, single_base_nb_mean, single_total_bb_RD with segments removed.
     col = np.where(df_gene_snp.columns == "bin_id")[0][0]
     df_gene_snp.iloc[np.where(df_gene_snp.bin_id.isin(index_removal))[0], col] = None
 

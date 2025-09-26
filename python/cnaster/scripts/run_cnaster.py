@@ -473,6 +473,7 @@ def run_cnaster(config_path):
             
     index_normal = np.where(normal_candidate)[0]
 
+    # NB filter out genomic segments with potential allele-specific expression based on normal spot candidates.
     (
         lengths,
         single_X,
@@ -491,12 +492,10 @@ def run_cnaster(config_path):
         config.references.geneticmap_file,
     )
 
-    # TODO HACK
+    # NB new bin info.
     df_bininfo = binned_gene_snp(df_gene_snp)
 
-    copy_single_X_rdr = copy.copy(single_X[:, 0, :])
-
-    # NB filter out high-UMI DE genes, which may bias RDR estimates
+    # NB filter out high-UMI DE genes, which may bias RDR estimates.
     copy_single_X_rdr, _ = filter_normal_diffexp(
         exp_counts,
         df_bininfo,
@@ -505,17 +504,27 @@ def run_cnaster(config_path):
         sample_ids=sample_ids,
     )
 
+    # NB >>>>>  determine normal baseline expression. 
     MIN_NORMAL_COUNT_PERBIN = 20  # MAGIC
     bidx_inconfident = np.where(
         np.sum(copy_single_X_rdr[:, (normal_candidate == True)], axis=1)
         < MIN_NORMAL_COUNT_PERBIN
     )[0]
+
+    # NB normal baseline transcript count; unnormalized.
     rdr_normal = np.sum(copy_single_X_rdr[:, (normal_candidate == True)], axis=1)
+
+    # NB where normal transcript count < MIN_NORMAL_COUNT_PERBIN, zero.
     rdr_normal[bidx_inconfident] = 0
+
+    # NB normalized.
     rdr_normal = rdr_normal / np.sum(rdr_normal)
 
-    # NB avoid ill-defined distributions if normal has 0 count in that bin.
+    # NB avoid ill-defined distributions if normal has 0 count in that bin, assuming clone
+    #    should have no expression if normal does not - true for copy number models.
     copy_single_X_rdr[bidx_inconfident, :] = 0
+
+    # NB normalize copy_single_X_rdr by expected normal.
     copy_single_base_nb_mean = rdr_normal.reshape(-1, 1) @ np.sum(
         copy_single_X_rdr, axis=0
     ).reshape(1, -1)
@@ -524,7 +533,10 @@ def run_cnaster(config_path):
     single_X[:, 0, :] = copy_single_X_rdr
     single_base_nb_mean = copy_single_base_nb_mean
     n_obs = single_X.shape[0]
-
+    # <<<<<
+    
+    exit(0)
+    
     logger.info(
         f"Refinining {n_baf_clones} BAF identified clones with RDR data assuming n_clones_rdr={config.hmrf.n_clones_rdr}"
     )

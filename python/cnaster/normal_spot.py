@@ -57,6 +57,9 @@ def filter_normal_diffexp(
     quantile_threshold=80,
 ):
     """
+    Identify and filter out genes that are differentially expressed between "normal" candidates and other cell populations (such as tumor cells) in a dataset
+    based on statistical tests.
+
     Attributes
     ----------
     df_bininfo : pd.DataFrame
@@ -67,8 +70,11 @@ def filter_normal_diffexp(
     adata.obs["normal_candidate"] = normal_candidate
 
     map_gene_adatavar, map_gene_umi = {}, {}
+
+    # NB gene_umis summed over spots.
     list_gene_umi = np.sum(adata.layers["count"], axis=0)
 
+    # NB map of unique integer per gene.
     for i, x in enumerate(adata.var.index):
         map_gene_adatavar[x] = i
         map_gene_umi[x] = list_gene_umi[i]
@@ -78,6 +84,7 @@ def filter_normal_diffexp(
 
     filtered_out_set = set()
 
+    # NB loop over slices.
     for s, sname in enumerate(sample_list):
         if sname is None:
             index = np.arange(adata.shape[0])
@@ -86,7 +93,7 @@ def filter_normal_diffexp(
         tmpadata = adata[index, :].copy()
         if (
             np.sum(tmpadata.layers["count"][tmpadata.obs["normal_candidate"], :])
-            < tmpadata.shape[1] * 10
+            < tmpadata.shape[1] * 10 # MAGIC
         ):
             continue
 

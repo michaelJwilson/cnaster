@@ -236,8 +236,6 @@ def run_cnaster(config_path):
         df_gene_snp.block_id.map({i: x for i, x in enumerate(phase_indicator)}),
     )
 
-    logger.info(f"Recalculating blocks given new phasing")
-
     df_gene_snp = create_bin_ranges(
         df_gene_snp,
         single_total_bb_RD,
@@ -271,8 +269,6 @@ def run_cnaster(config_path):
         index=adata.obs.index,
         columns=adata.var.index,
     )
-
-    logger.info("Solving for multislice_adjaceny.")
 
     # NB smooth & adjacency matrix for each sample
     adjacency_mat, smooth_mat = multislice_adjacency(

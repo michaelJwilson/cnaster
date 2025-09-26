@@ -282,6 +282,8 @@ def multislice_adjacency(
     maxspots_pooling,
     construct_adjacency_w,
 ):
+    logger.info("Solving for multislice_adjaceny.")
+    
     adjacency_mat, smooth_mat = [], []
 
     for i, sname in enumerate(sample_list):

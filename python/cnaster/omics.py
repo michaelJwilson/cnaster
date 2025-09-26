@@ -560,6 +560,8 @@ def create_bin_ranges(
     df_gene_snp : data frame, (CHR, START, END, snp_id, gene, is_interval, block_id, bin_id)
         The newly added bin_id column indicates which bin each gene or SNP belongs to.
     """
+    logger.info(f"Recalculating blocks given new phasing.")
+
     # NB block intervals, sorted by contig and start?
     sorted_chr_pos_both = df_gene_snp.groupby("block_id").agg(
         {"CHR": "first", "START": "first", "END": "last"}

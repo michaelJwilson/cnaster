@@ -303,8 +303,10 @@ def run_cnaster(config_path):
         coords, config.hmrf.n_clones, random_state=0
     )
 
-    logger.info("Solving HMM+HMRF for copy state and clones with BAF only.")
+    logger.info("Solving HMM+HMRF for copy states and clone assignment with BAF only.")
 
+    exit(0)
+    
     res = hmrfmix_concatenate_pipeline(
         None,
         None,
@@ -336,7 +338,7 @@ def run_cnaster(config_path):
         tumorprop_threshold=config.hmrf.tumorprop_threshold,
     )
 
-    # TODO HACK
+    # NB number of bins/segments/blocks
     n_obs = single_X.shape[0]
 
     X, base_nb_mean, total_bb_RD, tumor_prop = merge_pseudobulk_by_index_mix(

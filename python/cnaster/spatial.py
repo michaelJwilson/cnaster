@@ -114,6 +114,8 @@ def initialize_clones(
 def rectangle_initialize_initial_clone(coords, n_clones, random_state=0):
     np.random.seed(random_state)
 
+    logger.info(f"Solving for clone initialization for {n_clones} clones.")
+
     # NB partition x and y range into ~n_clones based on Dirichlet sampling.
     p = int(np.ceil(np.sqrt(n_clones)))
 
@@ -145,30 +147,36 @@ def rectangle_initialize_initial_clone(coords, n_clones, random_state=0):
     # NB partitioned the space into unequal sized blocks.
     block_id = xdigit * p + ydigit
 
-    # TODO? assigning blocks to clone (note that if sqrt(n_clone) is not an integer,
-    # multiple blocks can be assigned to one clone)
+    # NB assigning initial blocks to n_clones (note that if sqrt(n_clone) is not an integer,
+    #    multiple blocks can be assigned to a given clone).
     while True:
-        # NB assign blocks (randomly) to clones.
+        # NB assign p^2 initial blocks (randomly) to n_clones.
         block_clone_map = np.random.randint(low=0, high=n_clones, size=p**2)
 
+        # NB its possible a given clone was not assigned ...
         while len(np.unique(block_clone_map)) < n_clones:
+            # NB number of blocks assigned to each clone, currently.
             bc = np.bincount(block_clone_map, minlength=n_clones)
 
             assert np.any(bc == 0)
 
-            # NB take a block from the over-represented clone and give to the unassigned
-            #    clone.
+            # NB take a block from the most-sampled clone and give to an unassigned.
             block_clone_map[np.where(block_clone_map == np.argmax(bc))[0][0]] = (
                 np.where(bc == 0)[0][0]
             )
 
+        # NB create a map of block id to clone id.
         block_clone_map = {i: block_clone_map[i] for i in range(len(block_clone_map))}
         clone_id = np.array([block_clone_map[i] for i in block_id])
+
+        # NB list of lists: block ids per clone.
         initial_clone_index = [np.where(clone_id == i)[0] for i in range(n_clones)]
 
+        # NB min. number of blocks assigned to a given clone is at least 20% of an equal
+        #    assignment of spots to clones.
         if (
             np.min([len(x) for x in initial_clone_index])
-            > 0.2 * coords.shape[0] / n_clones
+            > 0.2 * coords.shape[0] / n_clones # MAGIC.
         ):
             break
 

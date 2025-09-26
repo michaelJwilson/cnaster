@@ -114,7 +114,7 @@ def initialize_clones(
 def rectangle_initialize_initial_clone(coords, n_clones, random_state=0):
     np.random.seed(random_state)
 
-    logger.info(f"Solving for clone initialization for {n_clones} clones.")
+    logger.info(f"Solving for non-contiguous clone initialization for {n_clones} clones.")
 
     # NB partition x and y range into ~n_clones based on Dirichlet sampling.
     p = int(np.ceil(np.sqrt(n_clones)))

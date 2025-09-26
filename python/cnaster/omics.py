@@ -21,12 +21,16 @@ def form_gene_snp_table(
     logger.info(f"Filtering reference genes to those in visium: {hgtable_file}")
 
     common_genes = set(df_hgtable.name2) & set(adata.var.index)
+    genes_not_in_reference = set(adata.var.index) - common_genes
 
-    # TODO check.
     logger.info(
-        f"Found {100. * len(common_genes) / len(adata.var.index)}% of Visium genes to be in reference."
+        f"Found {100. * len(common_genes) / len(adata.var.index):.2f}% of visium genes to be in reference."
     )
-
+    
+    logger.info(
+        f"Visium genes not in reference: {sorted(genes_not_in_reference)}"
+    )
+    
     # NB limits reference genes to those present in (filtered) AnnData UMIs.
     df_hgtable = df_hgtable[df_hgtable.name2.isin(adata.var.index)]
 

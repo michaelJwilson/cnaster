@@ -243,7 +243,7 @@ def run_cnaster(config_path):
         config.quality.secondary_min_umi,
     )
 
-    logger.info(f"Recalculating counts given new blocks")
+    logger.info(f"Recalculating counts given new phase-based bins.")
 
     # TODO separate transmat.
     (
@@ -263,6 +263,8 @@ def run_cnaster(config_path):
         geneticmap_file=config.references.geneticmap_file,
     )
 
+    exit(0)
+    
     # NB sparse transcript counts (spot, gene).
     exp_counts = pd.DataFrame.sparse.from_spmatrix(
         scipy.sparse.csc_matrix(adata.layers["count"]),

@@ -53,6 +53,7 @@ def initial_phase_given_partition(
             logger.warning(f"Insufficient SNP UMI to infer BAF, assuming 0.5;")
             baf_profiles[i, :] = 0.5
         else:
+            # NB phasing of a single clone; independent BAF values.
             res = pipeline_baum_welch(
                 None,
                 X[:, :, i : (i + 1)],

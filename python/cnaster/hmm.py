@@ -41,6 +41,7 @@ def pipeline_baum_welch(
 ):
     logger.info(f"Solving HMM for X={X.shape} with {hmmclass.__name__} instance.")
 
+    # NB this may be num_clones, or one clone for phasing.
     n_spots = X.shape[2]
 
     if ((init_log_mu is None) and ("m" in params)) or (

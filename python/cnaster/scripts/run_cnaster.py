@@ -409,22 +409,25 @@ def run_cnaster(config_path):
     )
 
     logger.info(f"Determining normal spots based on BAF-only clones.")
-    
-    # NB refine BAF-identified clones
+
+    # NB no input files for barcodes of normal spots, or tumor proportion per spot.
     if (config.preprocessing.normalidx_file is None) and (
         config.preprocessing.tumorprop_file is None
     ):
         EPS_BAF = 0.05  # MAGIC
         PERCENT_NORMAL = 40  # MAGIC
 
-        logger.info(f"Identifying normal spots based on estimated BAF.")
+        logger.info(f"Identifying normal spots based on estimated BAF given EPS_BAF={EPS_BAF} and PERCENT_NORMAL={PERCENT_NORMAL}.")
 
+        # NB sum deviations > EPS_BAF from 0.5 along the genome for each clone; pick normal as minimum deviation.
+        baf_deviations = np.sum(np.maximum(np.abs(merged_baf_profiles - 0.5) - EPS_BAF, 0), axis=1)
+        id_nearnormal_clone = np.argmin(baf_deviations)
+    
+        # NB measure the standard deviation of log-transformed, smoothed transcript counts for each spot.                                                                                                                                                                                                                                                                                             
         vec_stds = np.std(np.log1p(copy_single_X_rdr @ smooth_mat), axis=0)
-        id_nearnormal_clone = np.argmin(
-            np.sum(np.maximum(np.abs(merged_baf_profiles - 0.5) - EPS_BAF, 0), axis=1)
-        )
-
+        
         while True:
+            # NB spots assigned to the normal-like clone AND 40% with smallest BAF deviation from 0.5;
             stdthreshold = np.percentile(
                 vec_stds[merged_res["new_assignment"] == id_nearnormal_clone],
                 PERCENT_NORMAL,
@@ -434,10 +437,14 @@ def run_cnaster(config_path):
             )
             if (
                 np.sum(copy_single_X_rdr[:, (normal_candidate == True)])
-                > single_X.shape[0] * 200
-                or PERCENT_NORMAL == 100
+                > 200 * single_X.shape[0] # MAGIC.
             ):
+                logger.info(f"Determined {PERCENT_NORMAL}% normal spots with sufficient UMIs, assigned to normal like clone.")
                 break
+            elif PERCENT_NORMAL == 100:
+                logger.warning(f"Failed to determine normal spots with sufficient UMIs.")
+                break
+                            
             PERCENT_NORMAL += 10
 
     elif config.preprocessing.normalidx_file is not None:
@@ -447,18 +454,23 @@ def run_cnaster(config_path):
                 f"Found mixed sources for normal spot definition, assuming {config.preprocessing.normalidx_file}."
             )
     else:
-        logger.info(f"Identifying normal spots based on provided tumor proportion.")
+        assert single_tumor_prop is not None
 
+        logger.info(f"Identifying normal spots based on provided tumor proportion.")
+        
         for prop_threshold in np.arange(0.05, 0.6, 0.05):
+            # NB suggests 0 is perfectly normal and otherwise measures tumor proportion, sensibly!
             normal_candidate = single_tumor_prop < prop_threshold
 
-            # TODO
             if (
                 np.sum(copy_single_X_rdr[:, (normal_candidate == True)])
-                > single_X.shape[0] * 200
+                > 200 * single_X.shape[0] # MAGIC
             ):
+                logger.info(f"Determined normal spots with sufficient UMIs based on input tumor proportion @ prop_threshold={prop_threshold}")
                 break
-
+        else:
+            logger.warning(f"Failed to determine normal spots with sufficient UMIs based on input tumor proportion.")
+            
     index_normal = np.where(normal_candidate)[0]
 
     (

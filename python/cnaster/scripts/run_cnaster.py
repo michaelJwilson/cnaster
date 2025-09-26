@@ -229,8 +229,7 @@ def run_cnaster(config_path):
         f"Solved for initial phase given Eagle & BAF in {(time.time() - start_time):.2f} seconds."
     )
 
-    exit(0)
-    
+    # NB phase is None for genes and otherwise True/False for the phase of each block.
     df_gene_snp["phase"] = np.where(
         df_gene_snp.snp_id.isnull(),
         None,

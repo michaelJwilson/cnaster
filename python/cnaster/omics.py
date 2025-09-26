@@ -488,6 +488,10 @@ def get_sitewise_transmat(df_gene_snp, geneticmap_file, nu, logphase_shift):
 
 
 def greedy_binning_nobreak(block_lengths, block_umi, secondary_min_umi, max_binlength):
+    """
+    Given a set of blocks, find new blocks that meet a requirement on the minimum number
+    of UMIs and do not exceed max_binlength.
+    """
     assert len(block_lengths) == len(block_umi)
 
     bin_ranges = []
@@ -496,14 +500,16 @@ def greedy_binning_nobreak(block_lengths, block_umi, secondary_min_umi, max_binl
     while s < len(block_lengths):
         t = s + 1
 
+        # NB extend included blocks until meets required umi count.
         while t < len(block_lengths) and np.sum(block_umi[s:t]) < secondary_min_umi:
             t += 1
 
+            # NB current block is too long, time to split.
             if np.sum(block_lengths[s:t]) >= max_binlength:
                 t = max(t - 1, s + 1)
                 break
 
-        # NB check whether it is a very small bin at the end
+        # NB check whether it is a very small bin at the end.
         if (
             s > 0
             and t == len(block_lengths)
@@ -554,7 +560,7 @@ def create_bin_ranges(
     df_gene_snp : data frame, (CHR, START, END, snp_id, gene, is_interval, block_id, bin_id)
         The newly added bin_id column indicates which bin each gene or SNP belongs to.
     """
-    # NB block lengths and umis.
+    # NB block intervals, sorted by contig and start?
     sorted_chr_pos_both = df_gene_snp.groupby("block_id").agg(
         {"CHR": "first", "START": "first", "END": "last"}
     )
@@ -564,11 +570,13 @@ def create_bin_ranges(
     )
     n_blocks = len(block_lengths)
 
-    # NB? summed across spots.
+    # NB summed across spots.
     block_umi = np.sum(single_total_bb_RD, axis=1)
-
+    
+    logger.info(f"Creating bin ranges assuming a max length of {max_binlength} and min. block UMI of {secondary_min_umi}.")
+    
     # TODO max_binlength.
-    # NB get a list of breakpoints where bin must break.
+    # NB get a list of points where existing block must be broken as too long.
     breakpoints = np.concatenate(
         [
             np.cumsum(refined_lengths),
@@ -580,7 +588,8 @@ def create_bin_ranges(
     breakpoints = np.sort(np.unique(breakpoints))
 
     # NB append 0 in the front of breakpoints so that each pair of adjacent
-    #    breakpoints can be an input to greedy_binning_nobreak
+    #    breakpoints can be an input to greedy_binning_nobreak; occurs if
+    #    block_lengths[0] < max_binlength.
     if breakpoints[0] != 0:
         breakpoints = np.append([0], breakpoints)
 
@@ -588,11 +597,12 @@ def create_bin_ranges(
 
     # NB loop over breakpoints and bin each block
     bin_ids = np.zeros(n_blocks, dtype=int)
+
+    # NB cumulative count of assigned bin ids.
     offset = 0
 
     for i in range(len(breakpoints) - 1):
-        b1 = breakpoints[i]
-        b2 = breakpoints[i + 1]
+        b1, b2 = breakpoints[i], breakpoints[i + 1]
 
         if b2 - b1 == 1:
             bin_ids[b1:b2] = offset
@@ -604,10 +614,12 @@ def create_bin_ranges(
             bin_ids[b1:b2] = offset + this_bin_ids
             offset += np.max(this_bin_ids) + 1
 
-    # append bin_ids to df_gene_snp
+    # NB append bin_ids to df_gene_snp
     df_gene_snp["bin_id"] = df_gene_snp.block_id.map(
         {i: x for i, x in enumerate(bin_ids)}
     )
+
+    summarize_block_ids(df_gene_snp["bin_id"])
 
     return df_gene_snp
 

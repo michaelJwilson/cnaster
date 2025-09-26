@@ -164,13 +164,21 @@ def filter_normal_diffexp(
         )
 
     new_single_X_rdr = np.zeros((df_bininfo.shape[0], adata.shape[0]))
-
+    total_counts, retained_counts = 0,0
+    
     for b, genestr in enumerate(df_bininfo.INCLUDED_GENES.values):
         # RDR (genes)
-        involved_genes = set(genestr.split(" ")) - filtered_out_set
+        bin_genes = set(genestr.split(" "))
+        involved_genes = bin_genes - filtered_out_set
+
+        total_counts += np.sum(adata.layers["count"][:, adata.var.index.isin(bin_genes)])        
+        retained_counts += np.sum(adata.layers["count"][:, adata.var.index.isin(involved_genes)])
+        
         new_single_X_rdr[b, :] = np.sum(
             adata.layers["count"][:, adata.var.index.isin(involved_genes)], axis=1
         )
+
+    logger.info(f"Retained {100. * retained_counts / total_counts:.3f}% of bin UMIs.")
 
     return new_single_X_rdr, filtered_out_set
 

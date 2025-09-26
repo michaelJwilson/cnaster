@@ -65,11 +65,11 @@ def form_gene_snp_table(
         ignore_index=True,
     )
 
-    logger.info(f"Sorting df_gene_snp")
+    logger.debug(f"Sorting df_gene_snp")
 
     df_gene_snp.sort_values(by=["CHR", "START"], inplace=True)
 
-    logger.info(f"Assigning genes to SNPs")
+    logger.debug(f"Assigning genes to SNPs")
 
     """
     Assigns genes to each SNP:  for each SNP (with not null snp_id), find the previous gene (is_interval == True)
@@ -106,7 +106,7 @@ def form_gene_snp_table(
 
             j -= 1
 
-    logger.info(f"Assigned SNPs to genes.")
+    logger.debug(f"Assigned SNPs to genes.")
 
     # NB remove SNPs that have no corresponding genes.
     isin = ~df_gene_snp.gene.isnull()

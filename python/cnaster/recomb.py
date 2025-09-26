@@ -17,13 +17,15 @@ def compute_numbat_phase_switch_prob(
     chr_pos_vector : list of pairs
         list of (chr, pos) pairs of SNPs. It is used to identify start of a new chr.
     """
-    logger.info("Computing numbat phase switch probabilities")
-
+    logger.info(f"Computing numbat phase switch probabilities assuming nu={nu}.")
+    logger.info(f"position_cM has {100. * np.mean(np.isnan(position_cM))}% NAN content.")
+    
     phase_switch_prob = min_prob * np.ones(len(position_cM))
 
     for i, cm in enumerate(position_cM[:-1]):
         cm_next = position_cM[i + 1]
 
+        # NB defaults to min_prob. in these cases.
         if (
             np.isnan(cm)
             or np.isnan(cm_next)
@@ -38,6 +40,10 @@ def compute_numbat_phase_switch_prob(
         # NB numbat definition;
         phase_switch_prob[i] = (1.0 - np.exp(-2.0 * nu * d)) / 2.0
 
+    under_flowed = phase_switch_prob < min_prob
+
+    logger.info(f"Reassigning under flowed phase_switch_prob. for {100. * np.mean(under_flowed)}% given {min_prob} threshold.")
+    
     phase_switch_prob[phase_switch_prob < min_prob] = min_prob
 
     return phase_switch_prob
@@ -53,8 +59,7 @@ def assign_centiMorgans(chr_pos_vector, ref_positions_cM):
     # TODO
     chr_pos_vector.sort()
 
-    # find the centimorgan values (interpolate between (k-1)-th and k-th rows
-    # in centimorgan tables.
+    # NB find the centimorgan values (linear interpolation between (k-1)-th and k-th rows of table.
     position_cM = np.ones(len(chr_pos_vector)) * np.nan
     k = 0
 
@@ -82,4 +87,6 @@ def assign_centiMorgans(chr_pos_vector, ref_positions_cM):
             # NB Extrapolation Beyond Last Reference Point
             position_cM[i] = ref_cm[k - 1]
 
+    # NB given input [(chr1, start1), (chr1, end1), (chr2, start2), (chr2, end2), ...])
+    #    return positions in centiMorgan.
     return position_cM

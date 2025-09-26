@@ -428,15 +428,20 @@ def summarize_counts_for_blocks(
 
 
 def get_sitewise_transmat(df_gene_snp, geneticmap_file, nu, logphase_shift):
+    """
+    Phase switch probability from recombination rate / genetic distance [cM].
+    """
+    logger.info(f"Constructing sitewise transition matrix for phasing given recombination rates.")
+    
     # NB define recombination rates.
     ref_positions_cM = get_reference_recomb_rates(geneticmap_file)
 
-    # NB -  phase switch probability from genetic distance.
-    #    -  first chr and start of each block.
+    # NB sorted contig,start per block.
     sorted_chr_pos_first = df_gene_snp.groupby("block_id").agg(
         {"CHR": "first", "START": "first"}
     )
 
+    # NB dataframe to list.
     sorted_chr_pos_first = list(
         zip(sorted_chr_pos_first.CHR.to_numpy(), sorted_chr_pos_first.START.to_numpy())
     )
@@ -449,10 +454,12 @@ def get_sitewise_transmat(df_gene_snp, geneticmap_file, nu, logphase_shift):
         zip(sorted_chr_pos_last.CHR.to_numpy(), sorted_chr_pos_last.END.to_numpy())
     )
 
+    # NB [(chr1, start1), (chr1, end1), (chr2, start2), (chr2, end2), ...]) construct ...
     tmp_sorted_chr_pos = [
         val for pair in zip(sorted_chr_pos_first, sorted_chr_pos_last) for val in pair
     ]
 
+    # NB positions in cM of [(chr1, start1), (chr1, end1), (chr2, start2), (chr2, end2), ...])
     position_cM = assign_centiMorgans(tmp_sorted_chr_pos, ref_positions_cM)
 
     # NB tmp_sorted_chr_pos used to identify chromosome switches.
@@ -469,7 +476,7 @@ def get_sitewise_transmat(df_gene_snp, geneticmap_file, nu, logphase_shift):
     log_sitewise_transmat = log_sitewise_transmat[
         np.arange(1, len(log_sitewise_transmat), 2)
     ]
-
+    
     return log_sitewise_transmat
 
 

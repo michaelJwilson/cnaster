@@ -43,11 +43,15 @@ def fixed_rectangle_partition(
     px[-1] += 0.01
     px = px[1:]
 
+    # NB min. to max. x values of all spots (meeting tumor threshold).
     xrange = [np.min(range_coords[:, 0]), np.max(range_coords[:, 0])]
+
+    # NB bin x values into positions and return an appropriate indexing.
     xdigit = np.digitize(
         coords[:, 0], xrange[0] + (xrange[1] - xrange[0]) * px, right=True
     )
 
+    # NB same for y.
     py = np.linspace(0, 1, y_part + 1)
     py[-1] += 0.01
     py = py[1:]
@@ -63,6 +67,7 @@ def fixed_rectangle_partition(
         for yid in range(y_part):
             initial_clone_index.append(np.where((xdigit == xid) & (ydigit == yid))[0])
 
+    # NB initial clones assigned according to grid partitioning given x_part, y_part.
     return initial_clone_index
 
 
@@ -71,14 +76,16 @@ def initialize_clones(
 ):
     initial_clone_index = []
 
+    # NB for all slices.
     for s in range(1 + np.max(sample_ids)):
+        # NB sample_ids idx for all spots in this slice.
         index = np.where(sample_ids == s)[0]
 
         if len(index) == 0:
-            logger.error(f"Invalid sample_ids found: {sample_ids}")
+            logger.error(f"Expected at least one spot in slice {s}.")
             raise RuntimeError()
 
-        # NB would be per cell tumor props stacked across samples.
+        # NB tumor_proportion for each spot in this slice.
         this_tumor_prop = (
             single_tumor_prop[index] if single_tumor_prop is not None else None
         )

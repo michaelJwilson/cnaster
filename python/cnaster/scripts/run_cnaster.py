@@ -111,9 +111,6 @@ def run_cnaster(config_path):
     # NB e.g. 'AAACAAGTATCTCCCA-1_HT112C1-U1' currently.
     barcodes = adata.obs.index
 
-    # NB (x,y) per spot.
-    coords = adata.obsm["X_pos"]
-
     sample_list = [adata.obs["sample"].iloc[0]]
 
     # NB loop through rows (barcodes x samples) and collect sample names;
@@ -177,19 +174,22 @@ def run_cnaster(config_path):
         unique_snp_ids,
     )
 
-    # NB 1D array / list?
+    # NB 1D array of expected phase error rate.
     log_sitewise_transmat = get_sitewise_transmat(
         df_gene_snp,
         config.references.geneticmap_file,
         config.phasing.nu,
         config.phasing.logphase_shift,
     )
-
+    
+    # NB (x,y) per spot.                                                                                                                                                                                                                                                
+    coords = adata.obsm["X_pos"]
+    
     # NB equivalent to parse_visium::perform_partition
     # TODO (requires paste).
     initial_clone_for_phasing = initialize_clones(
         coords,
-        sample_ids,
+        sample_ids, # NB for all spots in all slices.
         x_part=config.phasing.npart_phasing,
         y_part=config.phasing.npart_phasing,
     )

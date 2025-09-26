@@ -476,7 +476,8 @@ def get_sitewise_transmat(df_gene_snp, geneticmap_file, nu, logphase_shift):
     log_sitewise_transmat = log_sitewise_transmat[
         np.arange(1, len(log_sitewise_transmat), 2)
     ]
-    
+
+    # NB returns array.
     return log_sitewise_transmat
 
 

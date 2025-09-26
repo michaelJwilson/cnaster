@@ -44,6 +44,7 @@ from cnaster.normal_spot import (
     binned_gene_snp,
 )
 from cnaster.hmm import pipeline_baum_welch
+from cnaster.utils import merge_dicts
 from cnaster.integer_copy import (
     hill_climbing_integer_copynumber_oneclone,
     hill_climbing_integer_copynumber_fixdiploid,
@@ -534,9 +535,7 @@ def run_cnaster(config_path):
     single_base_nb_mean = copy_single_base_nb_mean
     n_obs = single_X.shape[0]
     # <<<<<
-    
-    exit(0)
-    
+        
     logger.info(
         f"Refinining {n_baf_clones} BAF identified clones with RDR data assuming n_clones_rdr={config.hmrf.n_clones_rdr}"
     )
@@ -547,13 +546,17 @@ def run_cnaster(config_path):
         logger.info(f"Solving for BAF clone {bafc}/{n_baf_clones}.")
 
         prefix = f"clone{bafc}"
+
+        # NB spots assigned to this BAF-only clone (after merging based on Neyman-Pearson similarity).
         idx_spots = np.where(merged_baf_assignment == bafc)[0]
 
-        # NB min. b-allele read count on pseudobulk to split clones
+        # NB min. b-allele read count (equivalent to 20 per spot) on pseudobulk to split clones.
+        # TODO split will be on RDR, seems an odd requirement?
         if np.sum(single_total_bb_RD[:, idx_spots]) < 20 * single_X.shape[0]:
-            logger.warning(f"TODO")
+            logger.warning(f"Skipping BAF identified clone {bafc} as too few snp-covering UMIs.")
             continue
 
+        # NB initialize new set of clones within this BAF identified clone.
         # TODO tumor_prop, i.e. _mix.
         initial_clone_index = rectangle_initialize_initial_clone(
             coords[idx_spots],
@@ -566,19 +569,20 @@ def run_cnaster(config_path):
         for c, idx in enumerate(initial_clone_index):
             initial_assignment[idx] = c
 
-        # NB
+        # NB barcodes contained within this BAF-identified clone.
         clone_res[prefix] = {
             "barcodes": barcodes[idx_spots],
             "num_iterations": 0,
             "round-1_assignment": initial_assignment,
         }
 
-        # HMRF + HMM using RDR data.
+        # NB slice ids for each spot in this clone.
         copy_slice_sample_ids = copy.copy(sample_ids[idx_spots])
-
-        clone_res[prefix] = clone_res[prefix] | hmrfmix_concatenate_pipeline(
-            None,
-            None,
+        
+        # NB hmrf + hmm with RDR data.
+        new_clone_res = hmrfmix_concatenate_pipeline(
+            None, # NB outdir
+            None, # NB prefix
             single_X[:, :, idx_spots],
             lengths,
             single_base_nb_mean[:, idx_spots],
@@ -606,7 +610,11 @@ def run_cnaster(config_path):
             spatial_weight=config.hmrf.spatial_weight,
             tumorprop_threshold=config.hmrf.tumorprop_threshold,
         )
+        
+        clone_res[prefix] = merge_dicts(clone_res[prefix], new_clone_res)
 
+    exit(0)
+        
     # TODO HACK
     logger.info(f"Combining results across clones.")
 

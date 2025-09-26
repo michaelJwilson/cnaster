@@ -117,16 +117,21 @@ def rectangle_initialize_initial_clone(coords, n_clones, random_state=0):
     # NB partition x and y range into ~n_clones based on Dirichlet sampling.
     p = int(np.ceil(np.sqrt(n_clones)))
 
+    # NB e.g. [0.22, 0.28, 0.25, 0.25], non-negative, sum to unity, Dirichlet sampled.
     px = np.random.dirichlet(np.ones(p) * 10)
     px[-1] += 1e-4
 
+    # NB set xrange as from 5% to 95% percentile of input coords (all slices).
     xrange = [np.percentile(coords[:, 0], 5), np.percentile(coords[:, 0], 95)]
 
+    # NB x positions to dice up input coords.
     xboundary = xrange[0] + (xrange[1] - xrange[0]) * np.cumsum(px)
     xboundary[-1] = np.max(coords[:, 0]) + 1
 
+    # NB x bin for each input (x,y) given x dicing.
     xdigit = np.digitize(coords[:, 0], xboundary, right=True)
 
+    # NB same for y.
     py = np.random.dirichlet(np.ones(p) * 10)
     py[-1] += 1e-4
 
@@ -137,7 +142,7 @@ def rectangle_initialize_initial_clone(coords, n_clones, random_state=0):
 
     ydigit = np.digitize(coords[:, 1], yboundary, right=True)
 
-    # NB partitioned the space into "blocks".
+    # NB partitioned the space into unequal sized blocks.
     block_id = xdigit * p + ydigit
 
     # TODO? assigning blocks to clone (note that if sqrt(n_clone) is not an integer,

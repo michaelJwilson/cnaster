@@ -244,7 +244,7 @@ def plot_clones_genomic(
                     1.0 - res_combine["new_p_binom"][labs[i], c],
                 ],
                 c="black",
-                linewidth=2,
+                linewidth=1,
             )
 
     for i in range(len(lengths)):
@@ -374,6 +374,7 @@ def plot_clones_spatial(
         frameon=False,
     )
     axes.axis("off")
-
+    axes.set_title(",".join(sample_list))
+    
     fig.tight_layout()
     return fig

@@ -309,13 +309,13 @@ def run_cnaster(config_path):
         coords, adata.layers["count"], sample_ids, config.hmrf.n_clones, random_state=0
     )
     """
-
-    # NB construct clone labels.                                                                                                                                                                                                                                                
+    """
+    # NB construct clone labels.
     df_clone_label = pd.DataFrame(
         {"x": coords[:, 0], "y": coords[:, 1]}, index=barcodes
     )
 
-    # NB barcodes is the index.                                                                                                                                                                                                                                                 
+    # NB barcodes is the index.
     df_clone_label.insert(0, "sample_id", df_clone_label.index.str.split("_").str[-1])
 
     # TODO assert aligned?                                                                                                                                                                                                                                                      
@@ -334,7 +334,7 @@ def run_cnaster(config_path):
     logger.info(f"Writing initial clone labels to {opath},\n{df_clone_label.head()}")
 
     write_tsv(opath, df_clone_label, header=True, index=True, index_label="barcode")
-    
+    """
     logger.info("Solving HMM & HMRF for copy states and clone assignment with BAF only.")
 
     res = hmrfmix_concatenate_pipeline(

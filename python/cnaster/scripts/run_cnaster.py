@@ -718,7 +718,7 @@ def run_cnaster(config_path):
             n_merged_clones = len(merging_groups)
             tmp = copy.copy(merged_res["new_assignment"])
 
-            # NB compute posterior using the newly merged pseudobulk  
+            # NB compute posterior using the newly merged pseudobulk
             X, base_nb_mean, total_bb_RD, tumor_prop = merge_pseudobulk_by_index_mix(
                 single_X[:, :, idx_spots],
                 single_base_nb_mean[:, idx_spots],
@@ -859,7 +859,7 @@ def run_cnaster(config_path):
     n_final_clones = len(np.unique(res_combine["prev_assignment"]))
 
     logger.info(f"Inferred {n_final_clones} clones given BAF+RDR data.")
-    
+
     log_persample_weights = np.zeros((n_final_clones, len(sample_list)))
 
     for sidx in range(len(sample_list)):
@@ -883,7 +883,7 @@ def run_cnaster(config_path):
                     for c in range(res_combine["log_gamma"].shape[2])
                 ]
             ).T
-            
+
             new_assignment, single_llf, total_llf, posterior = aggr_hmrf_reassignment(
                 single_X,
                 single_base_nb_mean,
@@ -987,7 +987,14 @@ def run_cnaster(config_path):
     res_combine, posterior = reindex_clones(res_combine, posterior, single_tumor_prop)
 
     # TODO new_log_startprob - add to res_combine above.
-    for key in ["new_log_mu", "new_alphas", "new_p_binom", "new_taus", "total_llf", "pred_cnv"]:
+    for key in [
+        "new_log_mu",
+        "new_alphas",
+        "new_p_binom",
+        "new_taus",
+        "total_llf",
+        "pred_cnv",
+    ]:
         logger.info(f"Solved for {key}:\n{res_combine[key]}")
 
     # NB infer integer allele-specific copy numbers
@@ -1007,7 +1014,7 @@ def run_cnaster(config_path):
         plots_dir.mkdir(exist_ok=True)
     else:
         raise RuntimeError(f"{output_dir} does not exist!")
-        
+
     # NB assumed ploidy for integer copy number problem
     medfix = ["", "_diploid", "_triploid", "_tetraploid"]
 
@@ -1046,7 +1053,7 @@ def run_cnaster(config_path):
                 np.exp(res_combine["new_log_mu"][:, s])
                 / np.sum(np.exp(res_combine["new_log_mu"][this_pred_cnv, s]) * lambd)
             )
-            
+
             if max_medploidy is not None:
                 best_integer_copies, loss = hill_climbing_integer_copynumber_oneclone(
                     adjusted_log_mu,
@@ -1161,7 +1168,7 @@ def run_cnaster(config_path):
                     ),
                 }
             ).set_index("gene")
-            
+
             if df_genelevel_cnv is None:
                 df_genelevel_cnv = copy.copy(
                     tmpdf[~tmpdf[f"clone{s} A"].isnull()].astype(int)
@@ -1177,12 +1184,12 @@ def run_cnaster(config_path):
         logger.info(
             f"Solved for integer copy numbers @ genes:\n{df_genelevel_cnv.head()}"
         )
-        
+
         opath = f"{config.paths.output_dir}/cnv{medfix[o]}_genelevel.tsv"
 
         # NB output gene-level copy number
         write_tsv(opath, df_genelevel_cnv, header=True, index=True)
-        
+
         # NB output segment-level copy number
         allele_specific_copy = pd.concat(allele_specific_copy)
         df_seglevel_cnv = pd.DataFrame(
@@ -1201,9 +1208,9 @@ def run_cnaster(config_path):
         opath = f"{config.paths.output_dir}/cnv{medfix[o]}_seglevel.tsv"
 
         write_tsv(opath, df_seglevel_cnv, header=True, index=False)
-                
+
         logger.info(f"Solved for integer copy numbers @ states:\n{state_cnv}")
-        
+
         # NB output per-state copy number
         state_cnv = functools.reduce(
             lambda left, right: pd.merge(
@@ -1220,18 +1227,26 @@ def run_cnaster(config_path):
         {"x": coords[:, 0], "y": coords[:, 1]}, index=barcodes
     )
 
+    # NB barcodes is the index.
+    df_clone_label["sample_id"] = df_clone_label.index.str.split("_").str[-1]
+
     # TODO assert aligned?
     if config.preprocessing.tumorprop_file is not None:
         df_clone_label["tumor_proportion"] = single_tumor_prop
 
     df_clone_label["clone_label"] = res_combine["new_assignment"]
 
+    # NB cannot sort before barcode-ordered assignments etc!
+    df_clone_label = df_clone_label.groupby("sample_id", group_keys=False).apply(
+        lambda g: g.sort_values(["x", "y"])
+    )
+
     opath = f"{config.paths.output_dir}/clone_labels.tsv"
 
     logger.info(f"Writing inferred clone labels to {opath},\n{df_clone_label.head()}")
 
     write_tsv(opath, df_clone_label, header=True, index=True, index_label="barcode")
-    
+
     rdr_baf_fig = plot_clones_genomic(
         df_seglevel_cnv,
         lengths,
@@ -1255,7 +1270,7 @@ def run_cnaster(config_path):
 
     # BUG rdr_baf_fig
     write_fig(fig_path, None, transparent=True, bbox_inches="tight")
-        
+
     assignment = pd.Series([f"clone {x}" for x in res_combine["new_assignment"]])
     clones_fig = plot_clones_spatial(
         coords,
@@ -1271,7 +1286,7 @@ def run_cnaster(config_path):
     fig_path = f"{config.paths.output_dir}/plots/clones_spatial.pdf"
 
     write_fig(fig_path, clones_fig, transparent=True, bbox_inches="tight")
-    
+
     logger.info(f"Done in {(time.time() - start_time)/60.:.2f} minutes.")
 
 

@@ -85,3 +85,4 @@ betabinom:
 int_copy_num:
   nonbalance_bafdist : 1.0
   nondiploid_rdrdist : 10.0
+  ploidy : "diploid,triploid,tetraploid"

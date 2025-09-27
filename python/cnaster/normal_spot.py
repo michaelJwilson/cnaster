@@ -237,7 +237,7 @@ def normal_baf_bin_filter(
     index_remaining = np.where(~(removal_indicator1 | removal_indicator2))[0]
 
     logger.info(
-        f"Removing {100. * np.mean(removal_indicator1 | removal_indicator2)}% of genomic bins with potential allele-specific expression based on normal spot candidates."
+        f"Removing {100. * np.mean(removal_indicator1 | removal_indicator2):.4f}% of genomic bins with potential allele-specific expression based on normal spot candidates."
     )
 
     # NB below constructs single_X, single_base_nb_mean, single_total_bb_RD with segments removed.

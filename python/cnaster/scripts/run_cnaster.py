@@ -998,7 +998,16 @@ def run_cnaster(config_path):
     if 0 not in final_clone_ids:
         final_clone_ids = np.append(0, final_clone_ids)
 
-    # NB ploidy
+    # NB create /plots/ directory
+    output_dir = Path(config.paths.output_dir)
+    plots_dir = output_dir / "plots"
+
+    if output_dir.is_dir():
+        plots_dir.mkdir(exist_ok=True)
+    else:
+        raise RuntimeError(f"{output_dir} does not exist!")
+        
+    # NB assumed ploidy for integer copy number problem
     medfix = ["", "_diploid", "_triploid", "_tetraploid"]
 
     for o, max_medploidy in enumerate([None, 2, 3, 4]):

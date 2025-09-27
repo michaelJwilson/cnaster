@@ -1020,7 +1020,7 @@ def run_cnaster(config_path):
     medfix = [""] + [f"_{pp}" for pp in config.int_copy_num.ploidy.split(",")]
 
     assert medfix == ["", "_diploid", "_triploid", "_tetraploid"], f"{medfix}"
-    
+
     for o, max_medploidy in enumerate([None, 2, 3, 4]):
         logger.info(
             f"Solving integer copy number problem for max_medploidy={max_medploidy}."
@@ -1188,6 +1188,10 @@ def run_cnaster(config_path):
             f"Solved for integer copy numbers @ genes:\n{df_genelevel_cnv.head()}"
         )
 
+        df_genelevel_cnv = df_genelevel_cnv.rename(
+            columns={col: col.replace(" ", "_") for col in df_genelevel_cnv.columns}
+        )
+
         opath = f"{config.paths.output_dir}/cnv{medfix[o]}_genelevel.tsv"
 
         # NB output gene-level copy number
@@ -1203,7 +1207,8 @@ def run_cnaster(config_path):
             }
         )
         df_seglevel_cnv = df_seglevel_cnv.join(allele_specific_copy.T)
-
+        df_seglevel_cnv = df_seglevel_cnv.rename(columns={col: col.replace(" ", "_") for col in df_seglevel_cnv.columns})
+        
         logger.info(
             f"Solved for integer copy numbers @ segments:\n{df_seglevel_cnv.head()}"
         )
@@ -1229,7 +1234,7 @@ def run_cnaster(config_path):
     df_clone_label = pd.DataFrame(
         {"x": coords[:, 0], "y": coords[:, 1]}, index=barcodes
     )
-    
+
     # NB barcodes is the index.
     df_clone_label.insert(0, "sample_id", df_clone_label.index.str.split("_").str[-1])
 

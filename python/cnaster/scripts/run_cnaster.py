@@ -301,7 +301,7 @@ def run_cnaster(config_path):
 
     # NB non-contiguous assignment of clones to an unequal grid partitioning
     #    of input coordinates.
-    initial_clone_index = rectangle_initialize_initial_clone(
+    initial_clone_index, block_clone_array = rectangle_initialize_initial_clone(
         coords, config.hmrf.n_clones, random_state=0
     )
     """
@@ -309,7 +309,7 @@ def run_cnaster(config_path):
         coords, adata.layers["count"], sample_ids, config.hmrf.n_clones, random_state=0
     )
     """
-    """
+    
     # NB construct clone labels.
     df_clone_label = pd.DataFrame(
         {"x": coords[:, 0], "y": coords[:, 1]}, index=barcodes
@@ -322,7 +322,7 @@ def run_cnaster(config_path):
     if config.preprocessing.tumorprop_file is not None:
         df_clone_label["tumor_proportion"] = single_tumor_prop
 
-    df_clone_label["clone_label"] = initial_clone_index
+    df_clone_label["clone_label"] = block_clone_array
 
     # NB cannot sort before barcode-ordered assignments etc!                                                                                                                                                                                                                    
     df_clone_label = df_clone_label.groupby("sample_id", group_keys=False).apply(
@@ -334,7 +334,7 @@ def run_cnaster(config_path):
     logger.info(f"Writing initial clone labels to {opath},\n{df_clone_label.head()}")
 
     write_tsv(opath, df_clone_label, header=True, index=True, index_label="barcode")
-    """
+    
     logger.info("Solving HMM & HMRF for copy states and clone assignment with BAF only.")
 
     res = hmrfmix_concatenate_pipeline(

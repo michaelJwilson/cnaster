@@ -187,6 +187,9 @@ def rectangle_initialize_initial_clone(coords, n_clones, random_state=0):
                 np.where(block_clone_map == np.argmax(bc))[0][0]
             ] = np.where(bc == 0)[0][0]
 
+        # LEGACY
+        block_clone_array = block_clone_map.copy()
+
         # NB create a map of block id to clone id.
         block_clone_map = {i: block_clone_map[i] for i in range(len(block_clone_map))}
         clone_id = np.array([block_clone_map[i] for i in block_id])
@@ -204,7 +207,7 @@ def rectangle_initialize_initial_clone(coords, n_clones, random_state=0):
 
     logger.info(f"Solved for clone initialization for {n_clones} clones.")
 
-    return initial_clone_index
+    return initial_clone_index, block_clone_array
 
 
 def compute_adjacency_mat_v2(coords, unit_xsquared=9, unit_ysquared=3, ratio=1):

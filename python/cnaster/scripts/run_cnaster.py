@@ -33,6 +33,7 @@ from cnaster.spatial import (
     initialize_clones,
     multislice_adjacency,
     rectangle_initialize_initial_clone,
+    sufficient_umis_initial_clone
 )
 from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
 from cnaster.neyman_pearson import (
@@ -303,7 +304,11 @@ def run_cnaster(config_path):
     initial_clone_index = rectangle_initialize_initial_clone(
         coords, config.hmrf.n_clones, random_state=0
     )
-
+    """
+    initial_clone_index = sufficient_umis_initial_clone(
+        coords, adata.layers["count"], sample_ids, config.hmrf.n_clones, random_state=0
+    )
+    """
     logger.info("Solving HMM & HMRF for copy states and clone assignment with BAF only.")
 
     res = hmrfmix_concatenate_pipeline(
@@ -380,7 +385,7 @@ def run_cnaster(config_path):
         threshold=config.hmrf.tumorprop_threshold,
     )
 
-    # NB construct clone labels.                                                                                                                                                                                                                      
+    # NB construct clone labels.                                                                                                                                                                                                                     
     df_clone_label = pd.DataFrame(
         {"x": coords[:, 0], "y": coords[:, 1]}, index=barcodes
     )
@@ -1044,7 +1049,11 @@ def run_cnaster(config_path):
     # medfix = ["", "_diploid", "_triploid", "_tetraploid"]
     medfix = [""] + [f"_{pp}" for pp in config.int_copy_num.ploidy.split(",")]
 
-    for o, max_medploidy in enumerate([None, 2, 3, 4]):
+    # TODO HACK
+    # int_ploidy = [None, 2, 3, 4]
+    int_ploidy = [None, 2]
+        
+    for o, max_medploidy in enumerate(int_ploidy):
         logger.info(
             f"Solving integer copy number problem for max_medploidy={max_medploidy}."
         )

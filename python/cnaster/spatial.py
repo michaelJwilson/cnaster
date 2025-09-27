@@ -110,11 +110,33 @@ def initialize_clones(
     return initial_clone_index
 
 
-# TODO!! spatially contigous clones?
-def rectangle_initialize_initial_clone(coords, n_clones, random_state=0):
+def sufficient_umis_initial_clone(
+    coords, spot_gene_umis, sample_list, sample_ids, n_clones, random_state=0
+):
+    raise NotImplementedError()
+
+    # TODO HACK
     np.random.seed(random_state)
 
-    logger.info(f"Solving for non-contiguous clone initialization for {n_clones} clones.")
+    for i, sname in enumerate(sample_list):
+        # NB spots per slice.
+        index = np.where(sample_ids == i)[0]
+
+        # NB (x,y) for these spots.
+        this_coords = np.array(coords[index, :])
+        this_counts = spot_gene_umis[index, :]
+
+    return None
+
+
+# TODO!! spatially contigous clones?
+def rectangle_initialize_initial_clone(coords, n_clones, random_state=0):
+    # TODO
+    np.random.seed(random_state)
+
+    logger.info(
+        f"Solving for non-contiguous clone initialization for {n_clones} clones."
+    )
 
     # NB partition x and y range into ~n_clones based on Dirichlet sampling.
     p = int(np.ceil(np.sqrt(n_clones)))
@@ -161,9 +183,9 @@ def rectangle_initialize_initial_clone(coords, n_clones, random_state=0):
             assert np.any(bc == 0)
 
             # NB take a block from the most-sampled clone and give to an unassigned.
-            block_clone_map[np.where(block_clone_map == np.argmax(bc))[0][0]] = (
-                np.where(bc == 0)[0][0]
-            )
+            block_clone_map[
+                np.where(block_clone_map == np.argmax(bc))[0][0]
+            ] = np.where(bc == 0)[0][0]
 
         # NB create a map of block id to clone id.
         block_clone_map = {i: block_clone_map[i] for i in range(len(block_clone_map))}
@@ -176,7 +198,7 @@ def rectangle_initialize_initial_clone(coords, n_clones, random_state=0):
         #    assignment of spots to clones.
         if (
             np.min([len(x) for x in initial_clone_index])
-            > 0.2 * coords.shape[0] / n_clones # MAGIC.
+            > 0.2 * coords.shape[0] / n_clones  # MAGIC.
         ):
             break
 
@@ -219,11 +241,13 @@ def compute_weighted_adjacency(
     x_dist = coords[:, 0][None, :] - coords[:, 0][:, None]
     y_dist = coords[:, 1][None, :] - coords[:, 1][:, None]
 
-    # NB arbitrary normalized. y different than x! 
+    # NB arbitrary normalized. y different than x!
     pairwise_squared_dist = x_dist**2 * unit_xsquared + y_dist**2 * unit_ysquared
 
-    logger.info(f"Solving for inter-slice? Potts adjacency with exponential kernel based on squared distance with bandwidth,decay={bandwidth},{decay}.")
-    
+    logger.info(
+        f"Solving for inter-slice? Potts adjacency with exponential kernel based on squared distance with bandwidth,decay={bandwidth},{decay}."
+    )
+
     kern = np.exp(-((pairwise_squared_dist / bandwidth) ** decay))
 
     # NB (spot, spot) adjacency.
@@ -242,7 +266,9 @@ def compute_weighted_adjacency(
 def choose_adjacency_by_readcounts(
     coords, single_total_bb_RD, maxspots_pooling=7, unit_xsquared=9, unit_ysquared=3
 ):
-    logger.info(f"Assigning adjaceny matrix based on read counts, assuming unit_xsquared,unit_ysquared={unit_xsquared},{unit_ysquared}.")
+    logger.info(
+        f"Assigning adjaceny matrix based on read counts, assuming unit_xsquared,unit_ysquared={unit_xsquared},{unit_ysquared}."
+    )
 
     # NB x_dist for every spot pair.
     x_dist = coords[:, 0][None, :] - coords[:, 0][:, None]
@@ -251,7 +277,9 @@ def choose_adjacency_by_readcounts(
     y_dist = coords[:, 1][None, :] - coords[:, 1][:, None]
 
     # NB x and y dists have independent scale factors.
-    tmp_pairwise_squared_dist = x_dist**2 * unit_xsquared + y_dist**2 * unit_ysquared
+    tmp_pairwise_squared_dist = (
+        x_dist**2 * unit_xsquared + y_dist**2 * unit_ysquared
+    )
 
     # NB sets the diagonal (self-distances) to the maximum so they are not considered as nearest neighbors.
     # TODO np.inf
@@ -264,7 +292,7 @@ def choose_adjacency_by_readcounts(
     )
 
     s_ratio = 0
-    
+
     for ratio in range(10):
         smooth_mat = compute_adjacency_mat_v2(
             coords, unit_xsquared, unit_ysquared, ratio * base_ratio
@@ -276,7 +304,9 @@ def choose_adjacency_by_readcounts(
         if np.median(np.sum(smooth_mat > 0, axis=0).A.flatten()) > maxspots_pooling:
             # NB logic is previous once threshold is crossed.
             s_ratio = ratio - 1
-            logger.info(f"Solved for smooth. mat when spots pooled by distance such that median of pooled spots (per spot) > {maxspots_pooling}.")            
+            logger.info(
+                f"Solved for smooth. mat when spots pooled by distance such that median of pooled spots (per spot) > {maxspots_pooling}."
+            )
             break
 
         s_ratio = ratio
@@ -288,11 +318,13 @@ def choose_adjacency_by_readcounts(
     smooth_mat.setdiag(1)
 
     # MAGIC see below.
-    logger.info(f"Assuming max. length scale (band width) = {15 * (unit_xsquared + unit_ysquared)}")
-    
+    logger.info(
+        f"Assuming max. length scale (band width) = {15 * (unit_xsquared + unit_ysquared)}"
+    )
+
     for bandwidth in np.arange(
-        unit_xsquared + unit_ysquared, # NB sq. hypotenuse
-        15 * (unit_xsquared + unit_ysquared), # MAGIC
+        unit_xsquared + unit_ysquared,  # NB sq. hypotenuse
+        15 * (unit_xsquared + unit_ysquared),  # MAGIC
         unit_xsquared + unit_ysquared,
     ):
         adjacency_mat = compute_weighted_adjacency(
@@ -301,12 +333,14 @@ def choose_adjacency_by_readcounts(
 
         adjacency_mat.setdiag(1)
 
-        # NB where smooth connection is stronger than exponential, we rely on smooth. 
+        # NB where smooth connection is stronger than exponential, we rely on smooth.
         adjacency_mat = adjacency_mat - smooth_mat
         adjacency_mat[adjacency_mat < 0] = 0
 
-        if np.median(np.sum(adjacency_mat, axis=0).A.flatten()) >= 6: # MAGIC
-            logger.info(f"Solved for adjacency matrix with length scale {bandwidth} and median of total edge > 6 (MAGIC).")
+        if np.median(np.sum(adjacency_mat, axis=0).A.flatten()) >= 6:  # MAGIC
+            logger.info(
+                f"Solved for adjacency matrix with length scale {bandwidth} and median of total edge > 6 (MAGIC)."
+            )
             break
 
     return smooth_mat, adjacency_mat
@@ -347,7 +381,7 @@ def multislice_adjacency(
 
     # NB sets block diagonals corresponding to inter-slice.
     adjacency_mat = scipy.linalg.block_diag(*adjacency_mat)
-    
+
     # NB realize as sparse.
     adjacency_mat = scipy.sparse.csr_matrix(adjacency_mat)
 

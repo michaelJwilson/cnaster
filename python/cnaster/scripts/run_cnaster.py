@@ -335,8 +335,6 @@ def run_cnaster(config_path):
 
     write_tsv(opath, df_clone_label, header=True, index=True, index_label="barcode")
 
-    exit(0)
-
     logger.info(
         "Solving HMM & HMRF for copy states and clone assignment with BAF only."
     )
@@ -1345,8 +1343,7 @@ def run_cnaster(config_path):
     # TODO
     fig_path = f"{config.paths.output_dir}/plots/clones_genomic.pdf"
 
-    # BUG rdr_baf_fig
-    write_fig(fig_path, None, transparent=True, bbox_inches="tight")
+    write_fig(fig_path, rdr_baf_fig, transparent=True, bbox_inches="tight")
 
     assignment = pd.Series([f"clone {x}" for x in res_combine["new_assignment"]])
     clones_fig = plot_clones_spatial(

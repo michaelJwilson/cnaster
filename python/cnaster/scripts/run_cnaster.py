@@ -1168,7 +1168,7 @@ def run_cnaster(config_path):
             f"Solved for integer copy numbers @ genes:\n{df_genelevel_cnv.head()}"
         )
         
-        opath = f"{outdir}/cnv{medfix[o]}_genelevel.tsv"
+        opath = f"{config.paths.output_dir}/cnv{medfix[o]}_genelevel.tsv"
 
         # NB output gene-level copy number
         # BUG df_genelevel_cnv
@@ -1189,7 +1189,7 @@ def run_cnaster(config_path):
             f"Solved for integer copy numbers @ segments:\n{df_seglevel_cnv.head()}"
         )
 
-        opath = f"{outdir}/cnv{medfix[o]}_seglevel.tsv"
+        opath = f"{config.paths.output_dir}/cnv{medfix[o]}_seglevel.tsv"
 
         # BUG df_seglevel_cnv
         write_tsv(opath, None, header=True, index=False)
@@ -1204,7 +1204,7 @@ def run_cnaster(config_path):
             state_cnv,
         )
 
-        opath = f"{outdir}/cnv{medfix[o]}_perstate.tsv"
+        opath = f"{config.paths.output_dir}/cnv{medfix[o]}_perstate.tsv"
 
         # BUG state_cnv
         write_tsv(opath, None, header=True, index=False)

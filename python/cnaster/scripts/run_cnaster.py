@@ -1044,8 +1044,6 @@ def run_cnaster(config_path):
     # medfix = ["", "_diploid", "_triploid", "_tetraploid"]
     medfix = [""] + [f"_{pp}" for pp in config.int_copy_num.ploidy.split(",")]
 
-    assert medfix == ["", "_diploid", "_triploid", "_tetraploid"], f"{medfix}"
-
     for o, max_medploidy in enumerate([None, 2, 3, 4]):
         logger.info(
             f"Solving integer copy number problem for max_medploidy={max_medploidy}."

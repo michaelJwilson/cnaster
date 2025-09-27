@@ -309,6 +309,32 @@ def run_cnaster(config_path):
         coords, adata.layers["count"], sample_ids, config.hmrf.n_clones, random_state=0
     )
     """
+
+    # NB construct clone labels.                                                                                                                                                                                                                                                
+    df_clone_label = pd.DataFrame(
+        {"x": coords[:, 0], "y": coords[:, 1]}, index=barcodes
+    )
+
+    # NB barcodes is the index.                                                                                                                                                                                                                                                 
+    df_clone_label.insert(0, "sample_id", df_clone_label.index.str.split("_").str[-1])
+
+    # TODO assert aligned?                                                                                                                                                                                                                                                      
+    if config.preprocessing.tumorprop_file is not None:
+        df_clone_label["tumor_proportion"] = single_tumor_prop
+
+    df_clone_label["clone_label"] = initial_clone_index
+
+    # NB cannot sort before barcode-ordered assignments etc!                                                                                                                                                                                                                    
+    df_clone_label = df_clone_label.groupby("sample_id", group_keys=False).apply(
+        lambda g: g.sort_values(["x", "y"])
+    )
+
+    opath = f"{config.paths.output_dir}/initial_clone_labels.tsv"
+
+    logger.info(f"Writing initial clone labels to {opath},\n{df_clone_label.head()}")
+
+    write_tsv(opath, df_clone_label, header=True, index=True, index_label="barcode")
+    
     logger.info("Solving HMM & HMRF for copy states and clone assignment with BAF only.")
 
     res = hmrfmix_concatenate_pipeline(
@@ -408,8 +434,7 @@ def run_cnaster(config_path):
 
     logger.info(f"Writing baf inferred clone labels to {opath},\n{df_clone_label.head()}")
 
-    # BUG df_clone_label
-    write_tsv(opath, None, header=True, index=True, index_label="barcode")
+    write_tsv(opath, df_clone_label, header=True, index=True, index_label="barcode")
 
     # TODO
     n_obs = single_X.shape[0]
@@ -1220,9 +1245,12 @@ def run_cnaster(config_path):
             f"Solved for integer copy numbers @ genes:\n{df_genelevel_cnv.head()}"
         )
 
+        """
+        # HACK
         df_genelevel_cnv = df_genelevel_cnv.rename(
             columns={col: col.replace(" ", "_") for col in df_genelevel_cnv.columns}
         )
+        """
 
         opath = f"{config.paths.output_dir}/cnv{medfix[o]}_genelevel.tsv"
 
@@ -1239,7 +1267,9 @@ def run_cnaster(config_path):
             }
         )
         df_seglevel_cnv = df_seglevel_cnv.join(allele_specific_copy.T)
-        df_seglevel_cnv = df_seglevel_cnv.rename(columns={col: col.replace(" ", "_") for col in df_seglevel_cnv.columns})
+
+        # HACK
+        # df_seglevel_cnv = df_seglevel_cnv.rename(columns={col: col.replace(" ", "_") for col in df_seglevel_cnv.columns})
         
         logger.info(
             f"Solved for integer copy numbers @ segments:\n{df_seglevel_cnv.head()}"

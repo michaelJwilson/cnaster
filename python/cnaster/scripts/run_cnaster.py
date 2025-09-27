@@ -634,7 +634,7 @@ def run_cnaster(config_path):
 
         # NB initialize new set of clones within this BAF identified clone.
         # TODO tumor_prop, i.e. _mix.
-        initial_clone_index = rectangle_initialize_initial_clone(
+        initial_clone_index, _ = rectangle_initialize_initial_clone(
             coords[idx_spots],
             config.hmrf.n_clones_rdr,
             random_state=0,  # TODO HACK.

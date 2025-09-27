@@ -79,7 +79,7 @@ def plot_clones_genomic(
     rdr_ylim=5,
     chrtext_shift=-0.3,
     base_height=3.2,
-    pointsize=15,
+    pointsize=10,
     linewidth=1,
     palette="chisel",
 ):
@@ -211,7 +211,7 @@ def plot_clones_genomic(
         )
 
         axes[2 * s + 1].set_ylabel(f"clone {cid}\nphased AF")
-        axes[2 * s + 1].set_ylim([-0.1, 1.1])
+        axes[2 * s + 1].set_ylim([-0.05, 1.05])
         axes[2 * s + 1].set_yticks([0, 0.5, 1])
         axes[2 * s + 1].set_xlim([0, n_obs])
         if remove_xticks:
@@ -259,7 +259,7 @@ def plot_clones_genomic(
             axes[k].axvline(x=np.sum(lengths[:(i)]), c="grey", linewidth=1)
 
     fig.tight_layout()
-
+    
     return fig
 
 

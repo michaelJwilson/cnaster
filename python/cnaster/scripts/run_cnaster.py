@@ -44,7 +44,7 @@ from cnaster.normal_spot import (
     binned_gene_snp,
 )
 from cnaster.hmm import pipeline_baum_welch
-from cnaster.utils import merge_dicts
+from cnaster.utils import merge_dicts, write_tsv, write_fig
 from cnaster.integer_copy import (
     hill_climbing_integer_copynumber_oneclone,
     hill_climbing_integer_copynumber_fixdiploid,
@@ -1151,6 +1151,7 @@ def run_cnaster(config_path):
                     ),
                 }
             ).set_index("gene")
+            
             if df_genelevel_cnv is None:
                 df_genelevel_cnv = copy.copy(
                     tmpdf[~tmpdf[f"clone{s} A"].isnull()].astype(int)
@@ -1163,15 +1164,16 @@ def run_cnaster(config_path):
         if len(state_cnv) == 0:
             continue
 
-        # NB output gene-level copy number
-        # df_genelevel_cnv.to_csv(
-        #    f"{outdir}/cnv{medfix[o]}_genelevel.tsv", header=True, index=True, sep="\t"
-        # )
-
         logger.info(
             f"Solved for integer copy numbers @ genes:\n{df_genelevel_cnv.head()}"
         )
+        
+        opath = f"{outdir}/cnv{medfix[o]}_genelevel.tsv"
 
+        # NB output gene-level copy number
+        # BUG df_genelevel_cnv
+        write_tsv(opath, None, header=True, index=True)
+        
         # NB output segment-level copy number
         allele_specific_copy = pd.concat(allele_specific_copy)
         df_seglevel_cnv = pd.DataFrame(
@@ -1183,14 +1185,17 @@ def run_cnaster(config_path):
         )
         df_seglevel_cnv = df_seglevel_cnv.join(allele_specific_copy.T)
 
-        # df_seglevel_cnv.to_csv(
-        #    f"{outdir}/cnv{medfix[o]}_seglevel.tsv", header=True, index=False, sep="\t"
-        # )
-
         logger.info(
             f"Solved for integer copy numbers @ segments:\n{df_seglevel_cnv.head()}"
         )
 
+        opath = f"{outdir}/cnv{medfix[o]}_seglevel.tsv"
+
+        # BUG df_seglevel_cnv
+        write_tsv(opath, None, header=True, index=False)
+                
+        logger.info(f"Solved for integer copy numbers @ states:\n{state_cnv}")
+        
         # NB output per-state copy number
         state_cnv = functools.reduce(
             lambda left, right: pd.merge(
@@ -1199,13 +1204,11 @@ def run_cnaster(config_path):
             state_cnv,
         )
 
-        logger.info(f"Solved for integer copy numbers @ states:\n{state_cnv}")
+        opath = f"{outdir}/cnv{medfix[o]}_perstate.tsv"
 
-        # state_cnv.to_csv(
-        # f"{outdir}/cnv{medfix[o]}_perstate.tsv", header=True, index=False, sep="\t"
-        # )
-
-    # TODO CHECK
+        # BUG state_cnv
+        write_tsv(opath, None, header=True, index=False)
+        
     df_clone_label = pd.DataFrame(
         {"x": coords[:, 0], "y": coords[:, 1]}, index=barcodes
     )
@@ -1219,9 +1222,9 @@ def run_cnaster(config_path):
 
     logger.info(f"Writing inferred clone labels to {opath},\n{df_clone_label.head()}")
 
-    # TODO HACK
-    # df_clone_label.to_csv(f"{outdir}/clone_labels.tsv", header=True, index=True, sep="\t")
-
+    # BUG df_clone_label
+    write_tsv(opath, None, header=True, index=True)
+    
     rdr_baf_fig = plot_clones_genomic(
         df_seglevel_cnv,
         lengths,
@@ -1242,9 +1245,10 @@ def run_cnaster(config_path):
 
     # TODO
     fig_path = f"{config.paths.output_dir}/plots/clones_genomic.pdf"
-    logger.info(f"Writing clones genomic fig. to {fig_path}")
-    # rdr_baf_fig.savefig(fig_path, transparent=True, bbox_inches="tight")
 
+    # BUG rdr_baf_fig
+    write_fig(fig_path, None, transparent=True, bbox_inches="tight")
+        
     assignment = pd.Series([f"clone {x}" for x in res_combine["new_assignment"]])
     clones_fig = plot_clones_spatial(
         coords,
@@ -1257,11 +1261,11 @@ def run_cnaster(config_path):
         palette="Set2",
     )
 
-    # TODO
     fig_path = f"{config.paths.output_dir}/plots/clones_spatial.pdf"
-    logger.info(f"Writing clones spatial fig. to {fig_path}")
-    # clones_fig.savefig(fig_path, transparent=True, bbox_inches="tight")
 
+    # BUG clones_fig
+    write_fig(fig_path, None, transparent=True, bbox_inches="tight")
+    
     logger.info(f"Done in {(time.time() - start_time)/60.:.2f} minutes.")
 
 

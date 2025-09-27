@@ -24,13 +24,13 @@ def merge_dicts(first, second):
     return merged
 
 
-def write_tsv(opath, df=None, header=True, index=False):
+def write_tsv(opath, df=None, header=True, index=False, index_label=None):
     if df is None:
         df = pd.DataFrame()
 
     logger.info(f"Writing to {opath}.")
 
-    df.to_csv(opath, sep="\t", header=header, index=index)
+    df.to_csv(opath, sep="\t", header=header, index=index, index_label=index_label)
 
 
 def write_fig(opath, fig=None, transparent=True, bbox_inches="tight"):

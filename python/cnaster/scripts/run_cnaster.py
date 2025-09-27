@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 import scipy
 import functools
+from pathlib import Path
 from cnaster.config import YAMLConfig, set_global_config
 from cnaster.hmm_nophasing import hmm_nophasing
 from cnaster.hmrf import (
@@ -1180,8 +1181,7 @@ def run_cnaster(config_path):
         opath = f"{config.paths.output_dir}/cnv{medfix[o]}_genelevel.tsv"
 
         # NB output gene-level copy number
-        # BUG df_genelevel_cnv
-        write_tsv(opath, None, header=True, index=True)
+        write_tsv(opath, df_genelevel_cnv, header=True, index=True)
         
         # NB output segment-level copy number
         allele_specific_copy = pd.concat(allele_specific_copy)
@@ -1200,8 +1200,7 @@ def run_cnaster(config_path):
 
         opath = f"{config.paths.output_dir}/cnv{medfix[o]}_seglevel.tsv"
 
-        # BUG df_seglevel_cnv
-        write_tsv(opath, None, header=True, index=False)
+        write_tsv(opath, df_seglevel_cnv, header=True, index=False)
                 
         logger.info(f"Solved for integer copy numbers @ states:\n{state_cnv}")
         
@@ -1215,13 +1214,13 @@ def run_cnaster(config_path):
 
         opath = f"{config.paths.output_dir}/cnv{medfix[o]}_perstate.tsv"
 
-        # BUG state_cnv
-        write_tsv(opath, None, header=True, index=False)
-        
+        write_tsv(opath, state_cnv, header=True, index=False)
+
     df_clone_label = pd.DataFrame(
         {"x": coords[:, 0], "y": coords[:, 1]}, index=barcodes
     )
 
+    # TODO assert aligned?
     if config.preprocessing.tumorprop_file is not None:
         df_clone_label["tumor_proportion"] = single_tumor_prop
 
@@ -1231,8 +1230,7 @@ def run_cnaster(config_path):
 
     logger.info(f"Writing inferred clone labels to {opath},\n{df_clone_label.head()}")
 
-    # BUG df_clone_label
-    write_tsv(opath, None, header=True, index=True)
+    write_tsv(opath, df_clone_label, header=True, index=True, index_label="barcode")
     
     rdr_baf_fig = plot_clones_genomic(
         df_seglevel_cnv,
@@ -1272,8 +1270,7 @@ def run_cnaster(config_path):
 
     fig_path = f"{config.paths.output_dir}/plots/clones_spatial.pdf"
 
-    # BUG clones_fig
-    write_fig(fig_path, None, transparent=True, bbox_inches="tight")
+    write_fig(fig_path, clones_fig, transparent=True, bbox_inches="tight")
     
     logger.info(f"Done in {(time.time() - start_time)/60.:.2f} minutes.")
 

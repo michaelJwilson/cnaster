@@ -45,6 +45,10 @@ def get_full_palette():
 
 
 def get_intervals(pred_cnv):
+    """
+    Find contiguous intervals in the array pred_cnv where the value (e.g., a copy number state) stays the same,
+    and records both the intervals and their associated labels.
+    """
     intervals, labs = [], []
     s = 0
 
@@ -63,7 +67,7 @@ def get_intervals(pred_cnv):
 
 
 def plot_clones_genomic(
-    df_cnv,
+    df_cnv, # NB integer copy numbers for each segment.
     lengths,
     single_X,
     single_base_nb_mean,
@@ -86,11 +90,15 @@ def plot_clones_genomic(
     colors = [chisel_palette[c] for c in ordered_acn]
 
     final_clone_ids = np.unique([x.split(" ")[0][5:] for x in df_cnv.columns[3:]])
+
+    # NB add in normal clone.
     if "0" not in final_clone_ids:
         final_clone_ids = np.array(["0"] + list(final_clone_ids))
+        
     assert (clone_ids is None) or np.all(
         [(cid in final_clone_ids) for cid in clone_ids]
     )
+
     unique_chrs = np.unique(df_cnv.CHR.values)
 
     n_states = res_combine["new_p_binom"].shape[0]
@@ -102,6 +110,7 @@ def plot_clones_genomic(
         for c, _ in enumerate(final_clone_ids)
     ]
 
+    # NB create pseudobulk for each clone.
     X, base_nb_mean, total_bb_RD, _ = merge_pseudobulk_by_index_mix(
         single_X,
         single_base_nb_mean,
@@ -112,10 +121,11 @@ def plot_clones_genomic(
     n_obs = X.shape[0]
     nonempty_clones = np.where(np.sum(total_bb_RD, axis=0) > 0)[0]
 
+    # TODO?
     assert clone_ids is None
 
     fig, axes = plt.subplots(
-        2 * len(nonempty_clones),
+        2 * len(nonempty_clones), # RDR + BAF (pseudobulk, all segments) for each clone
         1,
         figsize=(20, base_height * len(nonempty_clones)),
         dpi=200,
@@ -150,10 +160,10 @@ def plot_clones_genomic(
             )
             palette = palette
 
-        # NB plot RDR
+        # NB plot RDR.
         sns.scatterplot(
-            x=np.arange(X[:, 1, c].shape[0]),
-            y=X[:, 0, c] / base_nb_mean[:, c],
+            x=np.arange(X[:, 1, c].shape[0]), # NB integer per segment.
+            y=X[:, 0, c] / base_nb_mean[:, c], # NB UMIs relative to normal baseline.
             hue=hue,
             palette=palette,
             s=pointsize,
@@ -189,8 +199,8 @@ def plot_clones_genomic(
 
         # NB plot phased b-allele frequency
         sns.scatterplot(
-            x=np.arange(X[:, 1, c].shape[0]),
-            y=X[:, 1, c] / total_bb_RD[:, c],
+            x=np.arange(X[:, 1, c].shape[0]), # NB integer per segment. 
+            y=X[:, 1, c] / total_bb_RD[:, c], # NB BAF.
             hue=hue,
             palette=palette,
             s=pointsize,
@@ -225,6 +235,8 @@ def plot_clones_genomic(
                 c="black",
                 linewidth=2,
             )
+
+            # NB phase flip.
             axes[2 * s + 1].plot(
                 seg,
                 [

@@ -93,7 +93,7 @@ def filter_normal_diffexp(
         tmpadata = adata[index, :].copy()
         if (
             np.sum(tmpadata.layers["count"][tmpadata.obs["normal_candidate"], :])
-            < tmpadata.shape[1] * 10 # MAGIC
+            < tmpadata.shape[1] * 10  # MAGIC
         ):
             continue
 
@@ -164,16 +164,20 @@ def filter_normal_diffexp(
         )
 
     new_single_X_rdr = np.zeros((df_bininfo.shape[0], adata.shape[0]))
-    total_counts, retained_counts = 0,0
-    
+    total_counts, retained_counts = 0, 0
+
     for b, genestr in enumerate(df_bininfo.INCLUDED_GENES.values):
         # RDR (genes)
         bin_genes = set(genestr.split(" "))
         involved_genes = bin_genes - filtered_out_set
 
-        total_counts += np.sum(adata.layers["count"][:, adata.var.index.isin(bin_genes)])        
-        retained_counts += np.sum(adata.layers["count"][:, adata.var.index.isin(involved_genes)])
-        
+        total_counts += np.sum(
+            adata.layers["count"][:, adata.var.index.isin(bin_genes)]
+        )
+        retained_counts += np.sum(
+            adata.layers["count"][:, adata.var.index.isin(involved_genes)]
+        )
+
         new_single_X_rdr[b, :] = np.sum(
             adata.layers["count"][:, adata.var.index.isin(involved_genes)], axis=1
         )

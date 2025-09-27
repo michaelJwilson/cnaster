@@ -27,14 +27,12 @@ def form_gene_snp_table(
         f"Found {100. * len(common_genes) / len(adata.var.index):.2f}% of visium genes to be in reference."
     )
 
-    # TODO 
-    logger.info(
-        f"Visium genes not in reference:"
-    )
+    # TODO
+    logger.info(f"Visium genes not in reference:")
 
     for gene in sorted(genes_not_in_reference):
         logger.info(gene)
-    
+
     # NB limits reference genes to those present in (filtered) AnnData UMIs.
     df_hgtable = df_hgtable[df_hgtable.name2.isin(adata.var.index)]
 
@@ -582,9 +580,11 @@ def create_bin_ranges(
 
     # NB summed across spots.
     block_umi = np.sum(single_total_bb_RD, axis=1)
-    
-    logger.info(f"Creating bin ranges assuming a max length of {max_binlength} and min. block UMI of {secondary_min_umi}.")
-    
+
+    logger.info(
+        f"Creating bin ranges assuming a max length of {max_binlength} and min. block UMI of {secondary_min_umi}."
+    )
+
     # TODO max_binlength.
     # NB get a list of points where existing block must be broken as too long.
     breakpoints = np.concatenate(
@@ -669,7 +669,7 @@ def summarize_counts_for_bins(
         Log phase switch probability between each pair of adjacent blocks.
     """
     logger.info(f"Summarizing counts for bins.")
-    
+
     bins = df_gene_snp.bin_id.unique()
 
     # NB last axis is the number of spot (barcodes).
@@ -680,8 +680,10 @@ def summarize_counts_for_bins(
 
     has_assigned_bin = ~df_gene_snp.bin_id.isnull()
 
-    logger.info(f"Retaining {100. * np.mean(has_assigned_bin)} of bins with assigned block.")
-    
+    logger.info(
+        f"Retaining {100. * np.mean(has_assigned_bin)} of bins with assigned block."
+    )
+
     # NB summarize counts of involved genes and blocks within each bin.
     df_bin_contents = (
         df_gene_snp[has_assigned_bin]
@@ -750,7 +752,7 @@ def summarize_counts_for_bins(
         val for pair in zip(sorted_chr_pos_first, sorted_chr_pos_last) for val in pair
     ]
 
-    # 
+    #
     ref_positions_cM = get_reference_recomb_rates(geneticmap_file)
 
     position_cM = assign_centiMorgans(tmp_sorted_chr_pos, ref_positions_cM)

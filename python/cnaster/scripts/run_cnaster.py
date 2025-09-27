@@ -33,7 +33,7 @@ from cnaster.spatial import (
     initialize_clones,
     multislice_adjacency,
     rectangle_initialize_initial_clone,
-    sufficient_umis_initial_clone
+    sufficient_umis_initial_clone,
 )
 from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
 from cnaster.neyman_pearson import (
@@ -309,7 +309,7 @@ def run_cnaster(config_path):
         coords, adata.layers["count"], sample_ids, config.hmrf.n_clones, random_state=0
     )
     """
-    
+
     # NB construct clone labels.
     df_clone_label = pd.DataFrame(
         {"x": coords[:, 0], "y": coords[:, 1]}, index=barcodes
@@ -324,7 +324,7 @@ def run_cnaster(config_path):
 
     df_clone_label["clone_label"] = clone_id
 
-    # NB cannot sort before barcode-ordered assignments etc!                                                                                                                                                                                                                    
+    # NB cannot sort before barcode-ordered assignments etc!
     df_clone_label = df_clone_label.groupby("sample_id", group_keys=False).apply(
         lambda g: g.sort_values(["x", "y"])
     )
@@ -336,8 +336,10 @@ def run_cnaster(config_path):
     write_tsv(opath, df_clone_label, header=True, index=True, index_label="barcode")
 
     exit(0)
-    
-    logger.info("Solving HMM & HMRF for copy states and clone assignment with BAF only.")
+
+    logger.info(
+        "Solving HMM & HMRF for copy states and clone assignment with BAF only."
+    )
 
     res = hmrfmix_concatenate_pipeline(
         None,
@@ -413,28 +415,30 @@ def run_cnaster(config_path):
         threshold=config.hmrf.tumorprop_threshold,
     )
 
-    # NB construct clone labels.                                                                                                                                                                                                                     
+    # NB construct clone labels.
     df_clone_label = pd.DataFrame(
         {"x": coords[:, 0], "y": coords[:, 1]}, index=barcodes
     )
 
-    # NB barcodes is the index.                                                                                                                                                                                                                        
+    # NB barcodes is the index.
     df_clone_label.insert(0, "sample_id", df_clone_label.index.str.split("_").str[-1])
 
-    # TODO assert aligned?                                                                                                                                                                                                                             
+    # TODO assert aligned?
     if config.preprocessing.tumorprop_file is not None:
         df_clone_label["tumor_proportion"] = single_tumor_prop
 
     df_clone_label["clone_label"] = merged_res["new_assignment"]
 
-    # NB cannot sort before barcode-ordered assignments etc!                                                                                                                                                                                           
+    # NB cannot sort before barcode-ordered assignments etc!
     df_clone_label = df_clone_label.groupby("sample_id", group_keys=False).apply(
         lambda g: g.sort_values(["x", "y"])
     )
 
     opath = f"{config.paths.output_dir}/baf_clone_labels.tsv"
 
-    logger.info(f"Writing baf inferred clone labels to {opath},\n{df_clone_label.head()}")
+    logger.info(
+        f"Writing baf inferred clone labels to {opath},\n{df_clone_label.head()}"
+    )
 
     write_tsv(opath, df_clone_label, header=True, index=True, index_label="barcode")
 
@@ -1079,7 +1083,7 @@ def run_cnaster(config_path):
     # TODO HACK
     # int_ploidy = [None, 2, 3, 4]
     int_ploidy = [None, 2]
-        
+
     for o, max_medploidy in enumerate(int_ploidy):
         logger.info(
             f"Solving integer copy number problem for max_medploidy={max_medploidy}."
@@ -1272,7 +1276,7 @@ def run_cnaster(config_path):
 
         # HACK
         # df_seglevel_cnv = df_seglevel_cnv.rename(columns={col: col.replace(" ", "_") for col in df_seglevel_cnv.columns})
-        
+
         logger.info(
             f"Solved for integer copy numbers @ segments:\n{df_seglevel_cnv.head()}"
         )

@@ -87,7 +87,10 @@ def initial_phase_given_partition(
             this_baf_profiles = np.where(
                 pred < n_states,
                 res["new_p_binom"][pred % n_states, 0],
-                1.0 - res["new_p_binom"][pred % n_states, 0], # BAF evidence for switch-error so flip.
+                1.0
+                - res["new_p_binom"][
+                    pred % n_states, 0
+                ],  # BAF evidence for switch-error so flip.
             )
 
             # NB TODO attractor to 0.5 if sufficiently close, independent of coverage.
@@ -98,12 +101,12 @@ def initial_phase_given_partition(
             baf_profiles[i, :] = this_baf_profiles
 
     mirror_baf_profiles = np.where(baf_profiles < 0.5, baf_profiles, 1.0 - baf_profiles)
-            
+
     # NB compute population-level BAF with weighted mean by clone size.
     if single_tumor_prop is None:
         num_spots_per_clone = [len(x) for x in initial_clone_index]
         n_total_spots = np.sum(num_spots_per_clone)
-        
+
         population_baf = (
             np.array([1.0 * len(x) / n_total_spots for x in initial_clone_index])
             @ baf_profiles
@@ -131,8 +134,8 @@ def initial_phase_given_partition(
     cumlen = 0
 
     MIN_SEGMENT_SIZE = 10  # MAGIC
-    BAF_CHANGE_THRESHOLD = 0.1  # MAGIC 
-    
+    BAF_CHANGE_THRESHOLD = 0.1  # MAGIC
+
     # NB le is the number of blocks per contig.
     for le in lengths:
         s = 0

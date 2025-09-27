@@ -90,14 +90,16 @@ def neyman_pearson_similarity(
     total_bb_RD,
     res,
     threshold=2.0,
-    minlength=10, # MAGIC
+    minlength=10,  # MAGIC
     topk=10,
     params="smp",
     tumor_prop=None,
     hmmclass=hmm_sitewise,
     **kwargs,
 ):
-    logger.info("Solving for Neyman-Pearson similiarity with {hmmclass.__name__} instance.")
+    logger.info(
+        "Solving for Neyman-Pearson similiarity with {hmmclass.__name__} instance."
+    )
 
     n_obs, _, n_clones = X.shape
     n_states = res["new_p_binom"].shape[0]
@@ -192,7 +194,7 @@ def neyman_pearson_similarity(
 
     # NB MAP copy number state.
     reshaped_pred_cnv = reshaped_pred % n_states
-    
+
     all_test_statistics = []
 
     # NB all distinct clone pairs.
@@ -205,7 +207,7 @@ def neyman_pearson_similarity(
                 if x[0] != x[1]
             ]
             list_t_neymanpearson = []
-            
+
             for p in unique_pair_states:
                 bidx = np.where(
                     (reshaped_pred_cnv[c1, :] == p[0])
@@ -237,11 +239,11 @@ def neyman_pearson_similarity(
                         res,
                         p,
                     )
-                    
+
                 logger.info(
                     f"Evaluated Neyman-Pearson for ({c1},{c2}) with p={p} and t={t_neymanpearson:+.4f}"
                 )
-                
+
                 all_test_statistics.append([c1, c2, p, t_neymanpearson])
 
                 # NB number of genomic bins with this copy state pair across clones.
@@ -267,7 +269,7 @@ def neyman_pearson_similarity(
         # NB sum of edge weights, dropping (b,a) given (a,b).
         this_weights = (
             np.sum([G.get_edge_data(a, b)["weight"] for a in x for b in x if a != b])
-            / 2. 
+            / 2.0
         )
         cliques.append((x, this_len, this_weights))
 
@@ -295,7 +297,7 @@ def neyman_pearson_similarity(
 
     # NB sorts the groups so that those with the smallest node indices come first.
     merging_groups.sort(key=lambda x: np.min(x))
-    
+
     # NB new clone assignment after merging clones.
     map_clone_id = {}
     for i, x in enumerate(merging_groups):

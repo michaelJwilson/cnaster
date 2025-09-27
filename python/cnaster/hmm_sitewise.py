@@ -86,7 +86,7 @@ class hmm_sitewise:
             for s in np.arange(n_spots):
                 idx_nonzero_rdr = np.where(base_nb_mean[:, s] > 0)[0]
 
-                # NB this is relied on to shut off RDR evalutation when base_nb_mean == 0. 
+                # NB this is relied on to shut off RDR evalutation when base_nb_mean == 0.
                 if len(idx_nonzero_rdr) > 0:
                     nb_mean = base_nb_mean[idx_nonzero_rdr, s] * np.exp(log_mu[i, s])
                     nb_std = np.sqrt(nb_mean + alphas[i, s] * nb_mean**2)
@@ -202,7 +202,7 @@ class hmm_sitewise:
                     mix_p_B = (1 - p_binom[i, s]) * tumor_prop[
                         idx_nonzero_baf, s
                     ] + 0.5 * (1 - tumor_prop[idx_nonzero_baf, s])
-                    
+
                     log_emission_baf[
                         i, idx_nonzero_baf, s
                     ] += scipy.stats.betabinom.logpmf(
@@ -221,7 +221,7 @@ class hmm_sitewise:
                         mix_p_B * taus[i, s],
                         mix_p_A * taus[i, s],
                     )
-                    
+
         return log_emission_rdr, log_emission_baf
 
     @staticmethod
@@ -493,7 +493,9 @@ class hmm_sitewise:
 
             # ----  M step  ----
             if "s" in self.params:
-                new_log_startprob = update_startprob_sitewise(lengths, log_gamma).flatten()
+                new_log_startprob = update_startprob_sitewise(
+                    lengths, log_gamma
+                ).flatten()
             else:
                 new_log_startprob = log_startprob
 

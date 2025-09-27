@@ -22,7 +22,7 @@ def pipeline_baum_welch(
     tumor_prop=None,
     hmmclass=hmm_sitewise,
     params="smp",
-    t=1. - 1.e-6,
+    t=1.0 - 1.0e-6,
     random_state=0,
     in_log_space=True,
     only_minor=False,
@@ -39,7 +39,9 @@ def pipeline_baum_welch(
     tol=1e-4,
     **kwargs,
 ):
-    logger.info(f"Solving HMM for X={X.shape} with {hmmclass.__name__} instance and parameters={params}; t={t}.")
+    logger.info(
+        f"Solving HMM for X={X.shape} with {hmmclass.__name__} instance and parameters={params}; t={t}."
+    )
 
     # NB this may be num_clones, or one clone for phasing.
     n_spots = X.shape[2]
@@ -90,7 +92,7 @@ def pipeline_baum_welch(
     remain_kwargs = {k: v for k, v in kwargs.items() if k in ["lambd", "sample_length"]}
 
     logger.info(f"Assuming kwargs={remain_kwargs.keys()}")
-    
+
     (
         new_log_mu,
         new_alphas,
@@ -133,11 +135,11 @@ def pipeline_baum_welch(
 
     logger.info("\n".join(to_log))
     logger.info("Computing emission prob. given best-fit parameters.")
-    
+
     if tumor_prop is None:
         (
-            log_emission_rdr, # NB emission prob. for RDR.
-            log_emission_baf, # NB emission prob. for BAF.
+            log_emission_rdr,  # NB emission prob. for RDR.
+            log_emission_baf,  # NB emission prob. for BAF.
         ) = hmmclass.compute_emission_probability_nb_betabinom(
             X, base_nb_mean, new_log_mu, new_alphas, total_bb_RD, new_p_binom, new_taus
         )

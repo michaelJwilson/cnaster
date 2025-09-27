@@ -261,11 +261,14 @@ def plot_clones_spatial(
     base_height=3,
     palette="Set2",
 ):
+    """
+    Plot the spatial distribution of assigned clones for multiple slices/samples.
+    """
     logger.info(f"Plotting inferred positions for all clones.")
 
     # NB shift coordinates across samples
     shifted_coords = copy.copy(coords)
-    
+
     if sample_ids is not None:
         x_offset = 0
 
@@ -287,7 +290,7 @@ def plot_clones_spatial(
     fig, axes = plt.subplots(
         1, 1, figsize=(base_width * n_samples, base_height), dpi=200, facecolor="white"
     )
-    
+
     if "clone 0" in final_clone_ids:
         colorlist = ["lightgrey"] + sns.color_palette(
             "Set2", n_final_clones - 1
@@ -356,6 +359,7 @@ def plot_clones_spatial(
         handlelength=0.1,
         loc="upper left",
         bbox_to_anchor=(1, 1),
+        frameon=False,
     )
     axes.axis("off")
 

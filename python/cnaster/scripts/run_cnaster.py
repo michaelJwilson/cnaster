@@ -112,7 +112,6 @@ def run_cnaster(config_path):
 
     # NB e.g. 'AAACAAGTATCTCCCA-1_HT112C1-U1' currently.
     barcodes = adata.obs.index
-
     sample_list = [adata.obs["sample"].iloc[0]]
 
     # NB loop through rows (barcodes x samples) and collect sample names;
@@ -305,7 +304,7 @@ def run_cnaster(config_path):
         coords, config.hmrf.n_clones, random_state=0
     )
 
-    logger.info("Solving HMM+HMRF for copy states and clone assignment with BAF only.")
+    logger.info("Solving HMM & HMRF for copy states and clone assignment with BAF only.")
 
     res = hmrfmix_concatenate_pipeline(
         None,
@@ -380,6 +379,32 @@ def run_cnaster(config_path):
         single_tumor_prop=single_tumor_prop,
         threshold=config.hmrf.tumorprop_threshold,
     )
+
+    # NB construct clone labels.                                                                                                                                                                                                                      
+    df_clone_label = pd.DataFrame(
+        {"x": coords[:, 0], "y": coords[:, 1]}, index=barcodes
+    )
+
+    # NB barcodes is the index.                                                                                                                                                                                                                        
+    df_clone_label.insert(0, "sample_id", df_clone_label.index.str.split("_").str[-1])
+
+    # TODO assert aligned?                                                                                                                                                                                                                             
+    if config.preprocessing.tumorprop_file is not None:
+        df_clone_label["tumor_proportion"] = single_tumor_prop
+
+    df_clone_label["clone_label"] = merged_res["new_assignment"]
+
+    # NB cannot sort before barcode-ordered assignments etc!                                                                                                                                                                                           
+    df_clone_label = df_clone_label.groupby("sample_id", group_keys=False).apply(
+        lambda g: g.sort_values(["x", "y"])
+    )
+
+    opath = f"{config.paths.output_dir}/baf_clone_labels.tsv"
+
+    logger.info(f"Writing baf inferred clone labels to {opath},\n{df_clone_label.head()}")
+
+    # BUG df_clone_label
+    write_tsv(opath, None, header=True, index=True, index_label="barcode")
 
     # TODO
     n_obs = single_X.shape[0]
@@ -1231,6 +1256,7 @@ def run_cnaster(config_path):
 
         write_tsv(opath, state_cnv, header=True, index=False)
 
+    # NB construct clone labels.
     df_clone_label = pd.DataFrame(
         {"x": coords[:, 0], "y": coords[:, 1]}, index=barcodes
     )

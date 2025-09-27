@@ -301,7 +301,7 @@ def run_cnaster(config_path):
 
     # NB non-contiguous assignment of clones to an unequal grid partitioning
     #    of input coordinates.
-    initial_clone_index, block_clone_array = rectangle_initialize_initial_clone(
+    initial_clone_index, clone_id = rectangle_initialize_initial_clone(
         coords, config.hmrf.n_clones, random_state=0
     )
     """
@@ -318,11 +318,11 @@ def run_cnaster(config_path):
     # NB barcodes is the index.
     df_clone_label.insert(0, "sample_id", df_clone_label.index.str.split("_").str[-1])
 
-    # TODO assert aligned?                                                                                                                                                                                                                                                      
+    # TODO assert aligned?
     if config.preprocessing.tumorprop_file is not None:
         df_clone_label["tumor_proportion"] = single_tumor_prop
 
-    df_clone_label["clone_label"] = block_clone_array
+    df_clone_label["clone_label"] = clone_id
 
     # NB cannot sort before barcode-ordered assignments etc!                                                                                                                                                                                                                    
     df_clone_label = df_clone_label.groupby("sample_id", group_keys=False).apply(
@@ -334,6 +334,8 @@ def run_cnaster(config_path):
     logger.info(f"Writing initial clone labels to {opath},\n{df_clone_label.head()}")
 
     write_tsv(opath, df_clone_label, header=True, index=True, index_label="barcode")
+
+    exit(0)
     
     logger.info("Solving HMM & HMRF for copy states and clone assignment with BAF only.")
 

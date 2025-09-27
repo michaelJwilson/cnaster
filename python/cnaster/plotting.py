@@ -263,8 +263,9 @@ def plot_clones_spatial(
 ):
     logger.info(f"Plotting inferred positions for all clones.")
 
-    # NB combine coordinates across samples
+    # NB shift coordinates across samples
     shifted_coords = copy.copy(coords)
+    
     if sample_ids is not None:
         x_offset = 0
 
@@ -278,7 +279,7 @@ def plot_clones_spatial(
     n_final_clones = len(final_clone_ids)
     n_samples = 1 if sample_list is None else len(sample_list)
 
-    # NB remove nan of single_tumor_prop
+    # NB remove nan of single_tumor_prop; assumes 0.5(!)
     if single_tumor_prop is not None:
         copy_single_tumor_prop = copy.copy(single_tumor_prop)
         copy_single_tumor_prop[np.isnan(copy_single_tumor_prop)] = 0.5
@@ -286,6 +287,7 @@ def plot_clones_spatial(
     fig, axes = plt.subplots(
         1, 1, figsize=(base_width * n_samples, base_height), dpi=200, facecolor="white"
     )
+    
     if "clone 0" in final_clone_ids:
         colorlist = ["lightgrey"] + sns.color_palette(
             "Set2", n_final_clones - 1

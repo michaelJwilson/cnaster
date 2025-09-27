@@ -1226,9 +1226,9 @@ def run_cnaster(config_path):
     df_clone_label = pd.DataFrame(
         {"x": coords[:, 0], "y": coords[:, 1]}, index=barcodes
     )
-
+    
     # NB barcodes is the index.
-    df_clone_label["sample_id"] = df_clone_label.index.str.split("_").str[-1]
+    df_clone_label.insert(0, "sample_id", df_clone_label.index.str.split("_").str[-1])
 
     # TODO assert aligned?
     if config.preprocessing.tumorprop_file is not None:

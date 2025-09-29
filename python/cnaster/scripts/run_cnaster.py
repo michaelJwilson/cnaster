@@ -308,7 +308,7 @@ def run_cnaster(config_path):
     """
     
     initial_clone_index, clone_id = sufficient_umis_initial_clone(
-        coords, adata.layers["count"], sample_list, sample_ids
+        coords, adata.layers["count"], sample_list, sample_ids, 5_000_000,
     )
 
     # NB construct clone labels.
@@ -336,6 +336,8 @@ def run_cnaster(config_path):
 
     write_tsv(opath, df_clone_label, header=True, index=True, index_label="barcode")
 
+    exit(0)
+    
     # TODO HACK
     assignment = pd.Series([f"clone {x}" for x in clone_id])
     

@@ -68,13 +68,39 @@ def get_intervals(pred_cnv):
     return intervals, labs
 
 
-def cast_clone_label(x):
-    mapper = {"-1": "WARN", "0": "Normal", "1": "I", "2": "II", "3": "III", "4": "IV", 5: "V"}
+def cast_clone_label(num):
+    if not isinstance(num, int) or not (-1 <= num <= 3999):
+        raise ValueError("Input must be an integer between -1 and 3999.")
 
-    if x == 0:
+    if num == -1:
+        return "WARN"
+    elif num == 0:
         return "Normal"
     else:
-        return f"Clone {mapper[x.split()[1]]}"
+        lookup = [
+            (1000, "M"),
+            (900, "CM"),
+            (500, "D"),
+            (400, "CD"),
+            (100, "C"),
+            (90, "XC"),
+            (50, "L"),
+            (40, "XL"),
+            (10, "X"),
+            (9, "IX"),
+            (5, "V"),
+            (4, "IV"),
+            (1, "I"),
+        ]
+
+        roman_numeral = ""
+
+        for value, symbol in lookup:
+            while num >= value:
+                roman_numeral += symbol
+                num -= value
+
+        return f"Clone {roman_numeral}"
 
 
 def plot_clones_genomic(

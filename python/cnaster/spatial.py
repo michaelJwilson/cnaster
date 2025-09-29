@@ -116,9 +116,11 @@ def sufficient_umis_initial_clone(
     sample_list,
     sample_ids,
     MIN_CLONE_UMIS=500,
+    ACCEPTANCE=0.25,
+    max_growth_rounds=10,
     random_state=0,
 ):
-    logger.info(f"Assigning initial clones based on spot UMIs.")
+    logger.info(f"Assigning initial clones based on total spot UMIs.")
     
     np.random.seed(random_state)
     n_spots = coords.shape[0]
@@ -132,7 +134,7 @@ def sufficient_umis_initial_clone(
         this_coords = np.array(coords[index, :])
         this_spot_counts = np.sum(spot_gene_umis[index, :], axis=1)
 
-        logger.info(f"Solving initial assigning of sample/slice {sname} with {len(this_coords)} spots median spot UMIs {np.median(this_spot_counts)}")
+        logger.info(f"Solving initial assignment of sample/slice {sname} with {len(this_coords)} spots median spot UMIs {np.median(this_spot_counts)}")
         
         # NB assignments for this sample/slice.
         assigned = np.zeros(len(index), dtype=bool)
@@ -140,10 +142,20 @@ def sufficient_umis_initial_clone(
         while not np.all(assigned):
             # NB pick the unassigned spot with the largest UMI count
             unassigned_idx = np.where(~assigned)[0]
-            seed_idx = unassigned_idx[np.argmax(this_spot_counts[unassigned_idx])]
+            sorted_unassigned = unassigned_idx[np.argsort(-this_spot_counts[unassigned_idx])]
             
+            for candidate in sorted_unassigned:
+                if np.random.rand() < ACCEPTANCE:
+                    seed_idx = candidate
+                    break
+            else:
+                # NB fallback to least populated if none accepted 
+                seed_idx = sorted_unassigned[-1]
+                        
             group, group_umis = {seed_idx}, this_spot_counts[seed_idx]
 
+            num_rounds = 0
+            
             # NB grow group by adding nearest unassigned neighbors until MIN_CLONE_UMIS is reached
             while group_umis < MIN_CLONE_UMIS and len(group) < len(index):
                 # NB find unassigned neighbors (by Euclidean distance)
@@ -155,8 +167,10 @@ def sufficient_umis_initial_clone(
                     if neighbor not in group:
                         group.add(neighbor)
                         group_umis += this_spot_counts[neighbor]
-                    if group_umis >= MIN_CLONE_UMIS:
+                    if (group_umis >= MIN_CLONE_UMIS) or (num_rounds == max_growth_rounds):
                         break
+
+                num_rounds += 1 
 
             # NB assign clone_id to these spots
             for g in group:
@@ -167,7 +181,9 @@ def sufficient_umis_initial_clone(
 
             clone_id += 1
 
-    initial_clone_index = [np.where(clone_id == i)[0] for i in range(clone_id)]
+    logger.info(f"Solved for initial clones.")
+            
+    initial_clone_index = [np.where(clone_assignment == i)[0] for i in range(clone_id)]
             
     return initial_clone_index, clone_assignment
 

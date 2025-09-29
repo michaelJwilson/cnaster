@@ -111,22 +111,56 @@ def initialize_clones(
 
 
 def sufficient_umis_initial_clone(
-    coords, spot_gene_umis, sample_list, sample_ids, n_clones, random_state=0
+    coords,
+    spot_gene_umis,
+    sample_list,
+    sample_ids,
+    n_clones,
+    MIN_CLONE_UMIS,
+    random_state=0,
 ):
-    raise NotImplementedError()
-
-    # TODO HACK
     np.random.seed(random_state)
+    n_spots = coords.shape[0]
+    clone_assignment = np.full(n_spots, -1)  # -1 means unassigned
 
     for i, sname in enumerate(sample_list):
-        # NB spots per slice.
         index = np.where(sample_ids == i)[0]
-
-        # NB (x,y) for these spots.
         this_coords = np.array(coords[index, :])
-        this_counts = spot_gene_umis[index, :]
+        this_spot_counts = np.sum(spot_gene_umis[index, :], axis=1)
+        assigned = np.zeros(len(index), dtype=bool)
+        clone_id = 0
 
-    return None
+        while not np.all(assigned):
+            # Pick the unassigned spot with the largest UMI count
+            unassigned_idx = np.where(~assigned)[0]
+            seed_idx = unassigned_idx[np.argmax(this_spot_counts[unassigned_idx])]
+            group = {seed_idx}
+            group_umis = this_spot_counts[seed_idx]
+
+            # Grow group by adding nearest unassigned neighbors until MIN_CLONE_UMIS is reached
+            while group_umis < MIN_CLONE_UMIS and len(group) < len(index):
+                # Find unassigned neighbors (by Euclidean distance)
+                dists = np.linalg.norm(
+                    this_coords[unassigned_idx] - this_coords[seed_idx], axis=1
+                )
+                sorted_neighbors = unassigned_idx[np.argsort(dists)]
+                for neighbor in sorted_neighbors:
+                    if neighbor not in group:
+                        group.add(neighbor)
+                        group_umis += this_spot_counts[neighbor]
+                    if group_umis >= MIN_CLONE_UMIS:
+                        break
+
+            # Assign clone_id to these spots
+            for g in group:
+                assigned[g] = True
+                clone_assignment[index[g]] = clone_id
+
+            clone_id += 1
+            if clone_id >= n_clones:
+                clone_id = 0  # wrap around if more spots than clones
+
+    return clone_assignment
 
 
 # TODO!! spatially contigous clones?
@@ -183,9 +217,9 @@ def rectangle_initialize_initial_clone(coords, n_clones, random_state=0):
             assert np.any(bc == 0)
 
             # NB take a block from the most-sampled clone and give to an unassigned.
-            block_clone_map[np.where(block_clone_map == np.argmax(bc))[0][0]] = (
-                np.where(bc == 0)[0][0]
-            )
+            block_clone_map[
+                np.where(block_clone_map == np.argmax(bc))[0][0]
+            ] = np.where(bc == 0)[0][0]
 
         # NB create a map of block id to clone id.
         block_clone_map = {i: block_clone_map[i] for i in range(len(block_clone_map))}
@@ -277,7 +311,9 @@ def choose_adjacency_by_readcounts(
     y_dist = coords[:, 1][None, :] - coords[:, 1][:, None]
 
     # NB x and y dists have independent scale factors.
-    tmp_pairwise_squared_dist = x_dist**2 * unit_xsquared + y_dist**2 * unit_ysquared
+    tmp_pairwise_squared_dist = (
+        x_dist**2 * unit_xsquared + y_dist**2 * unit_ysquared
+    )
 
     # NB sets the diagonal (self-distances) to the maximum so they are not considered as nearest neighbors.
     # TODO np.inf

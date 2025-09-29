@@ -331,7 +331,7 @@ def plot_clones_genomic(
                     np.exp(res_combine["new_log_mu"][labs[i], c]),
                 ],
                 c="black",
-                linewidth=1,
+                linewidth=0.5,
             )
             axes[2 * s + 1].plot(
                 seg,
@@ -340,7 +340,7 @@ def plot_clones_genomic(
                     res_combine["new_p_binom"][labs[i], c],
                 ],
                 c="black",
-                linewidth=1,
+                linewidth=0.5,
             )
 
             # NB phase flip.
@@ -351,7 +351,7 @@ def plot_clones_genomic(
                     1.0 - res_combine["new_p_binom"][labs[i], c],
                 ],
                 c="black",
-                linewidth=1,
+                linewidth=0.5,
                 linestyle="--",
             )
 

@@ -137,7 +137,7 @@ def sufficient_umis_initial_clone(
     for i, sname in enumerate(sample_list):
         index = np.where(sample_ids == i)[0]
         this_coords = np.array(coords[index, :])
-        this_spot_counts = spot_counts[index, :]
+        this_spot_counts = spot_counts[index]
 
         logger.info(
             f"Solving initial assignment of sample/slice {sname} with {len(this_coords)} spots median spot UMIs {np.median(this_spot_counts)}"

@@ -68,7 +68,8 @@ def get_intervals(pred_cnv):
     return intervals, labs
 
 
-def cast_clone_label(num):
+def cast_clone_label(label):
+    num = label.split()[1]
     num = int(num)
 
     if not (-1 <= num <= 3999):

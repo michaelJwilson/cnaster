@@ -346,7 +346,6 @@ def run_cnaster(config_path):
         sample_ids=sample_ids,
         base_width=4,
         base_height=3,
-        palette="Set2",
     )
 
     fig_path = f"{config.paths.output_dir}/plots/initial_clones_spatial.pdf"
@@ -1374,7 +1373,6 @@ def run_cnaster(config_path):
         sample_ids=sample_ids,
         base_width=4,
         base_height=3,
-        palette="Set2",
     )
 
     fig_path = f"{config.paths.output_dir}/plots/clones_spatial.pdf"

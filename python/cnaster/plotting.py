@@ -11,7 +11,7 @@ from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
 
 logger = logging.getLogger(__name__)
 
-sns.set(font="DejaVu Sans") 
+sns.set(font="Helvetica") 
 
 def get_full_palette():
     palette = {}
@@ -319,12 +319,12 @@ def plot_clones_spatial(
         ).as_hex()
     else:
         colorlist = sns.color_palette(palette, n_final_clones).as_hex()
-
-    # TODO HACK
-    final_clone_ids = np.array([cast_clone_label(x) for x in final_clone_ids])
         
     for c, cid in enumerate(final_clone_ids):
         idx = np.where((assignment.values == cid))[0]
+
+        
+        
         if single_tumor_prop is None:
             sns.scatterplot(
                 x=shifted_coords[idx, 0],
@@ -365,7 +365,7 @@ def plot_clones_spatial(
                 legend=None,
                 ax=axes,
             )
-
+            
     legend_elements = [
         Line2D(
             [0],
@@ -373,7 +373,7 @@ def plot_clones_spatial(
             marker="o",
             color="w",
             markerfacecolor=colorlist[c],
-            label=cid,
+            label=cast_clone_label(cid),
             markersize=10,
         )
         for c, cid in enumerate(final_clone_ids)

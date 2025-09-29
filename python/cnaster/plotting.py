@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 plt.rcParams["font.family"] = "DejaVu Serif"
 
+
 def get_full_palette():
     palette = {}
     palette.update({(0, 0): "darkblue"})
@@ -69,7 +70,7 @@ def get_intervals(pred_cnv):
 
 def cast_clone_label(x):
     mapper = {"0": "Normal", "1": "I", "2": "II", "3": "III", "4": "IV", 5: "V"}
-    
+
     if x == 0:
         return "Normal"
     else:
@@ -184,7 +185,7 @@ def plot_clones_genomic(
             ax=axes[2 * s],
         )
 
-        axes[2 * s].set_ylabel(f"clone {cid}\nRDR")
+        axes[2 * s].set_ylabel(f"{cast_clone_label(cid)}\nRDR")
         axes[2 * s].set_yticks(np.arange(1, rdr_ylim, 1))
         axes[2 * s].set_ylim([0, rdr_ylim])
         axes[2 * s].set_xlim([0, n_obs])
@@ -220,7 +221,7 @@ def plot_clones_genomic(
             ax=axes[2 * s + 1],
         )
 
-        axes[2 * s + 1].set_ylabel(f"clone {cid}\nphased AF")
+        axes[2 * s + 1].set_ylabel(f"{cast_clone_label(cid)}\nBAF")
         axes[2 * s + 1].set_ylim([-0.05, 1.05])
         axes[2 * s + 1].set_yticks([0, 0.5, 1])
         axes[2 * s + 1].set_xlim([0, n_obs])
@@ -262,7 +263,7 @@ def plot_clones_genomic(
         axes[-1].text(
             median_len - 5,
             chrtext_shift,
-            unique_chrs[i],
+            f"chr{unique_chrs[i]}",
             transform=axes[-1].get_xaxis_transform(),
         )
         for k in range(2 * len(nonempty_clones)):
@@ -281,7 +282,7 @@ def plot_clones_spatial(
     sample_ids=None,
     base_width=4,
     base_height=3,
-    palette="rocket", # "Set2"
+    palette="rocket",  # "Set2"
 ):
     """
     Plot the spatial distribution of assigned clones for multiple slices/samples.
@@ -319,12 +320,10 @@ def plot_clones_spatial(
         ).as_hex()
     else:
         colorlist = sns.color_palette(palette, n_final_clones).as_hex()
-        
+
     for c, cid in enumerate(final_clone_ids):
         idx = np.where((assignment.values == cid))[0]
 
-        
-        
         if single_tumor_prop is None:
             sns.scatterplot(
                 x=shifted_coords[idx, 0],
@@ -365,7 +364,7 @@ def plot_clones_spatial(
                 legend=None,
                 ax=axes,
             )
-            
+
     legend_elements = [
         Line2D(
             [0],

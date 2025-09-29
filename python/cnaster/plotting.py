@@ -69,7 +69,7 @@ def get_intervals(pred_cnv):
 
 
 def cast_clone_label(label):
-    num = label.replace("clone","").strip()
+    num = label.replace("clone", "").strip()
     num = int(num)
 
     if not (-1 <= num <= 3999):
@@ -165,6 +165,7 @@ def plot_clones_genomic(
     # TODO?
     assert clone_ids is None
 
+    """
     fig, axes = plt.subplots(
         2 * len(nonempty_clones),  # RDR + BAF (pseudobulk, all segments) for each clone
         1,
@@ -172,10 +173,57 @@ def plot_clones_genomic(
         dpi=200,
         facecolor="white",
     )
+    """
+
+    """
+    n_axes = 2 * len(nonempty_clones) # RDR + BAF (pseudobulk, all segments) for each clone.
+    fig = plt.figure(figsize=(20, base_height * len(nonempty_clones)), dpi=200, facecolor="white")
+
+    height_ratios = [1] * n_axes
+    
+    if n_axes > 2:
+        # Double the space between axes[1] and axes[2]
+        height_ratios.insert(2, 2)  # Insert extra space after the second plot
+
+    gs = gridspec.GridSpec(n_axes + (1 if n_axes > 2 else 0), 1, height_ratios=height_ratios)
+
+    axes = []
+    
+    for i in range(n_axes):
+        # Skip the extra space row for axes[2]
+        gs_idx = i if i < 2 else i + 1
+        axes.append(fig.add_subplot(gs[gs_idx, 0]))
+    """
+
+    n_axes = 2 * len(nonempty_clones)  # RDR + BAF for each clone
+    n_pairs = len(nonempty_clones)
+    fig = plt.figure(figsize=(20, base_height * n_pairs), dpi=200, facecolor="white")
+
+    # Build height_ratios: [1, 1, 2, 1, 1, 2, ...] (no space within pair, double space between pairs)
+    height_ratios = []
+    
+    for i in range(n_pairs):
+        height_ratios.extend([1, 1])  # No space between the pair
+        
+        if i < n_pairs - 1:
+            height_ratios.append(2)   # Double space between pairs
+
+    n_rows = len(height_ratios)
+    gs = gridspec.GridSpec(n_rows, 1, height_ratios=height_ratios)
+
+    axes, row = [], 0
+    
+    for i in range(n_axes):
+        axes.append(fig.add_subplot(gs[row, 0]))
+        row += 1
+        
+        # After every pair, skip the extra space row
+        if (i % 2 == 1) and (i < n_axes - 1):
+            row += 1
 
     if sample_list is not None:
         axes[0].set_title(",".join(sample_list), loc="left")
-    
+
     for s, c in enumerate(nonempty_clones):
         cid = final_clone_ids[c]
 
@@ -219,8 +267,9 @@ def plot_clones_genomic(
         )
 
         axes[2 * s].set_ylabel(f"{cast_clone_label(cid)}\nRDR")
-        axes[2 * s].set_yticks(np.arange(1, rdr_ylim, 1., dtype=float))
+        axes[2 * s].set_yticks(np.arange(1, rdr_ylim, 1.0, dtype=float))
         axes[2 * s].set_ylim([0, rdr_ylim])
+        axes[2 * s].set_yticklabels([f"{y:.1f}" for y in axes[2 * s].get_yticks()])
         axes[2 * s].set_xlim([0, n_obs])
 
         if remove_xticks:
@@ -295,15 +344,15 @@ def plot_clones_genomic(
     for i in range(len(lengths)):
         median_len = np.sum(lengths[:(i)]) * 0.55 + np.sum(lengths[: (i + 1)]) * 0.45
         axes[-1].text(
-            median_len,
+            0.9 * median_len,
             chrtext_shift,
             f"chr{unique_chrs[i]}",
             transform=axes[-1].get_xaxis_transform(),
-            fontsize=10,
+            fontsize=9,
             ha="left",
         )
         for k in range(2 * len(nonempty_clones)):
-            axes[k].axvline(x=np.sum(lengths[:(i)]), c="k", linewidth=2)
+            axes[k].axvline(x=np.sum(lengths[:(i)]), c="k", linewidth=1)
 
     fig.tight_layout()
 

@@ -116,8 +116,8 @@ def sufficient_umis_initial_clone(
     sample_list,
     sample_ids,
     min_clone_umis=5_000_000,
-    acceptance=0.25,
-    max_growth_rounds=10,
+    acceptance=1.,
+    max_growth_rounds=50,
     random_state=0,
 ):
     logger.info(

@@ -311,7 +311,7 @@ def run_cnaster(config_path):
         adata.layers["count"],
         sample_list,
         sample_ids,
-        5_000_000,
+        10_000_000,
     )
 
     # NB construct clone labels.

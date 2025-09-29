@@ -11,7 +11,7 @@ from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
 
 logger = logging.getLogger(__name__)
 
-sns.set(font="Helvetica") 
+plt.rcParams["font.family"] = "DejaVu Serif"
 
 def get_full_palette():
     palette = {}
@@ -380,7 +380,7 @@ def plot_clones_spatial(
     ]
     axes.legend(
         legend_elements,
-        final_clone_ids,
+        [cast_clone_label(cid) for cid in final_clone_ids],
         handlelength=0.1,
         loc="upper left",
         bbox_to_anchor=(1, 1),

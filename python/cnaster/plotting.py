@@ -11,6 +11,7 @@ from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
 
 logger = logging.getLogger(__name__)
 
+sns.set(font="DejaVu Sans") 
 
 def get_full_palette():
     palette = {}
@@ -66,8 +67,17 @@ def get_intervals(pred_cnv):
     return intervals, labs
 
 
+def cast_clone_label(x):
+    mapper = {"0": "Normal", "1": "I", "2": "II", "3": "III", "4": "IV", 5: "V"}
+    
+    if x == 0:
+        return "Normal"
+    else:
+        return f"Clone {mapper[x.split()[1]]}"
+
+
 def plot_clones_genomic(
-    df_cnv, # NB integer copy numbers for each segment.
+    df_cnv,  # NB integer copy numbers for each segment.
     lengths,
     single_X,
     single_base_nb_mean,
@@ -94,7 +104,7 @@ def plot_clones_genomic(
     # NB add in normal clone.
     if "0" not in final_clone_ids:
         final_clone_ids = np.array(["0"] + list(final_clone_ids))
-        
+
     assert (clone_ids is None) or np.all(
         [(cid in final_clone_ids) for cid in clone_ids]
     )
@@ -125,7 +135,7 @@ def plot_clones_genomic(
     assert clone_ids is None
 
     fig, axes = plt.subplots(
-        2 * len(nonempty_clones), # RDR + BAF (pseudobulk, all segments) for each clone
+        2 * len(nonempty_clones),  # RDR + BAF (pseudobulk, all segments) for each clone
         1,
         figsize=(20, base_height * len(nonempty_clones)),
         dpi=200,
@@ -162,8 +172,8 @@ def plot_clones_genomic(
 
         # NB plot RDR.
         sns.scatterplot(
-            x=np.arange(X[:, 1, c].shape[0]), # NB integer per segment.
-            y=X[:, 0, c] / base_nb_mean[:, c], # NB UMIs relative to normal baseline.
+            x=np.arange(X[:, 1, c].shape[0]),  # NB integer per segment.
+            y=X[:, 0, c] / base_nb_mean[:, c],  # NB UMIs relative to normal baseline.
             hue=hue,
             palette=palette,
             s=pointsize,
@@ -199,8 +209,8 @@ def plot_clones_genomic(
 
         # NB plot phased b-allele frequency
         sns.scatterplot(
-            x=np.arange(X[:, 1, c].shape[0]), # NB integer per segment. 
-            y=X[:, 1, c] / total_bb_RD[:, c], # NB BAF.
+            x=np.arange(X[:, 1, c].shape[0]),  # NB integer per segment.
+            y=X[:, 1, c] / total_bb_RD[:, c],  # NB BAF.
             hue=hue,
             palette=palette,
             s=pointsize,
@@ -259,7 +269,7 @@ def plot_clones_genomic(
             axes[k].axvline(x=np.sum(lengths[:(i)]), c="grey", linewidth=1)
 
     fig.tight_layout()
-    
+
     return fig
 
 
@@ -271,7 +281,7 @@ def plot_clones_spatial(
     sample_ids=None,
     base_width=4,
     base_height=3,
-    palette="Set2",
+    palette="rocket", # "Set2"
 ):
     """
     Plot the spatial distribution of assigned clones for multiple slices/samples.
@@ -305,11 +315,14 @@ def plot_clones_spatial(
 
     if "clone 0" in final_clone_ids:
         colorlist = ["lightgrey"] + sns.color_palette(
-            "Set2", n_final_clones - 1
+            palette, n_final_clones - 1
         ).as_hex()
     else:
-        colorlist = sns.color_palette("Set2", n_final_clones).as_hex()
+        colorlist = sns.color_palette(palette, n_final_clones).as_hex()
 
+    # TODO HACK
+    final_clone_ids = np.array([cast_clone_label(x) for x in final_clone_ids])
+        
     for c, cid in enumerate(final_clone_ids):
         idx = np.where((assignment.values == cid))[0]
         if single_tumor_prop is None:
@@ -375,6 +388,7 @@ def plot_clones_spatial(
     )
     axes.axis("off")
     axes.set_title(",".join(sample_list))
-    
+
     fig.tight_layout()
+
     return fig

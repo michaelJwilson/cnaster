@@ -335,6 +335,26 @@ def run_cnaster(config_path):
 
     write_tsv(opath, df_clone_label, header=True, index=True, index_label="barcode")
 
+    # TODO HACK
+    assignment = pd.Series([f"clone {x}" for x in clone_id])
+    
+    initial_clones_fig = plot_clones_spatial(
+        coords,
+        assignment,
+        single_tumor_prop=single_tumor_prop,
+	sample_list=sample_list,
+        sample_ids=sample_ids,
+        base_width=4,
+        base_height=3,
+        palette="Set2",
+    )
+
+    fig_path = f"{config.paths.output_dir}/plots/initial_clones_spatial.pdf"
+
+    write_fig(fig_path, initial_clones_fig, transparent=True, bbox_inches="tight")
+
+    exit(0)
+    
     logger.info(
         "Solving HMM & HMRF for copy states and clone assignment with BAF only."
     )

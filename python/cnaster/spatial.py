@@ -115,62 +115,76 @@ def sufficient_umis_initial_clone(
     spot_gene_umis,
     sample_list,
     sample_ids,
-    MIN_CLONE_UMIS=500,
-    ACCEPTANCE=0.25,
+    min_clone_umis=5_000_000,
+    acceptance=0.25,
     max_growth_rounds=10,
     random_state=0,
 ):
-    logger.info(f"Assigning initial clones based on total spot UMIs.")
-    
+    logger.info(
+        f"Assigning initial clones based on total spot UMIs, min_clone_umis={min_clone_umis}, acceptance={acceptance} and max_growth_rounds={max_growth_rounds}"
+    )
+
+    # TODO HACK
     np.random.seed(random_state)
     n_spots = coords.shape[0]
 
-    # NB -1 means unassigned  
+    # NB -1 means unassigned
     clone_assignment = np.full(n_spots, -1)
     clone_id = 0
-    
+
     for i, sname in enumerate(sample_list):
         index = np.where(sample_ids == i)[0]
         this_coords = np.array(coords[index, :])
         this_spot_counts = np.sum(spot_gene_umis[index, :], axis=1)
 
-        logger.info(f"Solving initial assignment of sample/slice {sname} with {len(this_coords)} spots median spot UMIs {np.median(this_spot_counts)}")
-        
+        logger.info(
+            f"Solving initial assignment of sample/slice {sname} with {len(this_coords)} spots median spot UMIs {np.median(this_spot_counts)}"
+        )
+
         # NB assignments for this sample/slice.
         assigned = np.zeros(len(index), dtype=bool)
 
         while not np.all(assigned):
             # NB pick the unassigned spot with the largest UMI count
             unassigned_idx = np.where(~assigned)[0]
-            sorted_unassigned = unassigned_idx[np.argsort(-this_spot_counts[unassigned_idx])]
-            
+            sorted_unassigned = unassigned_idx[
+                np.argsort(-this_spot_counts[unassigned_idx])
+            ]
+
             for candidate in sorted_unassigned:
-                if np.random.rand() < ACCEPTANCE:
+                if np.random.rand() < acceptance:
                     seed_idx = candidate
                     break
             else:
-                # NB fallback to least populated if none accepted 
+                # NB fallback to least populated if none accepted
                 seed_idx = sorted_unassigned[-1]
-                        
-            group, group_umis = {seed_idx}, this_spot_counts[seed_idx]
 
+            group, group_umis = {seed_idx}, this_spot_counts[seed_idx]
             num_rounds = 0
-            
+
             # NB grow group by adding nearest unassigned neighbors until MIN_CLONE_UMIS is reached
-            while group_umis < MIN_CLONE_UMIS and len(group) < len(index):
-                # NB find unassigned neighbors (by Euclidean distance)
+            while group_umis < min_clone_umis and len(group) < len(index):
+                # NB find unassigned neighbors (by Euclidean distance from seed.)
                 dists = np.linalg.norm(
                     this_coords[unassigned_idx] - this_coords[seed_idx], axis=1
                 )
                 sorted_neighbors = unassigned_idx[np.argsort(dists)]
+
                 for neighbor in sorted_neighbors:
                     if neighbor not in group:
                         group.add(neighbor)
                         group_umis += this_spot_counts[neighbor]
-                    if (group_umis >= MIN_CLONE_UMIS) or (num_rounds == max_growth_rounds):
+
+                    if group_umis >= min_clone_umis:
                         break
 
-                num_rounds += 1 
+                if num_rounds == max_growth_rounds:
+                    logger.warning(
+                        f"Max growth rounds reached for clone {clone_id} in sample {sname}."
+                    )
+                    break
+
+                num_rounds += 1
 
             # NB assign clone_id to these spots
             for g in group:
@@ -182,10 +196,10 @@ def sufficient_umis_initial_clone(
             clone_id += 1
 
     logger.info(f"Solved for initial clones.")
-            
+
     initial_clone_index = [np.where(clone_assignment == i)[0] for i in range(clone_id)]
-            
-    return initial_clone_index, clone_assignment
+
+    return initial_clone_index, clone_assignment, this_spot_counts
 
 
 # TODO!! spatially contigous clones?

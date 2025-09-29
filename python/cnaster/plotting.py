@@ -69,7 +69,9 @@ def get_intervals(pred_cnv):
 
 
 def cast_clone_label(num):
-    if not isinstance(num, int) or not (-1 <= num <= 3999):
+    num = int(num)
+
+    if not (-1 <= num <= 3999):
         raise ValueError("Input must be an integer between -1 and 3999.")
 
     if num == -1:

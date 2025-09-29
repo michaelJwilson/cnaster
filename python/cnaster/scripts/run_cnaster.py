@@ -306,9 +306,12 @@ def run_cnaster(config_path):
         coords, config.hmrf.n_clones, random_state=0
     )
     """
-    
-    initial_clone_index, clone_id = sufficient_umis_initial_clone(
-        coords, adata.layers["count"], sample_list, sample_ids, 5_000_000,
+    initial_clone_index, clone_id, spot_umi_counts = sufficient_umis_initial_clone(
+        coords,
+        adata.layers["count"],
+        sample_list,
+        sample_ids,
+        5_000_000,
     )
 
     # NB construct clone labels.
@@ -323,6 +326,7 @@ def run_cnaster(config_path):
     if config.preprocessing.tumorprop_file is not None:
         df_clone_label["tumor_proportion"] = single_tumor_prop
 
+    df_clone_label["UMIs"] = spot_umi_counts
     df_clone_label["clone_label"] = clone_id
 
     # NB cannot sort before barcode-ordered assignments etc!
@@ -336,16 +340,14 @@ def run_cnaster(config_path):
 
     write_tsv(opath, df_clone_label, header=True, index=True, index_label="barcode")
 
-    exit(0)
-    
     # TODO HACK
     assignment = pd.Series([f"clone {x}" for x in clone_id])
-    
+
     initial_clones_fig = plot_clones_spatial(
         coords,
         assignment,
         single_tumor_prop=single_tumor_prop,
-	sample_list=sample_list,
+        sample_list=sample_list,
         sample_ids=sample_ids,
         base_width=4,
         base_height=3,
@@ -356,7 +358,7 @@ def run_cnaster(config_path):
     write_fig(fig_path, initial_clones_fig, transparent=True, bbox_inches="tight")
 
     exit(0)
-    
+
     logger.info(
         "Solving HMM & HMRF for copy states and clone assignment with BAF only."
     )

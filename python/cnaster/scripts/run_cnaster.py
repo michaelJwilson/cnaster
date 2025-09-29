@@ -311,7 +311,7 @@ def run_cnaster(config_path):
         adata.layers["count"],
         sample_list,
         sample_ids,
-        10_000_000,
+        5_000_000,
     )
 
     # NB construct clone labels.
@@ -462,6 +462,25 @@ def run_cnaster(config_path):
 
     write_tsv(opath, df_clone_label, header=True, index=True, index_label="barcode")
 
+    # TODO HACK                                                                                                                                                                                             
+    assignment = pd.Series([f"clone {x}" for x in merged_res["new_assignment"]])
+
+    bafonly_clones_fig = plot_clones_spatial(
+        coords,
+        assignment,
+        single_tumor_prop=single_tumor_prop,
+	sample_list=sample_list,
+        sample_ids=sample_ids,
+        base_width=4,
+        base_height=3,
+    )
+
+    fig_path = f"{config.paths.output_dir}/plots/bafonly_clones_spatial.pdf"
+
+    write_fig(fig_path, bafonly_clones_fig, transparent=True, bbox_inches="tight")
+
+    exit(0)
+    
     # TODO
     n_obs = single_X.shape[0]
 

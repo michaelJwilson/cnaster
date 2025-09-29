@@ -149,6 +149,7 @@ def sufficient_umis_initial_clone(
         while not np.all(assigned):
             # NB pick the unassigned spot with the largest UMI count
             unassigned_idx = np.where(~assigned)[0]
+            """
             sorted_unassigned = unassigned_idx[
                 np.argsort(-this_spot_counts[unassigned_idx])
             ]
@@ -160,7 +161,9 @@ def sufficient_umis_initial_clone(
             else:
                 # NB fallback to least populated if none accepted
                 seed_idx = sorted_unassigned[-1]
-
+            """
+            seed_idx = np.random.choice(unassigned_idx)
+            
             group, group_umis = {seed_idx}, this_spot_counts[seed_idx]
             num_rounds = 0
 

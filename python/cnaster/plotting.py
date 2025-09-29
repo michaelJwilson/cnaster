@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 import logging
+import matplotlib.gridspec as gridspec
 from matplotlib.lines import Line2D
 from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
 
@@ -15,16 +16,25 @@ plt.rcParams["font.family"] = "DejaVu Serif"
 
 
 def get_full_palette():
-    palette = {}
-    palette.update({(0, 0): "darkblue"})
-    palette.update({(1, 0): "lightblue"})
-    palette.update({(1, 1): "lightgray", (2, 0): "dimgray"})
-    palette.update({(2, 1): "lightgoldenrodyellow", (3, 0): "gold"})
-    palette.update({(2, 2): "navajowhite", (3, 1): "orange", (4, 0): "darkorange"})
-    palette.update({(3, 2): "salmon", (4, 1): "red", (5, 0): "darkred"})
-    palette.update(
-        {(3, 3): "plum", (4, 2): "orchid", (5, 1): "purple", (6, 0): "indigo"}
-    )
+    colors = [
+        "darkblue",
+        "lightblue",
+        "lightgray",
+        "dimgray",
+        "lightgoldenrodyellow",
+        "gold",
+        "navajowhite",
+        "orange",
+        "darkorange",
+        "salmon",
+        "red",
+        "darkred",
+        "plum",
+        "orchid",
+        "purple",
+        "indigo",
+    ]
+
     ordered_acn = [
         (0, 0),
         (1, 0),
@@ -43,6 +53,28 @@ def get_full_palette():
         (5, 1),
         (6, 0),
     ]
+
+    colors = sns.color_palette("rocket", len(ordered_acn)).as_hex()
+
+    np.random.shuffle(colors)
+    
+    palette = dict(zip(ordered_acn, colors))
+
+    """
+    # TODO
+    palette = {}
+    palette.update({(0, 0): "darkblue"})
+    palette.update({(1, 0): "lightblue"})
+    palette.update({(1, 1): "lightgray", (2, 0): "dimgray"})
+    palette.update({(2, 1): "lightgoldenrodyellow", (3, 0): "gold"})
+    palette.update({(2, 2): "navajowhite", (3, 1): "orange", (4, 0): "darkorange"})
+    palette.update({(3, 2): "salmon", (4, 1): "red", (5, 0): "darkred"})
+    palette.update(
+        {(3, 3): "plum", (4, 2): "orchid", (5, 1): "purple", (6, 0): "indigo"}
+    )
+
+    assert palette == new_palette
+    """
     return palette, ordered_acn
 
 
@@ -68,7 +100,7 @@ def get_intervals(pred_cnv):
     return intervals, labs
 
 
-def cast_clone_label(label):
+def cast_clone_label(label, with_normal=False):
     num = label.replace("clone", "").strip()
     num = int(num)
 
@@ -78,7 +110,10 @@ def cast_clone_label(label):
     if num == -1:
         return "WARN"
     elif num == 0:
-        return "Normal"
+        if with_normal:        
+            return "Normal"
+        else:
+            return "Clone 0"
     else:
         lookup = [
             (1000, "M"),
@@ -118,9 +153,9 @@ def plot_clones_genomic(
     sample_list=None,
     remove_xticks=True,
     rdr_ylim=5,
-    chrtext_shift=-0.3,
+    chrtext_shift=-0.2,
     base_height=3.2,
-    pointsize=10,
+    pointsize=5,
     linewidth=1,
     palette="chisel",
 ):
@@ -174,49 +209,28 @@ def plot_clones_genomic(
         facecolor="white",
     )
     """
-
-    """
-    n_axes = 2 * len(nonempty_clones) # RDR + BAF (pseudobulk, all segments) for each clone.
-    fig = plt.figure(figsize=(20, base_height * len(nonempty_clones)), dpi=200, facecolor="white")
-
-    height_ratios = [1] * n_axes
-    
-    if n_axes > 2:
-        # Double the space between axes[1] and axes[2]
-        height_ratios.insert(2, 2)  # Insert extra space after the second plot
-
-    gs = gridspec.GridSpec(n_axes + (1 if n_axes > 2 else 0), 1, height_ratios=height_ratios)
-
-    axes = []
-    
-    for i in range(n_axes):
-        # Skip the extra space row for axes[2]
-        gs_idx = i if i < 2 else i + 1
-        axes.append(fig.add_subplot(gs[gs_idx, 0]))
-    """
-
     n_axes = 2 * len(nonempty_clones)  # RDR + BAF for each clone
     n_pairs = len(nonempty_clones)
-    fig = plt.figure(figsize=(20, base_height * n_pairs), dpi=200, facecolor="white")
+    fig = plt.figure(figsize=(20, base_height * n_pairs), dpi=300, facecolor="white")
 
     # Build height_ratios: [1, 1, 2, 1, 1, 2, ...] (no space within pair, double space between pairs)
     height_ratios = []
-    
+
     for i in range(n_pairs):
         height_ratios.extend([1, 1])  # No space between the pair
-        
+
         if i < n_pairs - 1:
-            height_ratios.append(2)   # Double space between pairs
+            height_ratios.append(0.25)  # Double space between pairs
 
     n_rows = len(height_ratios)
-    gs = gridspec.GridSpec(n_rows, 1, height_ratios=height_ratios)
+    gs = gridspec.GridSpec(n_rows, 1, height_ratios=height_ratios, hspace=0)
 
     axes, row = [], 0
-    
+
     for i in range(n_axes):
         axes.append(fig.add_subplot(gs[row, 0]))
         row += 1
-        
+
         # After every pair, skip the extra space row
         if (i % 2 == 1) and (i < n_axes - 1):
             row += 1
@@ -259,9 +273,9 @@ def plot_clones_genomic(
             hue=hue,
             palette=palette,
             s=pointsize,
-            edgecolor="black",
+            edgecolor="none",
             linewidth=linewidth,
-            alpha=1,
+            alpha=0.8,
             legend=False,
             ax=axes[2 * s],
         )
@@ -297,7 +311,7 @@ def plot_clones_genomic(
             hue=hue,
             palette=palette,
             s=pointsize,
-            edgecolor="black",
+            edgecolor="none",
             alpha=0.8,
             legend=False,
             ax=axes[2 * s + 1],
@@ -344,7 +358,7 @@ def plot_clones_genomic(
     for i in range(len(lengths)):
         median_len = np.sum(lengths[:(i)]) * 0.55 + np.sum(lengths[: (i + 1)]) * 0.45
         axes[-1].text(
-            0.9 * median_len,
+            median_len - 5.,
             chrtext_shift,
             f"chr{unique_chrs[i]}",
             transform=axes[-1].get_xaxis_transform(),
@@ -396,7 +410,7 @@ def plot_clones_spatial(
         copy_single_tumor_prop[np.isnan(copy_single_tumor_prop)] = 0.5
 
     fig, axes = plt.subplots(
-        1, 1, figsize=(base_width * n_samples, base_height), dpi=200, facecolor="white"
+        1, 1, figsize=(base_width * n_samples, base_height), dpi=300, facecolor="white"
     )
 
     if "clone 0" in final_clone_ids:

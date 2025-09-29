@@ -1373,11 +1373,11 @@ def run_cnaster(config_path):
         clone_ids=None,
         remove_xticks=True,
         rdr_ylim=5,
-        chrtext_shift=-0.3,
+        # chrtext_shift=-0.3,
         base_height=3.2,
-        pointsize=15,
-        linewidth=1,
-        palette="chisel",
+        # pointsize=15,
+        # linewidth=1,
+        # palette="chisel",
     )
 
     # TODO

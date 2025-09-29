@@ -174,7 +174,7 @@ def plot_clones_genomic(
     )
 
     if sample_list is not None:
-        axes.set_title(",".join(sample_list), loc="left")
+        axes[0].set_title(",".join(sample_list), loc="left")
     
     for s, c in enumerate(nonempty_clones):
         cid = final_clone_ids[c]
@@ -219,7 +219,7 @@ def plot_clones_genomic(
         )
 
         axes[2 * s].set_ylabel(f"{cast_clone_label(cid)}\nRDR")
-        axes[2 * s].set_yticks([f"{xx:.1f}" for xx in np.arange(1, rdr_ylim, 1)])
+        axes[2 * s].set_yticks(np.arange(1, rdr_ylim, 1., dtype=float))
         axes[2 * s].set_ylim([0, rdr_ylim])
         axes[2 * s].set_xlim([0, n_obs])
 

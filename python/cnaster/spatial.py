@@ -132,10 +132,12 @@ def sufficient_umis_initial_clone(
     clone_assignment = np.full(n_spots, -1)
     clone_id = 0
 
+    spot_counts = np.sum(spot_gene_umis[:, :], axis=1)
+    
     for i, sname in enumerate(sample_list):
         index = np.where(sample_ids == i)[0]
         this_coords = np.array(coords[index, :])
-        this_spot_counts = np.sum(spot_gene_umis[index, :], axis=1)
+        this_spot_counts = spot_counts[index, :]
 
         logger.info(
             f"Solving initial assignment of sample/slice {sname} with {len(this_coords)} spots median spot UMIs {np.median(this_spot_counts)}"
@@ -199,7 +201,7 @@ def sufficient_umis_initial_clone(
 
     initial_clone_index = [np.where(clone_assignment == i)[0] for i in range(clone_id)]
 
-    return initial_clone_index, clone_assignment, this_spot_counts
+    return initial_clone_index, clone_assignment, spot_counts
 
 
 # TODO!! spatially contigous clones?

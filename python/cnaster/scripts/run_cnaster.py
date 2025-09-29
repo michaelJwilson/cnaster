@@ -326,7 +326,7 @@ def run_cnaster(config_path):
     if config.preprocessing.tumorprop_file is not None:
         df_clone_label["tumor_proportion"] = single_tumor_prop
 
-    df_clone_label["UMIs"] = spot_umi_counts
+    # df_clone_label["UMIs"] = spot_umi_counts
     df_clone_label["clone_label"] = clone_id
 
     # NB cannot sort before barcode-ordered assignments etc!

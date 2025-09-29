@@ -373,7 +373,7 @@ def plot_clones_spatial(
             marker="o",
             color="w",
             markerfacecolor=colorlist[c],
-            label=cast_clone_label(cid),
+            label=cid,
             markersize=10,
         )
         for c, cid in enumerate(final_clone_ids)

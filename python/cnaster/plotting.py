@@ -69,7 +69,7 @@ def get_intervals(pred_cnv):
 
 
 def cast_clone_label(label):
-    num = label.split()[1]
+    num = label.replace("clone","").strip()
     num = int(num)
 
     if not (-1 <= num <= 3999):
@@ -115,6 +115,7 @@ def plot_clones_genomic(
     res_combine,
     single_tumor_prop=None,
     clone_ids=None,
+    sample_list=None,
     remove_xticks=True,
     rdr_ylim=5,
     chrtext_shift=-0.3,
@@ -172,6 +173,9 @@ def plot_clones_genomic(
         facecolor="white",
     )
 
+    if sample_list is not None:
+        axes.set_title(",".join(sample_list), loc="left")
+    
     for s, c in enumerate(nonempty_clones):
         cid = final_clone_ids[c]
 
@@ -215,7 +219,7 @@ def plot_clones_genomic(
         )
 
         axes[2 * s].set_ylabel(f"{cast_clone_label(cid)}\nRDR")
-        axes[2 * s].set_yticks(np.arange(1, rdr_ylim, 1))
+        axes[2 * s].set_yticks([f"{xx:.1f}" for xx in np.arange(1, rdr_ylim, 1)])
         axes[2 * s].set_ylim([0, rdr_ylim])
         axes[2 * s].set_xlim([0, n_obs])
 
@@ -264,7 +268,7 @@ def plot_clones_genomic(
                     np.exp(res_combine["new_log_mu"][labs[i], c]),
                 ],
                 c="black",
-                linewidth=2,
+                linewidth=1,
             )
             axes[2 * s + 1].plot(
                 seg,
@@ -273,7 +277,7 @@ def plot_clones_genomic(
                     res_combine["new_p_binom"][labs[i], c],
                 ],
                 c="black",
-                linewidth=2,
+                linewidth=1,
             )
 
             # NB phase flip.
@@ -285,6 +289,7 @@ def plot_clones_genomic(
                 ],
                 c="black",
                 linewidth=1,
+                linestyle="--",
             )
 
     for i in range(len(lengths)):
@@ -294,9 +299,10 @@ def plot_clones_genomic(
             chrtext_shift,
             f"chr{unique_chrs[i]}",
             transform=axes[-1].get_xaxis_transform(),
+            fontsize=10,
         )
         for k in range(2 * len(nonempty_clones)):
-            axes[k].axvline(x=np.sum(lengths[:(i)]), c="grey", linewidth=1)
+            axes[k].axvline(x=np.sum(lengths[:(i)]), c="k", linewidth=2)
 
     fig.tight_layout()
 

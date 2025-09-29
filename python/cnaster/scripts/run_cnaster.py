@@ -1352,6 +1352,7 @@ def run_cnaster(config_path):
         single_total_bb_RD,
         res_combine,
         single_tumor_prop=single_tumor_prop,
+        sample_list=sample_list,
         clone_ids=None,
         remove_xticks=True,
         rdr_ylim=5,

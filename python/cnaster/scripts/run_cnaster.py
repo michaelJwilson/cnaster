@@ -299,16 +299,17 @@ def run_cnaster(config_path):
     single_X[:, 0, :] = 0
     single_base_nb_mean[:, :] = 0
 
+    """
     # NB non-contiguous assignment of clones to an unequal grid partitioning
     #    of input coordinates.
     initial_clone_index, clone_id = rectangle_initialize_initial_clone(
         coords, config.hmrf.n_clones, random_state=0
     )
     """
-    initial_clone_index = sufficient_umis_initial_clone(
-        coords, adata.layers["count"], sample_ids, config.hmrf.n_clones, random_state=0
+    
+    initial_clone_index, clone_id = sufficient_umis_initial_clone(
+        coords, adata.layers["count"], sample_list, sample_ids
     )
-    """
 
     # NB construct clone labels.
     df_clone_label = pd.DataFrame(
@@ -351,6 +352,8 @@ def run_cnaster(config_path):
     fig_path = f"{config.paths.output_dir}/plots/initial_clones_spatial.pdf"
 
     write_fig(fig_path, initial_clones_fig, transparent=True, bbox_inches="tight")
+
+    exit(0)
     
     logger.info(
         "Solving HMM & HMRF for copy states and clone assignment with BAF only."

@@ -69,7 +69,7 @@ def get_intervals(pred_cnv):
 
 
 def cast_clone_label(x):
-    mapper = {"0": "Normal", "1": "I", "2": "II", "3": "III", "4": "IV", 5: "V"}
+    mapper = {"-1": "WARN", "0": "Normal", "1": "I", "2": "II", "3": "III", "4": "IV", 5: "V"}
 
     if x == 0:
         return "Normal"

@@ -261,8 +261,8 @@ def wolff_sweep(
                 iteration=iteration,
                 clone_proportions=get_clone_proportions(new_assignment),
             ).log()
-            
-    new_assignment = best_assignment.copy()
+
+    new_assignment[:] = best_assignment
 
     _, cost = icm_sweep(
         single_llf,

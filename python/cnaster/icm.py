@@ -13,6 +13,7 @@ def wolff_update(
     posterior,
     log_persample_weights=None,
     sample_ids=None,
+    p_add=0.5,
 ):
     # TODO p_add should be determined by spatial_weight!
     n_spots, n_clones = single_llf.shape
@@ -26,9 +27,6 @@ def wolff_update(
     #    and further add the neighbors of these spots with the same spin
     #    and probability; use a queue.
     cluster, queue = [this_spot], [this_spot]
-
-    # NB 
-    p_add = np.random.rand()
     
     while queue:
         current = queue.pop(0)
@@ -79,6 +77,7 @@ def wolff_update(
     best_new_assignment = np.argmax(assignment_cost)
     delta_cost = assignment_cost[best_new_assignment] - current_cost
 
+    # TODO HACK
     acceptance = np.exp(delta_cost)
     
     # NB we always accept the better state (max.)
@@ -122,6 +121,9 @@ def wolff_sweep(
     logger.info(f"Solving for a Wolff sweep.")
     
     for i in range(max_iter):
+        # TODO schedule
+        p_add = np.random.rand()
+        
         new_cost = wolff_update(
             single_llf,
             adjacency_list,

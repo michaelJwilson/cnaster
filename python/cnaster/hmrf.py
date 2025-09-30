@@ -5,7 +5,10 @@ import time
 import numpy as np
 import scipy.special
 from numba import njit
-from cnaster.icm import icm_update, wolff_sweep
+import csv
+import time
+from pathlib import Path
+from cnaster.icm import icm_sweep, wolff_sweep
 from cnaster.hmm import gmm_init, pipeline_baum_welch
 from cnaster.hmm_sitewise import hmm_sitewise
 from cnaster.hmrf_utils import cast_csr
@@ -17,7 +20,6 @@ from cnaster.deprecated.hmrf import (
 from sklearn.metrics import adjusted_rand_score
 
 logger = logging.getLogger(__name__)
-
 
 @njit
 def logsumexp(x):
@@ -396,7 +398,7 @@ def aggr_hmrfmix_reassignment_concatenate(
 
     """
     # NB updates new_assignment and posterior in place.
-    niter = icm_update(
+    niter = icm_sweep(
         single_llf,
         adj_list,
         new_assignment,

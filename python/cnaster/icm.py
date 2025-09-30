@@ -5,6 +5,17 @@ from numba import njit
 
 logger = logging.getLogger(__name__)
 
+def log_hmrf_perf(perf_dict, filename="cnaster_hmrf.perf"):
+    perf_file = Path(filename)
+    perf_dict["timestamp"] = time.strftime("%Y-%m-%d %H:%M:%S")
+
+    with open(filename, "a", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=perf_dict.keys(), delimiter="\t")
+        
+        if not perf_file.exists():
+            writer.writeheader()
+        writer.writerow(perf_dict)
+
 def wolff_update(
     single_llf,
     adjacency_list,
@@ -112,44 +123,87 @@ def wolff_sweep(
     log_persample_weights=None,
     sample_ids=None,
     p_add=0.5,
-    max_iter=100,
+    max_iter=10,
 ):
     # TODO p_add should be determined by spatial_weight!
     n_spots, n_clones = single_llf.shape
+
+    icm_sweep(
+        single_llf,
+        adjacency_list,
+        new_assignment,
+        spatial_weight,
+        posterior,
+        log_persample_weights=log_persample_weights,
+        sample_ids=sample_ids,
+    )
+
     niter, best_cost = 0, -np.inf
 
     logger.info(f"Solving for a Wolff sweep.")
-    
-    for i in range(max_iter):
-        # TODO schedule
-        p_add = np.random.rand()
-        
-        new_cost = wolff_update(
-            single_llf,
-            adjacency_list,
-            new_assignment,
-            spatial_weight,
-            posterior,
-            log_persample_weights=log_persample_weights,
-            sample_ids=sample_ids,
-            p_add=p_add
-        )
 
-        if new_cost > best_cost:
-            best_cost = new_cost
-            best_assignment = new_assignment.copy()
+    log_hmrf_perf({
+        "optimizer": "icm",
+        "cost": np.nan,
+        "best_cost": np.nan,
+        "padd": np.nan,
+        "iteration": -1,
+    })
 
-            logger.info(f"Found a new best assignment with cost={best_cost:.6e}")
+    for p_add in np.arange(0., 1., 0.05):
+        for iteration in range(max_iter):
+            new_cost = wolff_update(
+                single_llf,
+                adjacency_list,
+                new_assignment,
+                spatial_weight,
+                posterior,
+                log_persample_weights=log_persample_weights,
+                sample_ids=sample_ids,
+                p_add=p_add
+            )
+
+            if new_cost > best_cost:
+                best_cost = new_cost
+                best_assignment = new_assignment.copy()
+
+                logger.info(f"Found a new best assignment with cost={best_cost:.6e}")
+
+            log_hmrf_perf({
+                "optimizer": "wolff",
+                "cost": new_cost,
+                "best_cost": best_cost,
+                "padd": p_add,
+                "iteration": iteration,
+            })
             
     # TODO polish with ICM.
     new_assignment = best_assignment.copy()
+
+    icm_sweep(
+        single_llf,
+        adjacency_list,
+        new_assignment,
+        spatial_weight,
+        posterior,
+        log_persample_weights=log_persample_weights,
+        sample_ids=sample_ids,
+    )
+
+    log_hmrf_perf({
+        "optimizer": "icm",
+        "cost": np.nan,
+        "best_cost": np.nan,
+        "padd": np.nan,
+        "iteration": -1,
+    })
     
     return max_iter
 
 
 # TODO
 # @njit
-def icm_update(
+def icm_sweep(
     single_llf,
     adjacency_list,
     new_assignment,

@@ -139,8 +139,6 @@ def wolff_sweep(
             
     # TODO polish with ICM.
     new_assignment = best_assignment.copy()
-
-    exit(0)
     
     return max_iter
 

@@ -65,7 +65,7 @@ def wolff_update(
     assignment_cost = w_node + spatial_weight * w_edge
     current_cost = assignment_cost[current_assignment]
 
-    logger.info(f"Solved for current cost {current_cost} and new costs {assignment_cost}")
+    logger.info(f"Solved for current cost {current_cost:.6e} and new costs=\n{assignment_cost}")
     
     # TODO check.
     assignment_cost[current_assignment] = -np.inf
@@ -77,24 +77,29 @@ def wolff_update(
     best_new_assignment = np.argmax(assignment_cost)
     delta_cost = assignment_cost[best_new_assignment] - current_cost
 
+    acceptance = np.exp(delta_cost)
+    
     # NB we always accept the better state (max.)
-    if delta_cost > 0:
+    if delta_cost > 0:        
         new_cluster_assignment = best_new_assignment
-
+        new_cost = assignment_cost[best_new_assignment]
+        
     # NB all proposed states are worse; pick one randomly;
     else:
         if np.random.rand() < np.exp(delta_cost):
             new_cluster_assignment = best_new_assignment
+            new_cost = assignment_cost[best_new_assignment]
         else:
             new_cluster_assignment = current_assignment
-
-    logger.info(f"Solved for cluster assignment {current_assignment} -> {new_cluster_assignment}")
+            new_cost = current_cost
+            
+    logger.info(f"Solved for better={delta_cost>0} cluster assignment {current_assignment} -> {new_cluster_assignment} with costs {current_cost} -> {new_cost} @ acceptance={acceptance:.6e}")
 
     # TODO define edits.
     for spin in cluster:
         new_assignment[spin] = new_cluster_assignment
 
-    return 
+    return new_cost
 
 
 def wolff_sweep(
@@ -105,15 +110,17 @@ def wolff_sweep(
     posterior,
     log_persample_weights=None,
     sample_ids=None,
-    p_add=0.5
+    p_add=0.5,
+    max_iter=100,
 ):
     # TODO p_add should be determined by spatial_weight!
     n_spots, n_clones = single_llf.shape
+    niter, best_cost = 0, -np.inf
 
     logger.info(f"Solving for a Wolff sweep.")
     
-    for i in range(n_spots):
-        wolff_update(
+    for i in range(max_iter):
+        new_cost = wolff_update(
             single_llf,
             adjacency_list,
             new_assignment,
@@ -124,9 +131,18 @@ def wolff_sweep(
             p_add=p_add
         )
 
-        exit(0)
+        if new_cost > best_cost:
+            best_cost = new_cost
+            best_assignment = new_assignment.copy()
 
-    return n_spots
+            logger.info(f"Found a new best assignment with cost={best_cost:.6e}")
+            
+    # TODO polish with ICM.
+    new_assignment = best_assignment.copy()
+
+    exit(0)
+    
+    return max_iter
 
 
 # TODO

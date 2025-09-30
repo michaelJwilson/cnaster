@@ -45,6 +45,7 @@ def icm_update(
                 neighbor_assignment = new_assignment[j]
                 w_edge[neighbor_assignment] += edge_weight
 
+            # NB assignment cost to each clone for this spot.
             assignment_cost = w_node + spatial_weight * w_edge
 
             # NB ICM is greedy picking of best clone for each spot.

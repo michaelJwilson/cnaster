@@ -88,7 +88,7 @@ def wolff_update(
         
     # NB all proposed states are worse; pick one randomly;
     else:
-        if np.random.rand() < np.exp(delta_cost):
+        if np.random.rand() < acceptance:
             new_cluster_assignment = best_new_assignment
             new_cost = assignment_cost[best_new_assignment]
         else:

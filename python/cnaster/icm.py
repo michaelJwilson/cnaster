@@ -5,6 +5,121 @@ from numba import njit
 
 logger = logging.getLogger(__name__)
 
+def wolff_update(
+    single_llf,
+    adjacency_list,
+    new_assignment,
+    spatial_weight,
+    posterior,
+    log_per_sample_weights=None,
+    sample_ids=None,
+    p_add=0.5
+):
+    # TODO p_add should be determined by spatial_weight!
+    n_spots, n_clones = single_llf.shape
+
+    # NB pick a spot at random
+    this_spot = np.random.randint(n_spots)
+    current_assignment = new_assignment[this_spot]
+
+    # NB construct a cluster around this spot of all neighbors with the
+    #    same assignment; and them to the cluster with probability P_add
+    #    and further add the neighbors of these spots with the same spin
+    #    and probability; use a queue.
+    cluster, queue = [this_spot], [this_spot]
+
+    while queue:
+        current = queue.pop(0)
+
+        for neighbor, edge_weight in adjacency_list[current]:
+            if new_assignment[neighbor] == current_assignment:
+                if (neighbor not in cluster) and np.random.rand() < p_add:
+                    cluster.append(neighbor)
+                    queue.append(neighbor)
+
+    w_node, w_edge = np.zeros(n_clones, dtype=float), np.zeros(n_clones, dtype=float)
+
+    for spot in cluster:
+        w_node += single_llf[spot, :]
+
+        this_sample = sample_ids[spot]
+
+        if log_persample_weights is not None:
+            w_node += log_persample_weights[:, this_sample]
+
+        # TODO do not double count edges.
+        for neighbor, edge_weight in adjacency_list[spot]:
+            # NB i and j both in cluster; we will revisit on j.
+            if neighbor in cluster:
+                w_edge += edge_weight / 2.
+
+            # NB neighbor not in cluster; only if new cluster assignment
+            #    aligns with spin is there a preference; we will not revisit neighbor in this.
+            else:
+                neighbor_assignment = new_assignment[neighbor]
+                w_edge[neighbor_assignment] += edge_weight
+
+    # NB assignment cost to each clone for this cluster.
+    assignment_cost = w_node + spatial_weight * w_edge
+
+    current_cost = assignment_cost[current_assignment]
+
+    # TODO check.
+    assignment_cost[current_assignment] = -np.inf
+
+    # NB Metropolis: if any assignment is lower, accept one randomly.
+    #    otherwise, accept with exponential suppression, exp(-delta_cost).
+    #
+    # NB ignore "cost", we're solving for max.
+    best_new_assignment = np.argmax(assignment_cost)
+    delta_cost = assignment_cost[best_new_assignment] - current_cost
+
+    # NB we always accept the better state (max.)
+    if delta_cost > 0:
+        new_cluster_assignment = best_assignment
+
+    # NB all proposed states are worse; pick one randomly;
+    else:
+        if np.random.rand() < np.exp(delta_cost):
+            new_cluster_assignment = best_assignment
+        else:
+            new_cluster_assignment = current_assignment
+
+    for spin in cluster:
+        new_assignment[spin] = new_cluster_assignment
+
+    return 
+
+
+def wolff_sweep(
+    single_llf,
+    adjacency_list,
+    new_assignment,
+    spatial_weight,
+    posterior,
+    log_persample_weights=None,
+    sample_ids=None,
+    p_add=0.5
+):
+    # TODO p_add should be determined by spatial_weight!
+    n_spots, n_clones = single_llf.shape
+
+    for i in range(n_spots):
+        wolff_update(
+            single_llf,
+            adjacency_list,
+            new_assignment,
+            spatial_weight,
+            posterior,
+            log_per_sample_weights=log_persample_weights,
+            sample_ids=sample_ids,
+            p_add=p_add
+        )
+
+        exit(0)
+
+    return n_spots
+
 
 # TODO
 # @njit
@@ -28,12 +143,14 @@ def icm_update(
         edits = 0
 
         for i in range(n_spots):
-            # NB emission likelihood for all clones for this spot
+            # NB emission likelihood for all clones for this spot; (1, n_clone).
             w_node = single_llf[i, :].copy()
 
             # NB sample/slice for this spot.
             this_sample = sample_ids[i]
 
+            # NB log_persample_weights (n_clone, n_sample/n_slice); 
+            #    exp. proportion of clone per slice.
             if log_persample_weights is not None:
                 w_node += log_persample_weights[:, this_sample]
 
@@ -48,10 +165,8 @@ def icm_update(
             # NB assignment cost to each clone for this spot.
             assignment_cost = w_node + spatial_weight * w_edge
 
-            # NB ICM is greedy picking of best clone for each spot.
+            # NB ICM is greedy picking of best (maximum!) clone for each spot.
             label = np.argmax(assignment_cost)
-
-            # logger.info(f"ICM label contention: {assignment_cost} implies {new_assignment[i]} -> {label}")
 
             edits += int(label != new_assignment[i])
             new_assignment[i] = label

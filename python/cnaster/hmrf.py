@@ -5,7 +5,7 @@ import time
 import numpy as np
 import scipy.special
 from numba import njit
-from cnaster.icm import icm_update
+from cnaster.icm import icm_update, wolff_sweep
 from cnaster.hmm import gmm_init, pipeline_baum_welch
 from cnaster.hmm_sitewise import hmm_sitewise
 from cnaster.hmrf_utils import cast_csr
@@ -394,6 +394,7 @@ def aggr_hmrfmix_reassignment_concatenate(
     # NB Posterior probabilities if return_posterior=True.
     posterior = np.zeros((N, n_clones))
 
+    """
     # NB updates new_assignment and posterior in place.
     niter = icm_update(
         single_llf,
@@ -402,6 +403,17 @@ def aggr_hmrfmix_reassignment_concatenate(
         spatial_weight,
         posterior,
         tol=0.1,  # MAGIC TODO
+        log_persample_weights=log_persample_weights,
+        sample_ids=sample_ids,
+    )
+    """
+
+    niter = wolff_sweep(
+        single_llf,
+        adj_list,
+        new_assignment,
+        spatial_weight,
+        posterior,
         log_persample_weights=log_persample_weights,
         sample_ids=sample_ids,
     )

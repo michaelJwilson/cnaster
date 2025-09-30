@@ -11,7 +11,7 @@ def wolff_update(
     new_assignment,
     spatial_weight,
     posterior,
-    log_per_sample_weights=None,
+    log_persample_weights=None,
     sample_ids=None,
     p_add=0.5
 ):
@@ -37,6 +37,8 @@ def wolff_update(
                     cluster.append(neighbor)
                     queue.append(neighbor)
 
+    logger.info(f"Solved for a cluster of {len(cluster)} spins with p_add={p_add}")
+                    
     w_node, w_edge = np.zeros(n_clones, dtype=float), np.zeros(n_clones, dtype=float)
 
     for spot in cluster:
@@ -61,9 +63,10 @@ def wolff_update(
 
     # NB assignment cost to each clone for this cluster.
     assignment_cost = w_node + spatial_weight * w_edge
-
     current_cost = assignment_cost[current_assignment]
 
+    logger.info(f"Solved for current cost {current_cost} and new costs {assignment_cost}")
+    
     # TODO check.
     assignment_cost[current_assignment] = -np.inf
 
@@ -76,15 +79,18 @@ def wolff_update(
 
     # NB we always accept the better state (max.)
     if delta_cost > 0:
-        new_cluster_assignment = best_assignment
+        new_cluster_assignment = best_new_assignment
 
     # NB all proposed states are worse; pick one randomly;
     else:
         if np.random.rand() < np.exp(delta_cost):
-            new_cluster_assignment = best_assignment
+            new_cluster_assignment = best_new_assignment
         else:
             new_cluster_assignment = current_assignment
 
+    logger.info(f"Solved for cluster assignment {current_assignment} -> {new_cluster_assignment}")
+
+    # TODO define edits.
     for spin in cluster:
         new_assignment[spin] = new_cluster_assignment
 
@@ -104,6 +110,8 @@ def wolff_sweep(
     # TODO p_add should be determined by spatial_weight!
     n_spots, n_clones = single_llf.shape
 
+    logger.info(f"Solving for a Wolff sweep.")
+    
     for i in range(n_spots):
         wolff_update(
             single_llf,
@@ -111,7 +119,7 @@ def wolff_sweep(
             new_assignment,
             spatial_weight,
             posterior,
-            log_per_sample_weights=log_persample_weights,
+            log_persample_weights=log_persample_weights,
             sample_ids=sample_ids,
             p_add=p_add
         )

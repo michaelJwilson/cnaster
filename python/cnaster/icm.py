@@ -5,6 +5,7 @@ import time
 from pathlib import Path
 from scipy.special import logsumexp
 from numba import njit
+from dataclasses import dataclass, asdict, field
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +22,36 @@ def log_hmrf_perf(perf_dict, filename="cnaster_hmrf.perf"):
         if not perf_file.exists():
             writer.writeheader()
         writer.writerow(perf_dict)
+
+def get_clone_proportions(assignment):
+    _, counts = np.unique(assignment, return_counts=True)
+    return counts / len(assignment)
+
+@dataclass
+class HMRFPerfEntry:
+    optimizer: str
+    cost: float
+    best_cost: float
+    padd: float = np.nan
+    iteration: int = 0
+    clone_proportions: np.ndarray = field(default_factory=lambda: np.array([]))
+
+    def as_dict(self):
+        # Format cost and best_cost as scientific notation, clone_proportions as comma-separated string
+        d = asdict(self)
+        d["cost"] = "{:.6e}".format(self.cost)
+        d["best_cost"] = "{:.6e}".format(self.best_cost)
+        d["padd"] = "{:.2f}".format(self.padd) if not np.isnan(self.padd) else ""
+        d["iteration"] = str(self.iteration)
+        # Format clone_proportions as comma-separated floats
+        if isinstance(self.clone_proportions, np.ndarray):
+            d["clone_proportions"] = ",".join("{:.4f}".format(x) for x in self.clone_proportions)
+        else:
+            d["clone_proportions"] = str(self.clone_proportions)
+        return d
+
+    def log(self, filename="cnaster_hmrf.perf"):
+        log_hmrf_perf(self.as_dict(), filename=filename)
 
 def wolff_update(
     single_llf,
@@ -130,11 +161,9 @@ def wolff_sweep(
     sample_ids=None,
     p_add=0.5,
     max_iter=10,
+    cost=0.0,
 ):
-    # TODO p_add should be determined by spatial_weight!
-    n_spots, n_clones = single_llf.shape
-
-    icm_sweep(
+    _, cost = icm_sweep(
         single_llf,
         adjacency_list,
         new_assignment,
@@ -144,17 +173,20 @@ def wolff_sweep(
         sample_ids=sample_ids,
     )
 
-    niter, best_cost = 0, -np.inf
+    clone_proportions = get_clone_proportions(new_assignment)
+
+    HMRFPerfEntry(
+        optimizer="icm",
+        cost=cost,
+        best_cost=cost,
+        padd=np.nan,
+        iteration=0,
+        clone_proportions=get_clone_proportions(new_assignment),
+    ).log()
 
     logger.info(f"Solving for a Wolff sweep.")
 
-    log_hmrf_perf({
-        "optimizer": "icm",
-        "cost": np.nan,
-        "best_cost": np.nan,
-        "padd": np.nan,
-        "iteration": -1,
-    })
+    best_cost = -np.inf
 
     for p_add in np.arange(0., 1., 0.05):
         for iteration in range(max_iter):
@@ -170,23 +202,21 @@ def wolff_sweep(
             )
 
             if new_cost > best_cost:
-                best_cost = new_cost
-                best_assignment = new_assignment.copy()
-
+                best_cost, best_assignment = new_cost, new_assignment.copy()
                 logger.info(f"Found a new best assignment with cost={best_cost:.6e}")
 
-            log_hmrf_perf({
-                "optimizer": "wolff",
-                "cost": new_cost,
-                "best_cost": best_cost,
-                "padd": p_add,
-                "iteration": iteration,
-            })
+            HMRFPerfEntry(
+                optimizer="wolff",
+                cost=new_cost,
+                best_cost=best_cost,
+                padd=p_add,
+                iteration=iteration,
+                clone_proportions=get_clone_proportions(new_assignment),
+            ).log()
             
-    # TODO polish with ICM.
     new_assignment = best_assignment.copy()
 
-    icm_sweep(
+    _, cost = icm_sweep(
         single_llf,
         adjacency_list,
         new_assignment,
@@ -196,14 +226,15 @@ def wolff_sweep(
         sample_ids=sample_ids,
     )
 
-    log_hmrf_perf({
-        "optimizer": "icm",
-        "cost": np.nan,
-        "best_cost": np.nan,
-        "padd": np.nan,
-        "iteration": -1,
-    })
-    
+    HMRFPerfEntry(
+        optimizer="icm",
+        cost=cost,
+        best_cost=best_cost,
+        padd=np.nan,
+        iteration=-1,
+        clone_proportions=get_clone_proportions(new_assignment),
+    ).log()
+
     return max_iter
 
 
@@ -218,6 +249,7 @@ def icm_sweep(
     tol=0.01,
     log_persample_weights=None,
     sample_ids=None,
+    cost=0.0,
 ):
     # NB ICM is guranteed to converge.
     n_spots, n_clones = single_llf.shape
@@ -255,6 +287,8 @@ def icm_sweep(
             label = np.argmax(assignment_cost)
 
             edits += int(label != new_assignment[i])
+            cost += assignment_cost[label] - assignment_cost[new_assignment[i]]
+
             new_assignment[i] = label
 
             # TODO
@@ -272,4 +306,4 @@ def icm_sweep(
         if edit_rate < tol:
             break
 
-    return niter
+    return niter, cost

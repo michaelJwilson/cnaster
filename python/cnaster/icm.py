@@ -175,13 +175,16 @@ def wolff_update(
     if delta_cost > 0:
         new_cluster_assignment = best_new_assignment
         new_cost = cost_zeropoint + delta_cost
+        new_configuration = True
 
     # NB all proposed states are worse; pick one randomly;
     elif sample and (np.random.rand() < acceptance):
         new_cluster_assignment = best_new_assignment
         new_cost = cost_zeropoint + delta_cost
+        new_configuration = True
     else:
         new_cluster_assignment, new_cost = current_assignment, cost_zeropoint
+        new_configuration = False
 
     logger.debug(
         f"Solved for better={int(delta_cost>0)} cluster assignment {current_assignment} -> {new_cluster_assignment} with costs {cost_zeropoint} -> {new_cost} @ acceptance={acceptance:.6e}"
@@ -191,7 +194,7 @@ def wolff_update(
     for spin in cluster:
         new_assignment[spin] = new_cluster_assignment
 
-    return new_cost
+    return new_cost, new_configuration
 
 
 def wolff_sweep(
@@ -226,13 +229,18 @@ def wolff_sweep(
         clone_proportions=get_clone_proportions(new_assignment),
     ).log()
 
+    unique_new_assignment = np.unique(new_assignment)
+    
+    # TODO HACK TEST
+    new_assignment[:] = np.random.choice(unique_new_assignment, size=new_assignment.shape)
+    
     logger.info(f"Solving for a Wolff sweep.")
 
     dp, best_cost = 0.05, -np.inf
 
     for p_add in np.arange(dp, 1. + dp, dp):
         for iteration in range(max_iter):
-            cost = wolff_update(
+            cost, new_configuration = wolff_update(
                 single_llf,
                 adjacency_list,
                 new_assignment,
@@ -257,32 +265,35 @@ def wolff_sweep(
                 clone_proportions=get_clone_proportions(new_assignment),
             ).log()
 
-            _, cost = icm_sweep(
-                single_llf,
-                adjacency_list,
-                new_assignment,
-                spatial_weight,
-                posterior,
-                log_persample_weights=log_persample_weights,
-                sample_ids=sample_ids,
-                cost_zeropoint=cost,
-            )
+            if new_configuration:
+                _, cost = icm_sweep(
+                    single_llf,
+                    adjacency_list,
+                    new_assignment,
+                    spatial_weight,
+                    posterior,
+                    log_persample_weights=log_persample_weights,
+                    sample_ids=sample_ids,
+                    cost_zeropoint=cost,
+                )
 
-            if cost > best_cost:
-                best_cost, best_assignment = cost, new_assignment.copy()
-                logger.info(f"Found a new best assignment with cost={best_cost:.6e}")
+                if cost > best_cost:
+                    best_cost, best_assignment = cost, new_assignment.copy()
+                    logger.info(f"Found a new best assignment with cost={best_cost:.6e}")
             
-            HMRFPerfEntry(
-                optimizer="icm",
-                cost=cost,
-                best_cost=best_cost,
-                padd=np.nan,
-                iteration=-1,
-                clone_proportions=get_clone_proportions(new_assignment),
-            ).log()
+                HMRFPerfEntry(
+                    optimizer="icm",
+                    cost=cost,
+                    best_cost=best_cost,
+                    padd=np.nan,
+                    iteration=-1,
+                    clone_proportions=get_clone_proportions(new_assignment),
+                ).log()
 
     new_assignment[:] = best_assignment
 
+    exit(0)
+    
     return max_iter
 
 

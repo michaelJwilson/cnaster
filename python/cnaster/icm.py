@@ -13,7 +13,6 @@ def wolff_update(
     posterior,
     log_persample_weights=None,
     sample_ids=None,
-    p_add=0.5
 ):
     # TODO p_add should be determined by spatial_weight!
     n_spots, n_clones = single_llf.shape
@@ -28,6 +27,9 @@ def wolff_update(
     #    and probability; use a queue.
     cluster, queue = [this_spot], [this_spot]
 
+    # NB 
+    p_add = np.random.rand()
+    
     while queue:
         current = queue.pop(0)
 

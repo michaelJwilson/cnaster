@@ -299,7 +299,6 @@ def run_cnaster(config_path):
     single_X[:, 0, :] = 0
     single_base_nb_mean[:, :] = 0
 
-    """
     # NB non-contiguous assignment of clones to an unequal grid partitioning
     #    of input coordinates.
     initial_clone_index, clone_id = rectangle_initialize_initial_clone(
@@ -313,6 +312,7 @@ def run_cnaster(config_path):
         sample_ids,
         5_000_000,
     )
+    """
 
     # NB construct clone labels.
     df_clone_label = pd.DataFrame(
@@ -326,7 +326,7 @@ def run_cnaster(config_path):
     if config.preprocessing.tumorprop_file is not None:
         df_clone_label["tumor_proportion"] = single_tumor_prop
 
-    df_clone_label["UMIs"] = spot_umi_counts
+    # df_clone_label["UMIs"] = spot_umi_counts
     df_clone_label["clone_label"] = clone_id
 
     # NB cannot sort before barcode-ordered assignments etc!
@@ -478,6 +478,8 @@ def run_cnaster(config_path):
     fig_path = f"{config.paths.output_dir}/plots/bafonly_clones_spatial.pdf"
 
     write_fig(fig_path, bafonly_clones_fig, transparent=True, bbox_inches="tight")
+
+    exit(0)
     
     # TODO
     n_obs = single_X.shape[0]

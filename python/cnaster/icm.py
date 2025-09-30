@@ -1,16 +1,22 @@
 import logging
 import numpy as np
+import csv
+import time
+from pathlib import Path
 from scipy.special import logsumexp
 from numba import njit
 
 logger = logging.getLogger(__name__)
 
+
 def log_hmrf_perf(perf_dict, filename="cnaster_hmrf.perf"):
     perf_file = Path(filename)
     perf_dict["timestamp"] = time.strftime("%Y-%m-%d %H:%M:%S")
 
+    fieldnames = ["timestamp"] + [k for k in perf_dict.keys() if k != "timestamp"]
+    
     with open(filename, "a", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=perf_dict.keys(), delimiter="\t")
+        writer = csv.DictWriter(f, fieldnames=fieldnames, delimiter="\t")
         
         if not perf_file.exists():
             writer.writeheader()

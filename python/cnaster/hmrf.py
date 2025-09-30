@@ -5,9 +5,6 @@ import time
 import numpy as np
 import scipy.special
 from numba import njit
-import csv
-import time
-from pathlib import Path
 from cnaster.icm import icm_sweep, wolff_sweep
 from cnaster.hmm import gmm_init, pipeline_baum_welch
 from cnaster.hmm_sitewise import hmm_sitewise
@@ -423,6 +420,8 @@ def aggr_hmrfmix_reassignment_concatenate(
     logger.info(
         f"Solved for updated clone labels in {niter} iterations (took {time.time() - start_time:.2f} seconds)."
     )
+
+    exit(0)
 
     # NB compute total ln likelihood.
     total_llf = np.sum(single_llf[np.arange(N), new_assignment])

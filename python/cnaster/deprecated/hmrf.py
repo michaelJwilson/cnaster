@@ -2,7 +2,7 @@ import time
 import copy
 import logging
 import numpy as np
-from cnaster.icm import icm_update
+from cnaster.icm import icm_sweep
 from cnaster.hmrf_utils import cast_csr
 from cnaster.hmm_sitewise import hmm_sitewise
 
@@ -211,7 +211,7 @@ def aggr_hmrfmix_reassignment_concatenate(
 
     adj_list = cast_csr(adjacency_mat)
 
-    niter = icm_update(
+    niter = icm_sweep(
         single_llf,
         adj_list,
         new_assignment,

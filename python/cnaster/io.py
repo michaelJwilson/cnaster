@@ -47,7 +47,7 @@ def get_aggregated_barcodes(barcode_file):
 
     # TODO sample ids currently slice, e.g. U1;
     logger.info(
-        f"Input barcode file {barcode_file} with {df_barcode.shape[0]} barcodes for all samples/bams, e.g.\n{df_barcode.head()}\n"
+        f"Input aggregated barcode file {barcode_file} with {df_barcode.shape[0]} barcodes for all samples/bams, e.g.\n{df_barcode.head()}\n"
     )
 
     return df_barcode
@@ -249,7 +249,7 @@ def load_input_data(
     snp_barcodes["barcodes"] = snp_barcodes["barcodes"].map(
         lambda xx: xx.split("_")[0] + "_" + sample_id_patcher[xx.split("_")[-1]]
     )
-
+        
     unique_snp_ids = np.load(f"{snp_dir}/unique_snp_ids.npy", allow_pickle=True)
 
     # NB read (phased) counts for H0/H1 for (spots, snps).
@@ -321,6 +321,9 @@ def load_input_data(
     shared_barcodes = set(list(snp_barcodes.barcodes)) & set(list(adata.obs.index))
 
     isin = snp_barcodes.barcodes.isin(shared_barcodes).to_numpy()
+
+    # TODO barcode inconsistent between snps and umis.
+    assert np.any(isin)
 
     logger.info(
         f"Retaining {100.0 * np.mean(isin):.3f}% of SNP barcodes (shared between UMIs and SNPs)."

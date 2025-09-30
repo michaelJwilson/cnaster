@@ -92,7 +92,7 @@ def run_cnaster(config_path):
     config = YAMLConfig.from_file(config_path)
 
     set_global_config(config)
-
+    
     # NB start run_parse_n_load::parse_visium::load_joint_data
     #    adata: (barcode x gene) transcripts ('count') + 'tumor_annotation' + 'X_pos' + slice ('sample').
     #    cell_snp_Aallele: haplotype H0 counts (barcode x snp).
@@ -110,7 +110,7 @@ def run_cnaster(config_path):
         filter_gene_file=config.references.filtergenelist_file,
         filter_range_file=config.references.filterregion_file,
     )
-
+    
     # NB e.g. 'AAACAAGTATCTCCCA-1_HT112C1-U1' currently.
     barcodes = adata.obs.index
     sample_list = [adata.obs["sample"].iloc[0]]
@@ -304,6 +304,7 @@ def run_cnaster(config_path):
     initial_clone_index, clone_id = rectangle_initialize_initial_clone(
         coords, config.hmrf.n_clones, random_state=0
     )
+    
     """
     initial_clone_index, clone_id, spot_umi_counts = sufficient_umis_initial_clone(
         coords,

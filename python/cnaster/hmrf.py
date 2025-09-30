@@ -369,9 +369,12 @@ def aggr_hmrfmix_reassignment_concatenate(
             )
 
             for c in range(n_clones):
+                # MAP copy state for this clone.
                 this_pred = pred[(c * n_obs) : ((c + 1) * n_obs)]
 
-                # TODO np.arange(n_obs) -> :?
+                # NB log likelihood for this spot, given copy number profile of this clone;
+                #    assumes IID along the genome.
+                # TODO np.arange(n_obs) -> : ?
                 single_llf[i, c] = ratio_nonzeros * np.sum(
                     tmp_log_emission_rdr[this_pred, np.arange(n_obs), i]
                 ) + np.sum(tmp_log_emission_baf[this_pred, np.arange(n_obs), i])

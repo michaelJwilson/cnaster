@@ -251,7 +251,9 @@ def wolff_update(
 
 def wolff_sweep(
     single_llf,
-    adjacency_list,
+    adj_spots,
+    adj_neighbors,
+    adj_weights,
     new_assignment,
     spatial_weight,
     posterior,
@@ -264,7 +266,9 @@ def wolff_sweep(
     # NB icm_sweep updates new_assignment in place.
     _, new_cost = icm_sweep(
         single_llf,
-        adjacency_list,
+        adj_spots,
+        adj_neighbors,
+        adj_weights,
         new_assignment,
         spatial_weight,
         posterior,
@@ -287,15 +291,13 @@ def wolff_sweep(
     # NB unpacks adjaceny_list into arrays processble by numba.
     best_assignment, best_cost = new_assignment.copy(), new_cost
     
-    spots, neighbors, neighbor_weights = unpack_adjacency(adjacency_list)
-    
     for p_add in np.arange(0.05, 0.25, 0.05):
         for iteration in range(max_iter):
             new_cost, new_cluster_assignment, new_cluster = wolff_update(
                 single_llf,
-                spots,
-                neighbors,
-                neighbor_weights,
+                adj_spots,
+                adj_neighbors,
+                adj_weights,
                 new_assignment,
                 spatial_weight,
                 posterior,
@@ -324,7 +326,9 @@ def wolff_sweep(
 
                 _, new_cost = icm_sweep(
                     single_llf,
-                    adjacency_list,
+                    adj_spots,
+                    adj_neighbors,
+                    adj_weights,
                     new_assignment,
                     spatial_weight,
                     posterior,
@@ -357,7 +361,9 @@ def wolff_sweep(
 # @njit
 def icm_sweep(
     single_llf,
-    adjacency_list,
+    adj_spots,
+    adj_neighbors,
+    adj_weights,
     new_assignment,
     spatial_weight,
     posterior,
@@ -393,8 +399,12 @@ def icm_sweep(
             w_edge[:] = 0.0
 
             # NB sum spatial weights for neighbors grouped by current assignment
-            for j, edge_weight in adjacency_list[i]:
-                neighbor_assignment = new_assignment[j]
+            mask = adj_spots == i
+            neighbors = adj_neighbors[mask]
+            weights = adj_weights[mask]
+
+            for neighbor, edge_weight in zip(neighbors, weights):
+                neighbor_assignment = new_assignment[neighbor]
                 w_edge[neighbor_assignment] += edge_weight
 
             # NB assignment cost to each clone for this spot.
@@ -416,7 +426,7 @@ def icm_sweep(
         niter += 1
 
         _, cnts = np.unique(new_assignment, return_counts=True)
-
+        
         logger.info(f"Found ICM edit_rate={edit_rate:.6f} for iteration {niter}.")
         logger.info(f"Found ICM inferred clone proportions: {cnts / n_spots}")
 

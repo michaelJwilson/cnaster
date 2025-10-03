@@ -261,9 +261,9 @@ def rectangle_initialize_initial_clone(coords, n_clones, random_state=0):
             assert np.any(bc == 0)
 
             # NB take a block from the most-sampled clone and give to an unassigned.
-            block_clone_map[np.where(block_clone_map == np.argmax(bc))[0][0]] = (
-                np.where(bc == 0)[0][0]
-            )
+            block_clone_map[
+                np.where(block_clone_map == np.argmax(bc))[0][0]
+            ] = np.where(bc == 0)[0][0]
 
         # NB create a map of block id to clone id.
         block_clone_map = {i: block_clone_map[i] for i in range(len(block_clone_map))}
@@ -355,7 +355,9 @@ def choose_adjacency_by_readcounts(
     y_dist = coords[:, 1][None, :] - coords[:, 1][:, None]
 
     # NB x and y dists have independent scale factors.
-    tmp_pairwise_squared_dist = x_dist**2 * unit_xsquared + y_dist**2 * unit_ysquared
+    tmp_pairwise_squared_dist = (
+        x_dist**2 * unit_xsquared + y_dist**2 * unit_ysquared
+    )
 
     # NB sets the diagonal (self-distances) to the maximum so they are not considered as nearest neighbors.
     # TODO np.inf

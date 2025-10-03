@@ -28,6 +28,7 @@ class HMRFPerfEntry:
         d["best_cost"] = "{:+.6e}".format(self.best_cost)
         d["padd"] = "{:.2f}".format(self.padd) if not np.isnan(self.padd) else ""
         d["iteration"] = str(self.iteration)
+        d["ncluster"] = str(self.ncluster)
         d["nedit"] = "{:d}".format(self.nedit)
         d["clone_split"] = ",".join("{:.8f}".format(x) for x in self.clone_split)
 

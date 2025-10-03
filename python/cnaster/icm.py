@@ -56,43 +56,7 @@ class HMRFPerfEntry:
                 writer.writeheader()
 
             writer.writerow(perf_dict)
-
-"""
-def get_clones_cost(
-    single_llf,
-    adjacency_list,
-    new_assignment,
-    spatial_weight,
-    log_persample_weights=None,
-    sample_ids=None,
-):
-    n_spots, n_clones = single_llf.shape
-    cost = 0.0
-
-    for i in range(n_spots):
-        spot_assignment = new_assignment[i]
-
-        # NB emission likelihood for all clones for this spot; (1, n_clone).
-        cost += single_llf[i, spot_assignment]
-
-        # NB sample/slice for this spot.
-        this_sample = sample_ids[i]
-
-        # NB log_persample_weights (n_clone, n_sample/n_slice);
-        #    exp. proportion of clone per slice.
-        if log_persample_weights is not None:
-            cost += log_persample_weights[spot_assignment, this_sample]
-
-        # NB sum spatial weights for neighbors grouped by current assignment
-        for j, edge_weight in adjacency_list[i]:
-            neighbor_assignment = new_assignment[j]
-
-            # TODO is adjacency matrix symmetric? if so, only count half.
-            if neighbor_assignment == spot_assignment:
-                cost += spatial_weight * edge_weight / 2.0
-
-    return cost
-"""
+            
 
 def wolff_update(
     single_llf,
@@ -110,6 +74,7 @@ def wolff_update(
     n_spots, n_clones = single_llf.shape
 
     # NB pick a spot at random
+    # TODO smarter choice?
     this_spot = np.random.randint(n_spots)
     current_assignment = new_assignment[this_spot]
 

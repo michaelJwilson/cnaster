@@ -59,6 +59,7 @@ class HMRFPerfEntry:
 
 
 def unpack_adjacency(adjacency_list):
+    # TODO? hash map for O(1) lookup.
     adjacency_spots, adjacency_neighbors, adjacency_weights = [], [], []
 
     for spot, neighbors in enumerate(adjacency_list):
@@ -82,6 +83,12 @@ def build_wolff_cluster(
     this_spot,
     p_add,
 ):
+    """
+    Construct a cluster around this spot of all neighbors with the
+    same assignment; add them to the cluster with probability P_add
+    and further add the neighbors of these spots with the same spin
+    and probability; use a queue.
+    """
     cluster, queue = set([this_spot]), [this_spot]
     current_assignment = new_assignment[this_spot]
 
@@ -92,8 +99,8 @@ def build_wolff_cluster(
         neighbors = adjacency_neighbors[mask]
         weights = adjacency_weights[mask]
         for neighbor, edge_weight in zip(neighbors, weights):
-            if new_assignment[neighbor] == current_assignment:
-                if neighbor not in cluster and np.random.rand() < p_add:
+            if if neighbor not in cluster and (new_assignment[neighbor] == current_assignment):
+                if np.random.rand() < p_add:
                     cluster.add(neighbor)
                     queue.append(neighbor)
 
@@ -131,17 +138,23 @@ def calc_assignment_cost(
         if log_persample_weights is not None:
             w_node += log_persample_weights[:, this_sample]
 
+        # TODO adjacency is symmetric?
+        # TODO fast forward ...
         for k in range(adjacency_spots.shape[0]):
             if adjacency_spots[k] == spot:
                 neighbor = adjacency_neighbors[k]
                 edge_weight = adjacency_weights[k]
 
+                # NB i and j both in cluster; we will revisit on j.
                 if cluster_mask[neighbor] == 1:
                     w_edge += edge_weight / 2.0
+                # NB neighbor not in cluster; only if new cluster assignment
+                #    aligns with spin is there a preference; we will not revisit neighbor in this.
                 else:
                     neighbor_assignment = new_assignment[neighbor]
                     w_edge[neighbor_assignment] += edge_weight
 
+    # NB assignment cost to each clone for this cluster.
     assignment_cost = w_node + spatial_weight * w_edge
 
     return assignment_cost
@@ -178,49 +191,6 @@ def wolff_update(
         this_spot,
         p_add,
     )
-
-    """
-    # NB construct a cluster around this spot of all neighbors with the
-    #    same assignment; and them to the cluster with probability P_add
-    #    and further add the neighbors of these spots with the same spin
-    #    and probability; use a queue.
-    cluster, queue = set([this_spot]), [this_spot]
-
-    while queue:
-        current = queue.pop(0)
-
-        for neighbor, edge_weight in adjacency_list[current]:
-            if new_assignment[neighbor] == current_assignment:
-                if (neighbor not in cluster) and np.random.rand() < p_add:
-                    cluster.add(neighbor)
-                    queue.append(neighbor)
-    """
-    """
-    w_node, w_edge = np.zeros(n_clones, dtype=float), np.zeros(n_clones, dtype=float)
-
-    for spot in cluster:
-        w_node += single_llf[spot, :]
-
-        this_sample = sample_ids[spot]
-
-        if log_persample_weights is not None:
-            w_node += log_persample_weights[:, this_sample]
-
-        # TODO adjacency is symmetric?
-        for neighbor, edge_weight in adjacency_list[spot]:
-            # NB i and j both in cluster; we will revisit on j.
-            if neighbor in cluster:
-                w_edge += edge_weight / 2.0
-
-            # NB neighbor not in cluster; only if new cluster assignment
-            #    aligns with spin is there a preference; we will not revisit neighbor in this.
-            else:
-                neighbor_assignment = new_assignment[neighbor]
-                w_edge[neighbor_assignment] += edge_weight
-
-    # NB assignment cost to each clone for this cluster.
-    assignment_cost = w_node + spatial_weight * w_edge
-    """
 
     assignment_cost = calc_assignment_cost(
         cluster,
@@ -280,7 +250,7 @@ def wolff_update(
         new_assignment[spin] = new_cluster_assignment
     """
     new_assignment[cluster] = new_cluster_assignment
-    
+
     return new_cost, new_configuration
 
 
@@ -327,7 +297,6 @@ def wolff_sweep(
     logger.info(f"Solving for a Wolff sweep.")
 
     spots, neighbors, neighbor_weights = unpack_adjacency(adjacency_list)
-
     dp, best_cost = 0.05, -np.inf
 
     for p_add in np.arange(dp, 1.0 + dp, dp):

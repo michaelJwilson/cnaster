@@ -80,7 +80,7 @@ def unpack_adjacency(adj_list):
     return adj_spots, adj_neighbors, adj_weights
 
 
-@njit(cache=True)
+# @njit(cache=True)
 def build_wolff_cluster(
     new_assignment,
     adjacency_spots,

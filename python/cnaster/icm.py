@@ -74,7 +74,7 @@ def unpack_adjacency(adjacency_list):
     )
 
 
-@njit
+@njit(cache=True)
 def build_wolff_cluster(
     new_assignment,
     adjacency_spots,
@@ -109,7 +109,7 @@ def build_wolff_cluster(
     return np.array(list(cluster))
 
 
-@njit
+@njit(cache=True)
 def calc_assignment_cost(
     cluster,
     single_llf,
@@ -162,6 +162,7 @@ def calc_assignment_cost(
     return assignment_cost
 
 
+@njit(cache=True)
 def wolff_update(
     single_llf,
     adjacency_spots,
@@ -248,6 +249,7 @@ def wolff_update(
 
     return new_cost, new_cluster_assignment, None
 
+
 def wolff_sweep(
     single_llf,
     adjacency_list,
@@ -283,6 +285,7 @@ def wolff_sweep(
     logger.info(f"Solving for a Wolff sweep.")
 
     spots, neighbors, neighbor_weights = unpack_adjacency(adjacency_list)
+    best_assignment = new_assignment.copy()
     _, best_cost = 0.05, new_cost
 
     for p_add in np.arange(0.05, 0.25, 0.05):

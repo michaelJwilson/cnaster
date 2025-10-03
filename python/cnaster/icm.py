@@ -38,7 +38,7 @@ class HMRFPerfEntry:
             )
         else:
             d["clone_proportions"] = str(self.clone_proportions)
-            
+
         return d
 
     def log(self, filename="cnaster_hmrf.perf"):
@@ -56,6 +56,7 @@ class HMRFPerfEntry:
                 writer.writeheader()
 
             writer.writerow(perf_dict)
+
 
 """
 def get_clones_cost(
@@ -93,6 +94,7 @@ def get_clones_cost(
 
     return cost
 """
+
 
 def wolff_update(
     single_llf,
@@ -230,15 +232,17 @@ def wolff_sweep(
     ).log()
 
     unique_new_assignment = np.unique(new_assignment)
-    
+
     # TODO HACK TEST
-    new_assignment[:] = np.random.choice(unique_new_assignment, size=new_assignment.shape)
-    
+    new_assignment[:] = np.random.choice(
+        unique_new_assignment, size=new_assignment.shape
+    )
+
     logger.info(f"Solving for a Wolff sweep.")
 
     dp, best_cost = 0.05, -np.inf
 
-    for p_add in np.arange(dp, 1. + dp, dp):
+    for p_add in np.arange(dp, 1.0 + dp, dp):
         for iteration in range(max_iter):
             cost, new_configuration = wolff_update(
                 single_llf,
@@ -279,8 +283,10 @@ def wolff_sweep(
 
                 if cost > best_cost:
                     best_cost, best_assignment = cost, new_assignment.copy()
-                    logger.info(f"Found a new best assignment with cost={best_cost:.6e}")
-            
+                    logger.info(
+                        f"Found a new best assignment with cost={best_cost:.6e}"
+                    )
+
                 HMRFPerfEntry(
                     optimizer="icm",
                     cost=cost,
@@ -293,7 +299,7 @@ def wolff_sweep(
     new_assignment[:] = best_assignment
 
     exit(0)
-    
+
     return max_iter
 
 

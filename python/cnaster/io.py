@@ -238,18 +238,18 @@ def load_input_data(
         f"{snp_dir}/barcodes.txt", header=None, names=["barcodes"]
     )
 
-    # TODO HACK
+    # TODO HACK >>>>>>>>
     sample_id_patcher = {
         sample_id.split("-")[1]: sample_id for sample_id in df_meta.sample_id.to_numpy()
     }
 
     df_agg_barcode["sample_id"] = df_agg_barcode["sample_id"].map(sample_id_patcher)
 
-    # TODO HACK -/_
     snp_barcodes["barcodes"] = snp_barcodes["barcodes"].map(
         lambda xx: xx.split("_")[0] + "_" + sample_id_patcher[xx.split("_")[-1]]
     )
-        
+    # <<<<<<<<<
+
     unique_snp_ids = np.load(f"{snp_dir}/unique_snp_ids.npy", allow_pickle=True)
 
     # NB read (phased) counts for H0/H1 for (spots, snps).
@@ -272,10 +272,10 @@ def load_input_data(
         # NB (x,y) positions for each barcode (one per row).  limited to "in tissue" by default.
         df_this_pos = get_spatial_positions(df_meta["spaceranger_dir"].iloc[i])
 
-        # NB read filtered_feature_bc_matrix.h5(ad) from spaceranger_dir for this sample, # UMIs (spot barcode, gene).
+        # NB read filtered_feature_bc_matrix.h5(ad) from spaceranger_dir for this sample - UMIs (spot barcode, gene).
         adatatmp = get_spaceranger_counts(df_meta["spaceranger_dir"].iloc[i])
 
-        # NB reorder anndata spots to have the order of "df_this_barcode" (with enum)
+        # NB reorder anndata spots to have the order of "df_this_barcode" (with enum).
         idx_argsort = pd.Categorical(
             adatatmp.obs.index, categories=list(df_this_barcode.barcode), ordered=True
         ).argsort()

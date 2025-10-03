@@ -57,7 +57,7 @@ def get_full_palette():
     colors = sns.color_palette("rocket", len(ordered_acn)).as_hex()
 
     np.random.shuffle(colors)
-    
+
     palette = dict(zip(ordered_acn, colors))
 
     """
@@ -110,7 +110,7 @@ def cast_clone_label(label, with_normal=False):
     if num == -1:
         return "WARN"
     elif num == 0:
-        if with_normal:        
+        if with_normal:
             return "Normal"
         else:
             return "Clone 0"
@@ -215,13 +215,14 @@ def plot_clones_genomic(
 
     legend_elements = [
         Line2D(
-            [0], [0],
+            [0],
+            [0],
             marker="o",
             color="w",
             markerfacecolor=colors[i],
             label=str(ordered_acn[i]),
             markersize=10,
-            linestyle="None"
+            linestyle="None",
         )
         for i in range(len(ordered_acn))
     ]
@@ -233,7 +234,7 @@ def plot_clones_genomic(
         ncol=len(legend_elements),  # One line
         frameon=False,
     )
-    
+
     # Build height_ratios: [1, 1, 2, 1, 1, 2, ...] (no space within pair, double space between pairs)
     height_ratios = []
 
@@ -379,7 +380,7 @@ def plot_clones_genomic(
     for i in range(len(lengths)):
         median_len = np.sum(lengths[:(i)]) * 0.55 + np.sum(lengths[: (i + 1)]) * 0.45
         axes[-1].text(
-            median_len - 5.,
+            median_len - 5.0,
             chrtext_shift,
             f"chr{unique_chrs[i]}",
             transform=axes[-1].get_xaxis_transform(),

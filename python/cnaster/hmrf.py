@@ -18,6 +18,7 @@ from sklearn.metrics import adjusted_rand_score
 
 logger = logging.getLogger(__name__)
 
+
 @njit
 def logsumexp(x):
     x_max = np.max(x)

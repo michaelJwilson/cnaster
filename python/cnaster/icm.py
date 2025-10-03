@@ -321,11 +321,11 @@ def wolff_sweep(
                 cost_zeropoint=new_cost,
                 min_acceptance=min_acceptance,
             )
-
+            """
             # NB when sampling, we always accept the "new" cluster.
             if new_cluster is not None:
                 new_assignment[new_cluster] = new_cluster_assignment
-
+            """
             HMRFPerfEntry(
                 optimizer="wolff",
                 cost=new_cost,
@@ -342,6 +342,10 @@ def wolff_sweep(
                 logger.info(
                     f"Found a new best assignment of {len(new_cluster)} spots with new cost={best_cost:.6e}"
                 )
+
+                # NB when sampling, we always accept the "new" cluster.                                                                                                                                                                                               
+                if new_cluster is not None:
+                    new_assignment[new_cluster] = new_cluster_assignment
 
                 _, new_cost = icm_sweep(
                     single_llf,

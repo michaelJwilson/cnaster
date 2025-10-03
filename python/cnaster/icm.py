@@ -223,7 +223,6 @@ def wolff_update(
     delta_cost = assignment_cost[best_new_assignment] - current_cost
 
     new_cluster_assignment, new_cost = current_assignment, cost_zeropoint
-    new_configuration = False
 
     # NB we always accept the better state (max.)
     if delta_cost > 0:
@@ -247,6 +246,7 @@ def wolff_update(
     )
     """
 
+    return new_cost, new_cluster_assignment, None
 
 def wolff_sweep(
     single_llf,
@@ -258,9 +258,9 @@ def wolff_sweep(
     sample_ids=None,
     max_iter=500,
     cost_zeropoint=0.0,
-    min_acceptance=0.0,
+    min_acceptance=0.5,
 ):
-    _, cost = icm_sweep(
+    _, new_cost = icm_sweep(
         single_llf,
         adjacency_list,
         new_assignment,
@@ -273,8 +273,8 @@ def wolff_sweep(
 
     HMRFPerfEntry(
         optimizer="icm",
-        cost=cost,
-        best_cost=cost,
+        cost=new_cost,
+        best_cost=new_cost,
         padd=np.nan,
         iteration=0,
         clone_proportions=get_clone_proportions(new_assignment),
@@ -283,9 +283,9 @@ def wolff_sweep(
     logger.info(f"Solving for a Wolff sweep.")
 
     spots, neighbors, neighbor_weights = unpack_adjacency(adjacency_list)
-    _, best_cost = 0.05, -np.inf
+    _, best_cost = 0.05, new_cost
 
-    for p_add in np.arange(0.05, 0.25, 0.01):
+    for p_add in np.arange(0.05, 0.25, 0.05):
         for iteration in range(max_iter):
             new_cost, new_cluster_assignment, new_cluster = wolff_update(
                 single_llf,
@@ -298,19 +298,19 @@ def wolff_sweep(
                 log_persample_weights=log_persample_weights,
                 sample_ids=sample_ids,
                 p_add=p_add,
-                cost_zeropoint=cost,
+                cost_zeropoint=new_cost,
                 min_acceptance=min_acceptance,
             )
 
             if new_cost > best_cost:
                 new_assignment[new_cluster] = new_cluster_assignment
-                best_cost, best_assignment = cost, new_assignment.copy()
+                best_cost, best_assignment = new_cost, new_assignment.copy()
 
                 logger.info(f"Found a new best assignment with cost={best_cost:.6e}")
 
             HMRFPerfEntry(
                 optimizer="wolff",
-                cost=cost,
+                cost=new_cost,
                 best_cost=best_cost,
                 padd=p_add,
                 iteration=iteration,

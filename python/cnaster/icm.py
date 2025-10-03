@@ -20,7 +20,7 @@ class HMRFPerfEntry:
     iteration: int = 0
     ncluster: int = 1
     nedit: int = 0
-    clone_split: np.ndarray = field(default_factory=lambda: np.array([]))
+    clone_split: np.ndarray = field(default_factory=lambda: np.array([-1]))
 
     def as_dict(self):
         d = asdict(self)
@@ -80,7 +80,7 @@ def unpack_adjacency(adj_list):
     return adj_spots, adj_neighbors, adj_weights
 
 
-@njit(cache=True)
+# @njit(cache=True)
 def build_wolff_cluster(
     new_assignment,
     adjacency_spots,
@@ -101,7 +101,7 @@ def build_wolff_cluster(
     while queue:
         current = queue.pop(0)
 
-        mask = adjacency_spots == current
+        mask = (adjacency_spots == current)
         neighbors = adjacency_neighbors[mask]
         weights = adjacency_weights[mask]
         for neighbor, edge_weight in zip(neighbors, weights):
@@ -168,7 +168,7 @@ def calc_assignment_cost(
     return assignment_cost
 
 
-@njit(cache=True)
+# @njit(cache=True)
 def wolff_update(
     single_llf,
     adjacency_spots,
@@ -253,7 +253,7 @@ def wolff_update(
     )
     """
 
-    return new_cost, new_cluster_assignment, None
+    return new_cost, new_cluster_assignment, np.array([])
 
 
 def wolff_sweep(

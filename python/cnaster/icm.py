@@ -80,7 +80,7 @@ def unpack_adjacency(adj_list):
     return adj_spots, adj_neighbors, adj_weights
 
 
-# @njit(cache=True)
+@njit(cache=True)
 def build_wolff_cluster(
     new_assignment,
     adjacency_spots,
@@ -101,7 +101,7 @@ def build_wolff_cluster(
     while queue:
         current = queue.pop(0)
 
-        mask = (adjacency_spots == current)
+        mask = adjacency_spots == current
         neighbors = adjacency_neighbors[mask]
         weights = adjacency_weights[mask]
         for neighbor, edge_weight in zip(neighbors, weights):
@@ -137,7 +137,7 @@ def calc_assignment_cost(
     for idx in cluster:
         cluster_mask[idx] = 1
 
-    for ii in range(cluster.shape[0]):
+    for ii in range(len(cluster)):
         spot = cluster[ii]
         w_node += single_llf[spot, :]
 
@@ -168,7 +168,6 @@ def calc_assignment_cost(
     return assignment_cost
 
 
-# @njit(cache=True)
 def wolff_update(
     single_llf,
     adjacency_spots,
@@ -253,7 +252,7 @@ def wolff_update(
     )
     """
 
-    return new_cost, new_cluster_assignment, np.array([])
+    return new_cost, new_cluster_assignment, None
 
 
 def wolff_sweep(
@@ -266,7 +265,7 @@ def wolff_sweep(
     posterior,
     log_persample_weights=None,
     sample_ids=None,
-    max_iter=25,
+    max_iter=100,
     cost_zeropoint=0.0,
     min_acceptance=0.5,
 ):
@@ -301,7 +300,7 @@ def wolff_sweep(
     ).log()
 
     logger.info(f"Found a new best assignment with new cost={new_cost:.6e}")
-    logger.info(f"Completing a Wolff sweep.")
+    logger.info(f"Completing a Wolff sweep with min_acceptance={min_acceptance}.")
 
     # NB unpacks adjaceny_list into arrays processble by numba.
     best_assignment, best_cost = new_assignment.copy(), new_cost
@@ -324,7 +323,8 @@ def wolff_sweep(
             )
 
             # NB when sampling, we always accept the "new" cluster.
-            new_assignment[new_cluster] = new_cluster_assignment
+            if new_cluster is not None:
+                new_assignment[new_cluster] = new_cluster_assignment
 
             HMRFPerfEntry(
                 optimizer="wolff",
@@ -332,7 +332,7 @@ def wolff_sweep(
                 best_cost=best_cost,
                 padd=p_add,
                 iteration=iteration,
-                ncluster=len(new_cluster),
+                ncluster=len(new_cluster) if new_cluster is not None else 0,
                 nedit=np.count_nonzero(new_assignment != original_assignment),
                 clone_split=get_clone_split(new_assignment),
             ).log()
@@ -373,6 +373,8 @@ def wolff_sweep(
                 ).log()
 
     new_assignment[:] = best_assignment
+
+    exit(0)
 
     return max_iter
 

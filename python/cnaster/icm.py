@@ -18,6 +18,7 @@ class HMRFPerfEntry:
     best_cost: float
     padd: float = np.nan
     iteration: int = 0
+    nedit: int = 0
     clone_proportions: np.ndarray = field(default_factory=lambda: np.array([]))
 
     def as_dict(self):
@@ -26,13 +27,10 @@ class HMRFPerfEntry:
         d["best_cost"] = "{:+.6e}".format(self.best_cost)
         d["padd"] = "{:.2f}".format(self.padd) if not np.isnan(self.padd) else ""
         d["iteration"] = str(self.iteration)
-
-        if isinstance(self.clone_proportions, np.ndarray):
-            d["clone_proportions"] = ",".join(
-                "{:.6f}".format(x) for x in self.clone_proportions
-            )
-        else:
-            d["clone_proportions"] = str(self.clone_proportions)
+        d["nedit"] = nedit
+        d["clone_split"] = ",".join(
+            "{:.8f}".format(x) for x in self.clone_proportions
+        )
 
         return d
 
@@ -54,8 +52,8 @@ class HMRFPerfEntry:
 
 
 def get_clone_proportions(assignment):
-    _, counts = np.unique(assignment, return_counts=True)
-    return counts / len(assignment)
+    _, cnts = np.unique(assignment, return_counts=True)
+    return cnts / len(assignment)
 
 
 def unpack_adjacency(adjacency_list):
@@ -265,6 +263,8 @@ def wolff_sweep(
     min_acceptance=0.5,
 ):
     logger.info(f"Completing an ICM sweep for unary likelihood of shape {single_llf.shape} and spatial weight {spatial_weight}.")
+
+    original_assignment = new_assignment.copy()
     
     # NB icm_sweep updates new_assignment in place.
     _, new_cost = icm_sweep(
@@ -286,10 +286,11 @@ def wolff_sweep(
         best_cost=new_cost,
         padd=np.nan,
         iteration=0,
+        nedit=np.count_nonzero(new_assignment != original_assignment),
         clone_proportions=get_clone_proportions(new_assignment),
     ).log()
 
-    logger.info(f"Found a new best assignment of with new cost={new_cost:.6e}")
+    logger.info(f"Found a new best assignment with new cost={new_cost:.6e}")
     logger.info(f"Completing a Wolff sweep.")
 
     # NB unpacks adjaceny_list into arrays processble by numba.
@@ -321,6 +322,7 @@ def wolff_sweep(
                 best_cost=best_cost,
                 padd=p_add,
                 iteration=iteration,
+                nedit=np.count_nonzero(new_assignment != original_assignment),
                 clone_proportions=get_clone_proportions(new_assignment),
             ).log()
 
@@ -352,7 +354,8 @@ def wolff_sweep(
                     cost=new_cost,
                     best_cost=best_cost,
                     padd=np.nan,
-                    iteration=-1,
+                    iteration=iteration,
+                    nedit=np.count_nonzero(new_assignment != original_assignment),
                     clone_proportions=get_clone_proportions(new_assignment),
                 ).log()
 

@@ -28,7 +28,6 @@ class HMRFPerfEntry:
         d = asdict(self)
         d["cost"] = "{:+.6e}".format(self.cost)
         d["best_cost"] = "{:+.6e}".format(self.best_cost)
-        d["is_best"] = self.cost == self.best_cost
         d["padd"] = "{:.2f}".format(self.padd) if not np.isnan(self.padd) else ""
         d["iteration"] = str(self.iteration)
 
@@ -305,11 +304,7 @@ def wolff_sweep(
                 min_acceptance=min_acceptance,
             )
 
-            if new_cost > best_cost:
-                new_assignment[new_cluster] = new_cluster_assignment
-                best_cost, best_assignment = new_cost, new_assignment.copy()
-
-                logger.info(f"Found a new best assignment with cost={best_cost:.6e}")
+            new_assignment[new_cluster] = new_cluster_assignment
 
             HMRFPerfEntry(
                 optimizer="wolff",
@@ -319,9 +314,12 @@ def wolff_sweep(
                 iteration=iteration,
                 clone_proportions=get_clone_proportions(new_assignment),
             ).log()
-            """
-            if new_configuration:
-                _, cost = icm_sweep(
+
+            if new_cost > best_cost:
+                best_cost, best_assignment = new_cost, new_assignment.copy()
+                logger.info(f"Found a new best assignment with cost={best_cost:.6e}")
+
+                _, new_cost = icm_sweep(
                     single_llf,
                     adjacency_list,
                     new_assignment,
@@ -329,11 +327,11 @@ def wolff_sweep(
                     posterior,
                     log_persample_weights=log_persample_weights,
                     sample_ids=sample_ids,
-                    cost_zeropoint=cost,
+                    cost_zeropoint=new_cost,
                 )
 
-                if cost > best_cost:
-                    best_cost, best_assignment = cost, new_assignment.copy()
+                if new_cost > best_cost:
+                    best_cost, best_assignment = new_cost, new_assignment.copy()
                     logger.info(
                         f"Found a new best assignment with cost={best_cost:.6e}"
                     )
@@ -346,7 +344,7 @@ def wolff_sweep(
                     iteration=-1,
                     clone_proportions=get_clone_proportions(new_assignment),
                 ).log()
-            """
+
     new_assignment[:] = best_assignment
 
     exit(0)

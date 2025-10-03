@@ -479,6 +479,8 @@ def run_cnaster(config_path):
     fig_path = f"{config.paths.output_dir}/plots/bafonly_clones_spatial.pdf"
 
     write_fig(fig_path, bafonly_clones_fig, transparent=True, bbox_inches="tight")
+
+    exit(0)
     
     # TODO
     n_obs = single_X.shape[0]

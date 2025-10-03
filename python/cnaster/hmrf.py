@@ -390,11 +390,10 @@ def aggr_hmrfmix_reassignment_concatenate(
     logger.info(f"Solving for updated clone labels with ICM.")
 
     adj_list = cast_csr(adjacency_mat)
-
+    adj_spots, adj_neighbors, adj_weights = unpack_adjacency(adj_list)
+    
     # NB Posterior probabilities if return_posterior=True.
     posterior = np.zeros((N, n_clones))
-
-    adj_spots, adj_neighbors, adj_weights = unpack_adjacency(adjacency_list)
 
     """
     # NB updates new_assignment and posterior in place.

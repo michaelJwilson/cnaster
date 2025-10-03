@@ -3,7 +3,8 @@ import numpy as np
 import csv
 import time
 from pathlib import Path
-from scipy.special import logsumexp
+
+# from scipy.special import logsumexp
 from numba import njit
 from dataclasses import dataclass, asdict, field
 
@@ -290,7 +291,7 @@ def wolff_sweep(
 
     # NB unpacks adjaceny_list into arrays processble by numba.
     best_assignment, best_cost = new_assignment.copy(), new_cost
-    
+
     for p_add in np.arange(0.05, 0.25, 0.05):
         for iteration in range(max_iter):
             new_cost, new_cluster_assignment, new_cluster = wolff_update(
@@ -357,8 +358,16 @@ def wolff_sweep(
     return max_iter
 
 
-# TODO
-# @njit
+@njit
+def logsumexp(x):
+    x_max = np.max(x)
+    s = 0.0
+    for i in range(x.shape[0]):
+        s += np.exp(x[i] - x_max)
+    return x_max + np.log(s)
+
+
+@njit(cache=True)
 def icm_sweep(
     single_llf,
     adj_spots,
@@ -426,9 +435,9 @@ def icm_sweep(
         niter += 1
 
         _, cnts = np.unique(new_assignment, return_counts=True)
-        
-        logger.info(f"Found ICM edit_rate={edit_rate:.6f} for iteration {niter}.")
-        logger.info(f"Found ICM inferred clone proportions: {cnts / n_spots}")
+
+        # logger.info(f"Found ICM edit_rate={edit_rate:.6f} for iteration {niter}.")
+        # logger.info(f"Found ICM inferred clone proportions: {cnts / n_spots}")
 
         if edit_rate < tol:
             break

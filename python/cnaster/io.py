@@ -154,6 +154,7 @@ def get_spaceranger_counts(spaceranger_dir):
 
 
 # TODO massively inefficient?
+# NB mirrors https://github.com/raphael-group/CalicoST/blob/c1abcae3e3657e01e547ee4529e3b9d039221453/src/calicost/utils_IO.py#L127
 def get_alignments(alignment_files, df_meta, df_agg_barcode, significance=1.0e-6):
     if alignment_files is None:
         return None

@@ -58,47 +58,101 @@ class HMRFPerfEntry:
             writer.writerow(perf_dict)
 
 
-"""
-def get_clones_cost(
-    single_llf,
-    adjacency_list,
+def unpack_adjacency(adjacency_list):
+    adjacency_spots, adjacency_neighbors, adjacency_weights = [], [], []
+
+    for spot, neighbors in enumerate(adjacency_list):
+        for neighbor, weight in neighbors:
+            adjacency_spots.append(spot)
+            adjacency_neighbors.append(neighbor)
+            adjacency_weights.append(weight)
+    return (
+        np.array(adjacency_spots, dtype=int),
+        np.array(adjacency_neighbors, dtype=int),
+        np.array(adjacency_weights, dtype=float),
+    )
+
+
+@njit
+def build_wolff_cluster(
     new_assignment,
-    spatial_weight,
-    log_persample_weights=None,
-    sample_ids=None,
+    adjacency_spots,
+    adjacency_neighbors,
+    adjacency_weights,
+    this_spot,
+    p_add,
 ):
-    n_spots, n_clones = single_llf.shape
-    cost = 0.0
+    cluster, queue = set([this_spot]), [this_spot]
+    current_assignment = new_assignment[this_spot]
 
-    for i in range(n_spots):
-        spot_assignment = new_assignment[i]
+    while queue:
+        current = queue.pop(0)
 
-        # NB emission likelihood for all clones for this spot; (1, n_clone).
-        cost += single_llf[i, spot_assignment]
+        mask = adjacency_spots == current
+        neighbors = adjacency_neighbors[mask]
+        weights = adjacency_weights[mask]
+        for neighbor, edge_weight in zip(neighbors, weights):
+            if new_assignment[neighbor] == current_assignment:
+                if neighbor not in cluster and np.random.rand() < p_add:
+                    cluster.add(neighbor)
+                    queue.append(neighbor)
 
-        # NB sample/slice for this spot.
-        this_sample = sample_ids[i]
+    return np.array(list(cluster))
 
-        # NB log_persample_weights (n_clone, n_sample/n_slice);
-        #    exp. proportion of clone per slice.
+
+@njit
+def calc_assignment_cost(
+    cluster,
+    single_llf,
+    sample_ids,
+    log_persample_weights,
+    new_assignment,
+    adjacency_spots,
+    adjacency_neighbors,
+    adjacency_weights,
+    n_clones,
+    spatial_weight,
+):
+    w_node = np.zeros(n_clones, dtype=np.float64)
+    w_edge = np.zeros(n_clones, dtype=np.float64)
+    n_spots = single_llf.shape[0]
+
+    cluster_mask = np.zeros(n_spots, dtype=np.uint8)
+
+    for idx in cluster:
+        cluster_mask[idx] = 1
+
+    for ii in range(cluster.shape[0]):
+        spot = cluster[ii]
+        w_node += single_llf[spot, :]
+
+        this_sample = sample_ids[spot]
+
         if log_persample_weights is not None:
-            cost += log_persample_weights[spot_assignment, this_sample]
+            w_node += log_persample_weights[:, this_sample]
 
-        # NB sum spatial weights for neighbors grouped by current assignment
-        for j, edge_weight in adjacency_list[i]:
-            neighbor_assignment = new_assignment[j]
+        for k in range(adjacency_spots.shape[0]):
+            if adjacency_spots[k] == spot:
+                neighbor = adjacency_neighbors[k]
+                edge_weight = adjacency_weights[k]
 
-            # TODO is adjacency matrix symmetric? if so, only count half.
-            if neighbor_assignment == spot_assignment:
-                cost += spatial_weight * edge_weight / 2.0
+                if cluster_mask[neighbor] == 1:
+                    w_edge += edge_weight / 2.0
+                else:
+                    neighbor_assignment = new_assignment[neighbor]
+                    w_edge[neighbor_assignment] += edge_weight
 
-    return cost
-"""
+    assignment_cost = w_node + spatial_weight * w_edge
+
+    return assignment_cost
 
 
 def wolff_update(
     single_llf,
-    adjacency_list,
+    adjacency_spots,
+    adjacency_neighbors,
+    adjacency_weights,
+    adjacency_list,  # TODO HACK
     new_assignment,
     spatial_weight,
     posterior,
@@ -112,14 +166,25 @@ def wolff_update(
     n_spots, n_clones = single_llf.shape
 
     # NB pick a spot at random
+    # TODO smarter choice?
     this_spot = np.random.randint(n_spots)
     current_assignment = new_assignment[this_spot]
 
+    cluster = build_wolff_cluster(
+        new_assignment,
+        adjacency_spots,
+        adjacency_neighbors,
+        adjacency_weights,
+        this_spot,
+        p_add,
+    )
+
+    """
     # NB construct a cluster around this spot of all neighbors with the
     #    same assignment; and them to the cluster with probability P_add
     #    and further add the neighbors of these spots with the same spin
     #    and probability; use a queue.
-    cluster, queue = [this_spot], [this_spot]
+    cluster, queue = set([this_spot]), [this_spot]
 
     while queue:
         current = queue.pop(0)
@@ -127,9 +192,10 @@ def wolff_update(
         for neighbor, edge_weight in adjacency_list[current]:
             if new_assignment[neighbor] == current_assignment:
                 if (neighbor not in cluster) and np.random.rand() < p_add:
-                    cluster.append(neighbor)
+                    cluster.add(neighbor)
                     queue.append(neighbor)
-
+    """
+    """
     w_node, w_edge = np.zeros(n_clones, dtype=float), np.zeros(n_clones, dtype=float)
 
     for spot in cluster:
@@ -154,12 +220,27 @@ def wolff_update(
 
     # NB assignment cost to each clone for this cluster.
     assignment_cost = w_node + spatial_weight * w_edge
-    current_cost = assignment_cost[current_assignment]
+    """
 
+    assignment_cost = calc_assignment_cost(
+        cluster,
+        single_llf,
+        sample_ids,
+        log_persample_weights,
+        new_assignment,
+        adjacency_spots,
+        adjacency_neighbors,
+        adjacency_weights,
+        n_clones,
+        spatial_weight,
+    )
+
+    current_cost = assignment_cost[current_assignment]
+    """
     logger.debug(
         f"Solved for a cluster of {len(cluster)} spins @ p_add={p_add} with current cost {current_cost:.6e} and new costs=\n{assignment_cost}"
     )
-
+    """
     # TODO check.
     assignment_cost[current_assignment] = -np.inf
 
@@ -188,14 +269,18 @@ def wolff_update(
         new_cluster_assignment, new_cost = current_assignment, cost_zeropoint
         new_configuration = False
 
+    """
     logger.debug(
         f"Solved for better={int(delta_cost>0)} cluster assignment {current_assignment} -> {new_cluster_assignment} with costs {cost_zeropoint} -> {new_cost} @ acceptance={acceptance:.6e}"
     )
-
+    """
+    """
     # TODO define edits.
     for spin in cluster:
         new_assignment[spin] = new_cluster_assignment
-
+    """
+    new_assignment[cluster] = new_cluster_assignment
+    
     return new_cost, new_configuration
 
 
@@ -211,6 +296,7 @@ def wolff_sweep(
     max_iter=100,
     cost_zeropoint=0.0,
 ):
+    """
     _, cost = icm_sweep(
         single_llf,
         adjacency_list,
@@ -230,7 +316,7 @@ def wolff_sweep(
         iteration=0,
         clone_proportions=get_clone_proportions(new_assignment),
     ).log()
-
+    """
     unique_new_assignment = np.unique(new_assignment)
 
     # TODO HACK TEST
@@ -240,12 +326,17 @@ def wolff_sweep(
 
     logger.info(f"Solving for a Wolff sweep.")
 
+    spots, neighbors, neighbor_weights = unpack_adjacency(adjacency_list)
+
     dp, best_cost = 0.05, -np.inf
 
     for p_add in np.arange(dp, 1.0 + dp, dp):
         for iteration in range(max_iter):
             cost, new_configuration = wolff_update(
                 single_llf,
+                spots,
+                neighbors,
+                neighbor_weights,
                 adjacency_list,
                 new_assignment,
                 spatial_weight,
@@ -268,7 +359,7 @@ def wolff_sweep(
                 iteration=iteration,
                 clone_proportions=get_clone_proportions(new_assignment),
             ).log()
-
+            """
             if new_configuration:
                 _, cost = icm_sweep(
                     single_llf,
@@ -295,7 +386,7 @@ def wolff_sweep(
                     iteration=-1,
                     clone_proportions=get_clone_proportions(new_assignment),
                 ).log()
-
+            """
     new_assignment[:] = best_assignment
 
     exit(0)

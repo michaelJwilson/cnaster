@@ -183,6 +183,8 @@ def run_cnaster(config_path):
         unique_snp_ids,
     )
 
+    exit(0)
+
     # NB 1D array of expected phase error rate.
     log_sitewise_transmat = get_sitewise_transmat(
         df_gene_snp,

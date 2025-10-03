@@ -18,7 +18,9 @@ class HMRFPerfEntry:
     best_cost: float
     padd: float = np.nan
     iteration: int = 0
-    clone_proportions: np.ndarray = field(default_factory=lambda: np.array([]))
+    ncluster: int = 1
+    nedit: int = 0
+    clone_split: np.ndarray = field(default_factory=lambda: np.array([-1]))
 
     def as_dict(self):
         d = asdict(self)
@@ -26,13 +28,9 @@ class HMRFPerfEntry:
         d["best_cost"] = "{:+.6e}".format(self.best_cost)
         d["padd"] = "{:.2f}".format(self.padd) if not np.isnan(self.padd) else ""
         d["iteration"] = str(self.iteration)
-
-        if isinstance(self.clone_proportions, np.ndarray):
-            d["clone_proportions"] = ",".join(
-                "{:.6f}".format(x) for x in self.clone_proportions
-            )
-        else:
-            d["clone_proportions"] = str(self.clone_proportions)
+        d["ncluster"] = str(self.ncluster)
+        d["nedit"] = "{:d}".format(self.nedit)
+        d["clone_split"] = ",".join("{:.8f}".format(x) for x in self.clone_split)
 
         return d
 
@@ -53,25 +51,33 @@ class HMRFPerfEntry:
             writer.writerow(perf_dict)
 
 
-def get_clone_proportions(assignment):
-    _, counts = np.unique(assignment, return_counts=True)
-    return counts / len(assignment)
+def get_clone_split(assignment):
+    _, cnts = np.unique(assignment, return_counts=True)
+    return cnts / len(assignment)
 
 
-def unpack_adjacency(adjacency_list):
+def unpack_adjacency(adj_list):
     # TODO? hash map for O(1) lookup?
-    adjacency_spots, adjacency_neighbors, adjacency_weights = [], [], []
+    adj_spots, adj_neighbors, adj_weights = [], [], []
 
-    for spot, neighbors in enumerate(adjacency_list):
+    # NB spot repeated for each of its neighbors.
+    for spot, neighbors in enumerate(adj_list):
         for neighbor, weight in neighbors:
-            adjacency_spots.append(spot)
-            adjacency_neighbors.append(neighbor)
-            adjacency_weights.append(weight)
-    return (
-        np.array(adjacency_spots, dtype=int),
-        np.array(adjacency_neighbors, dtype=int),
-        np.array(adjacency_weights, dtype=float),
+            adj_spots.append(spot)
+            adj_neighbors.append(neighbor)
+            adj_weights.append(weight)
+
+    adj_spots, adj_neighbors, adj_weights = (
+        np.array(adj_spots, dtype=int),
+        np.array(adj_neighbors, dtype=int),
+        np.array(adj_weights, dtype=float),
     )
+
+    _, cnts = np.unique(adj_spots, return_counts=True)
+
+    logger.info(f"Found adjaceny neighbors counts={cnts}")
+
+    return adj_spots, adj_neighbors, adj_weights
 
 
 @njit(cache=True)
@@ -89,7 +95,7 @@ def build_wolff_cluster(
     and further add the neighbors of these spots with the same spin
     and probability; use a queue.
     """
-    cluster, queue = set([this_spot]), [this_spot]
+    cluster, queue = [this_spot], [this_spot]
     current_assignment = new_assignment[this_spot]
 
     while queue:
@@ -103,7 +109,7 @@ def build_wolff_cluster(
                 new_assignment[neighbor] == current_assignment
             ):
                 if np.random.rand() < p_add:
-                    cluster.add(neighbor)
+                    cluster.append(neighbor)
                     queue.append(neighbor)
 
     return np.array(list(cluster))
@@ -131,7 +137,7 @@ def calc_assignment_cost(
     for idx in cluster:
         cluster_mask[idx] = 1
 
-    for ii in range(cluster.shape[0]):
+    for ii in range(len(cluster)):
         spot = cluster[ii]
         w_node += single_llf[spot, :]
 
@@ -162,7 +168,6 @@ def calc_assignment_cost(
     return assignment_cost
 
 
-@njit(cache=True)
 def wolff_update(
     single_llf,
     adjacency_spots,
@@ -173,7 +178,7 @@ def wolff_update(
     posterior,
     log_persample_weights=None,
     sample_ids=None,
-    p_add=0.5,
+    p_add=0.0,
     cost_zeropoint=0.0,
     min_acceptance=None,
 ):
@@ -260,12 +265,16 @@ def wolff_sweep(
     posterior,
     log_persample_weights=None,
     sample_ids=None,
-    max_iter=25,
+    max_iter=100,
     cost_zeropoint=0.0,
     min_acceptance=0.5,
 ):
-    logger.info(f"Completing an ICM sweep for unary likelihood of shape {single_llf.shape} and spatial weight {spatial_weight}.")
-    
+    logger.info(
+        f"Completing an ICM sweep for unary likelihood of shape {single_llf.shape} and spatial weight {spatial_weight}."
+    )
+
+    original_assignment = new_assignment.copy()
+
     # NB icm_sweep updates new_assignment in place.
     _, new_cost = icm_sweep(
         single_llf,
@@ -284,13 +293,14 @@ def wolff_sweep(
         optimizer="icm",
         cost=new_cost,
         best_cost=new_cost,
-        padd=np.nan,
+        padd=0.0,
         iteration=0,
-        clone_proportions=get_clone_proportions(new_assignment),
+        nedit=np.count_nonzero(new_assignment != original_assignment),
+        clone_split=get_clone_split(new_assignment),
     ).log()
 
-    logger.info(f"Found a new best assignment of with new cost={new_cost:.6e}")
-    logger.info(f"Completing a Wolff sweep.")
+    logger.info(f"Found a new best assignment with new cost={new_cost:.6e}")
+    logger.info(f"Completing a Wolff sweep with min_acceptance={min_acceptance}.")
 
     # NB unpacks adjaceny_list into arrays processble by numba.
     best_assignment, best_cost = new_assignment.copy(), new_cost
@@ -313,7 +323,8 @@ def wolff_sweep(
             )
 
             # NB when sampling, we always accept the "new" cluster.
-            new_assignment[new_cluster] = new_cluster_assignment
+            if new_cluster is not None:
+                new_assignment[new_cluster] = new_cluster_assignment
 
             HMRFPerfEntry(
                 optimizer="wolff",
@@ -321,12 +332,16 @@ def wolff_sweep(
                 best_cost=best_cost,
                 padd=p_add,
                 iteration=iteration,
-                clone_proportions=get_clone_proportions(new_assignment),
+                ncluster=len(new_cluster) if new_cluster is not None else 0,
+                nedit=np.count_nonzero(new_assignment != original_assignment),
+                clone_split=get_clone_split(new_assignment),
             ).log()
 
             if new_cost > best_cost:
                 best_cost, best_assignment = new_cost, new_assignment.copy()
-                logger.info(f"Found a new best assignment of {len(new_cluster)} spots with new cost={best_cost:.6e}")
+                logger.info(
+                    f"Found a new best assignment of {len(new_cluster)} spots with new cost={best_cost:.6e}"
+                )
 
                 _, new_cost = icm_sweep(
                     single_llf,
@@ -352,11 +367,14 @@ def wolff_sweep(
                     cost=new_cost,
                     best_cost=best_cost,
                     padd=np.nan,
-                    iteration=-1,
-                    clone_proportions=get_clone_proportions(new_assignment),
+                    iteration=iteration,
+                    nedit=np.count_nonzero(new_assignment != original_assignment),
+                    clone_split=get_clone_split(new_assignment),
                 ).log()
 
     new_assignment[:] = best_assignment
+
+    exit(0)
 
     return max_iter
 

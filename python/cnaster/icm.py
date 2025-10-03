@@ -257,10 +257,11 @@ def wolff_sweep(
     posterior,
     log_persample_weights=None,
     sample_ids=None,
-    max_iter=500,
+    max_iter=25,
     cost_zeropoint=0.0,
     min_acceptance=0.5,
 ):
+    # NB icm_sweep updates new_assignment in place.
     _, new_cost = icm_sweep(
         single_llf,
         adjacency_list,
@@ -283,10 +284,11 @@ def wolff_sweep(
 
     logger.info(f"Solving for a Wolff sweep.")
 
+    # NB unpacks adjaceny_list into arrays processble by numba.
+    best_assignment, best_cost = new_assignment.copy(), new_cost
+    
     spots, neighbors, neighbor_weights = unpack_adjacency(adjacency_list)
-    best_assignment = new_assignment.copy()
-    _, best_cost = 0.05, new_cost
-
+    
     for p_add in np.arange(0.05, 0.25, 0.05):
         for iteration in range(max_iter):
             new_cost, new_cluster_assignment, new_cluster = wolff_update(
@@ -304,6 +306,7 @@ def wolff_sweep(
                 min_acceptance=min_acceptance,
             )
 
+            # NB when sampling, we always accept the "new" cluster.
             new_assignment[new_cluster] = new_cluster_assignment
 
             HMRFPerfEntry(
@@ -338,7 +341,7 @@ def wolff_sweep(
 
                 HMRFPerfEntry(
                     optimizer="icm",
-                    cost=cost,
+                    cost=new_cost,
                     best_cost=best_cost,
                     padd=np.nan,
                     iteration=-1,
@@ -346,8 +349,6 @@ def wolff_sweep(
                 ).log()
 
     new_assignment[:] = best_assignment
-
-    exit(0)
 
     return max_iter
 

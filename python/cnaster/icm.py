@@ -434,7 +434,7 @@ def icm_sweep(
         edit_rate = edits / n_spots
         niter += 1
 
-        _, cnts = np.unique(new_assignment, return_counts=True)
+        # unique_assignment, cnts = np.unique(new_assignment, return_counts=True)
 
         # logger.info(f"Found ICM edit_rate={edit_rate:.6f} for iteration {niter}.")
         # logger.info(f"Found ICM inferred clone proportions: {cnts / n_spots}")

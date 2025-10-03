@@ -11,11 +11,6 @@ from dataclasses import dataclass, asdict, field
 logger = logging.getLogger(__name__)
 
 
-def get_clone_proportions(assignment):
-    _, counts = np.unique(assignment, return_counts=True)
-    return counts / len(assignment)
-
-
 @dataclass
 class HMRFPerfEntry:
     optimizer: str
@@ -58,8 +53,13 @@ class HMRFPerfEntry:
             writer.writerow(perf_dict)
 
 
+def get_clone_proportions(assignment):
+    _, counts = np.unique(assignment, return_counts=True)
+    return counts / len(assignment)
+
+
 def unpack_adjacency(adjacency_list):
-    # TODO? hash map for O(1) lookup.
+    # TODO? hash map for O(1) lookup?
     adjacency_spots, adjacency_neighbors, adjacency_weights = [], [], []
 
     for spot, neighbors in enumerate(adjacency_list):
@@ -264,6 +264,8 @@ def wolff_sweep(
     cost_zeropoint=0.0,
     min_acceptance=0.5,
 ):
+    logger.info(f"Completing an ICM sweep for unary likelihood of shape {single_llf.shape} and spatial weight {spatial_weight}.")
+    
     # NB icm_sweep updates new_assignment in place.
     _, new_cost = icm_sweep(
         single_llf,
@@ -287,7 +289,8 @@ def wolff_sweep(
         clone_proportions=get_clone_proportions(new_assignment),
     ).log()
 
-    logger.info(f"Solving for a Wolff sweep.")
+    logger.info(f"Found a new best assignment of with new cost={new_cost:.6e}")
+    logger.info(f"Completing a Wolff sweep.")
 
     # NB unpacks adjaceny_list into arrays processble by numba.
     best_assignment, best_cost = new_assignment.copy(), new_cost
@@ -323,7 +326,7 @@ def wolff_sweep(
 
             if new_cost > best_cost:
                 best_cost, best_assignment = new_cost, new_assignment.copy()
-                logger.info(f"Found a new best assignment with cost={best_cost:.6e}")
+                logger.info(f"Found a new best assignment of {len(new_cluster)} spots with new cost={best_cost:.6e}")
 
                 _, new_cost = icm_sweep(
                     single_llf,
@@ -341,7 +344,7 @@ def wolff_sweep(
                 if new_cost > best_cost:
                     best_cost, best_assignment = new_cost, new_assignment.copy()
                     logger.info(
-                        f"Found a new best assignment with cost={best_cost:.6e}"
+                        f"Found a new best assignment with cost={best_cost:.6e} with an additional ICM sweep"
                     )
 
                 HMRFPerfEntry(

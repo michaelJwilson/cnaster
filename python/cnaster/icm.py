@@ -99,7 +99,7 @@ def build_wolff_cluster(
         neighbors = adjacency_neighbors[mask]
         weights = adjacency_weights[mask]
         for neighbor, edge_weight in zip(neighbors, weights):
-            if if neighbor not in cluster and (new_assignment[neighbor] == current_assignment):
+            if neighbor not in cluster and (new_assignment[neighbor] == current_assignment):
                 if np.random.rand() < p_add:
                     cluster.add(neighbor)
                     queue.append(neighbor)
@@ -165,7 +165,6 @@ def wolff_update(
     adjacency_spots,
     adjacency_neighbors,
     adjacency_weights,
-    adjacency_list,  # TODO HACK
     new_assignment,
     spatial_weight,
     posterior,
@@ -173,7 +172,7 @@ def wolff_update(
     sample_ids=None,
     p_add=0.5,
     cost_zeropoint=0.0,
-    sample=False,
+    min_acceptance=None,
 ):
     # TODO p_add should be determined by spatial_weight!
     n_spots, n_clones = single_llf.shape
@@ -206,11 +205,11 @@ def wolff_update(
     )
 
     current_cost = assignment_cost[current_assignment]
-    """
+
     logger.debug(
         f"Solved for a cluster of {len(cluster)} spins @ p_add={p_add} with current cost {current_cost:.6e} and new costs=\n{assignment_cost}"
     )
-    """
+
     # TODO check.
     assignment_cost[current_assignment] = -np.inf
 
@@ -221,9 +220,9 @@ def wolff_update(
     best_new_assignment = np.argmax(assignment_cost)
     delta_cost = assignment_cost[best_new_assignment] - current_cost
 
-    # TODO HACK
-    acceptance = np.exp(delta_cost)
-
+    new_cluster_assignment, new_cost = current_assignment, cost_zeropoint
+    new_configuration = False
+    
     # NB we always accept the better state (max.)
     if delta_cost > 0:
         new_cluster_assignment = best_new_assignment
@@ -231,27 +230,19 @@ def wolff_update(
         new_configuration = True
 
     # NB all proposed states are worse; pick one randomly;
-    elif sample and (np.random.rand() < acceptance):
-        new_cluster_assignment = best_new_assignment
-        new_cost = cost_zeropoint + delta_cost
-        new_configuration = True
-    else:
-        new_cluster_assignment, new_cost = current_assignment, cost_zeropoint
-        new_configuration = False
-
-    """
+    if min_acceptance is not None:
+        acceptance = np.exp(delta_cost)
+        
+        if np.random.rand() < np.maximum(acceptance, min_acceptance):
+            new_cluster_assignment = best_new_assignment
+            new_cost = cost_zeropoint + delta_cost
+            new_configuration = True
+            
     logger.debug(
         f"Solved for better={int(delta_cost>0)} cluster assignment {current_assignment} -> {new_cluster_assignment} with costs {cost_zeropoint} -> {new_cost} @ acceptance={acceptance:.6e}"
     )
-    """
-    """
-    # TODO define edits.
-    for spin in cluster:
-        new_assignment[spin] = new_cluster_assignment
-    """
-    new_assignment[cluster] = new_cluster_assignment
-
-    return new_cost, new_configuration
+            
+    return new_cost, new_cluster_assignment, cluster
 
 
 def wolff_sweep(
@@ -265,8 +256,8 @@ def wolff_sweep(
     p_add=0.5,
     max_iter=100,
     cost_zeropoint=0.0,
+    min_acceptance=0.0,
 ):
-    """
     _, cost = icm_sweep(
         single_llf,
         adjacency_list,
@@ -286,13 +277,6 @@ def wolff_sweep(
         iteration=0,
         clone_proportions=get_clone_proportions(new_assignment),
     ).log()
-    """
-    unique_new_assignment = np.unique(new_assignment)
-
-    # TODO HACK TEST
-    new_assignment[:] = np.random.choice(
-        unique_new_assignment, size=new_assignment.shape
-    )
 
     logger.info(f"Solving for a Wolff sweep.")
 
@@ -301,12 +285,11 @@ def wolff_sweep(
 
     for p_add in np.arange(dp, 1.0 + dp, dp):
         for iteration in range(max_iter):
-            cost, new_configuration = wolff_update(
+            new_cost, new_cluster_assignment, new_cluster = wolff_update(
                 single_llf,
                 spots,
                 neighbors,
                 neighbor_weights,
-                adjacency_list,
                 new_assignment,
                 spatial_weight,
                 posterior,
@@ -314,10 +297,13 @@ def wolff_sweep(
                 sample_ids=sample_ids,
                 p_add=p_add,
                 cost_zeropoint=cost,
+                min_acceptance=min_acceptance,
             )
 
-            if cost > best_cost:
+            if new_cost > best_cost:
+                new_assignment[new_cluster] = new_cluster_assignment             
                 best_cost, best_assignment = cost, new_assignment.copy()
+            
                 logger.info(f"Found a new best assignment with cost={best_cost:.6e}")
 
             HMRFPerfEntry(

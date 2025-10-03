@@ -99,7 +99,9 @@ def build_wolff_cluster(
         neighbors = adjacency_neighbors[mask]
         weights = adjacency_weights[mask]
         for neighbor, edge_weight in zip(neighbors, weights):
-            if neighbor not in cluster and (new_assignment[neighbor] == current_assignment):
+            if neighbor not in cluster and (
+                new_assignment[neighbor] == current_assignment
+            ):
                 if np.random.rand() < p_add:
                     cluster.add(neighbor)
                     queue.append(neighbor)
@@ -205,11 +207,11 @@ def wolff_update(
     )
 
     current_cost = assignment_cost[current_assignment]
-
-    logger.debug(
+    """
+    logger.info(
         f"Solved for a cluster of {len(cluster)} spins @ p_add={p_add} with current cost {current_cost:.6e} and new costs=\n{assignment_cost}"
     )
-
+    """
     # TODO check.
     assignment_cost[current_assignment] = -np.inf
 
@@ -222,27 +224,28 @@ def wolff_update(
 
     new_cluster_assignment, new_cost = current_assignment, cost_zeropoint
     new_configuration = False
-    
+
     # NB we always accept the better state (max.)
     if delta_cost > 0:
-        new_cluster_assignment = best_new_assignment
         new_cost = cost_zeropoint + delta_cost
-        new_configuration = True
+        new_cluster_assignment = best_new_assignment
+
+        return new_cost, new_cluster_assignment, cluster
 
     # NB all proposed states are worse; pick one randomly;
     if min_acceptance is not None:
         acceptance = np.exp(delta_cost)
-        
+
         if np.random.rand() < np.maximum(acceptance, min_acceptance):
             new_cluster_assignment = best_new_assignment
             new_cost = cost_zeropoint + delta_cost
-            new_configuration = True
-            
-    logger.debug(
+
+            return new_cost, new_cluster_assignment, cluster
+    """
+    logger.info(
         f"Solved for better={int(delta_cost>0)} cluster assignment {current_assignment} -> {new_cluster_assignment} with costs {cost_zeropoint} -> {new_cost} @ acceptance={acceptance:.6e}"
     )
-            
-    return new_cost, new_cluster_assignment, cluster
+    """
 
 
 def wolff_sweep(
@@ -253,8 +256,7 @@ def wolff_sweep(
     posterior,
     log_persample_weights=None,
     sample_ids=None,
-    p_add=0.5,
-    max_iter=100,
+    max_iter=500,
     cost_zeropoint=0.0,
     min_acceptance=0.0,
 ):
@@ -281,9 +283,9 @@ def wolff_sweep(
     logger.info(f"Solving for a Wolff sweep.")
 
     spots, neighbors, neighbor_weights = unpack_adjacency(adjacency_list)
-    dp, best_cost = 0.05, -np.inf
+    _, best_cost = 0.05, -np.inf
 
-    for p_add in np.arange(dp, 1.0 + dp, dp):
+    for p_add in np.arange(0.05, 0.25, 0.01):
         for iteration in range(max_iter):
             new_cost, new_cluster_assignment, new_cluster = wolff_update(
                 single_llf,
@@ -301,9 +303,9 @@ def wolff_sweep(
             )
 
             if new_cost > best_cost:
-                new_assignment[new_cluster] = new_cluster_assignment             
+                new_assignment[new_cluster] = new_cluster_assignment
                 best_cost, best_assignment = cost, new_assignment.copy()
-            
+
                 logger.info(f"Found a new best assignment with cost={best_cost:.6e}")
 
             HMRFPerfEntry(

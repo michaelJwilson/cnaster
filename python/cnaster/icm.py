@@ -79,7 +79,7 @@ def unpack_adjacency(adj_list):
     return adj_spots, adj_neighbors, adj_weights
 
 
-# @njit(cache=True)
+@njit(cache=True)
 def build_wolff_cluster(
     new_assignment,
     adjacency_spots,
@@ -94,7 +94,7 @@ def build_wolff_cluster(
     and further add the neighbors of these spots with the same spin
     and probability; use a queue.
     """
-    cluster, queue = [this_spot], [this_spot]
+    visited, cluster, queue = [this_spot], [this_spot], [this_spot]
     current_assignment = new_assignment[this_spot]
 
     while queue:
@@ -105,6 +105,12 @@ def build_wolff_cluster(
         weights = adjacency_weights[mask]
         
         for neighbor, edge_weight in zip(neighbors, weights):
+            if neighbor in visited:
+                continue
+            else:
+                visited.append(neighbor)
+
+            # NB a new neighbor
             if neighbor not in cluster and (
                 new_assignment[neighbor] == current_assignment
             ):
@@ -270,7 +276,6 @@ def wolff_sweep(
     )
 
     original_assignment = new_assignment.copy()
-    scratch_assignment = new_assignment.copy()
     
     # NB icm_sweep updates new_assignment in place.
     _, new_cost = icm_sweep(
@@ -278,7 +283,7 @@ def wolff_sweep(
         adj_spots,
         adj_neighbors,
         adj_weights,
-        scratch_assignment,
+        new_assignment,
         spatial_weight,
         posterior,
         log_persample_weights=log_persample_weights,
@@ -301,11 +306,9 @@ def wolff_sweep(
 
     # NB unpacks adjaceny_list into arrays processble by numba.
     best_assignment, best_cost = new_assignment.copy(), new_cost
-
-    new_cost = cost_zeropoint
     
-    for p_add in np.arange(0.5, 0.1, -0.05):
-        for iteration, temp in enumerate(np.logspace(6., 0., num=max_iter)):
+    for p_add in np.arange(0.35, 0.1, -0.05):
+        for iteration, temp in enumerate(np.logspace(4., 0., num=max_iter)):
             new_cost, new_cluster_assignment, new_cluster = wolff_update(
                 single_llf,
                 adj_spots,

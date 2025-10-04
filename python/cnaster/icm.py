@@ -221,7 +221,9 @@ def wolff_update(
     )
 
     # NB assignment cost to each clone for this cluster.                                                                                                                                                                                                                        
-    assignment_cost = w_node + spatial_weight * w_edge
+    assignment_cost = node_cost + spatial_weight * edge_cost
+
+    logger.info(f"Found node and edge costs:\n{node_cost}\n{edge_cost}")
     
     current_cost = assignment_cost[current_assignment]
 
@@ -239,7 +241,7 @@ def wolff_update(
     accepted = np.random.rand() < np.exp(delta_cost / temp) if temp is not None else False
 
     logger.info(
-        f"Solved for a cluster of {len(cluster):4d} spins @ p_add={p_add:.3f} with current cost {current_cost:.4e} (node={node_cost:.4e}, edge={edge_cost:.4e}), next best cost={assignment_cost[best_new_assignment]:.4e} and dE={delta_cost:.4e}; accepted={accepted}."
+        f"Solved for a cluster of {len(cluster):4d} spins @ p_add={p_add:.3f} with current cost {current_cost:.4e}, next best cost={assignment_cost[best_new_assignment]:.4e} and dE={delta_cost:.4e}; accepted={accepted}."
     )
         
     # NB we always accept the better state (max.)                                                                                                                                                                     

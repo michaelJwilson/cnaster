@@ -372,7 +372,7 @@ def wolff_sweep(
             """
     new_assignment[:] = best_assignment
 
-    return max_iter
+    return max_iter, best_cost
 
 
 @njit

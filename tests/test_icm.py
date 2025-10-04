@@ -1,6 +1,40 @@
 import numpy as np
 import pytest
-from cnaster.icm import wolff_update, unpack_adjacency
+from cnaster.icm import unpack_adjacency, build_wolff_cluster, wolff_update
+
+
+def test_build_wolff_cluster():
+    np.random.seed(42)
+
+    # NB 0, 1 & 3 have the same assignment.
+    new_assignment = np.array([0, 0, 1, 0, 1])
+    n_spots = len(new_assignment)
+
+    # NB 0, 1 & 3 are connected
+    adjacency_spots = np.array([0, 0, 1, 1, 2, 3, 3, 4])
+    adjacency_neighbors = np.array([1, 2, 0, 3, 4, 1, 4, 3])
+    adjacency_weights = np.ones(adjacency_spots.shape[0])
+    
+    # NB deterministic behavior with always accepted.
+    this_spot, p_add = 0, 1.0
+
+    cluster = build_wolff_cluster(
+        new_assignment,
+        adjacency_spots,
+        adjacency_neighbors,
+        adjacency_weights,
+        this_spot,
+        p_add,
+    )
+
+    # With p_add=1.0, all connected spots with same assignment should be included
+    # For this setup, spots 0, 1, and 3 are connected and have assignment 0.
+    expected_cluster = np.array([0, 1, 3])
+    
+    assert set(cluster) == set(expected_cluster)
+    assert cluster.dtype == np.int64
+    assert cluster.shape[0] == len(expected_cluster)
+
 
 # NB 34.64 us -> 5us.
 def test_wolff_update(benchmark):
@@ -28,7 +62,6 @@ def test_wolff_update(benchmark):
             spots,
             neighbors,
             weights,
-            adjacency_list,
             new_assignment,
             spatial_weight,
             posterior,
@@ -36,15 +69,14 @@ def test_wolff_update(benchmark):
             sample_ids=sample_ids,
             p_add=p_add,
             cost_zeropoint=cost_zeropoint,
-            sample=True,
+            temp=None,
         )
-
-    new_cost, new_configuration = wolff_update(
+    
+    new_cost, new_assignment, cluster = wolff_update(
         single_llf,
         spots,
         neighbors,
         weights,
-        adjacency_list,
         new_assignment,
         spatial_weight,
         posterior,
@@ -52,14 +84,11 @@ def test_wolff_update(benchmark):
         sample_ids=sample_ids,
         p_add=p_add,
         cost_zeropoint=cost_zeropoint,
-        sample=True,
+        temp=None
     )
 
     # assert np.isclose(new_cost, 0.44063562506550547)
     assert np.all(new_assignment == np.array([1, 1, 1, 1, 1]))
-
-    assert isinstance(new_configuration, bool)
-    assert new_assignment.shape == (n_spots,)
     assert np.all((new_assignment == 0) | (new_assignment == 1))
 
     benchmark(run)

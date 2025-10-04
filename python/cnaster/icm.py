@@ -271,7 +271,6 @@ def wolff_sweep(
     sample_ids=None,
     max_iter=250,
     cost_zeropoint=0.0,
-    min_acceptance=0.0,
 ):
     logger.info(
         f"Completing an ICM sweep for unary likelihood of shape {single_llf.shape} and spatial weight {spatial_weight}."
@@ -304,12 +303,13 @@ def wolff_sweep(
     ).log()
 
     logger.info(f"Found a new best assignment with new cost={new_cost:.6e}")
-    logger.info(f"Completing a Wolff sweep with min_acceptance={min_acceptance}.")
+    logger.info(f"Completing a Wolff sweep.")
 
     # NB unpacks adjaceny_list into arrays processble by numba.
     best_assignment, best_cost = new_assignment.copy(), new_cost
 
     for iteration, temp in enumerate(np.logspace(4., 0., num=max_iter)):
+        # TODO tie p_add to temp.
         for p_add in np.arange(0.35, 0.1, -0.05):
             new_cost, new_cluster_assignment, new_cluster = wolff_update(
                 single_llf,
@@ -370,9 +370,7 @@ def wolff_sweep(
                 clone_split=get_clone_split(new_assignment),
             ).log()
             """
-    # new_assignment[:] = best_assignment
-
-    exit(0)
+    new_assignment[:] = best_assignment
 
     return max_iter
 

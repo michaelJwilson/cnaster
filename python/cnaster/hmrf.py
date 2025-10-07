@@ -391,13 +391,12 @@ def aggr_hmrfmix_reassignment_concatenate(
 
     adj_list = cast_csr(adjacency_mat)
     adj_spots, adj_neighbors, adj_weights = unpack_adjacency(adj_list)
-    
+
     # NB Posterior probabilities if return_posterior=True.
     posterior = np.zeros((N, n_clones))
 
-    """
     # NB updates new_assignment and posterior in place.
-    niter = icm_sweep(
+    niter, new_cost = icm_sweep(
         single_llf,
         adj_spots,
         adj_neighbors,
@@ -410,8 +409,7 @@ def aggr_hmrfmix_reassignment_concatenate(
         sample_ids=sample_ids,
     )
     """
-
-    niter = wolff_sweep(
+    niter, new_cost = wolff_sweep(
         single_llf,
         adj_spots,
         adj_neighbors,
@@ -422,6 +420,7 @@ def aggr_hmrfmix_reassignment_concatenate(
         log_persample_weights=log_persample_weights,
         sample_ids=sample_ids,
     )
+    """
 
     logger.info(
         f"Solved for updated clone labels in {niter} iterations (took {time.time() - start_time:.2f} seconds)."

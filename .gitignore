@@ -7,7 +7,7 @@ python/cnaster/sim/phylogenies/
 python/cnaster/sim/scripts/__pycache__/
 
 results/
-work/
+sandbox/
 NOTES.md
 .nextflow*
 *~

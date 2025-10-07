@@ -213,28 +213,6 @@ def plot_clones_genomic(
     n_pairs = len(nonempty_clones)
     fig = plt.figure(figsize=(20, base_height * n_pairs), dpi=300, facecolor="white")
 
-    legend_elements = [
-        Line2D(
-            [0],
-            [0],
-            marker="o",
-            color="w",
-            markerfacecolor=colors[i],
-            label=str(ordered_acn[i]),
-            markersize=10,
-            linestyle="None",
-        )
-        for i in range(len(ordered_acn))
-    ]
-
-    fig.legend(
-        handles=legend_elements,
-        loc="upper right",
-        bbox_to_anchor=(1, 1),
-        ncol=len(legend_elements),  # One line
-        frameon=False,
-    )
-
     # Build height_ratios: [1, 1, 2, 1, 1, 2, ...] (no space within pair, double space between pairs)
     height_ratios = []
 
@@ -259,7 +237,7 @@ def plot_clones_genomic(
 
     if sample_list is not None:
         axes[0].set_title(",".join(sample_list), loc="left")
-
+        
     for s, c in enumerate(nonempty_clones):
         cid = final_clone_ids[c]
 
@@ -376,6 +354,29 @@ def plot_clones_genomic(
                 linewidth=0.5,
                 linestyle="--",
             )
+
+    # TODO filter based on clone aggregated hue.
+    legend_elements = [
+        Line2D(
+            [0],
+            [0],
+            marker="o",
+            color="w",
+            markerfacecolor=colors[i],
+            label=str(ordered_acn[i]),
+            markersize=10,
+            linestyle="None",
+        )
+        for i in range(len(ordered_acn))
+    ]
+
+    fig.legend(
+        handles=legend_elements,
+        loc="upper right",
+        bbox_to_anchor=(1, 1),
+        ncol=len(legend_elements),  # One line                                                                                                                                                                                                                                  
+        frameon=False,
+    )
 
     for i in range(len(lengths)):
         median_len = np.sum(lengths[:(i)]) * 0.55 + np.sum(lengths[: (i + 1)]) * 0.45

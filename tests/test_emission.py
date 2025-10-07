@@ -46,9 +46,10 @@ def test_emission_model_eval(benchmark, baf_emission_data):
 
 
 @njit
-def ln_rising_factorial_sorted(results, ks, r):
+def ln_rising_factorial_sorted(ks, r):
     n = len(ks)
-
+    results = np.empty(n, dtype=np.float64)
+    
     if n == 0:
         return results
 
@@ -72,29 +73,31 @@ def ln_rising_factorial_sorted(results, ks, r):
     return results
 
 
-def ln_nb_shift(result, ks, fs, r, p):
-    ln_rising_factorial_sorted(result, ks, r)
+def ln_nb_shift(ks, fs, r, p):
+    result = ln_rising_factorial_sorted(ks, r)
+    result += r * np.log(p) + ks * np.log(1.0 - p) - fs
 
-    result += result + r * np.log(p) + ks * np.log(1.0 - p) - fs
-
-    return result.sum()
+    return result
 
 
 def test_nb_shift(benchmark):
     ks = np.arange(1_000)
     rs, ps = 25, 0.1
 
-    fs = scipy.special.gammaln(1. + ks)
-    result = np.empty(len(ks), dtype=np.float64)
+    fs = scipy.special.gammaln(1.0 + ks)
 
     def run_exp():
         return -scipy.stats.nbinom.logpmf(ks, rs, ps).sum()
 
     def run_new():
-        return -ln_nb_shift(result, ks, fs, rs, ps)
+        return -ln_nb_shift(ks, fs, rs, ps).sum()
 
-    # NB 57.2us -> 
+    # NB 57.2us ->
+    #    203 us with result=21681.9
     # exp = benchmark(run_exp)
-
-    # NB 21.8580 -> 16.5 if sorted -> 9.25us.
+    
+    # NB 21.8580 -> 16.5 if sorted -> 9.25us with result=21681.9
+    #    41 us 
     new = benchmark(run_new)
+
+    print(new)

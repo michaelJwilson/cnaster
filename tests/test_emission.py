@@ -6,7 +6,7 @@ from scipy.special import loggamma
 from numba import njit
 from functools import partial
 from cnaster.hmm_sitewise import switch_betabinom
-from cnaster.hmm_emission import betabinom_logpmf, betabinom_logpmf_zp
+from cnaster.hmm_emission import betabinom_logpmf, betabinom_logpmf_zp, ln_rising_factorial_sorted, ln_nb_shift
 
 
 def test_phased_emission_vanilla(benchmark, baf_emission_data):
@@ -45,52 +45,15 @@ def test_emission_model_eval(benchmark, baf_emission_data):
     np.testing.assert_allclose(result, exp, rtol=1e-10, atol=1e-12)
 
 
-@njit
-def ln_rising_factorial_sorted(ks, r):
-    n = len(ks)
-    results = np.empty(n, dtype=np.float64)
-    
-    if n == 0:
-        return results
-
-    current_log_product = 0.0
-
-    for j in range(ks[0]):
-        current_log_product += np.log(r + j)
-
-    results[0] = current_log_product
-    current_k = ks[0]
-
-    for i in range(1, n):
-        k = ks[i]
-
-        while current_k < k:
-            current_log_product += np.log(r + current_k)
-            current_k += 1
-
-        results[i] = current_log_product
-
-    return results
-
-
-def ln_nb_shift(ks, fs, r, p):
-    result = ln_rising_factorial_sorted(ks, r)
-    result += r * np.log(p) + ks * np.log(1.0 - p) - fs
-
-    return result
-
-
 def test_nb_shift(benchmark):
     ks = np.arange(1_000)
     rs, ps = 25, 0.1
-
-    fs = scipy.special.gammaln(1.0 + ks)
 
     def run_exp():
         return -scipy.stats.nbinom.logpmf(ks, rs, ps).sum()
 
     def run_new():
-        return -ln_nb_shift(ks, fs, rs, ps).sum()
+        return -ln_nb_shift(ks, rs, ps).sum()
 
     # NB 57.2us ->
     #    203 us with result=21681.9

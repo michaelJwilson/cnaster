@@ -195,7 +195,6 @@ def wolff_update(
     adjacency_weights,
     new_assignment,
     spatial_weight,
-    posterior,
     log_persample_weights=None,
     sample_ids=None,
     p_add=0.0,
@@ -332,9 +331,9 @@ def wolff_sweep(
     # NB unpacks adjaceny_list into arrays processble by numba.
     best_assignment, best_cost = new_assignment.copy(), new_cost
 
-    for iteration, temp in enumerate(np.logspace(2.0, 0.0, num=max_iter)):
+    for iteration, temp in enumerate(np.logspace(2.5, 0.0, num=max_iter)):
         # TODO tie p_add to temp.
-        for p_add in np.arange(0.20, 0.05, -0.05):
+        for p_add in np.arange(0.35, -0.05, -0.05):
             new_cost, new_cluster_assignment, new_cluster = wolff_update(
                 single_llf,
                 adj_spots,
@@ -342,7 +341,6 @@ def wolff_sweep(
                 adj_weights,
                 new_assignment,
                 spatial_weight,
-                posterior,
                 log_persample_weights=log_persample_weights,
                 sample_ids=sample_ids,
                 p_add=p_add,

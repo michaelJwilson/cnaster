@@ -139,6 +139,7 @@ def calc_assignment_cost(
     n_clones,
     spatial_weight,
 ):
+    # NB all spots in cluster have the same initial spin.
     w_node = np.zeros(n_clones, dtype=np.float64)
     w_edge = np.zeros(n_clones, dtype=np.float64)
     n_spots = single_llf.shape[0]
@@ -148,7 +149,6 @@ def calc_assignment_cost(
     # NB spots in cluster are monotonically increasing.
     for ii in range(len(cluster)):
         spot = cluster[ii]
-        spot_assignment == new_assignment[spot]
 
         # NB likelihoods for each clone, for this spot.
         w_node += single_llf[spot, :]
@@ -167,7 +167,7 @@ def calc_assignment_cost(
                 neighbor = adjacency_neighbors[k]
                 edge_weight = adjacency_weights[k]
 
-                # NB i and j both in cluster; we will revisit on j.
+                # NB i and j both in cluster ergo always aligned; we will revisit on j.
                 if neighbor in cluster:
                     w_edge += edge_weight / 2.0
 
@@ -221,7 +221,7 @@ def wolff_update(
 
     # NB equivalent to (locally) optimal ICM; return original cost and null op. cluster.
     if len(cluster) <= 1:
-        return cost_zeropoint, current_assignment, cluster
+        return cost_zeropoint, current_assignment, None
 
     # NB relative cost for assignment to each clone for posed cluster.
     node_cost, edge_cost = calc_assignment_cost(
@@ -240,7 +240,7 @@ def wolff_update(
     # NB assignment cost to each clone for this cluster.
     assignment_cost = node_cost + spatial_weight * edge_cost
 
-    logger.info(f"Found node and edge costs:\n{node_cost}\n{edge_cost}")
+    # logger.info(f"Found node and edge costs:\n{node_cost}\n{edge_cost}")
 
     current_cost = assignment_cost[current_assignment]
 
@@ -258,11 +258,11 @@ def wolff_update(
     accepted = (
         np.random.rand() < np.exp(delta_cost / temp) if temp is not None else False
     )
-
+    """
     logger.info(
-        f"Solved for a cluster of {len(cluster):4d} spins @ p_add={p_add:.3f} with current cost {current_cost:.4e}, next best cost={assignment_cost[best_new_assignment]:.4e} and dE={delta_cost:.4e}; accepted={accepted}."
+        f"Solved for a cluster of {len(cluster):4d}/{n_spots:4d} spins @ p_add={p_add:.3f} with current cost {current_cost:.4e}, next best cost={assignment_cost[best_new_assignment]:.4e} and dE={delta_cost:.4e}; accepted={accepted}."
     )
-
+    """
     # NB we always accept the better state (max.), a sampled state, or return the original.
     if delta_cost > 0 or accepted:
         new_cost = cost_zeropoint + delta_cost
@@ -293,7 +293,7 @@ def wolff_sweep(
     posterior,
     log_persample_weights=None,
     sample_ids=None,
-    max_iter=250,
+    max_iter=1_000,
     cost_zeropoint=0.0,
 ):
     logger.info(
@@ -332,9 +332,9 @@ def wolff_sweep(
     # NB unpacks adjaceny_list into arrays processble by numba.
     best_assignment, best_cost = new_assignment.copy(), new_cost
 
-    for iteration, temp in enumerate(np.logspace(4.0, 0.0, num=max_iter)):
+    for iteration, temp in enumerate(np.logspace(2.0, 0.0, num=max_iter)):
         # TODO tie p_add to temp.
-        for p_add in np.arange(0.35, 0.1, -0.05):
+        for p_add in np.arange(0.20, 0.05, -0.05):
             new_cost, new_cluster_assignment, new_cluster = wolff_update(
                 single_llf,
                 adj_spots,
@@ -352,7 +352,8 @@ def wolff_sweep(
 
             # NB when sampling, we always accept the "new" cluster and use the
             #    appropriate zeropoint.
-            new_assignment[new_cluster] = new_cluster_assignment
+            if new_cluster is not None:
+                new_assignment[new_cluster] = new_cluster_assignment
 
             if new_cost > best_cost:
                 best_cost, best_assignment = new_cost, new_assignment.copy()
@@ -396,6 +397,8 @@ def wolff_sweep(
     # NB re-assign with the best found assignment.
     new_assignment[:] = best_assignment
 
+    exit(0)
+    
     return max_iter, best_cost
 
 
@@ -461,6 +464,7 @@ def icm_sweep(
             neighbors = adj_neighbors[mask]
             weights = adj_weights[mask]
 
+            # NB if the spot assignment agrees with its neighbor, the cost increases.
             for neighbor, edge_weight in zip(neighbors, weights):
                 neighbor_assignment = new_assignment[neighbor]
                 w_edge[neighbor_assignment] += edge_weight

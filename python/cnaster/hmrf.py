@@ -395,7 +395,7 @@ def aggr_hmrfmix_reassignment_concatenate(
     # NB Posterior probabilities if return_posterior=True.
     posterior = np.zeros((N, n_clones))
 
-    # NB updates new_assignment and posterior in place.
+    # NB updates new_assignment and posterior in place given log emission likelihood.
     niter, new_cost = icm_sweep(
         single_llf,
         adj_spots,

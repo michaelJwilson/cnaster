@@ -180,7 +180,8 @@ def calc_assignment_cost(
                 found = True
             else:
                 if found:
-                    # NB we can start here in the neighbor list for the next spot in the cluster.
+                    # NB we can start here in the neighbor list for the next spot in the cluster,
+                    #    as monotonically increasing.
                     start_k = k
                     break
 

@@ -145,7 +145,7 @@ def calc_assignment_cost(
     n_spots = single_llf.shape[0]
 
     start_k = 0
-    
+
     # NB spots in cluster are monotonically increasing.
     for ii in range(len(cluster)):
         spot = cluster[ii]
@@ -168,6 +168,7 @@ def calc_assignment_cost(
                 edge_weight = adjacency_weights[k]
 
                 # NB i and j both in cluster ergo always aligned; we will revisit on j.
+                #    convention set by icm_sweep, which double counts edges.
                 if neighbor in cluster:
                     w_edge += edge_weight / 2.0
 
@@ -357,7 +358,7 @@ def wolff_sweep(
 
             if new_cost > best_cost:
                 best_cost, best_assignment = new_cost, new_assignment.copy()
-            
+
             hmrf_perf_entry(
                 optimizer="wolff",
                 cost=new_cost,
@@ -398,7 +399,7 @@ def wolff_sweep(
     new_assignment[:] = best_assignment
 
     exit(0)
-    
+
     return max_iter, best_cost
 
 
@@ -409,6 +410,47 @@ def logsumexp(x):
     for i in range(x.shape[0]):
         s += np.exp(x[i] - x_max)
     return x_max + np.log(s)
+
+
+@njit(cache=True)
+def calc_assignment_cost(
+    single_llf,
+    adj_spots,
+    adj_neighbors,
+    adj_weights,
+    new_assignment,
+    spatial_weight,
+    log_persample_weights=None,
+    sample_ids=None,
+    cost_zeropoint=0.0,
+):
+    n_spots, n_clones = single_llf.shape
+    cost = cost_zeropoint
+
+    for i in range(n_spots):
+        spot_assignment = new_assignment[i]
+        cost += single_llf[i, spot_assignment]
+
+        # NB sample/slice for this spot.
+        this_sample = sample_ids[i]
+
+        # NB log_persample_weights (n_clone, n_sample/n_slice);
+        #    exp. proportion of clone per slice.
+        if log_persample_weights is not None:
+            cost += log_persample_weights[spot_assignment, this_sample]
+
+        mask = adj_spots == i
+        neighbors = adj_neighbors[mask]
+        weights = adj_weights[mask]
+
+        # NB if the spot assignment agrees with its neighbor, the cost increases.
+        for neighbor, edge_weight in zip(neighbors, weights):
+            neighbor_assignment = new_assignment[neighbor]
+
+            if neighbor_assignment == spot_assignment:
+                cost += edge_weight / 2.0
+
+    return cost
 
 
 @njit(cache=True)

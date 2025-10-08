@@ -286,6 +286,8 @@ def update_emission_params_nb_sitewise_uniqvalues(
 
             for s in range(n_spots):
                 idx_nonzero = np.where(unique_values[s][:, 1] > 0)[0]
+
+                # NB negative binomial mean depends on overall counts; replicated by state.
                 this_exposure = np.tile(unique_values[s][idx_nonzero, 1], n_states)
                 this_y = np.tile(unique_values[s][idx_nonzero, 0], n_states)
                 tmp = (scipy.sparse.csr_matrix(gamma) @ mapping_matrices[s]).toarray()
@@ -295,6 +297,7 @@ def update_emission_params_nb_sitewise_uniqvalues(
                         for i in range(n_states)
                     ]
                 )
+                # NB one-hot encoding of state.
                 this_features = np.zeros((n_states * len(idx_nonzero), n_states))
                 for i in np.arange(n_states):
                     this_features[
@@ -478,6 +481,8 @@ def update_emission_params_nb_nophasing_uniqvalues(
 
             for s in range(n_spots):
                 idx_nonzero = np.where(unique_values[s][:, 1] > 0)[0]
+
+                # NB negative binomial mean depends on overall counts; replicated by state.
                 this_exposure = np.tile(unique_values[s][idx_nonzero, 1], n_states)
                 this_y = np.tile(unique_values[s][idx_nonzero, 0], n_states)
                 tmp = (scipy.sparse.csr_matrix(gamma) @ mapping_matrices[s]).toarray()
@@ -485,11 +490,13 @@ def update_emission_params_nb_nophasing_uniqvalues(
                     [tmp[i, idx_nonzero] for i in range(n_states)]
                 )
 
+                # NB one-hot encoding of state.
                 this_features = np.zeros((n_states * len(idx_nonzero), n_states))
                 for i in np.arange(n_states):
                     this_features[
                         (i * len(idx_nonzero)) : ((i + 1) * len(idx_nonzero)), i
                     ] = 1
+                    
                 # NB only optimize for states where at least 1 SNP belongs to
                 idx_state_posweight = np.array(
                     [

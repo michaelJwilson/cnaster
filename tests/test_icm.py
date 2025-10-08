@@ -73,7 +73,7 @@ def test_wolff_update():
 
     # NB must be symmetric.
     adjacency_list = [[] for _ in range(n_spots)]
-    """
+    
     for i in range(n_spots):
         possible_neighbors = [j for j in range(n_spots) if j != i]
         chosen_neighbors = np.random.choice(
@@ -90,13 +90,13 @@ def test_wolff_update():
     for i in range(n_spots):
         unique_neighbors = list(set(adjacency_list[i]))
         adjacency_list[i] = unique_neighbors
-    """
+    
     adj_spots, adj_neighbors, adj_weights = unpack_adjacency(adjacency_list)
 
     # new_assignment = np.random.randint(0, n_clones, size=n_spots)
     new_assignment = np.ones(n_spots, dtype=int)
     
-    spatial_weight, p_add = 1.0, 0.25
+    spatial_weight, p_add = 1.0, 0.1
 
     original_cost = calc_assignment_cost(
         single_llf,
@@ -127,14 +127,16 @@ def test_wolff_update():
     
     exp_cost = calc_assignment_cost(
         single_llf,
-	adj_spots,
+	    adj_spots,
         adj_neighbors,
         adj_weights,
         new_assignment,
-	spatial_weight,
-        cost_zeropoint=original_cost,
+	    spatial_weight,
+        cost_zeropoint=0.0,
     )
+
+    diff_cost = exp_cost - original_cost
     
-    print(original_cost, exp_cost, new_cost)
+    print(diff_cost, new_cost)
 
     # benchmark(run)

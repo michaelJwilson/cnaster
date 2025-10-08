@@ -9,11 +9,11 @@ from cnaster.icm import (
 )
 
 logging.basicConfig(
-    level=logging.INFO, 
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 
 logger = logging.getLogger(__name__)
+
 
 # NB 29.0838us -> 5.3694us with njit.
 def test_build_wolff_cluster(benchmark):
@@ -73,13 +73,13 @@ def test_wolff_update():
 
     # NB must be symmetric.
     adjacency_list = [[] for _ in range(n_spots)]
-    
+
     for i in range(n_spots):
         possible_neighbors = [j for j in range(n_spots) if j != i]
         chosen_neighbors = np.random.choice(
             possible_neighbors, size=num_neighbors, replace=False
         )
-    
+
         for j in chosen_neighbors:
             # Add edge i -> j
             adjacency_list[i].append((j, 1.0 / num_neighbors))
@@ -90,12 +90,12 @@ def test_wolff_update():
     for i in range(n_spots):
         unique_neighbors = list(set(adjacency_list[i]))
         adjacency_list[i] = unique_neighbors
-    
+
     adj_spots, adj_neighbors, adj_weights = unpack_adjacency(adjacency_list)
 
     # new_assignment = np.random.randint(0, n_clones, size=n_spots)
     new_assignment = np.ones(n_spots, dtype=int)
-    
+
     spatial_weight, p_add = 1.0, 0.1
 
     original_cost = calc_assignment_cost(
@@ -105,11 +105,10 @@ def test_wolff_update():
         adj_weights,
         new_assignment,
         spatial_weight,
-        cost_zeropoint=0.0,
     )
 
     posterior = np.zeros((n_spots, n_clones))
-    
+
     new_cost, new_cluster_assignment, cluster = wolff_update(
         single_llf,
         adj_spots,
@@ -124,19 +123,18 @@ def test_wolff_update():
     )
 
     new_assignment[cluster] = new_cluster_assignment
-    
+
     exp_cost = calc_assignment_cost(
         single_llf,
-	    adj_spots,
+        adj_spots,
         adj_neighbors,
         adj_weights,
         new_assignment,
-	    spatial_weight,
-        cost_zeropoint=0.0,
+        spatial_weight,
     )
 
     diff_cost = exp_cost - original_cost
-    
+
     print(diff_cost, new_cost)
 
     # benchmark(run)

@@ -8,6 +8,7 @@ from dataclasses import dataclass, asdict, field
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class hmrf_perf_entry:
     optimizer: str
@@ -418,7 +419,6 @@ def calc_assignment_cost(
     spatial_weight,
     log_persample_weights=None,
     sample_ids=None,
-    cost_zeropoint=0.0,
 ):
     n_spots, n_clones = single_llf.shape
     cost = cost_zeropoint

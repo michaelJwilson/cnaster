@@ -96,7 +96,7 @@ def test_wolff_update():
     # new_assignment = np.random.randint(0, n_clones, size=n_spots)
     new_assignment = np.ones(n_spots, dtype=int)
 
-    spatial_weight, p_add = 1.0, 0.1
+    spatial_weight, p_add = 0.75, 0.1
 
     original_cost = calc_assignment_cost(
         single_llf,
@@ -133,8 +133,8 @@ def test_wolff_update():
         spatial_weight,
     )
 
-    diff_cost = exp_cost - original_cost
+    # diff_cost = exp_cost - original_cost
 
-    print(diff_cost, new_cost)
+    print(original_cost, new_cost, exp_cost)
 
     # benchmark(run)

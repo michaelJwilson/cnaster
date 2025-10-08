@@ -175,12 +175,12 @@ def calc_cluster_assignment_cost(
                     neighbor_assignment = new_assignment[neighbor]
                     w_edge[neighbor_assignment] += edge_weight
 
-                found = True
+                # found = True
             else:
                 if found:
                     # NB we can start here in the neighbor list for the next spot in the cluster,
                     #    as monotonically increasing.
-                    start_k = k
+                    # start_k = k
                     break
 
     return w_node, w_edge
@@ -421,7 +421,7 @@ def calc_assignment_cost(
     sample_ids=None,
 ):
     n_spots, n_clones = single_llf.shape
-    cost = cost_zeropoint
+    cost = 0.0
 
     for i in range(n_spots):
         spot_assignment = new_assignment[i]
@@ -442,7 +442,7 @@ def calc_assignment_cost(
             neighbor_assignment = new_assignment[neighbor]
 
             if neighbor_assignment == spot_assignment:
-                cost += edge_weight / 2.0
+                cost += spatial_weight * edge_weight / 2.0
 
     return cost
 

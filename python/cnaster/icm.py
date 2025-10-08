@@ -3,8 +3,6 @@ import numpy as np
 import csv
 import time
 from pathlib import Path
-
-# from scipy.special import logsumexp
 from numba import njit
 from dataclasses import dataclass, asdict, field
 
@@ -119,7 +117,7 @@ def build_wolff_cluster(
             if neighbor not in cluster and (
                 new_assignment[neighbor] == current_assignment
             ):
-                if np.random.rand() < p_add:
+                if np.random.rand() <= p_add:
                     cluster.append(neighbor)
                     queue.append(neighbor)
 
@@ -127,7 +125,7 @@ def build_wolff_cluster(
 
 
 @njit(cache=True)
-def calc_assignment_cost(
+def calc_cluster_assignment_cost(
     cluster,
     single_llf,
     sample_ids,
@@ -145,7 +143,7 @@ def calc_assignment_cost(
     n_spots = single_llf.shape[0]
 
     start_k = 0
-    
+
     # NB spots in cluster are monotonically increasing.
     for ii in range(len(cluster)):
         spot = cluster[ii]
@@ -153,10 +151,9 @@ def calc_assignment_cost(
         # NB likelihoods for each clone, for this spot.
         w_node += single_llf[spot, :]
 
-        this_sample = sample_ids[spot]
-
         # NB expected clone proportions for this slice.
         if log_persample_weights is not None:
+            this_sample = sample_ids[spot]
             w_node += log_persample_weights[:, this_sample]
 
         found = False
@@ -168,6 +165,7 @@ def calc_assignment_cost(
                 edge_weight = adjacency_weights[k]
 
                 # NB i and j both in cluster ergo always aligned; we will revisit on j.
+                #    convention set by icm_sweep, which double counts edges.
                 if neighbor in cluster:
                     w_edge += edge_weight / 2.0
 
@@ -177,12 +175,12 @@ def calc_assignment_cost(
                     neighbor_assignment = new_assignment[neighbor]
                     w_edge[neighbor_assignment] += edge_weight
 
-                found = True
+                # found = True
             else:
                 if found:
                     # NB we can start here in the neighbor list for the next spot in the cluster,
                     #    as monotonically increasing.
-                    start_k = k
+                    # start_k = k
                     break
 
     return w_node, w_edge
@@ -220,10 +218,11 @@ def wolff_update(
 
     # NB equivalent to (locally) optimal ICM; return original cost and null op. cluster.
     if len(cluster) <= 1:
+        logger.info(f"Solved for a cluster of a single spin (equivalent to ICM).")
         return cost_zeropoint, current_assignment, None
 
     # NB relative cost for assignment to each clone for posed cluster.
-    node_cost, edge_cost = calc_assignment_cost(
+    node_cost, edge_cost = calc_cluster_assignment_cost(
         cluster,
         single_llf,
         sample_ids,
@@ -257,11 +256,12 @@ def wolff_update(
     accepted = (
         np.random.rand() < np.exp(delta_cost / temp) if temp is not None else False
     )
-    """
+
     logger.info(
-        f"Solved for a cluster of {len(cluster):4d}/{n_spots:4d} spins @ p_add={p_add:.3f} with current cost {current_cost:.4e}, next best cost={assignment_cost[best_new_assignment]:.4e} and dE={delta_cost:.4e}; accepted={accepted}."
+        f"Solved for a cluster of {len(cluster):4d}/{n_spots:4d} spins @ p_add={p_add:.3f} with current cost {current_cost:.4e},\
+        next best cost={assignment_cost[best_new_assignment]:.4e} and dE={delta_cost:.4e}; accepted={accepted}."
     )
-    """
+
     # NB we always accept the better state (max.), a sampled state, or return the original.
     if delta_cost > 0 or accepted:
         new_cost = cost_zeropoint + delta_cost
@@ -273,11 +273,9 @@ def wolff_update(
             None,
         )
 
-    """
     logger.info(
-        f"Solved for better={int(delta_cost>0)} cluster assignment {current_assignment} -> {new_cluster_assignment} with costs {cost_zeropoint} -> {new_cost} @ min_acceptance={min_acceptance}"
+        f"Solved for better={int(delta_cost>0)} cluster assignment {current_assignment} -> {new_cluster_assignment} with costs {cost_zeropoint} -> {new_cost}"
     )
-    """
 
     return new_cost, new_cluster_assignment, cluster
 
@@ -355,7 +353,7 @@ def wolff_sweep(
 
             if new_cost > best_cost:
                 best_cost, best_assignment = new_cost, new_assignment.copy()
-            
+
             hmrf_perf_entry(
                 optimizer="wolff",
                 cost=new_cost,
@@ -396,7 +394,7 @@ def wolff_sweep(
     new_assignment[:] = best_assignment
 
     exit(0)
-    
+
     return max_iter, best_cost
 
 
@@ -407,6 +405,44 @@ def logsumexp(x):
     for i in range(x.shape[0]):
         s += np.exp(x[i] - x_max)
     return x_max + np.log(s)
+
+
+@njit(cache=True)
+def calc_assignment_cost(
+    single_llf,
+    adj_spots,
+    adj_neighbors,
+    adj_weights,
+    new_assignment,
+    spatial_weight,
+    log_persample_weights=None,
+    sample_ids=None,
+):
+    n_spots, n_clones = single_llf.shape
+    cost = 0.0
+
+    for i in range(n_spots):
+        spot_assignment = new_assignment[i]
+        cost += single_llf[i, spot_assignment]
+
+        # NB log_persample_weights (n_clone, n_sample/n_slice);
+        #    exp. proportion of clone per slice.
+        if log_persample_weights is not None:
+            this_sample = sample_ids[i]
+            cost += log_persample_weights[spot_assignment, this_sample]
+
+        mask = adj_spots == i
+        neighbors = adj_neighbors[mask]
+        weights = adj_weights[mask]
+
+        # NB if the spot assignment agrees with its neighbor, the cost increases.
+        for neighbor, edge_weight in zip(neighbors, weights):
+            neighbor_assignment = new_assignment[neighbor]
+
+            if neighbor_assignment == spot_assignment:
+                cost += spatial_weight * edge_weight / 2.0
+
+    return cost
 
 
 @njit(cache=True)

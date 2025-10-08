@@ -6,7 +6,13 @@ from scipy.special import loggamma
 from numba import njit
 from functools import partial
 from cnaster.hmm_sitewise import switch_betabinom
-from cnaster.hmm_emission import betabinom_logpmf, betabinom_logpmf_zp, nloglikeobs_nb
+from cnaster.hmm_emission import (
+    betabinom_logpmf,
+    betabinom_logpmf_zp,
+    ln_rising_factorial_sorted,
+    ln_nb_shift,
+    nloglikeobs_nb,
+)
 
 
 def test_phased_emission_vanilla(benchmark, baf_emission_data):
@@ -45,69 +51,34 @@ def test_emission_model_eval(benchmark, baf_emission_data):
     np.testing.assert_allclose(result, exp, rtol=1e-10, atol=1e-12)
 
 
-@njit
-def ln_rising_factorial_sorted(results, ks, r):
-    n = len(ks)
-
-    if n == 0:
-        return results
-
-    current_log_product = 0.0
-
-    for j in range(ks[0]):
-        current_log_product += np.log(r + j)
-
-    results[0] = current_log_product
-    current_k = ks[0]
-
-    for i in range(1, n):
-        k = ks[i]
-
-        while current_k < k:
-            current_log_product += np.log(r + current_k)
-            current_k += 1
-
-        results[i] = current_log_product
-
-    return results
-
-
-def ln_nb_shift(result, ks, fs, r, p):
-    ln_rising_factorial_sorted(result, ks, r)
-
-    result += result + r * np.log(p) + ks * np.log(1.0 - p) - fs
-
-    return result.sum()
-
-
 def test_nb_shift(benchmark):
     ks = np.arange(1_000)
     rs, ps = 25, 0.1
-
-    fs = scipy.special.gammaln(1. + ks)
-    result = np.empty(len(ks), dtype=np.float64)
 
     def run_exp():
         return -scipy.stats.nbinom.logpmf(ks, rs, ps).sum()
 
     def run_new():
-        return -ln_nb_shift(result, ks, fs, rs, ps)
+        return -ln_nb_shift(ks, rs, ps).sum()
 
-    # NB 57.2us -> 
+    # NB 57.2us ->
+    #    203 us with result=21681.9
     # exp = benchmark(run_exp)
 
-    # NB 21.8580 -> 16.5 if sorted -> 9.25us.
+    # NB 21.8580 -> 16.5 if sorted -> 9.25us with result=21681.9
+    #    41 us
     new = benchmark(run_new)
 
 
-# NB 58us -> 
 def test_nloglikeobs_nb(benchmark):
     np.random.seed(42)
-    
+
     n_samples, n_features = 3_000, 3
     mean_count = 5
     endog = np.random.poisson(mean_count, size=n_samples)
-    exog = np.eye(n_features)[np.concatenate([np.repeat(ii, 1_000) for ii in range(n_features)])]
+    exog = np.eye(n_features)[
+        np.concatenate([np.repeat(ii, 1_000) for ii in range(n_features)])
+    ]
     weights = np.ones(n_samples)
     exposure = 10 + endog.copy()
     params = np.array([0.1, 0.2, 0.3, 0.5])

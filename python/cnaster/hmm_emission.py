@@ -141,19 +141,60 @@ def collapse_exog(exog):
     switches = np.zeros(num_states)
 
     current_state = states[0]
-    
+
     for ii in range(num_obs):
         for jj in range(num_states):
             if exog[ii, jj] == 1:
                 if jj != current_state:
                     switches[current_state] = ii
                     current_state = jj
-                
+
                 break
 
     switches[-1] = num_obs
-            
+
     return states, switches
+
+
+@njit
+def ln_rising_factorial_sorted(ks, r):
+    n = len(ks)
+    results = np.empty(n, dtype=np.float64)
+
+    if n == 0:
+        return results
+
+    current_log_product = 0.0
+
+    for j in range(ks[0]):
+        current_log_product += np.log(r + j)
+
+    results[0] = current_log_product
+    current_k = ks[0]
+
+    for i in range(1, n):
+        k = ks[i]
+
+        while current_k < k:
+            current_log_product += np.log(r + current_k)
+            current_k += 1
+
+        results[i] = current_log_product
+
+    return results
+
+
+def ln_nb_shift(ks, r, p, fs=None, sorted=False):
+    if not sorted:
+        ks = np.sort(ks)
+
+    if fs is None:
+        fs = scipy.special.gammaln(1.0 + ks)
+
+    result = ln_rising_factorial_sorted(ks, r)
+    result += r * np.log(p) + ks * np.log(1.0 - p) - fs
+
+    return result
 
 
 def nloglikeobs_nb(
@@ -174,7 +215,7 @@ def nloglikeobs_nb(
 
     nb_std = np.sqrt(nb_mean + params[-1] * nb_mean**2)
     n, p = convert_params(nb_mean, nb_std)
-    
+
     result = -scipy.stats.nbinom.logpmf(endog, n, p)
     result[np.isnan(result)] = np.inf
 

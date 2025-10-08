@@ -127,7 +127,7 @@ def build_wolff_cluster(
 
 
 @njit(cache=True)
-def calc_assignment_cost(
+def calc_cluster_assignment_cost(
     cluster,
     single_llf,
     sample_ids,
@@ -225,7 +225,7 @@ def wolff_update(
         return cost_zeropoint, current_assignment, None
 
     # NB relative cost for assignment to each clone for posed cluster.
-    node_cost, edge_cost = calc_assignment_cost(
+    node_cost, edge_cost = calc_cluster_assignment_cost(
         cluster,
         single_llf,
         sample_ids,

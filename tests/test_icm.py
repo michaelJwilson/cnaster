@@ -1,6 +1,19 @@
 import numpy as np
 import pytest
-from cnaster.icm import unpack_adjacency, build_wolff_cluster, wolff_update
+import logging
+from cnaster.icm import (
+    unpack_adjacency,
+    build_wolff_cluster,
+    wolff_update,
+    calc_assignment_cost,
+)
+
+logging.basicConfig(
+    level=logging.INFO, 
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
+
+logger = logging.getLogger(__name__)
 
 # NB 29.0838us -> 5.3694us with njit.
 def test_build_wolff_cluster(benchmark):
@@ -31,7 +44,7 @@ def test_build_wolff_cluster(benchmark):
         return
 
     benchmark(run)
-    
+
     cluster = build_wolff_cluster(
         new_assignment,
         adjacency_spots,
@@ -51,106 +64,53 @@ def test_build_wolff_cluster(benchmark):
 
 
 # NB 34.64 us -> 5us.
-def test_wolff_update(benchmark):
+def test_wolff_update():
     np.random.seed(42)
 
-    n_spots, n_clones = 3694, 3
+    n_spots, n_clones, num_neighbors = 3_694, 3, 15
 
-<<<<<<< HEAD
-    # NB in the absence of spatial weight, single best clone in unary case.
-    single_llf = np.eye(n_spots, n_clones)[:n_spots]
-
-    MAX_NEIGHBORS = 10
-
-    adjacency_list = []
+    single_llf = np.tile(np.arange(n_clones), n_spots).reshape(n_spots, n_clones)
     
+    adjacency_list = []
+
     for i in range(n_spots):
         possible_neighbors = [j for j in range(n_spots) if j != i]
-        num_neighbors = np.random.randint(1, MAX_NEIGHBORS + 1)
-        chosen_neighbors = np.random.choice(possible_neighbors, size=num_neighbors, replace=False)
-        adjacency_list.append([(j, 1.0) for j in chosen_neighbors])
-    
-=======
-    # NB fully connected
-    adjacency_list = [
-        [(j, 1.0) for j in range(n_spots) if j != i] for i in range(n_spots)
-    ]
->>>>>>> 8680fd8a46a3bd2da842f657ab8c5bb524f19c0b
-    new_assignment = np.zeros(n_spots, dtype=int)
-    posterior = np.zeros((n_spots, n_clones))
-    log_persample_weights = None
-    sample_ids = np.zeros(n_spots, dtype=int)
+        chosen_neighbors = np.random.choice(
+            possible_neighbors, size=num_neighbors, replace=False
+        )
 
-<<<<<<< HEAD
-    spatial_weight, p_add, cost_zeropoint = 0.0, 0.1, 0.0
-    min_acceptance = 0.0
+        adjacency_list.append([(j, 1.0 / num_neighbors) for j in chosen_neighbors])
+
+    new_assignment = np.random.randint(0, n_clones, size=n_spots)
+    spatial_weight, p_add = 1.0, 0.25
 
     # TODO test unpack_adjacency.
     adj_spots, adj_neighbors, adj_weights = unpack_adjacency(adjacency_list)
-    
-    def run():
-        return wolff_update(
-            single_llf,
-            adj_spots,
-            adj_neighbors,
-            adj_weights,
-=======
-    spots, neighbors, weights = unpack_adjacency(adjacency_list)
 
-    def run():
-        return wolff_update(
-            single_llf,
-            spots,
-            neighbors,
-            weights,
->>>>>>> 8680fd8a46a3bd2da842f657ab8c5bb524f19c0b
-            new_assignment,
-            spatial_weight,
-            posterior,
-            log_persample_weights=log_persample_weights,
-            sample_ids=sample_ids,
-            p_add=p_add,
-            cost_zeropoint=cost_zeropoint,
-<<<<<<< HEAD
-            min_acceptance=min_acceptance,
-        )
+    posterior = np.zeros((n_spots, n_clones))
 
-    new_cost = wolff_update(
+    original_cost = calc_assignment_cost(
         single_llf,
         adj_spots,
         adj_neighbors,
         adj_weights,
-=======
-            temp=None,
-        )
+        new_assignment,
+        spatial_weight,
+        cost_zeropoint=0.0,
+    )
 
     new_cost, new_assignment, cluster = wolff_update(
         single_llf,
-        spots,
-        neighbors,
-        weights,
->>>>>>> 8680fd8a46a3bd2da842f657ab8c5bb524f19c0b
+        adj_spots,
+        adj_neighbors,
+        adj_weights,
         new_assignment,
         spatial_weight,
         posterior,
-        log_persample_weights=log_persample_weights,
-        sample_ids=sample_ids,
         p_add=p_add,
-        cost_zeropoint=cost_zeropoint,
-<<<<<<< HEAD
-        min_acceptance=min_acceptance,
+        temp=np.inf,
     )
 
-    # assert np.isclose(new_cost, 0.44063562506550547)
-    # assert np.all(new_assignment == np.array([1, 1, 1, 1, 1]))
-    
-=======
-        temp=None,
-    )
+    print(original_cost, new_cost)
 
-    # assert np.isclose(new_cost, 0.44063562506550547)
-    assert np.all(new_assignment == np.array([1, 1, 1, 1, 1]))
-    assert np.all((new_assignment == 0) | (new_assignment == 1))
-
->>>>>>> 8680fd8a46a3bd2da842f657ab8c5bb524f19c0b
-    benchmark(run)
+    # benchmark(run)

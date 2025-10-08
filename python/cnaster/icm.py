@@ -3,13 +3,10 @@ import numpy as np
 import csv
 import time
 from pathlib import Path
-
-# from scipy.special import logsumexp
 from numba import njit
 from dataclasses import dataclass, asdict, field
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class hmrf_perf_entry:
@@ -119,7 +116,7 @@ def build_wolff_cluster(
             if neighbor not in cluster and (
                 new_assignment[neighbor] == current_assignment
             ):
-                if np.random.rand() < p_add:
+                if np.random.rand() <= p_add:
                     cluster.append(neighbor)
                     queue.append(neighbor)
 
@@ -222,6 +219,7 @@ def wolff_update(
 
     # NB equivalent to (locally) optimal ICM; return original cost and null op. cluster.
     if len(cluster) <= 1:
+        logger.info(f"Solved for a cluster of a single spin (equivalent to ICM).")
         return cost_zeropoint, current_assignment, None
 
     # NB relative cost for assignment to each clone for posed cluster.
@@ -259,11 +257,12 @@ def wolff_update(
     accepted = (
         np.random.rand() < np.exp(delta_cost / temp) if temp is not None else False
     )
-    """
+
     logger.info(
-        f"Solved for a cluster of {len(cluster):4d}/{n_spots:4d} spins @ p_add={p_add:.3f} with current cost {current_cost:.4e}, next best cost={assignment_cost[best_new_assignment]:.4e} and dE={delta_cost:.4e}; accepted={accepted}."
+        f"Solved for a cluster of {len(cluster):4d}/{n_spots:4d} spins @ p_add={p_add:.3f} with current cost {current_cost:.4e},\
+        next best cost={assignment_cost[best_new_assignment]:.4e} and dE={delta_cost:.4e}; accepted={accepted}."
     )
-    """
+
     # NB we always accept the better state (max.), a sampled state, or return the original.
     if delta_cost > 0 or accepted:
         new_cost = cost_zeropoint + delta_cost
@@ -275,11 +274,9 @@ def wolff_update(
             None,
         )
 
-    """
     logger.info(
-        f"Solved for better={int(delta_cost>0)} cluster assignment {current_assignment} -> {new_cluster_assignment} with costs {cost_zeropoint} -> {new_cost} @ min_acceptance={min_acceptance}"
+        f"Solved for better={int(delta_cost>0)} cluster assignment {current_assignment} -> {new_cluster_assignment} with costs {cost_zeropoint} -> {new_cost}"
     )
-    """
 
     return new_cost, new_cluster_assignment, cluster
 
@@ -431,12 +428,10 @@ def calc_assignment_cost(
         spot_assignment = new_assignment[i]
         cost += single_llf[i, spot_assignment]
 
-        # NB sample/slice for this spot.
-        this_sample = sample_ids[i]
-
         # NB log_persample_weights (n_clone, n_sample/n_slice);
         #    exp. proportion of clone per slice.
         if log_persample_weights is not None:
+            this_sample = sample_ids[i]
             cost += log_persample_weights[spot_assignment, this_sample]
 
         mask = adj_spots == i

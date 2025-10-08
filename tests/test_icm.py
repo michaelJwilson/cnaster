@@ -70,24 +70,33 @@ def test_wolff_update():
     n_spots, n_clones, num_neighbors = 3_694, 3, 15
 
     single_llf = np.tile(np.arange(n_clones), n_spots).reshape(n_spots, n_clones)
-    
-    adjacency_list = []
 
+    # NB must be symmetric.
+    adjacency_list = [[] for _ in range(n_spots)]
+    """
     for i in range(n_spots):
         possible_neighbors = [j for j in range(n_spots) if j != i]
         chosen_neighbors = np.random.choice(
             possible_neighbors, size=num_neighbors, replace=False
         )
+    
+        for j in chosen_neighbors:
+            # Add edge i -> j
+            adjacency_list[i].append((j, 1.0 / num_neighbors))
+            # Add edge j -> i (symmetric)
+            adjacency_list[j].append((i, 1.0 / num_neighbors))
 
-        adjacency_list.append([(j, 1.0 / num_neighbors) for j in chosen_neighbors])
-
-    new_assignment = np.random.randint(0, n_clones, size=n_spots)
-    spatial_weight, p_add = 1.0, 0.25
-
-    # TODO test unpack_adjacency.
+    # Remove duplicates (in case the same edge was added twice)
+    for i in range(n_spots):
+        unique_neighbors = list(set(adjacency_list[i]))
+        adjacency_list[i] = unique_neighbors
+    """
     adj_spots, adj_neighbors, adj_weights = unpack_adjacency(adjacency_list)
 
-    posterior = np.zeros((n_spots, n_clones))
+    # new_assignment = np.random.randint(0, n_clones, size=n_spots)
+    new_assignment = np.ones(n_spots, dtype=int)
+    
+    spatial_weight, p_add = 1.0, 0.25
 
     original_cost = calc_assignment_cost(
         single_llf,
@@ -99,7 +108,9 @@ def test_wolff_update():
         cost_zeropoint=0.0,
     )
 
-    new_cost, new_assignment, cluster = wolff_update(
+    posterior = np.zeros((n_spots, n_clones))
+    
+    new_cost, new_cluster_assignment, cluster = wolff_update(
         single_llf,
         adj_spots,
         adj_neighbors,
@@ -109,8 +120,21 @@ def test_wolff_update():
         posterior,
         p_add=p_add,
         temp=np.inf,
+        cost_zeropoint=original_cost,
     )
 
-    print(original_cost, new_cost)
+    new_assignment[cluster] = new_cluster_assignment
+    
+    exp_cost = calc_assignment_cost(
+        single_llf,
+	adj_spots,
+        adj_neighbors,
+        adj_weights,
+        new_assignment,
+	spatial_weight,
+        cost_zeropoint=original_cost,
+    )
+    
+    print(original_cost, exp_cost, new_cost)
 
     # benchmark(run)

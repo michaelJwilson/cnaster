@@ -150,10 +150,9 @@ def calc_cluster_assignment_cost(
         # NB likelihoods for each clone, for this spot.
         w_node += single_llf[spot, :]
 
-        this_sample = sample_ids[spot]
-
         # NB expected clone proportions for this slice.
         if log_persample_weights is not None:
+            this_sample = sample_ids[spot]
             w_node += log_persample_weights[:, this_sample]
 
         found = False

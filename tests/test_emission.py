@@ -100,19 +100,19 @@ def test_nb_shift(benchmark):
     new = benchmark(run_new)
 
 
-# NB 58us.
-def test_nloglikeobs_nb_basic(benchmark):
+# NB 58us -> 
+def test_nloglikeobs_nb(benchmark):
     np.random.seed(42)
     
-    n_samples, n_features = 1_000, 3
+    n_samples, n_features = 3_000, 3
     mean_count = 5
     endog = np.random.poisson(mean_count, size=n_samples)
-    exog = np.eye(n_features)[np.random.choice(n_features, n_samples)]
+    exog = np.eye(n_features)[np.concatenate([np.repeat(ii, 1_000) for ii in range(n_features)])]
     weights = np.ones(n_samples)
     exposure = 10 + endog.copy()
     params = np.array([0.1, 0.2, 0.3, 0.5])
 
-    exp = 3405.269453793813
+    exp = 10207.285835867857
     result = nloglikeobs_nb(endog, exog, weights, exposure, params)
 
     np.testing.assert_almost_equal(result, exp, decimal=7)

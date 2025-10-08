@@ -134,6 +134,28 @@ def flush_perf(
         writer.writerow(asdict(metrics))
 
 
+@njit
+def collapse_exog(exog):
+    num_obs, num_states = exog.shape
+    states = np.arange(num_states)
+    switches = np.zeros(num_states)
+
+    current_state = states[0]
+    
+    for ii in range(num_obs):
+        for jj in range(num_states):
+            if exog[ii, jj] == 1:
+                if jj != current_state:
+                    switches[current_state] = ii
+                    current_state = jj
+                
+                break
+
+    switches[-1] = num_obs
+            
+    return states, switches
+
+
 def nloglikeobs_nb(
     endog,
     exog,
@@ -151,9 +173,8 @@ def nloglikeobs_nb(
         )
 
     nb_std = np.sqrt(nb_mean + params[-1] * nb_mean**2)
-
     n, p = convert_params(nb_mean, nb_std)
-
+    
     result = -scipy.stats.nbinom.logpmf(endog, n, p)
     result[np.isnan(result)] = np.inf
 

@@ -14,7 +14,9 @@ NOTES.md
 
 # HACK
 sample_sheet.tsv
+new_sample_sheet.tsv
 cnaster.log*
 
 *.pyc
 cnaster.perf*
+cnaster_hmrf.perf*

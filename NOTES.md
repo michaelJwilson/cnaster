@@ -20,7 +20,9 @@ KEY
 
 QUESTIONS
 - Poor initial copy state parameters can dominate likelihood over spatial coherence?
-- ICM is optimal for spatial_weight=0; ICM converges in 1 suggests spatial_weight is negligible.
+- ICM is optimal for spatial_weight=0; ICM converges in 1 suggests spatial_weight is negligible:
+  spatial_weight is too low!  Coherence implied by intertia (last clone proportion); clone initialization &
+  aggregated pseudobulk; ICM as greedy max.
 - 
 
 TODO major

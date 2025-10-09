@@ -122,7 +122,7 @@ def test_wolff_update(benchmark):
         temp=np.inf,
         cost_zeropoint=original_cost,
     )
-    """
+
     new_assignment[cluster] = new_cluster_assignment
 
     exp_cost = calc_assignment_cost(
@@ -134,8 +134,7 @@ def test_wolff_update(benchmark):
         spatial_weight,
     )
 
-    print(original_cost, new_cost, exp_cost)
-    """
+    assert np.isclose(new_cost, exp_cost, rtol=1e-9, atol=1e-6)
 
     def run():
         np.random.seed(42)
@@ -164,4 +163,4 @@ def test_wolff_update(benchmark):
             max_iter=10,
         )
 
-    benchmark(run)
+    # benchmark(run)

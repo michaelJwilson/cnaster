@@ -18,6 +18,10 @@ KEY
 - clone initialization.
 
 
+QUESTIONS
+- poor initial copy state parameters can dominate likelihood over spatial coherence?
+
+
 TODO major
 - vanilla CalicoST run & results.
 - simulation based tests.

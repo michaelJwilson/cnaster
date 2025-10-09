@@ -64,7 +64,7 @@ def test_build_wolff_cluster(benchmark):
 
 
 # NB 34.64 us -> 5us.
-def test_wolff_update():
+def test_wolff_update(benchmark):
     np.random.seed(42)
 
     n_spots, n_clones, num_neighbors = 3_694, 3, 15
@@ -133,8 +133,20 @@ def test_wolff_update():
         spatial_weight,
     )
 
-    # diff_cost = exp_cost - original_cost
-
     print(original_cost, new_cost, exp_cost)
 
-    # benchmark(run)
+    def run():
+        return wolff_update(
+	single_llf,
+        adj_spots,
+        adj_neighbors,
+        adj_weights,
+        new_assignment,
+	spatial_weight,
+        posterior,
+        p_add=p_add,
+	temp=np.inf,
+        cost_zeropoint=original_cost,
+    )
+    
+    benchmark(run)

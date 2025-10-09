@@ -117,7 +117,6 @@ def test_wolff_update(benchmark):
         adj_weights,
         new_assignment,
         spatial_weight,
-        posterior,
         p_add=p_add,
         temp=np.inf,
         cost_zeropoint=original_cost,

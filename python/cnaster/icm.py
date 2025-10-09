@@ -186,6 +186,7 @@ def calc_cluster_assignment_cost(
     return w_node, w_edge
 
 
+@njit(cache=True)
 def wolff_update(
     single_llf,
     adjacency_spots,
@@ -219,7 +220,7 @@ def wolff_update(
 
     # NB equivalent to (locally) optimal ICM; return original cost and null op. cluster.
     if len(cluster) <= 1:
-        logger.info(f"Solved for a cluster of a single spin (equivalent to ICM).")
+        # logger.info(f"Solved for a cluster of a single spin (equivalent to ICM).")
         return cost_zeropoint, current_assignment, None
 
     # NB relative cost for assignment to each clone for posed cluster.
@@ -257,12 +258,12 @@ def wolff_update(
     accepted = (
         np.random.rand() < np.exp(delta_cost / temp) if temp is not None else False
     )
-
+    """
     logger.info(
         f"Solved for a cluster of {len(cluster):4d}/{n_spots:4d} spins @ p_add={p_add:.3f} with current cost {current_cost:.4e},\
         next best cost={assignment_cost[best_new_assignment]:.4e} and dE={delta_cost:.4e}; accepted={accepted}."
     )
-
+    """
     # NB we always accept the better state (max.), a sampled state, or return the original.
     if delta_cost > 0 or accepted:
         new_cost = cost_zeropoint + delta_cost
@@ -273,14 +274,15 @@ def wolff_update(
             cost_zeropoint,
             None,
         )
-
+    """
     logger.info(
         f"Solved for better={int(delta_cost>0)} cluster assignment {current_assignment} -> {new_cluster_assignment} with costs {cost_zeropoint} -> {new_cost}"
     )
-
+    """
     return new_cost, new_cluster_assignment, cluster
 
 
+@njit(cache=True)
 def wolff_sweep(
     single_llf,
     adj_spots,
@@ -294,9 +296,11 @@ def wolff_sweep(
     max_iter=1_000,
     cost_zeropoint=0.0,
 ):
+    """
     logger.info(
         f"Completing an ICM sweep for unary likelihood of shape {single_llf.shape} and spatial weight {spatial_weight}."
     )
+    """
 
     original_assignment = new_assignment.copy()
 
@@ -313,7 +317,7 @@ def wolff_sweep(
         sample_ids=sample_ids,
         cost_zeropoint=cost_zeropoint,
     )
-
+    """
     hmrf_perf_entry(
         optimizer="icm",
         cost=new_cost,
@@ -326,7 +330,7 @@ def wolff_sweep(
 
     logger.info(f"Found a new best assignment with new cost={new_cost:.6e}")
     logger.info(f"Completing a Wolff sweep.")
-
+    """
     # NB unpacks adjaceny_list into arrays processble by numba.
     best_assignment, best_cost = new_assignment.copy(), new_cost
 
@@ -351,11 +355,12 @@ def wolff_sweep(
             # NB when sampling, we always accept the "new" cluster and use the
             #    appropriate zeropoint.
             if new_cluster is not None:
-                new_assignment[new_cluster] = new_cluster_assignment
+                for idx in new_cluster:
+                    new_assignment[idx] = new_cluster_assignment
 
             if new_cost > best_cost:
                 best_cost, best_assignment = new_cost, new_assignment.copy()
-
+            """
             hmrf_perf_entry(
                 optimizer="wolff",
                 cost=new_cost,
@@ -366,7 +371,7 @@ def wolff_sweep(
                 nedit=np.count_nonzero(new_assignment != original_assignment),
                 clone_split=get_clone_split(new_assignment),
             ).log()
-
+            """
             """
             _, new_cost = icm_sweep(
                 single_llf,
@@ -394,8 +399,6 @@ def wolff_sweep(
 
     # NB re-assign with the best found assignment.
     new_assignment[:] = best_assignment
-
-    exit(0)
 
     return max_iter, best_cost
 
@@ -481,12 +484,10 @@ def icm_sweep(
             # NB emission likelihood for all clones for this spot; (1, n_clone).
             w_node = single_llf[i, :].copy()
 
-            # NB sample/slice for this spot.
-            this_sample = sample_ids[i]
-
             # NB log_persample_weights (n_clone, n_sample/n_slice);
             #    exp. proportion of clone per slice.
             if log_persample_weights is not None:
+                this_sample = sample_ids[i]
                 w_node += log_persample_weights[:, this_sample]
 
             # NB edge costs accumulated across clones: idx represent a clone assignment

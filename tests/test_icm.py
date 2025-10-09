@@ -5,6 +5,7 @@ from cnaster.icm import (
     unpack_adjacency,
     build_wolff_cluster,
     wolff_update,
+    wolff_sweep,
     calc_assignment_cost,
 )
 
@@ -121,7 +122,7 @@ def test_wolff_update(benchmark):
         temp=np.inf,
         cost_zeropoint=original_cost,
     )
-
+    """
     new_assignment[cluster] = new_cluster_assignment
 
     exp_cost = calc_assignment_cost(
@@ -134,19 +135,33 @@ def test_wolff_update(benchmark):
     )
 
     print(original_cost, new_cost, exp_cost)
+    """
 
     def run():
+        np.random.seed(42)
+        """
         return wolff_update(
-	single_llf,
-        adj_spots,
-        adj_neighbors,
-        adj_weights,
-        new_assignment,
-	spatial_weight,
-        posterior,
-        p_add=p_add,
-	temp=np.inf,
-        cost_zeropoint=original_cost,
-    )
-    
+            single_llf,
+            adj_spots,
+            adj_neighbors,
+            adj_weights,
+            new_assignment,
+            spatial_weight,
+            posterior,
+            p_add=p_add,
+            temp=np.inf,
+            cost_zeropoint=original_cost,
+        )
+        """
+        return wolff_sweep(
+            single_llf,
+            adj_spots,
+            adj_neighbors,
+            adj_weights,
+            new_assignment,
+            spatial_weight,
+            posterior,
+            max_iter=50,
+        )
+
     benchmark(run)

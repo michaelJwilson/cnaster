@@ -336,7 +336,7 @@ def wolff_sweep(
     # NB unpacks adjaceny_list into arrays processble by numba.
     best_assignment, best_cost = new_assignment.copy(), new_cost
 
-    for iteration, temp in enumerate(np.logspace(4.0, 0.0, num=max_iter)):
+    for iteration, temp in enumerate(np.logspace(3.0, 0.0, num=max_iter)):
         # TODO tie p_add to temp.  At low temperature, we flip multiple cluster -
         #      more significant in the absence of an external field.
         for p_add in np.arange(0.35, -0.05, -0.05):

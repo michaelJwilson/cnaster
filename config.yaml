@@ -40,7 +40,7 @@ hmrf:
   initialization_method : rectangle
   num_hmrf_initialization_start : 0
   num_hmrf_initialization_end : 1
-  spatial_weight : 1.0
+  spatial_weight : 100.0
   inertia : 0
   construct_adjacency_method : hexagon
   construct_adjacency_w : 1.0

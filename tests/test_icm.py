@@ -5,6 +5,7 @@ from cnaster.icm import (
     unpack_adjacency,
     build_wolff_cluster,
     wolff_update,
+    wolff_sweep,
     calc_assignment_cost,
 )
 
@@ -64,7 +65,7 @@ def test_build_wolff_cluster(benchmark):
 
 
 # NB 34.64 us -> 5us.
-def test_wolff_update():
+def test_wolff_update(benchmark):
     np.random.seed(42)
 
     n_spots, n_clones, num_neighbors = 3_694, 3, 15
@@ -133,8 +134,33 @@ def test_wolff_update():
         spatial_weight,
     )
 
-    # diff_cost = exp_cost - original_cost
+    assert np.isclose(new_cost, exp_cost, rtol=1e-9, atol=1e-6)
 
-    print(original_cost, new_cost, exp_cost)
+    def run():
+        np.random.seed(42)
+        """
+        return wolff_update(
+            single_llf,
+            adj_spots,
+            adj_neighbors,
+            adj_weights,
+            new_assignment,
+            spatial_weight,
+            posterior,
+            p_add=p_add,
+            temp=np.inf,
+            cost_zeropoint=original_cost,
+        )
+        """
+        return wolff_sweep(
+            single_llf,
+            adj_spots,
+            adj_neighbors,
+            adj_weights,
+            new_assignment,
+            spatial_weight,
+            posterior,
+            max_iter=10,
+        )
 
     # benchmark(run)

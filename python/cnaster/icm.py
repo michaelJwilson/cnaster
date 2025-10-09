@@ -281,7 +281,7 @@ def wolff_update(
     return new_cost, new_cluster_assignment, cluster
 
 
-@njit(cache=True)
+# @njit(cache=True)
 def wolff_sweep(
     single_llf,
     adj_spots,
@@ -300,43 +300,43 @@ def wolff_sweep(
         f"Completing an ICM sweep for unary likelihood of shape {single_llf.shape} and spatial weight {spatial_weight}."
     )
     """
-
     original_assignment = new_assignment.copy()
-    new_cost = cost_zeropoint
-
-    """
+    scratch_assignment = new_assignment.copy()
+    
     # NB icm_sweep updates new_assignment in place.
     _, new_cost = icm_sweep(
         single_llf,
         adj_spots,
         adj_neighbors,
         adj_weights,
-        new_assignment,
+        scratch_assignment,
         spatial_weight,
         posterior,
         log_persample_weights=log_persample_weights,
         sample_ids=sample_ids,
         cost_zeropoint=cost_zeropoint,
     )
-    """
-    """
+    
     hmrf_perf_entry(
         optimizer="icm",
         cost=new_cost,
         best_cost=new_cost,
         padd=0.0,
         iteration=0,
-        nedit=np.count_nonzero(new_assignment != original_assignment),
-        clone_split=get_clone_split(new_assignment),
+        nedit=np.count_nonzero(scratch_assignment != original_assignment),
+        clone_split=get_clone_split(scratch_assignment),
     ).log()
 
     logger.info(f"Found a new best assignment with new cost={new_cost:.6e}")
     logger.info(f"Completing a Wolff sweep.")
-    """
+
+    # NB ignore initial ICM solution.
+    new_cost = cost_zeropoint
+    
     # NB unpacks adjaceny_list into arrays processble by numba.
     best_assignment, best_cost = new_assignment.copy(), new_cost
 
-    for iteration, temp in enumerate(np.logspace(2.5, 0.0, num=max_iter)):
+    for iteration, temp in enumerate(np.logspace(3.0, 0.0, num=max_iter)):
         # TODO tie p_add to temp.
         for p_add in np.arange(0.35, -0.05, -0.05):
             new_cost, new_cluster_assignment, new_cluster = wolff_update(
@@ -361,7 +361,7 @@ def wolff_sweep(
 
             if new_cost > best_cost:
                 best_cost, best_assignment = new_cost, new_assignment.copy()
-            """
+  
             hmrf_perf_entry(
                 optimizer="wolff",
                 cost=new_cost,
@@ -372,35 +372,35 @@ def wolff_sweep(
                 nedit=np.count_nonzero(new_assignment != original_assignment),
                 clone_split=get_clone_split(new_assignment),
             ).log()
-            """
-            """
-            _, new_cost = icm_sweep(
-                single_llf,
-                adj_spots,
-                adj_neighbors,
-                adj_weights,
-                new_assignment,
-                spatial_weight,
-                posterior,
-                log_persample_weights=log_persample_weights,
-                sample_ids=sample_ids,
-                cost_zeropoint=new_cost,
-            )
 
-            hmrf_perf_entry(
-                optimizer="icm",
-                cost=new_cost,
-                best_cost=best_cost,
-                padd=np.nan,
-                iteration=iteration,
-                nedit=np.count_nonzero(new_assignment != original_assignment),
-                clone_split=get_clone_split(new_assignment),
-            ).log()
-            """
-
-    # NB re-assign with the best found assignment.
+    # NB re-assign with the best found assignment.                                                                                                                                                                                                                            
     new_assignment[:] = best_assignment
+  
+    _, new_cost = icm_sweep(
+        single_llf,
+        adj_spots,
+        adj_neighbors,
+        adj_weights,
+        new_assignment,
+        spatial_weight,
+        posterior,
+        log_persample_weights=log_persample_weights,
+        sample_ids=sample_ids,
+        cost_zeropoint=new_cost,
+    )
 
+    hmrf_perf_entry(
+        optimizer="icm",
+        cost=new_cost,
+        best_cost=best_cost,
+        padd=np.nan,
+        iteration=iteration,
+        nedit=np.count_nonzero(new_assignment != original_assignment),
+        clone_split=get_clone_split(new_assignment),
+    ).log()
+    
+    exit(0)
+    
     return max_iter, best_cost
 
 

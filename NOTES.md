@@ -20,7 +20,7 @@ KEY
 
 QUESTIONS
 - poor initial copy state parameters can dominate likelihood over spatial coherence?
-
+- ICM is optimal for spatial_weight=0.
 
 TODO major
 - vanilla CalicoST run & results.

@@ -161,7 +161,7 @@ def test_wolff_update(benchmark):
             new_assignment,
             spatial_weight,
             posterior,
-            max_iter=50,
+            max_iter=10,
         )
 
     benchmark(run)

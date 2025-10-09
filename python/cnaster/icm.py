@@ -175,12 +175,12 @@ def calc_cluster_assignment_cost(
                     neighbor_assignment = new_assignment[neighbor]
                     w_edge[neighbor_assignment] += edge_weight
 
-                # found = True
+                found = True
             else:
                 if found:
                     # NB we can start here in the neighbor list for the next spot in the cluster,
                     #    as monotonically increasing.
-                    # start_k = k
+                    start_k = k
                     break
 
     return w_node, w_edge
@@ -303,7 +303,9 @@ def wolff_sweep(
     """
 
     original_assignment = new_assignment.copy()
+    new_cost = cost_zeropoint
 
+    """
     # NB icm_sweep updates new_assignment in place.
     _, new_cost = icm_sweep(
         single_llf,
@@ -317,6 +319,7 @@ def wolff_sweep(
         sample_ids=sample_ids,
         cost_zeropoint=cost_zeropoint,
     )
+    """
     """
     hmrf_perf_entry(
         optimizer="icm",

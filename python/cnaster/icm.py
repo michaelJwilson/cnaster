@@ -87,7 +87,7 @@ def build_wolff_cluster(
     adjacency_neighbors,
     adjacency_weights,
     this_spot,
-    temp=1.
+    temp=1.0,
 ):
     """
     Construct a cluster around this spot of all neighbors with the
@@ -97,6 +97,8 @@ def build_wolff_cluster(
     """
     visited, cluster, queue = [this_spot], [this_spot], [this_spot]
     current_assignment = new_assignment[this_spot]
+
+    lnprob_forward = 0.0
 
     while queue:
         current = queue.pop(0)
@@ -117,13 +119,54 @@ def build_wolff_cluster(
             if neighbor not in cluster and (
                 new_assignment[neighbor] == current_assignment
             ):
-                p_add = 1. - np.exp(-edge_weight / temp)
-                
+                p_add = 1.0 - np.exp(-edge_weight / temp)
+
                 if np.random.rand() <= p_add:
                     cluster.append(neighbor)
                     queue.append(neighbor)
+                else:
+                    lnprob_forward += np.log(1.0 - p_add)
 
-    return np.array(sorted(list(cluster)))
+    return np.array(sorted(list(cluster))), lnprob_forward
+
+
+@njit(cache=True)
+def get_cluster_lnprob_backward(
+    new_assignment,
+    adjacency_spots,
+    adjacency_neighbors,
+    adjacency_weights,
+    this_spot,
+    cluster,
+    cluster_assignment,
+    temp=1.0,
+):
+    visited, queue = [this_spot], [this_spot]
+    lnprob_backward = 0.0
+
+    while queue:
+        current = queue.pop(0)
+
+        mask = adjacency_spots == current
+        neighbors = adjacency_neighbors[mask]
+        weights = adjacency_weights[mask]
+
+        for neighbor, edge_weight in zip(neighbors, weights):
+            # NB we have considered this neighbor already - an effort
+            #    to build smaller clusters with less cost.
+            if neighbor in visited:
+                continue
+            else:
+                visited.append(neighbor)
+
+            # NB propagate wave front.
+            if neighbor in cluster:
+                queue.append(neighbor)
+            elif new_assignment[neighbor] == cluster_assignment:
+                p_add = 1.0 - np.exp(-edge_weight / temp)
+                lnprob_backward += np.log(1.0 - p_add)
+
+    return lnprob_backward
 
 
 @njit(cache=True)
@@ -137,7 +180,6 @@ def calc_cluster_assignment_cost(
     adjacency_neighbors,
     adjacency_weights,
     n_clones,
-    spatial_weight,
 ):
     # NB all spots in cluster have the same initial spin.
     w_node = np.zeros(n_clones, dtype=np.float64)
@@ -198,11 +240,9 @@ def wolff_update(
     spatial_weight,
     log_persample_weights=None,
     sample_ids=None,
-    p_add=0.0,
     cost_zeropoint=0.0,
     temp=None,
 ):
-    # TODO p_add should be determined by spatial_weight!
     n_spots, n_clones = single_llf.shape
 
     # NB pick a spot at random
@@ -210,13 +250,13 @@ def wolff_update(
     this_spot = np.random.randint(n_spots)
     current_assignment = new_assignment[this_spot]
 
-    cluster = build_wolff_cluster(
+    cluster, lnprob_forward = build_wolff_cluster(
         new_assignment,
         adjacency_spots,
         adjacency_neighbors,
         adjacency_weights,
         this_spot,
-        p_add,
+        temp,
     )
 
     # NB equivalent to (locally) optimal ICM; return original cost and null op. cluster.
@@ -235,11 +275,10 @@ def wolff_update(
         adjacency_neighbors,
         adjacency_weights,
         n_clones,
-        spatial_weight,
     )
 
     # NB assignment cost to each clone for this cluster.
-    assignment_cost = node_cost + spatial_weight * edge_cost
+    assignment_cost = node_cost + (spatial_weight / temp) * edge_cost
 
     # logger.info(f"Found node and edge costs:\n{node_cost}\n{edge_cost}")
 
@@ -255,32 +294,48 @@ def wolff_update(
     best_new_assignment = np.argmax(assignment_cost)
     delta_cost = assignment_cost[best_new_assignment] - current_cost
 
-    # NB all proposed states are worse; pick one randomly;
-    accepted = (
-        np.random.rand() < np.exp(delta_cost / temp) if temp is not None else False
+    # NB Metropolis step
+    if delta_cost > 0:
+        new_cost = cost_zeropoint + delta_cost
+        new_cluster_assignment = best_new_assignment
+
+        return new_cost, new_cluster_assignment, cluster
+
+    # NB sampled / exploration.
+    lnprob_backward = get_cluster_lnprob_backward(
+        new_assignment,
+        adjacency_spots,
+        adjacency_neighbors,
+        adjacency_weights,
+        this_spot,
+        cluster,
+        best_new_assignment,
+        temp=temp,
     )
+
+    ln_acceptance = delta_cost / temp
+    ln_acceptance -= lnprob_forward
+    ln_acceptance += lnprob_forward
+
+    accepted = np.random.rand() < np.exp(ln_acceptance)
     """
     logger.info(
         f"Solved for a cluster of {len(cluster):4d}/{n_spots:4d} spins @ p_add={p_add:.3f} with current cost {current_cost:.4e},\
         next best cost={assignment_cost[best_new_assignment]:.4e} and dE={delta_cost:.4e}; accepted={accepted}."
     )
     """
+    """                                                                                                                                                                                                               
+    logger.info(                                                                                                                                                                                                       
+        f"Solved for better={int(delta_cost>0)} cluster assignment {current_assignment} -> {new_cluster_assignment} with costs {cost_zeropoint} -> {new_cost}"                                                        
+    )                                                                                                                                                                                                                 
+    """
+
     # NB we always accept the better state (max.), a sampled state, or return the original.
-    if delta_cost > 0 or accepted:
+    if accepted:
         new_cost = cost_zeropoint + delta_cost
         new_cluster_assignment = best_new_assignment
     else:
-        new_cluster_assignment, new_cost, cluster = (
-            current_assignment,
-            cost_zeropoint,
-            None,
-        )
-    """
-    logger.info(
-        f"Solved for better={int(delta_cost>0)} cluster assignment {current_assignment} -> {new_cluster_assignment} with costs {cost_zeropoint} -> {new_cost}"
-    )
-    """
-    return new_cost, new_cluster_assignment, cluster
+        return cost_zeropoint, current_assignment, None
 
 
 # @njit(cache=True)
@@ -305,7 +360,7 @@ def wolff_sweep(
     original_assignment = new_assignment.copy()
     scratch_assignment = new_assignment.copy()
 
-    # NB icm_sweep updates new_assignment in place.
+    # NB icm_sweep updates new_assignment in place; global max for T=np.inf (independent spins).
     _, new_cost = icm_sweep(
         single_llf,
         adj_spots,
@@ -317,6 +372,7 @@ def wolff_sweep(
         log_persample_weights=log_persample_weights,
         sample_ids=sample_ids,
         cost_zeropoint=cost_zeropoint,
+        temp=np.inf,
     )
 
     hmrf_perf_entry(
@@ -338,47 +394,44 @@ def wolff_sweep(
     # NB unpacks adjaceny_list into arrays processble by numba.
     best_assignment, best_cost = new_assignment.copy(), new_cost
 
+    # TODO T0 = spatial_weight x MAX(e_ij); high to zero.
     for iteration, temp in enumerate(np.logspace(4.0, -2.0, num=max_iter)):
-        # TODO tie p_add to temp.  At low temperature, we flip multiple cluster -
-        #      more significant in the absence of an external field.
-        for p_add in np.arange(0.5, -0.05, -0.05):
-            new_cost, new_cluster_assignment, new_cluster = wolff_update(
-                single_llf,
-                adj_spots,
-                adj_neighbors,
-                adj_weights,
-                new_assignment,
-                spatial_weight,
-                log_persample_weights=log_persample_weights,
-                sample_ids=sample_ids,
-                p_add=p_add,
-                cost_zeropoint=new_cost,
-                temp=temp,
-            )
+        new_cost, new_cluster_assignment, new_cluster = wolff_update(
+            single_llf,
+            adj_spots,
+            adj_neighbors,
+            adj_weights,
+            new_assignment,
+            spatial_weight,
+            log_persample_weights=log_persample_weights,
+            sample_ids=sample_ids,
+            cost_zeropoint=new_cost,
+            temp=temp,
+        )
+        
+        # NB when sampling, we always accept the "new" cluster and use the
+        #    appropriate zeropoint.
+        if new_cluster is not None:
+            for idx in new_cluster:
+                new_assignment[idx] = new_cluster_assignment
 
-            # NB when sampling, we always accept the "new" cluster and use the
-            #    appropriate zeropoint.
-            if new_cluster is not None:
-                for idx in new_cluster:
-                    new_assignment[idx] = new_cluster_assignment
+        if new_cost > best_cost:
+            best_cost, best_assignment = new_cost, new_assignment.copy()
 
-            if new_cost > best_cost:
-                best_cost, best_assignment = new_cost, new_assignment.copy()
-
-            hmrf_perf_entry(
-                optimizer="wolff",
-                cost=new_cost,
-                best_cost=best_cost,
-                padd=p_add,
-                iteration=iteration,
-                ncluster=len(new_cluster) if new_cluster is not None else 0,
-                nedit=np.count_nonzero(new_assignment != original_assignment),
-                clone_split=get_clone_split(new_assignment),
-            ).log()
+        hmrf_perf_entry(
+            optimizer="wolff",
+            cost=new_cost,
+            best_cost=best_cost,
+            iteration=iteration,
+            ncluster=len(new_cluster) if new_cluster is not None else 0,
+            nedit=np.count_nonzero(new_assignment != original_assignment),
+            clone_split=get_clone_split(new_assignment),
+        ).log()
 
     # NB re-assign with the best found assignment.
     new_assignment[:] = best_assignment
 
+    # NB temp=1. by default
     _, new_cost = icm_sweep(
         single_llf,
         adj_spots,
@@ -465,7 +518,7 @@ def icm_sweep(
     log_persample_weights=None,
     sample_ids=None,
     cost_zeropoint=0.0,
-    temp=1.,
+    temp=1.0,
 ):
     """
     single_llf: log emission likelihood, to be maximized.

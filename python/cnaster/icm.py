@@ -80,14 +80,14 @@ def unpack_adjacency(adj_list):
     return adj_spots, adj_neighbors, adj_weights
 
 
-@njit(cache=True)
+# @njit(cache=True)
 def build_wolff_cluster(
     new_assignment,
     adjacency_spots,
     adjacency_neighbors,
     adjacency_weights,
     this_spot,
-    p_add,
+    temp=1.
 ):
     """
     Construct a cluster around this spot of all neighbors with the
@@ -117,6 +117,8 @@ def build_wolff_cluster(
             if neighbor not in cluster and (
                 new_assignment[neighbor] == current_assignment
             ):
+                p_add = 1. - np.exp(-edge_weight / temp)
+                
                 if np.random.rand() <= p_add:
                     cluster.append(neighbor)
                     queue.append(neighbor)

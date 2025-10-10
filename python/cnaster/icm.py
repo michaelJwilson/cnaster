@@ -399,8 +399,6 @@ def wolff_sweep(
         nedit=np.count_nonzero(new_assignment != original_assignment),
         clone_split=get_clone_split(new_assignment),
     ).log()
-
-    exit(0)
     
     return max_iter, best_cost
 

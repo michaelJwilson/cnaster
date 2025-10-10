@@ -45,6 +45,7 @@ from cnaster.normal_spot import (
     filter_normal_diffexp,
     binned_gene_snp,
 )
+from cnaster.sim import load_tables_to_matrices
 from cnaster.hmm import pipeline_baum_welch
 from cnaster.utils import merge_dicts, write_tsv, write_fig
 from cnaster.integer_copy import (
@@ -93,6 +94,25 @@ def run_cnaster(config_path):
 
     set_global_config(config)
     
+    (
+        lengths,
+        single_X,
+        single_base_nb_mean,
+        single_total_bb_RD,
+        log_sitewise_transmat,
+        df_bininfo,
+        df_gene_snp,
+        barcodes,
+        coords,
+        single_tumor_prop,
+        sample_list,
+        sample_ids,
+        adjacency_mat,
+        smooth_mat,
+        exp_counts,
+    ) = load_tables_to_matrices()
+
+    """
     # NB start run_parse_n_load::parse_visium::load_joint_data
     #    adata: (barcode x gene) transcripts ('count') + 'tumor_annotation' + 'X_pos' + slice ('sample').
     #    cell_snp_Aallele: haplotype H0 counts (barcode x snp).
@@ -110,7 +130,7 @@ def run_cnaster(config_path):
         filter_gene_file=config.references.filtergenelist_file,
         filter_range_file=config.references.filterregion_file,
     )
-    
+
     # NB e.g. 'AAACAAGTATCTCCCA-1_HT112C1-U1' currently.
     barcodes = adata.obs.index
     sample_list = [adata.obs["sample"].iloc[0]]
@@ -290,7 +310,7 @@ def run_cnaster(config_path):
 
     # NB by construction, require normal spots (based on BAF to determine baseline).
     assert np.all(single_base_nb_mean == 0)
-
+    """
     # TODO
     copy_single_X_rdr = copy.copy(single_X[:, 0, :])
     copy_single_base_nb_mean = copy.copy(single_base_nb_mean)
@@ -304,7 +324,7 @@ def run_cnaster(config_path):
     initial_clone_index, clone_id = rectangle_initialize_initial_clone(
         coords, config.hmrf.n_clones, random_state=0
     )
-    
+
     """
     initial_clone_index, clone_id, spot_umi_counts = sufficient_umis_initial_clone(
         coords,
@@ -340,7 +360,7 @@ def run_cnaster(config_path):
     logger.info(f"Writing initial clone labels to {opath},\n{df_clone_label.head()}")
 
     write_tsv(opath, df_clone_label, header=True, index=True, index_label="barcode")
-
+    
     # TODO HACK
     assignment = pd.Series([f"clone {x}" for x in clone_id])
 
@@ -357,7 +377,7 @@ def run_cnaster(config_path):
     fig_path = f"{config.paths.output_dir}/plots/initial_clones_spatial.pdf"
 
     write_fig(fig_path, initial_clones_fig, transparent=True, bbox_inches="tight")
-
+    
     logger.info(
         "Solving HMM & HMRF for copy states and clone assignment with BAF only."
     )
@@ -392,7 +412,7 @@ def run_cnaster(config_path):
         spatial_weight=config.hmrf.spatial_weight,
         tumorprop_threshold=config.hmrf.tumorprop_threshold,
     )
-
+    
     # NB number of bins/segments/blocks
     n_obs = single_X.shape[0]
 
@@ -463,14 +483,14 @@ def run_cnaster(config_path):
 
     write_tsv(opath, df_clone_label, header=True, index=True, index_label="barcode")
 
-    # TODO HACK                                                                                                                                                                                             
+    # TODO HACK
     assignment = pd.Series([f"clone {x}" for x in merged_res["new_assignment"]])
 
     bafonly_clones_fig = plot_clones_spatial(
         coords,
         assignment,
         single_tumor_prop=single_tumor_prop,
-	sample_list=sample_list,
+        sample_list=sample_list,
         sample_ids=sample_ids,
         base_width=4,
         base_height=3,
@@ -480,8 +500,6 @@ def run_cnaster(config_path):
 
     write_fig(fig_path, bafonly_clones_fig, transparent=True, bbox_inches="tight")
 
-    exit(0)
-    
     # TODO
     n_obs = single_X.shape[0]
 

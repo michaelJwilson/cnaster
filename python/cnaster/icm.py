@@ -292,7 +292,7 @@ def wolff_sweep(
     posterior,
     log_persample_weights=None,
     sample_ids=None,
-    max_iter=1_000,
+    max_iter=500,
     cost_zeropoint=0.0,
 ):
     """
@@ -336,10 +336,10 @@ def wolff_sweep(
     # NB unpacks adjaceny_list into arrays processble by numba.
     best_assignment, best_cost = new_assignment.copy(), new_cost
 
-    for iteration, temp in enumerate(np.logspace(2.5, 0.0, num=max_iter)):
+    for iteration, temp in enumerate(np.logspace(4.0, -2.0, num=max_iter)):
         # TODO tie p_add to temp.  At low temperature, we flip multiple cluster -
         #      more significant in the absence of an external field.
-        for p_add in np.arange(0.35, -0.05, -0.05):
+        for p_add in np.arange(0.5, -0.05, -0.05):
             new_cost, new_cluster_assignment, new_cluster = wolff_update(
                 single_llf,
                 adj_spots,
@@ -399,7 +399,9 @@ def wolff_sweep(
         nedit=np.count_nonzero(new_assignment != original_assignment),
         clone_split=get_clone_split(new_assignment),
     ).log()
-        
+
+    exit(0)
+    
     return max_iter, best_cost
 
 

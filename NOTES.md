@@ -23,15 +23,18 @@ QUESTIONS
 - ICM is optimal for spatial_weight=0; ICM converges in 1 suggests spatial_weight is negligible:
   spatial_weight is too low!  Coherence implied by intertia (last clone proportion); clone initialization &
   aggregated pseudobulk; ICM as greedy max.
-- 
+
+
+TODAY
+- edge dependent p_add.
 
 TODO major
 - vanilla CalicoST run & results.
 - simulation based tests.
 - tumor proportion emission.
 - p_add given temperature.
-- em convergence for rdr.
--
+- em convergence for rdr? data points well separated by state ...
+- 
 
 
 TODO minor

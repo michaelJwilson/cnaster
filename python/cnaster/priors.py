@@ -44,7 +44,7 @@ def get_rdr_prior_sigma():
 
 
 def get_baf_prior_sigma():
-    return 0.01
+    return 0.025
 
 
 @lru_cache(maxsize=32)

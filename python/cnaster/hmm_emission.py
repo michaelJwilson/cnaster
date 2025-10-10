@@ -205,7 +205,7 @@ def nloglikeobs_nb(
     exposure,
     params,
     tumor_prop=None,
-    prior=True,
+    prior=False,
     reduce=True,
 ):
     if tumor_prop is None:
@@ -280,7 +280,7 @@ def nloglikeobs_bb(
     tumor_prop=None,
     zero_point=None,
     reduce=True,
-    prior=True
+    prior=False
 ):
     a, b = compute_bb_ab(exog, params, tumor_prop)
 
@@ -291,7 +291,8 @@ def nloglikeobs_bb(
         result[np.isnan(result)] = np.inf
 
     if prior:
-        result -= baf_prior_eval(a / (a + b), sigma=None)
+        prior_shift = baf_prior_eval(a / (a + b), sigma=None)
+        result -= prior_shift
         
     if reduce:
         result = result.dot(weights)

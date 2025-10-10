@@ -9,7 +9,7 @@ from scipy.special import loggamma
 from functools import partial
 from cnaster.config import get_global_config
 from cnaster.hmm_utils import convert_params, get_solver
-from cnaster.priors import baf_prior_eval
+from cnaster.priors import baf_prior_eval, rdr_prior_eval
 from dataclasses import dataclass, asdict
 from typing import Optional, Dict, Any, List
 import json
@@ -205,6 +205,7 @@ def nloglikeobs_nb(
     exposure,
     params,
     tumor_prop=None,
+    prior=True,
     reduce=True,
 ):
     if tumor_prop is None:
@@ -219,6 +220,10 @@ def nloglikeobs_nb(
 
     result = -scipy.stats.nbinom.logpmf(endog, n, p)
     result[np.isnan(result)] = np.inf
+
+    if prior:
+        # TODO tumor prop
+        result -= rdr_prior_eval(exog @ np.exp(params[:-1]), sigma=None)
 
     if reduce:
         result = result.dot(weights)
@@ -285,12 +290,12 @@ def nloglikeobs_bb(
         result = -scipy.stats.betabinom.logpmf(endog, exposure, a, b)
         result[np.isnan(result)] = np.inf
 
+    if prior:
+        result -= baf_prior_eval(a / (a + b), sigma=None)
+        
     if reduce:
         result = result.dot(weights)
         assert not np.isnan(result), f"{params}: {result}"
-
-    if prior:
-        result -= baf_prior_eval(a / (a + b), sigma=None)
 
     return result
 

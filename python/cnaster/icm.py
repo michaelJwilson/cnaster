@@ -465,6 +465,7 @@ def icm_sweep(
     log_persample_weights=None,
     sample_ids=None,
     cost_zeropoint=0.0,
+    temp=1.,
 ):
     """
     single_llf: log emission likelihood, to be maximized.
@@ -509,7 +510,7 @@ def icm_sweep(
                 w_edge[neighbor_assignment] += edge_weight
 
             # NB assignment cost to each clone for this spot.
-            assignment_cost = w_node + spatial_weight * w_edge
+            assignment_cost = w_node + (spatial_weight / temp) * w_edge
 
             # NB ICM is greedy picking of best clone with maximum likelihood for each spot.
             label = np.argmax(assignment_cost)

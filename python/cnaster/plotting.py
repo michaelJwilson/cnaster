@@ -9,10 +9,33 @@ import logging
 import matplotlib.gridspec as gridspec
 from matplotlib.lines import Line2D
 from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
+from cnaster.integer_copy import get_ordered_acn
 
 logger = logging.getLogger(__name__)
 
 plt.rcParams["font.family"] = "DejaVu Serif"
+
+
+# TODO immutable?
+def get_ordered_acn():
+    return [
+        (0, 0),
+        (1, 0),
+        (1, 1),
+        (2, 0),
+        (2, 1),
+        (3, 0),
+        (2, 2),
+        (3, 1),
+        (4, 0),
+        (3, 2),
+        (4, 1),
+        (5, 0),
+        (3, 3),
+        (4, 2),
+        (5, 1),
+        (6, 0),
+    ]
 
 
 def get_full_palette():
@@ -35,24 +58,7 @@ def get_full_palette():
         "indigo",
     ]
 
-    ordered_acn = [
-        (0, 0),
-        (1, 0),
-        (1, 1),
-        (2, 0),
-        (2, 1),
-        (3, 0),
-        (2, 2),
-        (3, 1),
-        (4, 0),
-        (3, 2),
-        (4, 1),
-        (5, 0),
-        (3, 3),
-        (4, 2),
-        (5, 1),
-        (6, 0),
-    ]
+    ordered_acn = get_ordered_acn()
 
     colors = sns.color_palette("rocket", len(ordered_acn)).as_hex()
 

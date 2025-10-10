@@ -17,6 +17,28 @@ logger = logging.getLogger(__name__)
 # DEFAULT_MU_THRESHOLD = 0.3
 
 
+# TODO immutable?
+def get_ordered_acn():
+    return [
+        (0, 0),
+        (1, 0),
+        (1, 1),
+        (2, 0),
+        (2, 1),
+        (3, 0),
+        (2, 2),
+        (3, 1),
+        (4, 0),
+        (3, 2),
+        (4, 1),
+        (5, 0),
+        (3, 3),
+        (4, 2),
+        (5, 1),
+        (6, 0),
+    ]
+
+
 def find_diploid_balanced_state(
     new_log_mu, new_p_binom, pred_cnv, min_prop_threshold, EPS_BAF
 ):

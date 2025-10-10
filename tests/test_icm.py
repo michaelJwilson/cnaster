@@ -59,7 +59,7 @@ def test_build_wolff_cluster(benchmark):
     # NB deterministic behavior with always accepted.
     this_spot = 12
 
-    for temp, exp in zip([0., np.inf], [9, 1]):    
+    for temp, exp in zip([1.e-12, np.inf], [9, 1]):    
         cluster = build_wolff_cluster(
             new_assignment,
             adj_spots,

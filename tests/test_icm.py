@@ -92,6 +92,7 @@ def test_wolff_update(benchmark):
 
     n_spots, n_clones, num_neighbors = 3_694, 3, 15
 
+    # NB log likelihood proportional to clone label (i.e. fake); common to all spots.
     single_llf = np.tile(np.arange(n_clones), n_spots).reshape(n_spots, n_clones)
 
     # NB must be symmetric.
@@ -104,12 +105,10 @@ def test_wolff_update(benchmark):
         )
 
         for j in chosen_neighbors:
-            # Add edge i -> j
-            adj_list[i].append((j, 1.0 / num_neighbors))
-            # Add edge j -> i (symmetric)
-            adj_list[j].append((i, 1.0 / num_neighbors))
+            adj_list[i].append((j, np.random.rand()))
+            adj_list[j].append((i, np.random.rand()))
 
-    # Remove duplicates (in case the same edge was added twice)
+    # NB remove duplicates (in case the same edge was added twice)
     for i in range(n_spots):
         unique_neighbors = list(set(adj_list[i]))
         adj_list[i] = unique_neighbors
@@ -117,7 +116,7 @@ def test_wolff_update(benchmark):
     adj_spots, adj_neighbors, adj_weights = unpack_adjacency(adj_list)
 
     new_assignment = np.ones(n_spots, dtype=int)
-    spatial_weight = 0.75
+    spatial_weight = 100.
 
     original_cost = calc_assignment_cost(
         single_llf,
@@ -128,6 +127,19 @@ def test_wolff_update(benchmark):
         spatial_weight,
     )
 
+    cluster, lnprob_forward= build_wolff_cluster(
+        new_assignment,
+        adj_spots,
+        adj_neighbors,
+        adj_weights,
+        1_000,
+        1.e-6,
+    )
+
+    # NB all spins start in the same state; temperature set to have unit
+    #    acceptance.
+    assert len(cluster) == 3_694
+    
     posterior = np.zeros((n_spots, n_clones))
 
     new_cost, new_cluster_assignment, cluster = wolff_update(
@@ -137,16 +149,14 @@ def test_wolff_update(benchmark):
         adj_weights,
         new_assignment,
         spatial_weight,
-        temp=0.1,
+        temp=1.e-4,
         cost_zeropoint=original_cost,
     )
-
+    
+    # print(original_cost, new_cost, new_cluster_assignment, len(cluster))
+    
     assert cluster is not None
-    
-    print(new_cost, new_cluster_assignment, cluster)
-    
-    return
-    
+
     new_assignment[cluster] = new_cluster_assignment
 
     exp_cost = calc_assignment_cost(

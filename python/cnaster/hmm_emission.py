@@ -290,8 +290,8 @@ def nloglikeobs_bb(
         assert not np.isnan(result), f"{params}: {result}"
 
     if prior:
-        result -= baf_prior_eval(a / (a + b), sigma=None)
-
+        result -= baf_prior_eval(a / (a + b), sigma=None)[0]
+        
     return result
 
 

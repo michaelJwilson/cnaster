@@ -82,7 +82,7 @@ if __name__ == "__main__":
     ax.plot(x, pdf, label=None, lw=1)
     ax.set_xlim(0, 1)
     ax.set_xlabel("BAF")
-    ax.set_ylabel("p(BAF)")
+    ax.set_ylabel(r"$\tilde p$(BAF)")
     ax.set_title(r"Gaussian mixture BAF prior ($\sigma=0.5$)")
     ax.legend(frameon=False)
 

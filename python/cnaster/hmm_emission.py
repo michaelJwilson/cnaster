@@ -9,6 +9,7 @@ from scipy.special import loggamma
 from functools import partial
 from cnaster.config import get_global_config
 from cnaster.hmm_utils import convert_params, get_solver
+from cnaster.priors import baf_prior_eval
 from dataclasses import dataclass, asdict
 from typing import Optional, Dict, Any, List
 import json
@@ -274,6 +275,7 @@ def nloglikeobs_bb(
     tumor_prop=None,
     zero_point=None,
     reduce=True,
+    prior=True
 ):
     a, b = compute_bb_ab(exog, params, tumor_prop)
 
@@ -286,6 +288,9 @@ def nloglikeobs_bb(
     if reduce:
         result = result.dot(weights)
         assert not np.isnan(result), f"{params}: {result}"
+
+    if prior:
+        result -= baf_prior_eval(a / (a + b), sigma=None)
 
     return result
 

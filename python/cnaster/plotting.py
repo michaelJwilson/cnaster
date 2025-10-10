@@ -237,7 +237,7 @@ def plot_clones_genomic(
 
     if sample_list is not None:
         axes[0].set_title(",".join(sample_list), loc="left")
-        
+
     for s, c in enumerate(nonempty_clones):
         cid = final_clone_ids[c]
 
@@ -374,7 +374,7 @@ def plot_clones_genomic(
         handles=legend_elements,
         loc="upper right",
         bbox_to_anchor=(1, 1),
-        ncol=len(legend_elements),  # One line                                                                                                                                                                                                                                  
+        ncol=len(legend_elements),  # One line
         frameon=False,
     )
 

@@ -302,7 +302,7 @@ def wolff_sweep(
     """
     original_assignment = new_assignment.copy()
     scratch_assignment = new_assignment.copy()
-    
+
     # NB icm_sweep updates new_assignment in place.
     _, new_cost = icm_sweep(
         single_llf,
@@ -316,7 +316,7 @@ def wolff_sweep(
         sample_ids=sample_ids,
         cost_zeropoint=cost_zeropoint,
     )
-    
+
     hmrf_perf_entry(
         optimizer="icm",
         cost=new_cost,
@@ -332,7 +332,7 @@ def wolff_sweep(
 
     # NB ignore initial ICM solution.
     new_cost = cost_zeropoint
-    
+
     # NB unpacks adjaceny_list into arrays processble by numba.
     best_assignment, best_cost = new_assignment.copy(), new_cost
 
@@ -362,7 +362,7 @@ def wolff_sweep(
 
             if new_cost > best_cost:
                 best_cost, best_assignment = new_cost, new_assignment.copy()
-  
+
             hmrf_perf_entry(
                 optimizer="wolff",
                 cost=new_cost,
@@ -374,9 +374,9 @@ def wolff_sweep(
                 clone_split=get_clone_split(new_assignment),
             ).log()
 
-    # NB re-assign with the best found assignment.                                                                                                                                                                                                                            
+    # NB re-assign with the best found assignment.
     new_assignment[:] = best_assignment
-  
+
     _, new_cost = icm_sweep(
         single_llf,
         adj_spots,
@@ -399,7 +399,7 @@ def wolff_sweep(
         nedit=np.count_nonzero(new_assignment != original_assignment),
         clone_split=get_clone_split(new_assignment),
     ).log()
-    
+
     return max_iter, best_cost
 
 

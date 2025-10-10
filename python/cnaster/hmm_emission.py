@@ -396,11 +396,11 @@ class Weighted_NegativeBinomial_mix:
 
         EPSILON = 1.0e-6
 
-        # Bounds for log-space parameters (can be negative)
+        # NB bounds for log-space parameters (can be negative)
         for i in range(n_params - 1):
             bounds.append((-10, 10))
 
-        # Bound for overdispersion parameter (must be positive)
+        # NB bound for overdispersion parameter (must be positive)
         bounds.append((EPSILON, 1e6))
 
         return bounds

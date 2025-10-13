@@ -14,19 +14,21 @@ class hmrf_perf_entry:
     optimizer: str
     cost: float
     best_cost: float
-    temp: float = np.nan
     iteration: int = 0
+    temp: float = np.nan
+    acceptance: float = np.nan
     ncluster: int = 1
     nedit: int = 0
     clone_split: np.ndarray = field(default_factory=lambda: np.array([-1]))
 
     def as_dict(self):
         d = asdict(self)
-        d["optimizer"] = d["optimizer"].ljust(20)
+        d["optimizer"] = d["optimizer"].ljust(15)
         d["cost"] = "{:+.6e}".format(self.cost)
         d["best_cost"] = "{:+.6e}".format(self.best_cost)
-        d["temp"] = "{:.4e}".format(self.temp)
         d["iteration"] = str(self.iteration)
+        d["temp"] = "Inf".ljust(10) if np.isinf(self.temp) else "{:.4e}".format(self.temp)
+        d["acceptance"] = "{:.4e}".format(self.acceptance)
         d["ncluster"] = str(self.ncluster)
         d["nedit"] = "{:d}".format(self.nedit)
         d["clone_split"] = ",".join("{:.8f}".format(x) for x in self.clone_split)
@@ -231,7 +233,7 @@ def calc_cluster_assignment_cost(
     return w_node, w_edge
 
 
-@njit(cache=True)
+# @njit(cache=True)
 def wolff_update(
     single_llf,
     adjacency_spots,
@@ -298,8 +300,9 @@ def wolff_update(
     if delta_cost > 0:
         new_cost = cost_zeropoint + delta_cost
         new_cluster_assignment = best_new_assignment
+        acceptance = 1.
 
-        return new_cost, new_cluster_assignment, cluster
+        return new_cost, new_cluster_assignment, cluster, acceptance
 
     # NB sampled / exploration.
     lnprob_backward = get_cluster_lnprob_backward(
@@ -317,7 +320,8 @@ def wolff_update(
     ln_acceptance -= lnprob_forward
     ln_acceptance += lnprob_forward
 
-    accepted = np.random.rand() < np.exp(ln_acceptance)
+    acceptance = np.exp(ln_acceptance)
+    accepted = np.random.rand() < acceptance
     """
     logger.info(
         f"Solved for a cluster of {len(cluster):4d}/{n_spots:4d} spins @ p_add={p_add:.3f} with current cost {current_cost:.4e},\
@@ -335,9 +339,9 @@ def wolff_update(
         new_cost = cost_zeropoint + delta_cost
         new_cluster_assignment = best_new_assignment
 
-        return new_cost, new_cluster_assignment, cluster
+        return new_cost, new_cluster_assignment, cluster, acceptance
     else:
-        return cost_zeropoint, current_assignment, None
+        return cost_zeropoint, current_assignment, None, acceptance
 
 
 # @njit(cache=True)
@@ -351,7 +355,7 @@ def wolff_sweep(
     posterior,
     log_persample_weights=None,
     sample_ids=None,
-    max_iter=10,
+    max_iter=25,
 ):
     """
     logger.info(
@@ -434,17 +438,16 @@ def wolff_sweep(
     # NB unpacks adjaceny_list into arrays processble by numba.
     best_assignment, best_cost = new_assignment.copy(), new_cost
 
-    initial_temp = np.log10(10. * spatial_weight * adj_weights.max())
-
-    logger.info(f"Completing a Wolff sweep with initial temperature {initial_temp:.4e}")
-    
     num_decades = 3
-
-    # NB base 10 by default!
-    temps = np.logspace(initial_temp, initial_temp - num_decades, num=max_iter)
+    initial_temp = 1. + np.log10(spatial_weight * adj_weights.max())
     
+    # NB base 10 by default!
+    temps = np.logspace(initial_temp, initial_temp + num_decades, num=max_iter)[::-1]
+
+    logger.info(f"Completing an annealed Wolff sweep with initial temperature {initial_temp:.4e} and {num_decades} decades:\n{temps}")
+        
     for iteration, temp in enumerate(temps):
-        new_cost, new_cluster_assignment, new_cluster = wolff_update(
+        new_cost, new_cluster_assignment, new_cluster, acceptance = wolff_update(
             single_llf,
             adj_spots,
             adj_neighbors,
@@ -471,6 +474,8 @@ def wolff_sweep(
             cost=new_cost,
             best_cost=best_cost,
             iteration=iteration,
+            temp=temp,
+            acceptance=acceptance,
             ncluster=len(new_cluster) if new_cluster is not None else 0,
             nedit=np.count_nonzero(new_assignment != original_assignment),
             clone_split=get_clone_split(new_assignment),

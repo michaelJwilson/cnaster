@@ -100,7 +100,6 @@ def build_wolff_cluster(
     adjacency_weights,
     this_spot,
     temp=1.0,
-    max_size=5,
 ):
     """
     Construct a cluster around this spot of all neighbors with the
@@ -137,9 +136,6 @@ def build_wolff_cluster(
                 if np.random.rand() <= p_add:
                     cluster.append(neighbor)
                     queue.append(neighbor)
-
-                    if len(cluster) == max_size:
-                        return np.array(sorted(list(cluster))), lnprob_forward
                 else:
                     lnprob_forward += np.log(1.0 - p_add)
 
@@ -257,7 +253,8 @@ def wolff_update(
     log_persample_weights=None,
     sample_ids=None,
     cost_zeropoint=0.0,
-    temp=None,
+    wolff_temp=None,
+    anneal_temp=None,
 ):
     n_spots, n_clones = single_llf.shape
 
@@ -273,7 +270,7 @@ def wolff_update(
         adjacency_neighbors,
         adjacency_weights,
         this_spot,
-        temp,
+        wolff_temp,
     )
     """
     # NB equivalent to (locally) optimal ICM; return original cost and null op. cluster.
@@ -318,7 +315,7 @@ def wolff_update(
         acceptance = 1.0
 
         return new_cost, new_cluster_assignment, cluster, acceptance
-
+    """
     # NB sampled / exploration.
     lnprob_backward = get_cluster_lnprob_backward(
         new_assignment,
@@ -330,10 +327,10 @@ def wolff_update(
         best_new_assignment,
         temp=temp,
     )
-
-    ln_acceptance = delta_cost / temp
-    ln_acceptance -= lnprob_forward
-    ln_acceptance += lnprob_forward
+    """
+    ln_acceptance = delta_cost / anneal_temp
+    # ln_acceptance -= lnprob_forward
+    # ln_acceptance += lnprob_forward
 
     acceptance = np.exp(ln_acceptance)
     accepted = np.random.rand() < acceptance
@@ -359,7 +356,6 @@ def wolff_update(
         return cost_zeropoint, current_assignment, cluster, acceptance
 
 
-# @njit(cache=True)
 def wolff_sweep(
     single_llf,
     adj_spots,
@@ -378,7 +374,7 @@ def wolff_sweep(
     """
     original_assignment = new_assignment.copy()
 
-    initial_cost = calc_assignment_cost(
+    cost_zeropoint = calc_assignment_cost(
         single_llf,
         adj_spots,
         adj_neighbors,
@@ -390,16 +386,16 @@ def wolff_sweep(
     )
 
     hmrf_perf_entry(
-        optimizer="initial",
-        cost=initial_cost,
-        best_cost=initial_cost,
+        optimizer="zeropoint",
+        cost=cost_zeropoint,
+        best_cost=cost_zeropoint,
         temp=1.,
         iteration=0,
         nedit=np.count_nonzero(new_assignment != original_assignment),
         clone_split=get_clone_split(new_assignment),
     ).log()
 
-    logger.info(f"Found an initial Potts cost={initial_cost:.6e}.")
+    logger.info(f"Found an initial Potts cost={cost_zeropoint:.6e}.")
 
     # NB icm_sweep updates new_assignment in place; global max for T=np.inf (independent spins).
     _, new_cost = icm_sweep(
@@ -412,7 +408,7 @@ def wolff_sweep(
         posterior,
         log_persample_weights=log_persample_weights,
         sample_ids=sample_ids,
-        cost_zeropoint=initial_cost,
+        cost_zeropoint=cost_zeropoint,
         temp=1.,  # NB ICM is exact for independent spots, "high temperature".
     )
 
@@ -457,22 +453,21 @@ def wolff_sweep(
     cost_zeropoint = best_cost
     
     high_temp = spatial_weight * adj_weights.max()
-    low_temp = 1.
 
     # NB base 10 by default!
     # MAGIC HARDCODE
-    temps = np.logspace(np.log10(low_temp), np.log10(5. * high_temp), num=10)[::-1]
+    anneal_temps = np.logspace(-3., np.log10(10. * high_temp), num=100)[::-1]
 
     logger.info(
-        f"Completing an annealed Wolff sweep with edge range=({adj_weights.min():.4f},{adj_weights.max():.4f}), high temperature {high_temp:.4e}, {len(temps)} decades:\n{temps}"
+        f"Completing an annealed Wolff sweep with edge range=({adj_weights.min():.4f},{adj_weights.max():.4f}), high temperature {high_temp:.4e}, {len(anneal_temps)} decades:\n{anneal_temps}"
     )
 
     n_spots = single_llf.shape[0]
     
-    for temp in temps:
-        logger.info(f"Solving for Wolff temperature {temp}.")
+    for anneal_temp in anneal_temps:
+        logger.info(f"Solving for anneal temperature {anneal_temp}.")
         
-        for iteration in range(n_spots):
+        for iteration in range(int(np.ceil(n_spots / 100))):
             new_cost, new_cluster_assignment, new_cluster, acceptance = wolff_update(
                 single_llf,
                 adj_spots,
@@ -483,23 +478,25 @@ def wolff_sweep(
                 log_persample_weights=log_persample_weights,
                 sample_ids=sample_ids,
                 cost_zeropoint=cost_zeropoint,
-                temp=temp,
+                wolff_temp=3.,
+                anneal_temp=anneal_temp
             )
 
-            if new_cost >= best_cost:
-                if new_cluster is not None:
-                    for idx in new_cluster:
-                        new_assignment[idx] = new_cluster_assignment
+            if new_cluster is not None:
+                cost_zeropoint = new_cost
                 
+                for idx in new_cluster:
+                    new_assignment[idx] = new_cluster_assignment
+
+            if new_cost > best_cost:
                 best_cost, best_assignment = new_cost, new_assignment.copy()
-                cost_zeropoint = best_cost
                 
             hmrf_perf_entry(
                 optimizer="wolff",
                 cost=new_cost,
                 best_cost=best_cost,
                 iteration=iteration,
-                temp=temp,
+                temp=anneal_temp,
                 acceptance=acceptance,
                 ncluster=len(new_cluster) if new_cluster is not None else 0,
                 nedit=np.count_nonzero(new_assignment != original_assignment),

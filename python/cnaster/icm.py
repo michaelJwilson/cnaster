@@ -16,7 +16,7 @@ class hmrf_perf_entry:
     best_cost: float
     iteration: int = 0
     temp: float = np.nan
-    acceptance: float = np.nan
+    acceptance: float = 1.0
     ncluster: int = 1
     nedit: int = 0
     clone_split: np.ndarray = field(default_factory=lambda: np.array([-1]))
@@ -442,44 +442,45 @@ def wolff_sweep(
     initial_temp = 1. + np.log10(spatial_weight * adj_weights.max())
     
     # NB base 10 by default!
-    temps = np.logspace(initial_temp, initial_temp + num_decades, num=max_iter)[::-1]
+    temps = np.logspace(initial_temp, initial_temp + num_decades, num=10 * num_decades)[::-1]
 
-    logger.info(f"Completing an annealed Wolff sweep with initial temperature {initial_temp:.4e} and {num_decades} decades:\n{temps}")
+    logger.info(f"Completing an annealed Wolff sweep with edge range=({adj_weights.min():.4f},{adj_weights.max():.4f}), initial temperature {initial_temp:.4e}, {num_decades} decades:\n{temps}")
         
-    for iteration, temp in enumerate(temps):
-        new_cost, new_cluster_assignment, new_cluster, acceptance = wolff_update(
-            single_llf,
-            adj_spots,
-            adj_neighbors,
-            adj_weights,
-            new_assignment,
-            spatial_weight,
-            log_persample_weights=log_persample_weights,
-            sample_ids=sample_ids,
-            cost_zeropoint=new_cost,
-            temp=temp,
-        )
+    for temp in temps:
+        for iteration in range(max_iter):
+            new_cost, new_cluster_assignment, new_cluster, acceptance = wolff_update(
+                single_llf,
+                adj_spots,
+                adj_neighbors,
+                adj_weights,
+                new_assignment,
+                spatial_weight,
+                log_persample_weights=log_persample_weights,
+                sample_ids=sample_ids,
+                cost_zeropoint=new_cost,
+                temp=temp,
+            )
         
-        # NB when sampling, we always accept the "new" cluster and use the
-        #    appropriate zeropoint.
-        if new_cluster is not None:
-            for idx in new_cluster:
-                new_assignment[idx] = new_cluster_assignment
+            # NB when sampling, we always accept the "new" cluster and use the
+            #    appropriate zeropoint.
+            if new_cluster is not None:
+                for idx in new_cluster:
+                    new_assignment[idx] = new_cluster_assignment
 
-        if new_cost > best_cost:
-            best_cost, best_assignment = new_cost, new_assignment.copy()
+            if new_cost > best_cost:
+                best_cost, best_assignment = new_cost, new_assignment.copy()
 
-        hmrf_perf_entry(
-            optimizer="wolff",
-            cost=new_cost,
-            best_cost=best_cost,
-            iteration=iteration,
-            temp=temp,
-            acceptance=acceptance,
-            ncluster=len(new_cluster) if new_cluster is not None else 0,
-            nedit=np.count_nonzero(new_assignment != original_assignment),
-            clone_split=get_clone_split(new_assignment),
-        ).log()
+            hmrf_perf_entry(
+                optimizer="wolff",
+                cost=new_cost,
+                best_cost=best_cost,
+                iteration=iteration,
+                temp=temp,
+                acceptance=acceptance,
+                ncluster=len(new_cluster) if new_cluster is not None else 0,
+                nedit=np.count_nonzero(new_assignment != original_assignment),
+                clone_split=get_clone_split(new_assignment),
+            ).log()
 
     exit(0)
         

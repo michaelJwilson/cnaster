@@ -327,7 +327,7 @@ def compute_weighted_adjacency(
     )
 
     kern = np.exp(-((pairwise_squared_dist / bandwidth) ** decay))
-
+    
     # NB (spot, spot) adjacency.
     A = np.zeros((coords.shape[0], coords.shape[0]))
 
@@ -337,7 +337,7 @@ def compute_weighted_adjacency(
 
         if len(indexes) > 0:
             A[i, indexes] = kern[i, indexes]
-
+            
     return scipy.sparse.csr_matrix(A)
 
 
@@ -418,7 +418,7 @@ def choose_adjacency_by_readcounts(
                 f"Solved for adjacency matrix with length scale {bandwidth} and median of total edge > 6 (MAGIC)."
             )
             break
-
+        
     return smooth_mat, adjacency_mat
 
 

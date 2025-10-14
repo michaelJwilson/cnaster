@@ -34,6 +34,8 @@ from cnaster.spatial import (
     multislice_adjacency,
     rectangle_initialize_initial_clone,
     sufficient_umis_initial_clone,
+    compute_weighted_adjacency,
+    choose_adjacency_by_readcounts
 )
 from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
 from cnaster.neyman_pearson import (
@@ -53,6 +55,7 @@ from cnaster.integer_copy import (
     hill_climbing_integer_copynumber_fixdiploid,
 )
 from cnaster.plotting import plot_clones_genomic, plot_clones_spatial
+from collections import defaultdict
 
 start_time = time.time()
 
@@ -112,6 +115,15 @@ def run_cnaster(config_path):
         exp_counts,
     ) = load_tables_to_matrices()
 
+    # TODO HACK check against above.
+    smooth_mat, adjacency_mat = choose_adjacency_by_readcounts(
+        coords, single_total_bb_RD
+    )
+    smooth_mat.eliminate_zeros()
+    adjacency_mat.eliminate_zeros()
+
+    exit(0)
+    
     """
     # NB start run_parse_n_load::parse_visium::load_joint_data
     #    adata: (barcode x gene) transcripts ('count') + 'tumor_annotation' + 'X_pos' + slice ('sample').

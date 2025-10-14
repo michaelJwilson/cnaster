@@ -394,7 +394,7 @@ def aggr_hmrfmix_reassignment_concatenate(
 
     # NB Posterior probabilities if return_posterior=True.
     posterior = np.zeros((N, n_clones))
-    
+    """
     # NB updates new_assignment and posterior in place given log emission likelihood.
     niter, new_cost = icm_sweep(
         single_llf,
@@ -420,7 +420,7 @@ def aggr_hmrfmix_reassignment_concatenate(
         log_persample_weights=log_persample_weights,
         sample_ids=sample_ids,
     )
-    """
+
     logger.info(
         f"Solved for updated clone labels with new cost {new_cost:.6e} in {niter} iterations (took {time.time() - start_time:.2f} seconds)."
     )

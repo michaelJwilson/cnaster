@@ -62,7 +62,7 @@ class FitMetrics:
     llf: float
 
 
-def get_nbinom_start_params(legacy=False):
+def get_nbinom_start_params(legacy=False, jitter=True):
     config = get_global_config()
 
     if legacy:
@@ -70,6 +70,9 @@ def get_nbinom_start_params(legacy=False):
 
     ms = [float(xx) for xx in config.nbinom.start_params.split(",")]
 
+    if jitter:
+        ms = [mm + 1.e-2 * np.random.rand() for mm in ms]
+    
     return ms, float(config.nbinom.start_disp)
 
 
@@ -435,7 +438,7 @@ class Weighted_NegativeBinomial_mix:
         start_time = time.time()
 
         logger.info(
-            f"Weighted_NegativeBinomial_mix (compress={self.compress}, num_states={self.num_states}, endog_shape={self.endog.shape}) initial likelihood={self.nloglikeobs(start_params):.6e} @ start_params:\n{start_params}"
+            f"Weighted_NegativeBinomial_mix (compress={self.compress}, num_states={self.num_states}, endog_shape={self.endog.shape}) initial -ln likelihood={self.nloglikeobs(start_params):.6e} @ start_params:\n{start_params}"
         )
 
         bounds = self.get_bounds(start_params)

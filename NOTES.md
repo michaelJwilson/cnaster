@@ -12,6 +12,7 @@ RECOMB/ISMB
 
 
 KEY
+- added jitter to NB start. turned up disp.
 - new non-local sampling: annealed Wolff?
 - model selection in spatial correlation.
 - copy mixture initialization.

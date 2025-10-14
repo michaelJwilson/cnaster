@@ -134,11 +134,12 @@ def construct_unique_matrix(obs_count, total_count):
     decimals = name = get_global_config().hmm.compression_decimals
 
     unique_values, mapping_matrices = [], []
-
     mean_validity, mean_compression, mean_sparsity = 0.0, 0.0, 0.0
 
     for s in range(n_spots):
         valid = total_count[:, s] > 0
+
+        # ADD filter by valid
         counts = np.vstack([obs_count[:, s], total_count[:, s]]).T
 
         mean_validity += np.mean(valid)
@@ -150,7 +151,7 @@ def construct_unique_matrix(obs_count, total_count):
         pairs = np.unique(counts, axis=0)
 
         logger.info(
-            f"Found {len(pairs)} unique pairs with {100. * np.mean(valid)}% valid:\n{pairs}"
+            f"Found {len(pairs)} unique pairs with {100. * np.mean(valid):.3f}% non-zero:\n{pairs}"
         )
 
         mean_compression += 1.0 - len(pairs) / n_obs

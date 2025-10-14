@@ -73,9 +73,10 @@ hmm:
   em_disp: 0
 
 # NB N sub-set of states will use the first N
+# TODO HACK start_disp : 1.0e-2 -> 1.0e-1
 nbinom:
   start_params: 0.1,0.1,0.1,0.1,0.1,0.1,0.1
-  start_disp: 1.0e-2
+  start_disp: 1.0e-1
 
 # TODO HACK start_disp: 1 ->
 betabinom:

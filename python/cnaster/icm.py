@@ -89,7 +89,7 @@ def unpack_adjacency(adj_list):
 
     _, cnts = np.unique(adj_spots, return_counts=True)
 
-    logger.info(f"Found adjaceny neighbors counts={cnts}")
+    logger.debug(f"Found adjaceny neighbors counts={cnts}")
 
     return adj_spots, adj_neighbors, adj_weights
 

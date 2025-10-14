@@ -5,6 +5,8 @@ import time
 from pathlib import Path
 from numba import njit
 from dataclasses import dataclass, asdict, field
+from collections import deque
+from statistics import mean
 
 logger = logging.getLogger(__name__)
 
@@ -426,7 +428,7 @@ def wolff_sweep(
         f"Found a new best assignment with annealed ICM and new cost={new_cost:.6e}"
     )
 
-    no_field_cost = calc_assignment_cost(
+    no_edge_cost = calc_assignment_cost(
         single_llf,
         adj_spots,
         adj_neighbors,
@@ -438,8 +440,8 @@ def wolff_sweep(
     )
 
     hmrf_perf_entry(
-        optimizer="no_field",
-        cost=no_field_cost,
+        optimizer="no_edge",
+        cost=no_edge_cost,
         best_cost=new_cost,
         temp=np.inf,
         iteration=0,
@@ -456,18 +458,26 @@ def wolff_sweep(
 
     # NB base 10 by default!
     # MAGIC HARDCODE
-    anneal_temps = np.logspace(-3., np.log10(10. * high_temp), num=100)[::-1]
+    anneal_temps = np.logspace(-7., 1. + np.log10(high_temp), num=5_000)[::-1]
 
     logger.info(
         f"Completing an annealed Wolff sweep with edge range=({adj_weights.min():.4f},{adj_weights.max():.4f}), high temperature {high_temp:.4e}, {len(anneal_temps)} decades:\n{anneal_temps}"
     )
 
     n_spots = single_llf.shape[0]
+    wolff_temp = 4.5
+
+    max_iter = 0
     
-    for anneal_temp in anneal_temps:
-        logger.info(f"Solving for anneal temperature {anneal_temp}.")
+    for anneal_iter, anneal_temp in enumerate(anneal_temps):
+        logger.debug(f"Solving for anneal temperature {anneal_temp}.")
+
+        new_assignment = best_assignment.copy()
+        cost_zeropoint = best_cost
         
-        for iteration in range(int(np.ceil(n_spots / 100))):
+        for iteration in range(5):
+            max_iter += 1
+            
             new_cost, new_cluster_assignment, new_cluster, acceptance = wolff_update(
                 single_llf,
                 adj_spots,
@@ -478,8 +488,8 @@ def wolff_sweep(
                 log_persample_weights=log_persample_weights,
                 sample_ids=sample_ids,
                 cost_zeropoint=cost_zeropoint,
-                wolff_temp=3.,
-                anneal_temp=anneal_temp
+                wolff_temp=wolff_temp, # NB effective cluster size for move.
+                anneal_temp=anneal_temp # NB annealing of cost.
             )
 
             if new_cluster is not None:
@@ -490,21 +500,20 @@ def wolff_sweep(
 
             if new_cost > best_cost:
                 best_cost, best_assignment = new_cost, new_assignment.copy()
+
+            if anneal_iter % 100 == 0:
+                hmrf_perf_entry(
+                    optimizer="wolff",
+                    cost=new_cost,
+                    best_cost=best_cost,
+                    iteration=iteration,
+                    temp=anneal_temp,
+                    acceptance=acceptance,
+                    ncluster=len(new_cluster) if new_cluster is not None else 0,
+                    nedit=np.count_nonzero(new_assignment != original_assignment),
+                    clone_split=get_clone_split(new_assignment),
+                ).log()
                 
-            hmrf_perf_entry(
-                optimizer="wolff",
-                cost=new_cost,
-                best_cost=best_cost,
-                iteration=iteration,
-                temp=anneal_temp,
-                acceptance=acceptance,
-                ncluster=len(new_cluster) if new_cluster is not None else 0,
-                nedit=np.count_nonzero(new_assignment != original_assignment),
-                clone_split=get_clone_split(new_assignment),
-            ).log()
-
-    exit(0)
-
     # NB re-assign with the best found assignment.
     new_assignment[:] = best_assignment
 
@@ -519,19 +528,21 @@ def wolff_sweep(
         posterior,
         log_persample_weights=log_persample_weights,
         sample_ids=sample_ids,
-        cost_zeropoint=new_cost,
+        cost_zeropoint=best_cost,
     )
 
     hmrf_perf_entry(
         optimizer="icm",
         cost=new_cost,
-        best_cost=best_cost,
-        padd=np.nan,
-        iteration=iteration,
+        best_cost=new_cost,
+        iteration=0,
+        temp=0.,
+        acceptance=1.,
+        ncluster=0,
         nedit=np.count_nonzero(new_assignment != original_assignment),
         clone_split=get_clone_split(new_assignment),
     ).log()
-
+    
     return max_iter, best_cost
 
 

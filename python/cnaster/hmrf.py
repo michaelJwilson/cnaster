@@ -424,7 +424,7 @@ def aggr_hmrfmix_reassignment_concatenate(
     logger.info(
         f"Solved for updated clone labels in {niter} iterations (took {time.time() - start_time:.2f} seconds)."
     )
-
+    
     # NB compute total ln likelihood.
     total_llf = np.sum(single_llf[np.arange(N), new_assignment])
 

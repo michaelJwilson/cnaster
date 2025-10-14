@@ -541,8 +541,10 @@ class hmm_nophasing:
             transmat_converged = (
                 np.mean(np.abs(np.exp(new_log_transmat) - np.exp(log_transmat))) < tol
             )
+
+            # TODO HACK? np.exp(new_log_mu) 
             log_mu_converged = (
-                np.mean(np.abs(np.exp(new_log_mu) - np.exp(log_mu))) < tol
+                np.mean(np.abs(new_log_mu - log_mu)) < tol
             )
             p_binom_converged = np.mean(np.abs(new_p_binom - p_binom)) < tol
 

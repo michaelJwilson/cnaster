@@ -12,6 +12,7 @@ RECOMB/ISMB
 
 
 KEY
+- ln mu -> mu convergence check.
 - added jitter to NB start. turned up disp.
 - new non-local sampling: annealed Wolff?
 - model selection in spatial correlation.

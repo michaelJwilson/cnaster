@@ -458,7 +458,7 @@ def wolff_sweep(
 
     # NB base 10 by default!
     # MAGIC HARDCODE
-    anneal_temps = np.logspace(-7., 1. + np.log10(high_temp), num=7_500)[::-1]
+    anneal_temps = np.logspace(-7., 1. + np.log10(high_temp), num=5_000)[::-1]
 
     logger.info(
         f"Completing an annealed Wolff sweep with edge range=({adj_weights.min():.4f},{adj_weights.max():.4f}), high temperature {high_temp:.4e}, {len(anneal_temps)} decades:\n{anneal_temps}"

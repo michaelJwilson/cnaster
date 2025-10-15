@@ -560,7 +560,7 @@ class hmm_nophasing:
                 break
             else:
                 logger.info(
-                    f"Convergence of T, mu and p: {transmat_converged},{log_mu_converged},{p_binom_converged} @ mu std. {mu_stds}"
+                    f"Convergence of T, mu and p: {transmat_converged},{log_mu_converged},{p_binom_converged}"
                 )
 
             log_startprob = new_log_startprob

@@ -327,7 +327,7 @@ def compute_weighted_adjacency(
     )
 
     kern = np.exp(-((pairwise_squared_dist / bandwidth) ** decay))
-    
+
     # NB (spot, spot) adjacency.
     A = np.zeros((coords.shape[0], coords.shape[0]))
 
@@ -337,7 +337,7 @@ def compute_weighted_adjacency(
 
         if len(indexes) > 0:
             A[i, indexes] = kern[i, indexes]
-            
+
     return scipy.sparse.csr_matrix(A)
 
 
@@ -418,8 +418,62 @@ def choose_adjacency_by_readcounts(
                 f"Solved for adjacency matrix with length scale {bandwidth} and median of total edge > 6 (MAGIC)."
             )
             break
-        
+
     return smooth_mat, adjacency_mat
+
+
+def renormalize_adjacency_mat(adjacency_mat):
+    num_edges, total_edge_weight = [], []
+
+    for row in list(adjacency_mat.tolil()):
+        num_edges.append(row.nnz)
+        total_edge_weight.append(row.sum())
+
+    num_edges = np.array(num_edges)
+    total_edge_weight = np.array(total_edge_weight)
+
+    us, cnts = np.unique(num_edges, return_counts=True)
+    med_num_edges = np.median(num_edges)
+
+    logger.info(
+        f"Found node degree distribution with median {med_num_edges}:\n{us}\n{cnts}"
+    )
+
+    us, cnts = np.unique(total_edge_weight, return_counts=True)
+    med_edge_weight = np.median(total_edge_weight)
+
+    logger.info(
+        f"Found edge weight distribution with median {med_edge_weight}:\n{us}\n{cnts}"
+    )
+
+    adj = adjacency_mat.tocsr().astype(np.float64)
+    row_sums = np.asarray(adj.sum(axis=1)).ravel()  # shape (n_rows,)
+
+    indptr = adj.indptr
+    data = adj.data
+    n_rows = adj.shape[0]
+
+    for i in range(n_rows):
+        start, end = indptr[i], indptr[i + 1]
+
+        if start == end:
+            # empty row
+            continue
+
+        rs = row_sums[i]
+
+        if rs == 0.0:
+            # nothing to scale
+            continue
+
+        scale = med_edge_weight / rs
+        data[start:end] *= scale
+
+    adj.eliminate_zeros()
+
+    logger.info(f"Normalized adjacency_mat:\n{adj}")
+
+    return adj
 
 
 def multislice_adjacency(

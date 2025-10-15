@@ -35,7 +35,8 @@ from cnaster.spatial import (
     rectangle_initialize_initial_clone,
     sufficient_umis_initial_clone,
     compute_weighted_adjacency,
-    choose_adjacency_by_readcounts
+    choose_adjacency_by_readcounts,
+    renormalize_adjacency_mat
 )
 from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
 from cnaster.neyman_pearson import (
@@ -123,27 +124,8 @@ def run_cnaster(config_path):
     adjacency_mat.eliminate_zeros()
 
     logger.info(f"Found adjacency matrix:\n{adjacency_mat}")
-    
-    num_edges, total_edge_weight = [], []
-    
-    for row in list(adjacency_mat.tolil()):
-        num_edges.append(row.nnz)
-        total_edge_weight.append(row.sum())
 
-    num_edges = np.array(num_edges)
-    total_edge_weight = np.array(total_edge_weight)
-
-    us, cnts = np.unique(num_edges, return_counts=True)
-    med_num_edges = np.median(num_edges)
-
-    logger.info(f"Found node degree distribution with median {med_num_edges}:\n{us}\n{cnts}")
-
-    us, cnts = np.unique(total_edge_weight, return_counts=True)
-    med_edge_weight = np.median(total_edge_weight)
-
-    logger.info(f"Found edge weight distribution with median {med_edge_weight}:\n{us}\n{cnts}")
-    
-    exit(0)
+    adjacency_mat = renormalize_adjacency_mat(adjacency_mat)
     
     """
     # NB start run_parse_n_load::parse_visium::load_joint_data

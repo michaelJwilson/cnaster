@@ -542,17 +542,25 @@ class hmm_nophasing:
                 np.mean(np.abs(np.exp(new_log_transmat) - np.exp(log_transmat))) < tol
             )
 
-            # TODO HACK? np.exp(new_log_mu) 
+            # TODO HACK? np.exp(new_log_mu)
             log_mu_converged = (
-                np.mean(np.abs(new_log_mu - log_mu)) < tol
+                np.mean(np.abs(np.exp(new_log_mu) - np.exp(log_mu))) < tol
             )
+            """
+            # TODO
+            mu_stds = np.sqrt(np.exp(new_log_mu) + alphas * np.exp(new_log_mu)**2)
+            log_mu_converged = (                                                                                                                                                                                                                                           
+                np.all(np.abs(np.exp(new_log_mu) - np.exp(log_mu)) < mu_stds / 5.)                                                                                                                                                                                     
+            )
+            """
+
             p_binom_converged = np.mean(np.abs(new_p_binom - p_binom)) < tol
 
             if transmat_converged and log_mu_converged and p_binom_converged:
                 break
             else:
                 logger.info(
-                    f"Convergence of T, mu and p: {transmat_converged},{log_mu_converged},{p_binom_converged}"
+                    f"Convergence of T, mu and p: {transmat_converged},{log_mu_converged},{p_binom_converged} @ mu std. {mu_stds}"
                 )
 
             log_startprob = new_log_startprob

@@ -373,7 +373,7 @@ def plot_clones_genomic(
             markersize=10,
             linestyle="None",
         )
-        for i in range(len(ordered_acn))
+        for i in hue.unique())
     ]
 
     fig.legend(

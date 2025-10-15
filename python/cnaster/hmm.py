@@ -129,9 +129,11 @@ def pipeline_baum_welch(
 
     if "m" in params and new_log_mu is not None:
         to_log.append(f"mu=\n{np.exp(new_log_mu)}")
-
+        to_log.append(f"alphas=\n{new_alphas}")
+        
     if "p" in params and new_p_binom is not None:
         to_log.append(f"p_binom=\n{new_p_binom}")
+        to_log.append(f"taus=\n{new_taus}")
 
     logger.info("\n".join(to_log))
     logger.info("Computing emission prob. given best-fit parameters.")

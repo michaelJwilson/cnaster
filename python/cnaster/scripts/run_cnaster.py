@@ -1413,7 +1413,7 @@ def run_cnaster(config_path):
         base_height=3.2,
         # pointsize=15,
         # linewidth=1,
-        # palette="chisel",
+        palette="chisel",
     )
 
     # TODO

@@ -62,7 +62,7 @@ class FitMetrics:
     llf: float
 
 
-def get_nbinom_start_params(legacy=False, jitter=True):
+def get_nbinom_start_params(legacy=False, jitter=False):
     config = get_global_config()
 
     if legacy:

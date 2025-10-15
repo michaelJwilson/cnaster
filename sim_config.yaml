@@ -35,7 +35,7 @@ hmrf:
   min_avgumi_per_clone : 10
   maxspots_pooling : 7
   tumorprop_threshold : 0.5
-  max_iter_outer : 1
+  max_iter_outer : 20
   nodepotential : max
   initialization_method : rectangle
   num_hmrf_initialization_start : 0
@@ -60,7 +60,7 @@ hmm:
   fix_BB_dispersion : False
   shared_BB_dispersion : True
   compression_decimals: 3
-  max_iter : 1
+  max_iter : 30
   tol : 0.001
   gmm_random_state : 0
   gmm_maxiter: 30
@@ -73,10 +73,10 @@ hmm:
   em_disp: 0
 
 # NB N sub-set of states will use the first N
-# TODO HACK start_disp : 1.0e-2 -> 1.0e-1
+# TODO HACK start_disp : 1.0e-2 ->
 nbinom:
   start_params: 0.1,0.1,0.1,0.1,0.1,0.1,0.1
-  start_disp: 1.0e-1
+  start_disp: 1.0e-2
 
 # TODO HACK start_disp: 1 ->
 betabinom:

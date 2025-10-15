@@ -334,6 +334,7 @@ def plot_clones_genomic(
         axes[2 * s + 1].set_ylim([-0.05, 1.05])
         axes[2 * s + 1].set_yticks([0, 0.5, 1])
         axes[2 * s + 1].set_xlim([0, n_obs])
+
         if remove_xticks:
             axes[2 * s + 1].set_xticks([])
         for i, seg in enumerate(segments):
@@ -395,7 +396,7 @@ def plot_clones_genomic(
     for i in range(len(lengths)):
         median_len = np.sum(lengths[:(i)]) * 0.55 + np.sum(lengths[: (i + 1)]) * 0.45
         axes[-1].text(
-            median_len - 5.0,
+            median_len - 7.5,
             chrtext_shift,
             f"chr{unique_chrs[i]}",
             transform=axes[-1].get_xaxis_transform(),
@@ -406,30 +407,17 @@ def plot_clones_genomic(
             axes[k].axvline(x=np.sum(lengths[:(i)]), c="k", linewidth=1)
 
     for s, c in enumerate(nonempty_clones):
-        top_ax = axes[2 * s]
-        bot_ax = axes[2 * s + 1]
-
-        top_pos = top_ax.get_position()
-        bot_pos = bot_ax.get_position()
-
-        # centers of each axis in figure coordinates
-        center_top = 0.5 * (top_pos.y0 + top_pos.y1)
-        center_bot = 0.5 * (bot_pos.y0 + bot_pos.y1)
-
-        # vertical center for the twin pair
-        center_y = 0.5 * (top_pos.y0 + bot_pos.y1)
-        
-        # position the label just left of the left edge of the axes
-        x_left = min(top_pos.x0, bot_pos.x0) - 0.01
-
-        fig.text(
-            0.0,
-            center_y,
+        ax = axes[2 * s]
+        ax.text(
+            -0.04,
+             0.00,
             cast_clone_label(final_clone_ids[c]),
             ha="center",
             va="center",
             fontsize=12,
             rotation="vertical",
+            transform=ax.transAxes,
+            # bbox=dict(facecolor="white", alpha=0.7),
         )
 
     fig.tight_layout()

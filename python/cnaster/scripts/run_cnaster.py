@@ -122,6 +122,27 @@ def run_cnaster(config_path):
     smooth_mat.eliminate_zeros()
     adjacency_mat.eliminate_zeros()
 
+    logger.info(f"Found adjacency matrix:\n{adjacency_mat}")
+    
+    num_edges, total_edge_weight = [], []
+    
+    for row in list(adjacency_mat.tolil()):
+        num_edges.append(row.nnz)
+        total_edge_weight.append(row.sum())
+
+    num_edges = np.array(num_edges)
+    total_edge_weight = np.array(total_edge_weight)
+
+    us, cnts = np.unique(num_edges, return_counts=True)
+    med_num_edges = np.median(num_edges)
+
+    logger.info(f"Found node degree distribution with median {med_num_edges}:\n{us}\n{cnts}")
+
+    us, cnts = np.unique(total_edge_weight, return_counts=True)
+    med_edge_weight = np.median(total_edge_weight)
+
+    logger.info(f"Found edge weight distribution with median {med_edge_weight}:\n{us}\n{cnts}")
+    
     exit(0)
     
     """

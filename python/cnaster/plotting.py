@@ -38,7 +38,7 @@ def get_ordered_acn():
     ]
 
 
-def get_full_palette():
+def get_full_palette(palette="tab20b"):
     colors = [
         "darkblue",
         "lightblue",
@@ -60,9 +60,9 @@ def get_full_palette():
 
     ordered_acn = get_ordered_acn()
 
-    colors = sns.color_palette("rocket", len(ordered_acn)).as_hex()
-
-    np.random.shuffle(colors)
+    # TODO HACK
+    colors = sns.color_palette("tab20b", len(ordered_acn)).as_hex()
+    # np.random.shuffle(colors)
 
     palette = dict(zip(ordered_acn, colors))
 
@@ -163,11 +163,12 @@ def plot_clones_genomic(
     base_height=3.2,
     pointsize=5,
     linewidth=1,
-    palette="chisel",
+    palette_name="chisel",
 ):
     logger.info(f"Plotting inferred rdr+baf for all clones.")
 
-    chisel_palette, ordered_acn = get_full_palette()
+    chisel_palette, ordered_acn = get_full_palette(palette_name)
+
     map_cn = {x: i for i, x in enumerate(ordered_acn)}
     colors = [chisel_palette[c] for c in ordered_acn]
 
@@ -257,13 +258,16 @@ def plot_clones_genomic(
 
         segments, labs = get_intervals(res_combine["pred_cnv"][:, c])
 
-        if palette == "chisel":
+        if palette_name == "chisel":
             hue = pd.Categorical(
                 [map_cn[(major[i], minor[i])] for i in range(len(major))],
                 categories=np.arange(len(ordered_acn)),
                 ordered=True,
             )
             palette = sns.color_palette(colors)
+            logger.info(
+                f"Assuming chisel, found unique copy number states: {set([(major[i], minor[i]) for i in range(len(major))])} and unique categories {hue.unique()}"
+            )
         else:
             hue = pd.Categorical(
                 res_combine["pred_cnv"][:, c],
@@ -271,6 +275,9 @@ def plot_clones_genomic(
                 ordered=True,
             )
             palette = palette
+            logger.info(
+                f"Found unique copy number states: {np.unique(res_combine["pred_cnv"][:, c])} and unique categories {hue.unique()}"
+            )
 
         # NB plot RDR.
         sns.scatterplot(
@@ -286,7 +293,7 @@ def plot_clones_genomic(
             ax=axes[2 * s],
         )
 
-        axes[2 * s].set_ylabel(f"{cast_clone_label(cid)}\nRDR")
+        axes[2 * s].set_ylabel(f"\nRDR")
         axes[2 * s].set_yticks(np.arange(1, rdr_ylim, 1.0, dtype=float))
         axes[2 * s].set_ylim([0, rdr_ylim])
         axes[2 * s].set_yticklabels([f"{y:.1f}" for y in axes[2 * s].get_yticks()])
@@ -295,7 +302,7 @@ def plot_clones_genomic(
         if remove_xticks:
             axes[2 * s].set_xticks([])
 
-        if palette == "chisel":
+        if palette_name == "chisel":
             hue = pd.Categorical(
                 [map_cn[(major[i], minor[i])] for i in range(len(major))],
                 categories=np.arange(len(ordered_acn)),
@@ -323,7 +330,7 @@ def plot_clones_genomic(
             ax=axes[2 * s + 1],
         )
 
-        axes[2 * s + 1].set_ylabel(f"{cast_clone_label(cid)}\nBAF")
+        axes[2 * s + 1].set_ylabel(f"\nBAF")
         axes[2 * s + 1].set_ylim([-0.05, 1.05])
         axes[2 * s + 1].set_yticks([0, 0.5, 1])
         axes[2 * s + 1].set_xlim([0, n_obs])
@@ -361,28 +368,29 @@ def plot_clones_genomic(
                 linestyle="--",
             )
 
-    # TODO filter based on clone aggregated hue.
-    legend_elements = [
-        Line2D(
-            [0],
-            [0],
-            marker="o",
-            color="w",
-            markerfacecolor=colors[i],
-            label=str(ordered_acn[i]),
-            markersize=10,
-            linestyle="None",
-        )
-        for i in hue.unique())
-    ]
+        # TODO filter based on clone aggregated hue.
+        legend_elements = [
+            Line2D(
+                [0],
+                [0],
+                marker="o",
+                color="w",
+                markerfacecolor=colors[i],
+                label=f"{100. * np.mean(hue == i):.1f}% {ordered_acn[i]}",
+                markersize=10,
+                linestyle="None",
+            )
+            for i in hue.unique()
+        ]
 
-    fig.legend(
-        handles=legend_elements,
-        loc="upper right",
-        bbox_to_anchor=(1, 1),
-        ncol=len(legend_elements),  # One line
-        frameon=False,
-    )
+        axes[2 * s].legend(
+            handles=legend_elements,
+            loc="upper right",
+            bbox_to_anchor=(1, 1.25),
+            ncol=len(legend_elements),
+            frameon=False,
+            bbox_transform=axes[2 * s].transAxes,
+        )
 
     for i in range(len(lengths)):
         median_len = np.sum(lengths[:(i)]) * 0.55 + np.sum(lengths[: (i + 1)]) * 0.45
@@ -396,6 +404,33 @@ def plot_clones_genomic(
         )
         for k in range(2 * len(nonempty_clones)):
             axes[k].axvline(x=np.sum(lengths[:(i)]), c="k", linewidth=1)
+
+    for s, c in enumerate(nonempty_clones):
+        top_ax = axes[2 * s]
+        bot_ax = axes[2 * s + 1]
+
+        top_pos = top_ax.get_position()
+        bot_pos = bot_ax.get_position()
+
+        # centers of each axis in figure coordinates
+        center_top = 0.5 * (top_pos.y0 + top_pos.y1)
+        center_bot = 0.5 * (bot_pos.y0 + bot_pos.y1)
+
+        # vertical center for the twin pair
+        center_y = 0.5 * (top_pos.y0 + bot_pos.y1)
+        
+        # position the label just left of the left edge of the axes
+        x_left = min(top_pos.x0, bot_pos.x0) - 0.01
+
+        fig.text(
+            0.0,
+            center_y,
+            cast_clone_label(final_clone_ids[c]),
+            ha="center",
+            va="center",
+            fontsize=12,
+            rotation="vertical",
+        )
 
     fig.tight_layout()
 

@@ -4,7 +4,7 @@ import numpy as np
 import scipy.linalg
 import scipy.special
 import scipy.stats
-from cnaster.hmm_initialize import gmm_init, cna_mixture_init
+from cnaster.hmm_initialize import gmm_init, cna_mixture_init, plot_cna_mixture
 from cnaster.hmm_sitewise import hmm_sitewise
 from cnaster.hmm_utils import compute_posterior_obs
 
@@ -86,6 +86,10 @@ def pipeline_baum_welch(
         if "p" in params:
             logger.info(f"Assumed initial p_binom:\n{init_p_binom}")
 
+    plot_cna_mixture(init_log_mu, init_p_binom, X, base_nb_mean, total_bb_RD)
+
+    exit(0)
+
     hmm_model = hmmclass(params=params, t=t)
 
     # TODO HACK "log_gamma" utilizes last determined posterior for speed.
@@ -130,7 +134,7 @@ def pipeline_baum_welch(
     if "m" in params and new_log_mu is not None:
         to_log.append(f"mu=\n{np.exp(new_log_mu)}")
         to_log.append(f"alphas=\n{new_alphas}")
-        
+
     if "p" in params and new_p_binom is not None:
         to_log.append(f"p_binom=\n{new_p_binom}")
         to_log.append(f"taus=\n{new_taus}")

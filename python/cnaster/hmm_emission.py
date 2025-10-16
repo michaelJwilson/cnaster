@@ -71,8 +71,8 @@ def get_nbinom_start_params(legacy=False, jitter=False):
     ms = [float(xx) for xx in config.nbinom.start_params.split(",")]
 
     if jitter:
-        ms = [mm + 1.e-2 * np.random.rand() for mm in ms]
-    
+        ms = [mm + 1.0e-2 * np.random.rand() for mm in ms]
+
     return ms, float(config.nbinom.start_disp)
 
 
@@ -283,7 +283,7 @@ def nloglikeobs_bb(
     tumor_prop=None,
     zero_point=None,
     reduce=True,
-    prior=False
+    prior=False,
 ):
     a, b = compute_bb_ab(exog, params, tumor_prop)
 
@@ -296,7 +296,7 @@ def nloglikeobs_bb(
     if prior:
         prior_shift = baf_prior_eval(a / (a + b), sigma=None)
         result -= prior_shift
-        
+
     if reduce:
         result = result.dot(weights)
         assert not np.isnan(result), f"{params}: {result}"

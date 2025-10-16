@@ -410,7 +410,7 @@ def plot_clones_genomic(
         ax = axes[2 * s]
         ax.text(
             -0.04,
-             0.00,
+            0.00,
             cast_clone_label(final_clone_ids[c]),
             ha="center",
             va="center",

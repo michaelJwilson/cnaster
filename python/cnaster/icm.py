@@ -391,7 +391,7 @@ def wolff_sweep(
         optimizer="zeropoint",
         cost=cost_zeropoint,
         best_cost=cost_zeropoint,
-        temp=1.,
+        temp=1.0,
         iteration=0,
         nedit=np.count_nonzero(new_assignment != original_assignment),
         clone_split=get_clone_split(new_assignment),
@@ -411,14 +411,14 @@ def wolff_sweep(
         log_persample_weights=log_persample_weights,
         sample_ids=sample_ids,
         cost_zeropoint=cost_zeropoint,
-        temp=1.,  # NB ICM is exact for independent spots, "high temperature".
+        temp=1.0,  # NB ICM is exact for independent spots, "high temperature".
     )
 
     hmrf_perf_entry(
         optimizer="icm",
         cost=new_cost,
         best_cost=new_cost,
-        temp=1.,
+        temp=1.0,
         iteration=0,
         nedit=np.count_nonzero(new_assignment != original_assignment),
         clone_split=get_clone_split(new_assignment),
@@ -448,17 +448,17 @@ def wolff_sweep(
         nedit=np.count_nonzero(new_assignment != original_assignment),
         clone_split=get_clone_split(new_assignment),
     ).log()
-    
+
     # NB unpacks adjaceny_list into arrays processble by numba.
     # TODO BUG? assumes ground state cost is higher than zero icm.
     best_assignment, best_cost = new_assignment.copy(), new_cost
     cost_zeropoint = best_cost
-    
+
     high_temp = spatial_weight * adj_weights.max()
 
     # NB base 10 by default!
     # MAGIC HARDCODE
-    anneal_temps = np.logspace(-7., 1. + np.log10(high_temp), num=5_000)[::-1]
+    anneal_temps = np.logspace(-7.0, 1.0 + np.log10(high_temp), num=5_000)[::-1]
 
     logger.info(
         f"Completing an annealed Wolff sweep with edge range=({adj_weights.min():.4f},{adj_weights.max():.4f}), high temperature {high_temp:.4e}, {len(anneal_temps)} decades:\n{anneal_temps}"
@@ -468,16 +468,16 @@ def wolff_sweep(
     wolff_temp = 4.5
 
     max_iter = 0
-    
+
     for anneal_iter, anneal_temp in enumerate(anneal_temps):
         logger.debug(f"Solving for anneal temperature {anneal_temp}.")
 
         new_assignment = best_assignment.copy()
         cost_zeropoint = best_cost
-        
+
         for iteration in range(5):
             max_iter += 1
-            
+
             new_cost, new_cluster_assignment, new_cluster, acceptance = wolff_update(
                 single_llf,
                 adj_spots,
@@ -488,13 +488,13 @@ def wolff_sweep(
                 log_persample_weights=log_persample_weights,
                 sample_ids=sample_ids,
                 cost_zeropoint=cost_zeropoint,
-                wolff_temp=wolff_temp, # NB effective cluster size for move.
-                anneal_temp=anneal_temp # NB annealing of cost.
+                wolff_temp=wolff_temp,  # NB effective cluster size for move.
+                anneal_temp=anneal_temp,  # NB annealing of cost.
             )
 
             if new_cluster is not None:
                 cost_zeropoint = new_cost
-                
+
                 for idx in new_cluster:
                     new_assignment[idx] = new_cluster_assignment
 
@@ -513,7 +513,7 @@ def wolff_sweep(
                     nedit=np.count_nonzero(new_assignment != original_assignment),
                     clone_split=get_clone_split(new_assignment),
                 ).log()
-                
+
     # NB re-assign with the best found assignment.
     new_assignment[:] = best_assignment
 
@@ -536,13 +536,13 @@ def wolff_sweep(
         cost=new_cost,
         best_cost=new_cost,
         iteration=0,
-        temp=0.,
-        acceptance=1.,
+        temp=0.0,
+        acceptance=1.0,
         ncluster=0,
         nedit=np.count_nonzero(new_assignment != original_assignment),
         clone_split=get_clone_split(new_assignment),
     ).log()
-    
+
     return max_iter, best_cost
 
 

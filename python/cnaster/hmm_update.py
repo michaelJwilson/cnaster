@@ -552,8 +552,10 @@ def update_emission_params_nb_nophasing_uniqvalues(
                     ),
                 )
                 if model.nloglikeobs(res2.params) < model.nloglikeobs(res.params):
-                    logger.info(f"Provided initialization for ln mu better than default.")
-                    
+                    logger.info(
+                        f"Provided initialization for ln mu better than default."
+                    )
+
                     for s, idx_state_posweight in enumerate(state_posweights):
                         l1 = int(np.sum([len(x) for x in state_posweights[:s]]))
                         l2 = int(np.sum([len(x) for x in state_posweights[: (s + 1)]]))
@@ -561,8 +563,10 @@ def update_emission_params_nb_nophasing_uniqvalues(
                     if res2.params[-1] > 0:
                         new_alphas[:, :] = res2.params[-1]
                 else:
-                    logger.info(f"Default initialization for ln mu {model.nloglikeobs(res.params):.6e} better than provided {model.nloglikeobs(res2.params):.6e}.")
-                        
+                    logger.info(
+                        f"Default initialization for ln mu {model.nloglikeobs(res.params):.6e} better than provided {model.nloglikeobs(res2.params):.6e}."
+                    )
+
     new_log_mu[new_log_mu > max_log_rdr] = max_log_rdr
     new_log_mu[new_log_mu < min_log_rdr] = min_log_rdr
     return new_log_mu, new_alphas

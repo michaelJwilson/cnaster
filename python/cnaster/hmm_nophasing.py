@@ -402,14 +402,14 @@ class hmm_nophasing:
 
             # NB n_states * n_observations
             log_gamma = compute_posterior_obs(log_alpha, log_beta)
-            contracted_log_gamma = np.sum(np.exp(log_gamma), axis=1) / np.sum(np.exp(log_gamma))
-            
-            logger.info(
-                f"State posterior breakdown:\n{contracted_log_gamma}"
+            contracted_log_gamma = np.sum(np.exp(log_gamma), axis=1) / np.sum(
+                np.exp(log_gamma)
             )
 
+            logger.info(f"State posterior breakdown:\n{contracted_log_gamma}")
+
             # HACK MAGIC TODO
-            if contracted_log_gamma.min() < 1.e-6:
+            if contracted_log_gamma.min() < 1.0e-6:
                 logger.warning(f"Defunct copy number states detected.")
 
             # log_xi = compute_posterior_transition_nophasing(

@@ -4,6 +4,7 @@ import numpy as np
 from numba import njit
 from pysam import samples
 from sklearn.mixture import GaussianMixture
+import matplotlib.pyplot as plt
 from cnaster.config import get_global_config
 from cnaster.hmm_emission import (
     Weighted_BetaBinom_mix,
@@ -11,6 +12,8 @@ from cnaster.hmm_emission import (
     nloglikeobs_bb,
 )
 from cnaster.hmm_update import get_em_solver_params
+from cnaster.config import get_global_config
+from cnaster.utils import write_fig
 
 logger = logging.getLogger(__name__)
 
@@ -142,6 +145,63 @@ def cna_mixture_init(
     return None, p_binom
 
 
+def plot_cna_mixture(init_log_mu, init_p_binom, X, base_nb_mean, total_bb_RD):    
+    X_gmm_rdr = np.vstack(
+        [X[:, 0, s] / base_nb_mean[:, s] for s in range(X.shape[2])]
+    ).T
+
+    # NB base_nb_mean is zero until post-BAF normal identication; in which case,
+    #    these will be NAN.
+    valid = ~np.isnan(X_gmm_rdr) & ~np.isinf(X_gmm_rdr)
+
+    # TODO clipping?
+    X_gmm_baf = np.vstack([X[:, 1, s] / total_bb_RD[:, s] for s in range(X.shape[2])]).T
+    """
+    with np.errstate(divide='ignore', invalid='ignore'):
+        X_gmm_rdr = np.divide(
+            X[:, 0, :],
+            base_nb_mean,
+            out=np.full_like(X[:, 0, :], np.nan),
+            where=(base_nb_mean != 0.)
+        )
+        X_gmm_baf = np.divide(
+            X[:, 1, :],
+            total_bb_RD,
+            out=np.full_like(X[:, 1, :], np.nan),
+            where=(total_bb_RD != 0)
+        )
+
+        # flatten and mask invalid pairs
+        rdr = X_gmm_rdr.ravel()
+        baf = X_gmm_baf.ravel()
+        valid = ~(
+            np.isnan(rdr) | np.isinf(rdr) |
+            np.isnan(baf) | np.isinf(baf)
+        )
+    """
+    if init_log_mu is not None:
+        init_mu = np.exp(init_log_mu)
+    else:
+        init_mu = np.ones_like(init_p_binom)
+
+    X_gmm_rdr[~valid] = 1.
+        
+    fig, axis = plt.subplots(figsize=(6, 6))
+
+    axis.scatter(X_gmm_baf.ravel(), X_gmm_rdr.ravel(), lw=0.0, marker=",", s=1)
+    axis.scatter(init_p_binom, init_mu, marker="*", lw=0.0, c="gold")
+
+    axis.set_xlabel(f"BAF")
+    axis.set_ylabel(f"RDR")
+
+    config = get_global_config()
+    fig_path = f"{config.paths.output_dir}/plots/initial_rdr_baf.pdf"
+
+    logger.info(f"Plotting to initial RDR,BAF to {fig_path}")
+    
+    write_fig(fig_path, fig, transparent=True, bbox_inches="tight")
+
+
 def gmm_init(
     n_states,
     X,
@@ -193,7 +253,6 @@ def gmm_init(
 
             offset = 0
 
-            # NB TODO? assumes X_gmm_rdr.min() = 0.
             normalizetomax1 = np.max(X_gmm_rdr[valid])
 
             logger.info(

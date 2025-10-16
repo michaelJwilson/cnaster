@@ -150,7 +150,7 @@ def cna_mixture_init(
 
 # TODO define width
 def plot_cna_mixture(
-    init_log_mu, init_p_binom, X, base_nb_mean, total_bb_RD, width=100, prefix="initial"
+    init_log_mu, init_p_binom, X, base_nb_mean, total_bb_RD, width=10, prefix="initial"
 ):
     logger.info(f"Plotting initial copy state mixture for X.shape={X.shape}.")
 
@@ -165,7 +165,7 @@ def plot_cna_mixture(
     valid = ~np.isnan(X_gmm_rdr) & ~np.isinf(X_gmm_rdr)
 
     if np.all(~valid):
-        X_gmm_rdr[~valid] = 1.0
+        X_gmm_rdr[~valid] = np.random.uniform(0.0, 2.0, size=np.count_nonzero(~valid))
 
     # TODO clipping?
     X_gmm_baf = np.vstack(
@@ -192,11 +192,23 @@ def plot_cna_mixture(
     y = X_gmm_rdr.ravel()
 
     g = sns.JointGrid(x=x, y=y, height=8, ratio=3, space=0.15)
+    valid_mask = np.isfinite(x) & np.isfinite(y)
+    
+    for c in range(num_clones):
+        clone_mask = (clone_idx == c) & valid_mask
 
-    g.plot_joint(plt.scatter, s=1, marker=",", alpha=0.6, color="k")
-    g.ax_joint.scatter(init_p_binom, init_mu, marker="*", c="gold", s=10)
+        if np.any(clone_mask):
+            g.ax_joint.scatter(
+                x[clone_mask],
+                y[clone_mask],
+                s=1,
+                marker=".",
+                alpha=0.6,
+                color=palette[c],
+            )
 
-    # Marginal histograms: use shared bin edges for comparability
+    g.ax_joint.scatter(init_p_binom, init_mu, marker="*", facecolor="none", edgecolor="k", s=25)
+            
     bins=50
 
     validx = np.isfinite(x)
@@ -205,8 +217,8 @@ def plot_cna_mixture(
     # bins_x = np.histogram_bin_edges(x[validx], bins=bins)
     # bins_y = np.histogram_bin_edges(y[validy], bins=bins)
 
-    bins_x = np.arange(-0.05, 1.05, 0.01)
-    bins_y = np.arange(-0.5, 10., 0.1)
+    bins_x = np.arange(-0.01, 0.6, 5.e-3)
+    bins_y = np.arange(-0.1, 10., 0.1)
     
     centers_x = 0.5 * (bins_x[:-1] + bins_x[1:])
     width_x = bins_x[1] - bins_x[0]
@@ -254,7 +266,7 @@ def plot_cna_mixture(
             )
         )
 
-    g.set_axis_labels("BAF", "RDR")
+    g.set_axis_labels("ZHF", "RDR")
     g.ax_joint.legend(handles=legend_patches, loc="upper left", framealpha=0.0)
 
     fig = g.fig
@@ -265,8 +277,6 @@ def plot_cna_mixture(
     logger.info(f"Writing initial copy state mixture plot to {fig_path}")
 
     write_fig(fig_path, fig, transparent=True, bbox_inches="tight")
-
-    exit(0)
 
 
 def gmm_init(

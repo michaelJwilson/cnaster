@@ -8,6 +8,21 @@ from numba import njit
 logger = logging.getLogger(__name__)
 
 
+def count_calls(func):
+    """Decorator: increments func.call_count each time func is called."""
+    from functools import wraps
+    import threading
+
+    lock = threading.Lock()
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        with lock:
+            wrapper.call_count += 1
+        return func(*args, **kwargs)
+
+    wrapper.call_count = 0
+    return wrapper
+
 def merge_dicts(first, second):
     merged = first.copy()
     collision = False

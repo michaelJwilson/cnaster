@@ -294,7 +294,7 @@ def plot_clones_genomic(
 
         axes[2 * s + 1].set_ylabel(f"\nBAF")
         axes[2 * s + 1].set_ylim([-0.05, 1.05])
-        axes[2 * s + 1].set_yticks(np.arange(0.0, 1.1, 0.1))
+        axes[2 * s + 1].set_yticks(np.arange(0.0, 1.1, 0.2))
         axes[2 * s + 1].set_xlim([0, n_obs])
 
         if remove_xticks:

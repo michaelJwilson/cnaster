@@ -150,7 +150,7 @@ def cna_mixture_init(
 
 # TODO define width
 def plot_cna_mixture(
-    init_log_mu, init_p_binom, X, base_nb_mean, total_bb_RD, width=10, prefix="initial"
+    init_log_mu, init_p_binom, X, base_nb_mean, total_bb_RD, width=1, prefix="initial"
 ):
     logger.info(f"Plotting initial copy state mixture for X.shape={X.shape}.")
 
@@ -165,7 +165,7 @@ def plot_cna_mixture(
     valid = ~np.isnan(X_gmm_rdr) & ~np.isinf(X_gmm_rdr)
 
     if np.all(~valid):
-        X_gmm_rdr[~valid] = np.random.uniform(0.0, 2.0, size=np.count_nonzero(~valid))
+        X_gmm_rdr[~valid] = np.random.normal(loc=1.0, scale=0.25, size=np.count_nonzero(~valid))
 
     # TODO clipping?
     X_gmm_baf = np.vstack(

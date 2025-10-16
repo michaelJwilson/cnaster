@@ -9,6 +9,7 @@ from cnaster.icm import icm_sweep, wolff_sweep, unpack_adjacency
 from cnaster.hmm import gmm_init, pipeline_baum_welch
 from cnaster.hmm_sitewise import hmm_sitewise
 from cnaster.hmrf_utils import cast_csr
+from cnaster.hmm_initialize import plot_cna_mixture
 from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
 from cnaster.config import get_global_config
 from cnaster.deprecated.hmrf import (
@@ -522,6 +523,8 @@ def hmrfmix_concatenate_pipeline(
     spatial_weight=1.0 / 6.0,
     tumorprop_threshold=0.5,
 ):
+    logger.info(f"Running hmrfmix_concatenate_pipeline ...")
+    
     # NB num. of genomic bins, num. pseudobulk (clones, spots, ...)
     n_obs, _, n_spots = single_X.shape
 
@@ -587,6 +590,9 @@ def hmrfmix_concatenate_pipeline(
             only_minor=False,  # TODO BUG?
         )
 
+        # TODO HACK?
+        # plot_cna_mixture(init_log_mu, init_p_binom, X, base_nb_mean, total_bb_RD)
+        
     last_log_mu = init_log_mu if "m" in params else None
     last_p_binom = init_p_binom if "p" in params else None
     last_alphas = init_alphas

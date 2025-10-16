@@ -50,6 +50,7 @@ from cnaster.normal_spot import (
 )
 from cnaster.sim import load_tables_to_matrices
 from cnaster.hmm import pipeline_baum_welch
+from cnaster.hmm_initialize import plot_cna_mixture
 from cnaster.utils import merge_dicts, write_tsv, write_fig
 from cnaster.integer_copy import (
     hill_climbing_integer_copynumber_oneclone,
@@ -331,17 +332,18 @@ def run_cnaster(config_path):
     copy_single_base_nb_mean = copy.copy(single_base_nb_mean)
 
     # NB baf-only run: zero transcript counts for all segments/spots.
+    # TODO can drop zero of single_X?  would be useful ...
     single_X[:, 0, :] = 0
     single_base_nb_mean[:, :] = 0
 
     # NB non-contiguous assignment of clones to an unequal grid partitioning
     #    of input coordinates.
-    initial_clone_index, clone_id = rectangle_initialize_initial_clone(
+    initial_clone_index_baf, clone_id = rectangle_initialize_initial_clone(
         coords, config.hmrf.n_clones, random_state=0
     )
 
     """
-    initial_clone_index, clone_id, spot_umi_counts = sufficient_umis_initial_clone(
+    initial_clone_index_baf, clone_id, spot_umi_counts = sufficient_umis_initial_clone(
         coords,
         adata.layers["count"],
         sample_list,
@@ -405,7 +407,7 @@ def run_cnaster(config_path):
         single_base_nb_mean,
         single_total_bb_RD,
         single_tumor_prop,
-        initial_clone_index,
+        initial_clone_index_baf,
         config.hmm.n_states,
         log_sitewise_transmat,
         smooth_mat=smooth_mat,
@@ -1396,7 +1398,7 @@ def run_cnaster(config_path):
     logger.info(f"Writing inferred clone labels to {opath},\n{df_clone_label.head()}")
 
     write_tsv(opath, df_clone_label, header=True, index=True, index_label="barcode")
-
+    
     rdr_baf_fig = plot_clones_genomic(
         df_seglevel_cnv,
         lengths,
@@ -1418,9 +1420,48 @@ def run_cnaster(config_path):
 
     # TODO
     fig_path = f"{config.paths.output_dir}/plots/clones_genomic.pdf"
-
     write_fig(fig_path, rdr_baf_fig, transparent=True, bbox_inches="tight")
 
+    initial_rdr_baf_fig = plot_clones_genomic(
+        df_seglevel_cnv,
+        lengths,
+        single_X,
+        single_base_nb_mean,
+        single_total_bb_RD,
+        res_combine,
+        single_tumor_prop=single_tumor_prop,
+        sample_list=sample_list,
+	clone_ids=None,
+        clone_index=initial_clone_index_baf,
+        remove_xticks=True,
+	rdr_ylim=5,
+	base_height=3.2,
+        palette_name="chisel",
+    )
+
+    # TODO                                                                                                                                                                                                                              
+    fig_path = f"{config.paths.output_dir}/plots/initial_clones_genomic.pdf"
+    write_fig(fig_path, initial_rdr_baf_fig, transparent=True, bbox_inches="tight")
+
+    clone_index = [
+        np.where(res_combine["new_assignment"] == c)[0]
+        for c, _ in enumerate(final_clone_ids)
+    ]
+
+    # NB create pseudobulk for each clone.                                                                                                                                                                                                                                      
+    X, base_nb_mean, total_bb_RD, _ = merge_pseudobulk_by_index_mix(
+        single_X,
+        single_base_nb_mean,
+        single_total_bb_RD,
+        clone_index,
+        single_tumor_prop,
+    )
+    
+    plot_cna_mixture(
+        res_combine["new_log_mu"], res_combine["new_p_binom"], X, base_nb_mean, total_bb_RD, prefix="final"
+    )
+
+    # NB clones fig.
     assignment = pd.Series([f"clone {x}" for x in res_combine["new_assignment"]])
     clones_fig = plot_clones_spatial(
         coords,
@@ -1433,7 +1474,6 @@ def run_cnaster(config_path):
     )
 
     fig_path = f"{config.paths.output_dir}/plots/clones_spatial.pdf"
-
     write_fig(fig_path, clones_fig, transparent=True, bbox_inches="tight")
 
     logger.info(f"Done in {(time.time() - start_time)/60.:.2f} minutes.")

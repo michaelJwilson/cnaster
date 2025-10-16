@@ -12,6 +12,7 @@ RECOMB/ISMB
 
 
 KEY
+- +579 hmrf.py feed clone_stack vs not to GMM.
 - ln mu -> mu convergence check.
 - added jitter to NB start. turned up disp.
 - new non-local sampling: annealed Wolff?

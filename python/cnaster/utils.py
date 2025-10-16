@@ -1,7 +1,9 @@
 import logging
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
+from numba import njit
 
 logger = logging.getLogger(__name__)
 
@@ -40,3 +42,59 @@ def write_fig(opath, fig=None, transparent=True, bbox_inches="tight"):
 
     logger.info(f"Writing figure to {opath}.")
     fig.savefig(opath, format="pdf", transparent=transparent, bbox_inches=bbox_inches)
+
+
+@njit
+def top_hat_sum_pad(arr, width):
+    n = arr.shape[0]
+    out = np.empty(n, dtype=arr.dtype)
+    half = width // 2
+
+    for i in range(n):
+        s = 0.0
+        for k in range(-half, half + 1):
+            idx = i + k
+            if 0 <= idx < n:
+                s += arr[idx]
+        out[i] = s
+    return out
+
+def cast_clone_label(label, with_normal=False):
+    num = label.replace("clone", "").strip()
+    num = int(num)
+
+    if not (-1 <= num <= 3999):
+        raise ValueError("Input must be an integer between -1 and 3999.")
+
+    if num == -1:
+        return "WARN"
+    elif num == 0:
+        if with_normal:
+            return "Normal"
+        else:
+            return "Clone 0"
+    else:
+        lookup = [
+            (1000, "M"),
+            (900, "CM"),
+            (500, "D"),
+            (400, "CD"),
+            (100, "C"),
+            (90, "XC"),
+            (50, "L"),
+            (40, "XL"),
+            (10, "X"),
+            (9, "IX"),
+            (5, "V"),
+            (4, "IV"),
+            (1, "I"),
+        ]
+
+        roman_numeral = ""
+
+        for value, symbol in lookup:
+            while num >= value:
+                roman_numeral += symbol
+                num -= value
+
+        return f"Clone {roman_numeral}"

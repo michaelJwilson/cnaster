@@ -4,7 +4,7 @@ import numpy as np
 import scipy.linalg
 import scipy.special
 import scipy.stats
-from cnaster.hmm_initialize import gmm_init, cna_mixture_init, plot_cna_mixture
+from cnaster.hmm_initialize import gmm_init, cna_mixture_init
 from cnaster.hmm_sitewise import hmm_sitewise
 from cnaster.hmm_utils import compute_posterior_obs
 
@@ -85,10 +85,6 @@ def pipeline_baum_welch(
             logger.info(f"Assumed initial log_mu:\n{init_log_mu}")
         if "p" in params:
             logger.info(f"Assumed initial p_binom:\n{init_p_binom}")
-
-    plot_cna_mixture(init_log_mu, init_p_binom, X, base_nb_mean, total_bb_RD)
-
-    exit(0)
 
     hmm_model = hmmclass(params=params, t=t)
 
@@ -262,7 +258,7 @@ def pipeline_baum_welch(
     logger.info(
         f"Solved HMM with LLF={llf:.6e} for new_log_mu.shape={new_log_mu.shape} given X.shape={X.shape}"
     )
-
+    
     return {
         "new_log_mu": new_log_mu,
         "new_alphas": new_alphas,

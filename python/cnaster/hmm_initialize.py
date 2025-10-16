@@ -4,6 +4,7 @@ import numpy as np
 from numba import njit
 from pysam import samples
 from sklearn.mixture import GaussianMixture
+import seaborn as sns
 import matplotlib.pyplot as plt
 from cnaster.config import get_global_config
 from cnaster.hmm_emission import (
@@ -12,8 +13,10 @@ from cnaster.hmm_emission import (
     nloglikeobs_bb,
 )
 from cnaster.hmm_update import get_em_solver_params
+from cnaster.utils import top_hat_sum_pad, cast_clone_label
 from cnaster.config import get_global_config
 from cnaster.utils import write_fig
+import matplotlib.patches as mpatches
 
 logger = logging.getLogger(__name__)
 
@@ -145,61 +148,125 @@ def cna_mixture_init(
     return None, p_binom
 
 
-def plot_cna_mixture(init_log_mu, init_p_binom, X, base_nb_mean, total_bb_RD):    
+# TODO define width
+def plot_cna_mixture(
+    init_log_mu, init_p_binom, X, base_nb_mean, total_bb_RD, width=100, prefix="initial"
+):
+    logger.info(f"Plotting initial copy state mixture for X.shape={X.shape}.")
+
+    # NB base_nb_mean is zero until post-BAF normal identication; in which case,
+    #    these will be NAN.
     X_gmm_rdr = np.vstack(
         [X[:, 0, s] / base_nb_mean[:, s] for s in range(X.shape[2])]
     ).T
 
-    # NB base_nb_mean is zero until post-BAF normal identication; in which case,
-    #    these will be NAN.
+    assert X_gmm_rdr.shape == (len(X[:, 0, 0]), X.shape[2])
+
     valid = ~np.isnan(X_gmm_rdr) & ~np.isinf(X_gmm_rdr)
 
-    # TODO clipping?
-    X_gmm_baf = np.vstack([X[:, 1, s] / total_bb_RD[:, s] for s in range(X.shape[2])]).T
-    """
-    with np.errstate(divide='ignore', invalid='ignore'):
-        X_gmm_rdr = np.divide(
-            X[:, 0, :],
-            base_nb_mean,
-            out=np.full_like(X[:, 0, :], np.nan),
-            where=(base_nb_mean != 0.)
-        )
-        X_gmm_baf = np.divide(
-            X[:, 1, :],
-            total_bb_RD,
-            out=np.full_like(X[:, 1, :], np.nan),
-            where=(total_bb_RD != 0)
-        )
+    if np.all(~valid):
+        X_gmm_rdr[~valid] = 1.0
 
-        # flatten and mask invalid pairs
-        rdr = X_gmm_rdr.ravel()
-        baf = X_gmm_baf.ravel()
-        valid = ~(
-            np.isnan(rdr) | np.isinf(rdr) |
-            np.isnan(baf) | np.isinf(baf)
-        )
-    """
+    # TODO clipping?
+    X_gmm_baf = np.vstack(
+        [
+            top_hat_sum_pad(X[:, 1, s], width)
+            / top_hat_sum_pad(total_bb_RD[:, s], width)
+            for s in range(X.shape[2])
+        ]
+    ).T
+
     if init_log_mu is not None:
         init_mu = np.exp(init_log_mu)
     else:
         init_mu = np.ones_like(init_p_binom)
 
-    X_gmm_rdr[~valid] = 1.
-        
-    fig, axis = plt.subplots(figsize=(6, 6))
+    num_clones, num_segments = X.shape[2], X.shape[0]
 
-    axis.scatter(X_gmm_baf.ravel(), X_gmm_rdr.ravel(), lw=0.0, marker=",", s=1)
-    axis.scatter(init_p_binom, init_mu, marker="*", lw=0.0, c="gold")
+    # NB S,n = 3,4 ... [0 1 2 0 1 2 0 1 2 0 1 2], i.e. column major.
+    clone_idx = np.tile(np.arange(num_clones), num_segments)
 
-    axis.set_xlabel(f"BAF")
-    axis.set_ylabel(f"RDR")
+    palette = sns.color_palette(n_colors=num_clones)
+
+    x = X_gmm_baf.ravel()
+    y = X_gmm_rdr.ravel()
+
+    g = sns.JointGrid(x=x, y=y, height=8, ratio=3, space=0.15)
+
+    g.plot_joint(plt.scatter, s=1, marker=",", alpha=0.6, color="k")
+    g.ax_joint.scatter(init_p_binom, init_mu, marker="*", c="gold", s=10)
+
+    # Marginal histograms: use shared bin edges for comparability
+    bins=50
+
+    validx = np.isfinite(x)
+    validy = np.isfinite(y)
+    
+    # bins_x = np.histogram_bin_edges(x[validx], bins=bins)
+    # bins_y = np.histogram_bin_edges(y[validy], bins=bins)
+
+    bins_x = np.arange(-0.05, 1.05, 0.01)
+    bins_y = np.arange(-0.5, 10., 0.1)
+    
+    centers_x = 0.5 * (bins_x[:-1] + bins_x[1:])
+    width_x = bins_x[1] - bins_x[0]
+
+    centers_y = 0.5 * (bins_y[:-1] + bins_y[1:])
+    height_y = bins_y[1] - bins_y[0]
+
+    legend_patches = []
+
+    for c in range(num_clones):
+        clone_mask = clone_idx == c
+
+        assert np.any(clone_mask)
+
+        counts_x, _ = np.histogram(x[clone_mask], bins=bins_x)
+        counts_y, _ = np.histogram(y[clone_mask], bins=bins_y)
+
+        g.ax_marg_x.bar(
+            centers_x,
+            counts_x,
+            width=width_x,
+            align="center",
+            facecolor="none",
+            edgecolor=palette[c],
+            linewidth=1.0,
+            alpha=1.0,
+        )
+
+        g.ax_marg_y.barh(
+            centers_y,
+            counts_y,
+            height=height_y,
+            align="center",
+            facecolor="none",
+            edgecolor=palette[c],
+            linewidth=1.0,
+            alpha=0.5,
+        )
+
+        legend_patches.append(
+            mpatches.Patch(
+                facecolor="none",
+                edgecolor=palette[c],
+                label=cast_clone_label(f"clone {c}"),
+            )
+        )
+
+    g.set_axis_labels("BAF", "RDR")
+    g.ax_joint.legend(handles=legend_patches, loc="upper left", framealpha=0.0)
+
+    fig = g.fig
 
     config = get_global_config()
-    fig_path = f"{config.paths.output_dir}/plots/initial_rdr_baf.pdf"
+    fig_path = f"{config.paths.output_dir}/plots/{prefix}_rdr_baf.pdf"
 
-    logger.info(f"Plotting to initial RDR,BAF to {fig_path}")
-    
+    logger.info(f"Writing initial copy state mixture plot to {fig_path}")
+
     write_fig(fig_path, fig, transparent=True, bbox_inches="tight")
+
+    exit(0)
 
 
 def gmm_init(
@@ -252,7 +319,6 @@ def gmm_init(
                 raise RuntimeError()
 
             offset = 0
-
             normalizetomax1 = np.max(X_gmm_rdr[valid])
 
             logger.info(

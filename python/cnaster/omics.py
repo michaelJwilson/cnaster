@@ -752,7 +752,6 @@ def summarize_counts_for_bins(
         val for pair in zip(sorted_chr_pos_first, sorted_chr_pos_last) for val in pair
     ]
 
-    #
     ref_positions_cM = get_reference_recomb_rates(geneticmap_file)
 
     position_cM = assign_centiMorgans(tmp_sorted_chr_pos, ref_positions_cM)

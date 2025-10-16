@@ -10,6 +10,7 @@ import matplotlib.gridspec as gridspec
 from matplotlib.lines import Line2D
 from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
 from cnaster.integer_copy import get_ordered_acn
+from cnaster.utils import cast_clone_label
 
 logger = logging.getLogger(__name__)
 
@@ -106,47 +107,6 @@ def get_intervals(pred_cnv):
     return intervals, labs
 
 
-def cast_clone_label(label, with_normal=False):
-    num = label.replace("clone", "").strip()
-    num = int(num)
-
-    if not (-1 <= num <= 3999):
-        raise ValueError("Input must be an integer between -1 and 3999.")
-
-    if num == -1:
-        return "WARN"
-    elif num == 0:
-        if with_normal:
-            return "Normal"
-        else:
-            return "Clone 0"
-    else:
-        lookup = [
-            (1000, "M"),
-            (900, "CM"),
-            (500, "D"),
-            (400, "CD"),
-            (100, "C"),
-            (90, "XC"),
-            (50, "L"),
-            (40, "XL"),
-            (10, "X"),
-            (9, "IX"),
-            (5, "V"),
-            (4, "IV"),
-            (1, "I"),
-        ]
-
-        roman_numeral = ""
-
-        for value, symbol in lookup:
-            while num >= value:
-                roman_numeral += symbol
-                num -= value
-
-        return f"Clone {roman_numeral}"
-
-
 def plot_clones_genomic(
     df_cnv,  # NB integer copy numbers for each segment.
     lengths,
@@ -156,6 +116,7 @@ def plot_clones_genomic(
     res_combine,
     single_tumor_prop=None,
     clone_ids=None,
+    clone_index=None,
     sample_list=None,
     remove_xticks=True,
     rdr_ylim=5,
@@ -188,10 +149,11 @@ def plot_clones_genomic(
 
     assert single_X.shape[0] == df_cnv.shape[0]
 
-    clone_index = [
-        np.where(res_combine["new_assignment"] == c)[0]
-        for c, _ in enumerate(final_clone_ids)
-    ]
+    if clone_index is None:
+        clone_index = [
+            np.where(res_combine["new_assignment"] == c)[0]
+            for c, _ in enumerate(final_clone_ids)
+        ]
 
     # NB create pseudobulk for each clone.
     X, base_nb_mean, total_bb_RD, _ = merge_pseudobulk_by_index_mix(

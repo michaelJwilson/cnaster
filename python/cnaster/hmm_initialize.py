@@ -13,7 +13,7 @@ from cnaster.hmm_emission import (
     nloglikeobs_bb,
 )
 from cnaster.hmm_update import get_em_solver_params
-from cnaster.utils import top_hat_sum_pad, cast_clone_label
+from cnaster.utils import top_hat_sum, cast_clone_label
 from cnaster.config import get_global_config
 from cnaster.utils import write_fig
 from cnaster.hmm_sitewise import hmm_sitewise
@@ -54,12 +54,18 @@ def cna_mixture_init(
     base_nb_mean,
     total_bb_RD,
     num_iter=25,
+    width=None,
 ):
     logger.info(f"Initializing HMM emission with CNA Mixture++.")
 
     known_normal = np.any(base_nb_mean)
     num_segments, _, num_spots = X.shape
 
+    if width is not None:
+        X = top_hat_sum(X, width)
+        base_nb_mean = top_hat_sum(base_nb_mean, width)
+        total_bb_RD = top_hat_sum(total_bb_RD, width)
+    
     solution, solution_lnlike = None, -np.inf
 
     # TODO HACK?
@@ -132,8 +138,8 @@ def plot_cna_mixture(
     # TODO clipping?
     X_gmm_baf = np.vstack(
         [
-            top_hat_sum_pad(X[:, 1, s], width)
-            / top_hat_sum_pad(total_bb_RD[:, s], width)
+            top_hat_sum(X[:, 1, s], width)
+            / top_hat_sum(total_bb_RD[:, s], width)
             for s in range(X.shape[2])
         ]
     ).T

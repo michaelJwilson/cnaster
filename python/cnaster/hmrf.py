@@ -599,7 +599,6 @@ def hmrfmix_concatenate_pipeline(
             clone_stack_total_bb_RD,
         )
 
-        # TODO clone copies?
         plot_cna_mixture(
             init_log_mu,
             init_p_binom,
@@ -609,7 +608,14 @@ def hmrfmix_concatenate_pipeline(
             prefix=f"instance{hmrfmix_concatenate_pipeline.call_count-1}",
         )
 
-    exit(0)
+        plot_cna_mixture(
+            init_log_mu,
+            init_p_binom,
+            clone_stack_X,
+            clone_stack_base_nb_mean,
+            clone_stack_total_bb_RD,
+            prefix=f"instance{hmrfmix_concatenate_pipeline.call_count-1}_clone",
+	)
         
     last_log_mu = init_log_mu if "m" in params else None
     last_p_binom = init_p_binom if "p" in params else None

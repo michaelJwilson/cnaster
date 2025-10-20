@@ -14,6 +14,7 @@ def count_calls(func):
     import threading
 
     lock = threading.Lock()
+
     @wraps(func)
     def wrapper(*args, **kwargs):
         with lock:
@@ -22,6 +23,7 @@ def count_calls(func):
 
     wrapper.call_count = 0
     return wrapper
+
 
 def merge_dicts(first, second):
     merged = first.copy()
@@ -60,19 +62,28 @@ def write_fig(opath, fig=None, transparent=True, bbox_inches="tight"):
 
 
 @njit
-def top_hat_sum_pad(arr, width):
+def top_hat_sum(arr, width):
+    # TODO HACK?
+    arr = np.atleast_2d(arr)
+    
     n = arr.shape[0]
-    out = np.empty(n, dtype=arr.dtype)
-    half = width // 2
+    out = np.empty(arr.shape, dtype=arr.dtype)
+
+    left = width // 2
+    right = width - left - 1
+
+    acc = np.zeros(arr[0].shape, dtype=arr.dtype)
 
     for i in range(n):
-        s = 0.0
-        for k in range(-half, half + 1):
+        acc[...] = 0
+
+        for k in range(-left, right + 1):
             idx = i + k
             if 0 <= idx < n:
-                s += arr[idx]
-        out[i] = s
+                acc += arr[idx, ...]
+        out[i, ...] = acc
     return out
+
 
 def cast_clone_label(label, with_normal=False):
     num = label.replace("clone", "").strip()

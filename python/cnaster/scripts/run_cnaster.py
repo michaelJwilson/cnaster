@@ -331,21 +331,23 @@ def run_cnaster(config_path):
     copy_single_X_rdr = copy.copy(single_X[:, 0, :])
     copy_single_base_nb_mean = copy.copy(single_base_nb_mean)
 
+    """
     # NB non-contiguous assignment of clones to an unequal grid partitioning
     #    of input coordinates.
     initial_clone_index_baf, clone_id = rectangle_initialize_initial_clone(
         coords, config.hmrf.n_clones, random_state=0
     )
     """
+    
     # TODO HACK? adata.layers["count"]
     initial_clone_index_baf, clone_id, spot_umi_counts = sufficient_umis_initial_clone(
         coords,
         single_X[:,0,:],
         sample_list,
         sample_ids,
-        1_500_000,
+        500_000,
     )
-    """
+    
     # NB construct clone labels.
     df_clone_label = pd.DataFrame(
         {"x": coords[:, 0], "y": coords[:, 1]}, index=barcodes
@@ -449,6 +451,21 @@ def run_cnaster(config_path):
     if tumor_prop is not None:
         tumor_prop = np.repeat(tumor_prop, X.shape[0]).reshape(-1, 1)
 
+    # TODO HACK                                                                                                                                                                                                                                                                 
+    assignment = pd.Series([f"clone {x}" for x in res["new_assignment"]])
+    bafonly_clones_fig = plot_clones_spatial(
+        coords,
+        assignment,
+        single_tumor_prop=single_tumor_prop,
+        sample_list=sample_list,
+        sample_ids=sample_ids,
+        base_width=4,
+        base_height=3,
+    )
+
+    fig_path = f"{config.paths.output_dir}/plots/bafonly_clones_spatial.pdf"
+    write_fig(fig_path, bafonly_clones_fig, transparent=True, bbox_inches="tight")
+        
     # NB merge similar clones based on Neyman-Pearson
     merging_groups, merged_res = neyman_pearson_similarity(
         X,
@@ -499,22 +516,7 @@ def run_cnaster(config_path):
 
     write_tsv(opath, df_clone_label, header=True, index=True, index_label="barcode")
 
-    # TODO HACK
-    assignment = pd.Series([f"clone {x}" for x in merged_res["new_assignment"]])
-
-    bafonly_clones_fig = plot_clones_spatial(
-        coords,
-        assignment,
-        single_tumor_prop=single_tumor_prop,
-        sample_list=sample_list,
-        sample_ids=sample_ids,
-        base_width=4,
-        base_height=3,
-    )
-
-    fig_path = f"{config.paths.output_dir}/plots/bafonly_clones_spatial.pdf"
-
-    write_fig(fig_path, bafonly_clones_fig, transparent=True, bbox_inches="tight")
+    exit(0)
     
     # TODO
     n_obs = single_X.shape[0]

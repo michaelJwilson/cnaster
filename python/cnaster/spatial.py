@@ -152,33 +152,27 @@ def sufficient_umis_initial_clone(
         while not np.all(assigned):
             # NB pick the unassigned spot with the largest UMI count
             unassigned_idx = np.where(~assigned)[0]
-            """
-            sorted_unassigned = unassigned_idx[
-                np.argsort(-this_spot_counts[unassigned_idx])
-            ]
-
-            for candidate in sorted_unassigned:
-                if np.random.rand() < acceptance:
-                    seed_idx = candidate
-                    break
-            else:
-                # NB fallback to least populated if none accepted
-                seed_idx = sorted_unassigned[-1]
-            """
             seed_idx = np.random.choice(unassigned_idx)
 
             group, group_umis = {seed_idx}, this_spot_counts[seed_idx]
             num_rounds = 0
 
+            last_dist = np.inf
+            
             # NB grow group by adding nearest unassigned neighbors until MIN_CLONE_UMIS is reached
             while group_umis < min_clone_umis and len(group) < len(index):
                 # NB find unassigned neighbors (by Euclidean distance from seed.)
                 dists = np.linalg.norm(
                     this_coords[unassigned_idx] - this_coords[seed_idx], axis=1
                 )
-                sorted_neighbors = unassigned_idx[np.argsort(dists)]
+                sorted_dists = np.argsort(dists)
+                sorted_neighbors = unassigned_idx[sorted_dists]
 
-                for neighbor in sorted_neighbors:
+                for dist, neighbor in zip(sorted_dists, sorted_neighbors):
+                    # NB guard against disjoint groups.
+                    if dist > 5. * last_dist:
+                        break
+                    
                     if neighbor not in group:
                         group.add(neighbor)
                         group_umis += this_spot_counts[neighbor]
@@ -186,6 +180,8 @@ def sufficient_umis_initial_clone(
                     if group_umis >= min_clone_umis:
                         break
 
+                    last_dist = dist
+                    
                 if num_rounds == max_growth_rounds:
                     logger.warning(
                         f"Max growth rounds reached for clone {clone_id} in sample {sname}."

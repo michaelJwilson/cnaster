@@ -498,7 +498,7 @@ def plot_clones_spatial(
         bbox_to_anchor=(1, 1),
         frameon=False,
     )
-    axes.axis("off")
+    # axes.axis("off")
     axes.set_title(",".join(sample_list), loc="left")
 
     fig.tight_layout()

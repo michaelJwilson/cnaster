@@ -591,14 +591,14 @@ def hmrfmix_concatenate_pipeline(
             in_log_space=False,  # TODO BUG?
             only_minor=False,  # TODO BUG?
         )
-
+        """
         init_log_mu, init_alphas, init_p_binom, init_taus = cna_mixture_init(
             n_states,
             clone_stack_X,
             clone_stack_base_nb_mean,
             clone_stack_total_bb_RD,
         )
-
+        """
         plot_cna_mixture(
             init_log_mu,
             init_p_binom,

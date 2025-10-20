@@ -53,7 +53,7 @@ def cna_mixture_init(
     X,
     base_nb_mean,
     total_bb_RD,
-    max_iter=15,
+    max_iter=5,
     width=None,
 ):
     logger.info(f"Initializing HMM emission with CNA Mixture++.")
@@ -69,12 +69,12 @@ def cna_mixture_init(
     solution, solution_lnlike = None, -np.inf
 
     if known_normal:
-        grid_alphas = np.logspace(-3, -1, num=10, base=10.0)
+        grid_alphas = np.logspace(-3, -1, num=5, base=10.0)
     else:
         # TODO HACK
         grid_alphas = np.array([1.e-2])
 
-    grid_taus = np.arange(10, 5_011, 10)
+    grid_taus = np.arange(10, 5_011, 500)
 
     num_to_solve = len(grid_alphas) * len(grid_taus) * max_iter
     num_solved = 0

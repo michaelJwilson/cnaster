@@ -331,26 +331,20 @@ def run_cnaster(config_path):
     copy_single_X_rdr = copy.copy(single_X[:, 0, :])
     copy_single_base_nb_mean = copy.copy(single_base_nb_mean)
 
-    # NB baf-only run: zero transcript counts for all segments/spots.
-    # TODO can drop zero of single_X?  would be useful ...
-    single_X[:, 0, :] = 0
-    single_base_nb_mean[:, :] = 0
-
     # NB non-contiguous assignment of clones to an unequal grid partitioning
     #    of input coordinates.
     initial_clone_index_baf, clone_id = rectangle_initialize_initial_clone(
         coords, config.hmrf.n_clones, random_state=0
     )
-
-    """
+    
+    # TODO HACK? adata.layers["count"]
     initial_clone_index_baf, clone_id, spot_umi_counts = sufficient_umis_initial_clone(
         coords,
-        adata.layers["count"],
+        single_X[:,0,:],
         sample_list,
         sample_ids,
-        5_000_000,
+        500_000,
     )
-    """
 
     # NB construct clone labels.
     df_clone_label = pd.DataFrame(
@@ -398,6 +392,11 @@ def run_cnaster(config_path):
     logger.info(
         "Solving HMM & HMRF for copy states and clone assignment with BAF only."
     )
+
+    # NB baf-only run: zero transcript counts for all segments/spots.                                                                                                                                                                                                      
+    # TODO can drop zero of single_X?  would be useful ...                                                                                                                                                                                                                 
+    single_X[:, 0, :] = 0
+    single_base_nb_mean[:, :] = 0
 
     res = hmrfmix_concatenate_pipeline(
         None,

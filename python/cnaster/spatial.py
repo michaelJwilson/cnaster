@@ -115,7 +115,7 @@ def sufficient_umis_initial_clone(
     spot_gene_umis,
     sample_list,
     sample_ids,
-    min_clone_umis=5_000_000,
+    min_clone_umis=5_000_000, # 5_000_000
     acceptance=1.0,
     max_growth_rounds=50,
     random_state=0,
@@ -126,14 +126,17 @@ def sufficient_umis_initial_clone(
 
     # TODO HACK
     np.random.seed(random_state)
+
+    # NB across multiple slices.
     n_spots = coords.shape[0]
 
     # NB -1 means unassigned
     clone_assignment = np.full(n_spots, -1)
     clone_id = 0
 
-    spot_counts = np.sum(spot_gene_umis[:, :], axis=1)
-
+    # TODO HACK axis?
+    spot_counts = np.sum(spot_gene_umis, axis=0)
+    
     for i, sname in enumerate(sample_list):
         index = np.where(sample_ids == i)[0]
         this_coords = np.array(coords[index, :])

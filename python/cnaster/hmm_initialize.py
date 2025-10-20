@@ -76,7 +76,7 @@ def cna_mixture_init(
     else:
         grid_alphas = np.logspace(-3, -1, num=1, base=10.0)
 
-    grid_taus = np.arange(10, 1_011, 100)
+    grid_taus = np.arange(10, 5_011, 100)
         
     # TODO HACK?
     for alpha in grid_alphas:

@@ -336,16 +336,16 @@ def run_cnaster(config_path):
     initial_clone_index_baf, clone_id = rectangle_initialize_initial_clone(
         coords, config.hmrf.n_clones, random_state=0
     )
-    
+    """
     # TODO HACK? adata.layers["count"]
     initial_clone_index_baf, clone_id, spot_umi_counts = sufficient_umis_initial_clone(
         coords,
         single_X[:,0,:],
         sample_list,
         sample_ids,
-        500_000,
+        1_500_000,
     )
-
+    """
     # NB construct clone labels.
     df_clone_label = pd.DataFrame(
         {"x": coords[:, 0], "y": coords[:, 1]}, index=barcodes

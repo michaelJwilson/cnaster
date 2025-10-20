@@ -68,16 +68,17 @@ def cna_mixture_init(
 
     solution, solution_lnlike = None, -np.inf
 
-    num_to_solve = 10 * 10 * max_iter
-    num_solved = 0
-
     if known_normal:
         grid_alphas = np.logspace(-3, -1, num=10, base=10.0)
     else:
-        grid_alphas = np.logspace(-3, -1, num=1, base=10.0)
+        # TODO HACK
+        grid_alphas = np.array([1.e-2])
 
-    grid_taus = np.arange(10, 5_011, 100)
-        
+    grid_taus = np.arange(10, 5_011, 10)
+
+    num_to_solve = len(grid_alphas) * len(grid_taus) * max_iter
+    num_solved = 0
+    
     # TODO HACK?
     for alpha in grid_alphas:
         for tau in grid_taus:

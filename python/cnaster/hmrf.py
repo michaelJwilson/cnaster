@@ -617,8 +617,6 @@ def hmrfmix_concatenate_pipeline(
             prefix=f"instance{hmrfmix_concatenate_pipeline.call_count-1}_clone",
 	)
         """
-
-    exit(0)
         
     last_log_mu = init_log_mu if "m" in params else None
     last_p_binom = init_p_binom if "p" in params else None

@@ -16,6 +16,8 @@ from cnaster.hmm_update import get_em_solver_params
 from cnaster.utils import top_hat_sum_pad, cast_clone_label
 from cnaster.config import get_global_config
 from cnaster.utils import write_fig
+from cnaster.hmm_sitewise import hmm_sitewise
+from cnaster.hmm_nophasing import hmm_nophasing
 import matplotlib.patches as mpatches
 
 logger = logging.getLogger(__name__)
@@ -48,104 +50,64 @@ def interval_mean(arr, N):
 
 def cna_mixture_init(
     n_states,
-    t,
     X,
     base_nb_mean,
     total_bb_RD,
-    hmm_class,
-    only_minor=True,
+    num_iter=25,
 ):
     logger.info(f"Initializing HMM emission with CNA Mixture++.")
 
-    eff_element = get_eff_element(t, n_states)
-    eff_element = 1
+    known_normal = np.any(base_nb_mean)
+    num_segments, _, num_spots = X.shape
 
-    logger.info(
-        f"Found effective genomic element={eff_element:.3f} for (t,K)=({t},{n_states}) and {X.shape[0]} total genomic elements"
-    )
+    solution, solution_lnlike = None, -np.inf
 
-    # NB true of phasing partition and assumed below (currently), i.e. fed by one pseudo-bulk at a time.
-    assert X.shape[-1] == 1
+    # TODO HACK?
+    for alpha, tau in zip(np.logspace(-3, -1, num=10, base=10.0), np.arange(10, 110, 10)):
+        alphas = alpha * np.ones((n_states, 1))
+        taus = tau * np.ones((n_states,1))
 
-    # TODO HACK
-    start_params = np.array([0.5, 1.0])
-    settings = get_em_solver_params()
+        for ii in range(num_iter):
+            log_mu, p_binom = np.log(np.array([0.0])).reshape((1,1)), np.array([0.5]).reshape((1,1))
+            
+            while len(log_mu) < n_states:
+                # NB (n_states, n_obs, n_spots)
+                lnlike_rdr, lnlike_baf = hmm_sitewise.compute_emission_probability_nb_betabinom(
+                    X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus
+                )
 
-    # NB sample group from data.
-    # TODO exclude existing states? rare clash?
-    group_idx = int(np.floor(np.random.randint(low=0, high=X.shape[0]) // eff_element))
-    start_idx = group_idx * eff_element
-    end_idx = start_idx + eff_element
+                # NB lnlike_rdr is zero (null op. for additiona) until normal spots are defined.
+                lnlike = lnlike_rdr + lnlike_baf
+                best_lnlike = np.max(lnlike, axis=0)
+            
+                total_best_lnlike = best_lnlike.sum()
+            
+                ps = -best_lnlike.ravel()
+                ps /= ps.sum()
+            
+                sample_idx = np.random.choice(np.arange(num_segments * num_spots), p=ps)
+                sample_segment, sample_spot = sample_idx // num_spots, sample_idx % num_spots
 
-    num_groups = X.shape[0] // eff_element
-    states = []
+                sample_ln_rdr = np.log(X[sample_segment, 0, sample_spot] / base_nb_mean[sample_segment, 0])
+                sample_baf = X[sample_segment, 1, sample_spot] / total_bb_RD[sample_segment, 0]
+                
+                log_mu = np.vstack([log_mu, [[sample_ln_rdr]]])
+                p_binom = np.vstack([p_binom, [[sample_baf]]])
 
-    while len(states) < n_states:
-        # NB fit emission parameters to group
-        endog = X[start_idx:end_idx, 1, :].flatten()
-        exposure = total_bb_RD[start_idx:end_idx, ...].flatten()
+                if total_best_lnlike > solution_lnlike:
+                    solution = [log_mu, alphas, p_binom, taus]
+                    solution_lnlike = total_best_lnlike
+            
+            logger.debug(alpha, tau, ii, total_best_lnlike, p_binom.tolist())
+        
+    log_mu, alphas, p_binom, taus = solution
 
-        n_samples = len(endog)
-        exog = np.ones((n_samples, 1))
-        weights = np.ones(n_samples)
-
-        solver = Weighted_BetaBinom_mix(endog, exog, weights, exposure)
-        result = solver.fit(start_params=start_params, **settings)
-
-        states.append(result.params)
-
-        logger.info(f"Solved for {len(states)} states.")
-
-        # NB evaluate data likelihood for current states
-        endog = X[:, 1, :].flatten()
-        exposure = total_bb_RD.flatten()
-
-        n_samples = len(endog)
-        exog = np.ones((n_samples, 1))
-        weights = np.ones(n_samples)
-
-        all_group_nlls = []
-
-        for state in states:
-            nll = nloglikeobs_bb(
-                endog, exog, weights, exposure, state, tumor_prop=None, reduce=False
-            )
-
-            group_nlls = np.zeros(num_groups)
-
-            for group_idx in range(num_groups):
-                start_idx = group_idx * eff_element
-                end_idx = start_idx + eff_element
-
-                # NB assumes IDD for samples in each eff_element.
-                group_nlls[group_idx] = np.sum(nll[start_idx:end_idx])
-
-            all_group_nlls.append(group_nlls)
-
-        all_group_nlls = np.column_stack(all_group_nlls).T
-        best_group_nll = np.min(all_group_nlls, axis=0)
-
-        best_group_idx = np.argmin(all_group_nlls, axis=0)
-
-        print(states)
-        print(np.unique(best_group_idx, return_counts=True))
-
-        # NB sample next state.
-        ps = best_group_nll / best_group_nll.sum()
-        idx = np.random.choice(range(len(ps)), p=ps)
-
-        start_idx = idx * eff_element
-        end_idx = start_idx + eff_element
-
-    p_binom = np.array([state[0] for state in states])
-
-    # TODO
-    tau = max([state[1] for state in states])
-
-    if only_minor:
-        p_binom = np.where(p_binom > 0.5, 1.0 - p_binom, p_binom)
-
-    return None, p_binom
+    if not known_normal:
+        log_mu, alphas = None, None
+        
+    logger.info(f"Solved for initial parameters with  copy mixture++ and lnlike={solution_lnlike:.6e}:\nlog_mu={log_mu},\nalphas={alphas},\np_binom={p_binom},\ntaus={taus}.")
+    
+    return log_mu, alphas, p_binom, taus
 
 
 # TODO define width

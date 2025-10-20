@@ -10,7 +10,7 @@ from cnaster.hmm import gmm_init, pipeline_baum_welch
 from cnaster.hmm_sitewise import hmm_sitewise
 from cnaster.hmrf_utils import cast_csr
 from cnaster.utils import count_calls
-from cnaster.hmm_initialize import plot_cna_mixture
+from cnaster.hmm_initialize import plot_cna_mixture, cna_mixture_init
 from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
 from cnaster.config import get_global_config
 from cnaster.deprecated.hmrf import (
@@ -592,6 +592,14 @@ def hmrfmix_concatenate_pipeline(
             only_minor=False,  # TODO BUG?
         )
 
+        init_log_mu, init_alphas, init_p_binom, init_taus = cna_mixture_init(
+            n_states,
+            clone_stack_X,
+            clone_stack_base_nb_mean,
+            clone_stack_total_bb_RD,
+        )
+
+        # TODO clone copies?
         plot_cna_mixture(
             init_log_mu,
             init_p_binom,
@@ -601,6 +609,8 @@ def hmrfmix_concatenate_pipeline(
             prefix=f"instance{hmrfmix_concatenate_pipeline.call_count-1}",
         )
 
+    exit(0)
+        
     last_log_mu = init_log_mu if "m" in params else None
     last_p_binom = init_p_binom if "p" in params else None
     last_alphas = init_alphas

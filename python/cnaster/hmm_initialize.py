@@ -53,7 +53,7 @@ def cna_mixture_init(
     X,
     base_nb_mean,
     total_bb_RD,
-    num_iter=25,
+    max_iter=15,
     width=None,
 ):
     logger.info(f"Initializing HMM emission with CNA Mixture++.")
@@ -65,54 +65,102 @@ def cna_mixture_init(
         X = top_hat_sum(X, width)
         base_nb_mean = top_hat_sum(base_nb_mean, width)
         total_bb_RD = top_hat_sum(total_bb_RD, width)
-    
+
     solution, solution_lnlike = None, -np.inf
 
-    # TODO HACK?
-    for alpha, tau in zip(np.logspace(-3, -1, num=10, base=10.0), np.arange(10, 110, 10)):
-        alphas = alpha * np.ones((n_states, 1))
-        taus = tau * np.ones((n_states,1))
+    num_to_solve = 10 * 10 * max_iter
+    num_solved = 0
 
-        for ii in range(num_iter):
-            log_mu, p_binom = np.log(np.array([0.0])).reshape((1,1)), np.array([0.5]).reshape((1,1))
-            
-            while len(log_mu) < n_states:
-                # NB (n_states, n_obs, n_spots)
-                lnlike_rdr, lnlike_baf = hmm_sitewise.compute_emission_probability_nb_betabinom(
-                    X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus
-                )
+    if known_normal:
+        grid_alphas = np.logspace(-3, -1, num=10, base=10.0)
+    else:
+        grid_alphas = np.logspace(-3, -1, num=1, base=10.0)
 
-                # NB lnlike_rdr is zero (null op. for additiona) until normal spots are defined.
-                lnlike = lnlike_rdr + lnlike_baf
-                best_lnlike = np.max(lnlike, axis=0)
-            
-                total_best_lnlike = best_lnlike.sum()
-            
-                ps = -best_lnlike.ravel()
-                ps /= ps.sum()
-            
-                sample_idx = np.random.choice(np.arange(num_segments * num_spots), p=ps)
-                sample_segment, sample_spot = sample_idx // num_spots, sample_idx % num_spots
-
-                sample_ln_rdr = np.log(X[sample_segment, 0, sample_spot] / base_nb_mean[sample_segment, 0])
-                sample_baf = X[sample_segment, 1, sample_spot] / total_bb_RD[sample_segment, 0]
-                
-                log_mu = np.vstack([log_mu, [[sample_ln_rdr]]])
-                p_binom = np.vstack([p_binom, [[sample_baf]]])
-
-                if total_best_lnlike > solution_lnlike:
-                    solution = [log_mu, alphas, p_binom, taus]
-                    solution_lnlike = total_best_lnlike
-            
-            logger.debug(alpha, tau, ii, total_best_lnlike, p_binom.tolist())
+    grid_taus = np.arange(10, 1_011, 100)
         
+    # TODO HACK?
+    for alpha in grid_alphas:
+        for tau in grid_taus:
+            alphas = alpha * np.ones((n_states, 1))
+            taus = tau * np.ones((n_states, 1))
+
+            for ii in range(max_iter):
+                log_mu, p_binom = np.array([0.0]).reshape((1, 1)), np.array(
+                    [0.5]
+                ).reshape((1, 1))
+
+                while len(log_mu) < n_states:
+                    # NB (n_states, n_obs, n_spots)
+                    lnlike_rdr, lnlike_baf = (
+                        hmm_sitewise.compute_emission_probability_nb_betabinom(
+                            X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus
+                        )
+                    )
+
+                    # NB lnlike_rdr is zero (null op. for additiona) until normal spots are defined.
+                    lnlike = lnlike_rdr + lnlike_baf
+
+                    # TODO track finite.
+                    lnlike[~np.isfinite(lnlike)] = -np.inf
+
+                    best_lnlike = np.max(lnlike, axis=0)
+
+                    total_best_lnlike = best_lnlike.sum()
+
+                    ps = -best_lnlike.ravel()
+                    ps /= ps.sum()
+
+                    try:
+                        sample_idx = np.random.choice(
+                            np.arange(num_segments * num_spots), p=ps
+                        )
+                    except:
+                        continue
+
+                    sample_segment, sample_spot = (
+                        sample_idx // num_spots,
+                        sample_idx % num_spots,
+                    )
+
+                    sample_ln_rdr = np.log(
+                        X[sample_segment, 0, sample_spot]
+                        / base_nb_mean[sample_segment, 0]
+                    )
+                    sample_baf = (
+                        X[sample_segment, 1, sample_spot]
+                        / total_bb_RD[sample_segment, 0]
+                    )
+
+                    # TODO
+                    if known_normal and (
+                        ~np.isfinite(sample_ln_rdr) or ~np.isfinite(sample_baf)
+                    ):
+                        continue
+
+                    log_mu = np.vstack([log_mu, [[sample_ln_rdr]]])
+                    p_binom = np.vstack([p_binom, [[sample_baf]]])
+
+                    if total_best_lnlike > solution_lnlike:
+                        solution = [log_mu, alphas, p_binom, taus]
+                        solution_lnlike = total_best_lnlike
+
+                        logger.info(
+                            f"Found new best initialization ({num_solved}/{num_to_solve}) with copy mixture++ and lnlike={solution_lnlike:.6e}:\nlog_mu={log_mu},\nalphas={alphas},\np_binom={p_binom},\ntaus={taus}."
+                        )
+
+                logger.debug(alpha, tau, ii, total_best_lnlike, p_binom.tolist())
+
+                num_solved += 1
+
     log_mu, alphas, p_binom, taus = solution
 
     if not known_normal:
         log_mu, alphas = None, None
-        
-    logger.info(f"Solved for initial parameters with  copy mixture++ and lnlike={solution_lnlike:.6e}:\nlog_mu={log_mu},\nalphas={alphas},\np_binom={p_binom},\ntaus={taus}.")
-    
+
+    logger.info(
+        f"Solved for initial parameters with  copy mixture++ and lnlike={solution_lnlike:.6e}:\nlog_mu={log_mu},\nalphas={alphas},\np_binom={p_binom},\ntaus={taus}."
+    )
+
     return log_mu, alphas, p_binom, taus
 
 
@@ -133,13 +181,14 @@ def plot_cna_mixture(
     valid = ~np.isnan(X_gmm_rdr) & ~np.isinf(X_gmm_rdr)
 
     if np.all(~valid):
-        X_gmm_rdr[~valid] = np.random.normal(loc=1.0, scale=0.25, size=np.count_nonzero(~valid))
+        X_gmm_rdr[~valid] = np.random.normal(
+            loc=1.0, scale=0.25, size=np.count_nonzero(~valid)
+        )
 
     # TODO clipping?
     X_gmm_baf = np.vstack(
         [
-            top_hat_sum(X[:, 1, s], width)
-            / top_hat_sum(total_bb_RD[:, s], width)
+            top_hat_sum(X[:, 1, s], width) / top_hat_sum(total_bb_RD[:, s], width)
             for s in range(X.shape[2])
         ]
     ).T
@@ -161,7 +210,7 @@ def plot_cna_mixture(
 
     g = sns.JointGrid(x=x, y=y, height=8, ratio=3, space=0.15)
     valid_mask = np.isfinite(x) & np.isfinite(y)
-    
+
     for c in range(num_clones):
         clone_mask = (clone_idx == c) & valid_mask
 
@@ -175,19 +224,21 @@ def plot_cna_mixture(
                 color=palette[c],
             )
 
-    g.ax_joint.scatter(init_p_binom, init_mu, marker="*", facecolor="none", edgecolor="k", s=25)
-            
-    bins=50
+    g.ax_joint.scatter(
+        init_p_binom, init_mu, marker="*", facecolor="none", edgecolor="k", s=25
+    )
+
+    bins = 50
 
     validx = np.isfinite(x)
     validy = np.isfinite(y)
-    
+
     # bins_x = np.histogram_bin_edges(x[validx], bins=bins)
     # bins_y = np.histogram_bin_edges(y[validy], bins=bins)
 
-    bins_x = np.arange(-0.01, 0.6, 5.e-3)
-    bins_y = np.arange(-0.1, 10., 0.1)
-    
+    bins_x = np.arange(-0.01, 0.6, 5.0e-3)
+    bins_y = np.arange(-0.1, 10.0, 0.1)
+
     centers_x = 0.5 * (bins_x[:-1] + bins_x[1:])
     width_x = bins_x[1] - bins_x[0]
 

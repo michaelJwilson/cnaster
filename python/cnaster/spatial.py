@@ -62,13 +62,20 @@ def fixed_rectangle_partition(
     )
 
     initial_clone_index = []
+    clone_id = 0
+
+    clone_assignment = np.full(coords.shape[0], -1)
 
     for xid in range(x_part):
         for yid in range(y_part):
-            initial_clone_index.append(np.where((xdigit == xid) & (ydigit == yid))[0])
+            idx = np.where((xdigit == xid) & (ydigit == yid))[0]
+
+            initial_clone_index.append(idx)
+            clone_assignment[idx] = clone_id
+            clone_id += 1
 
     # NB initial clones assigned according to grid partitioning given x_part, y_part; list of lists.
-    return initial_clone_index
+    return initial_clone_index, clone_id
 
 
 def initialize_clones(

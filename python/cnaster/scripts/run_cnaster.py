@@ -30,6 +30,7 @@ from cnaster.omics import (
 )
 from cnaster.phasing import initial_phase_given_partition
 from cnaster.spatial import (
+    fixed_rectangle_partition,
     initialize_clones,
     multislice_adjacency,
     rectangle_initialize_initial_clone,
@@ -331,10 +332,17 @@ def run_cnaster(config_path):
     copy_single_X_rdr = copy.copy(single_X[:, 0, :])
     copy_single_base_nb_mean = copy.copy(single_base_nb_mean)
 
+    """
     # NB non-contiguous assignment of clones to an unequal grid partitioning
     #    of input coordinates.
     initial_clone_index_baf, clone_id = rectangle_initialize_initial_clone(
         coords, config.hmrf.n_clones, random_state=0
+    )
+    """
+
+    # TODO HACK
+    initial_clone_index_baf, clone_id = fixed_rectangle_partition(
+        coords, 4, 4, single_tumor_prop=None, threshold=0.5
     )
 
     """

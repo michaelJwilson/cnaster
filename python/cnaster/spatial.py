@@ -75,7 +75,7 @@ def fixed_rectangle_partition(
             clone_id += 1
 
     # NB initial clones assigned according to grid partitioning given x_part, y_part; list of lists.
-    return initial_clone_index, clone_id
+    return initial_clone_index, clone_assignment
 
 
 def initialize_clones(

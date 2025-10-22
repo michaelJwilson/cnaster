@@ -2,6 +2,7 @@ import copy
 import seaborn as sns
 import numpy as np
 import matplotlib
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import pandas as pd
 
@@ -11,6 +12,7 @@ from matplotlib.lines import Line2D
 from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
 from cnaster.integer_copy import get_ordered_acn
 from cnaster.utils import cast_clone_label
+from cnaster.hmrf_utils import cast_csr
 
 logger = logging.getLogger(__name__)
 
@@ -207,6 +209,8 @@ def plot_clones_genomic(
     if sample_list is not None:
         axes[0].set_title(",".join(sample_list), loc="left")
 
+    logger.info(f"Found non-empty clones: {nonempty_clones} for final_clone_ids={final_clone_ids}")
+        
     for s, c in enumerate(nonempty_clones):
         cid = final_clone_ids[c]
 
@@ -391,15 +395,14 @@ def plot_baf_detection(
     coords,
     X,
     single_total_bb_RD,
+    adjacency_mat=None,
+    smooth_mat=None,
     sample_list=None,
     sample_ids=None,
     base_width=4,
     base_height=3,
     palette="rocket",
 ):
-    """
-    Plot the BAF S/N
-    """
     # NB shift coordinates across samples
     shifted_coords = copy.copy(coords)
 
@@ -416,23 +419,70 @@ def plot_baf_detection(
         1, 1, figsize=(base_width * n_samples, base_height), dpi=300, facecolor="white"
     )
 
-    # NB baf S/N ~ 2 * sqrt(N) * |p - 0.5|, all segments and spots.
-    spot_baf_detection = np.sqrt(single_total_bb_RD) * np.abs(
-        X[:, 1, :] / single_total_bb_RD
-    )
-    spot_baf_detection = np.sum(spot_baf_detection, axis=0)
+    adj_list = cast_csr(adjacency_mat)
 
+    smoothX = np.zeros_like(X)
+    smoothD = np.zeros_like(single_total_bb_RD, dtype=float)
+    
+    for spot, neighbors in enumerate(adj_list):
+        for neighbor, weight in neighbors:                                                                                                                                                     
+            smoothX[:,:,spot] += weight * X[:,:,neighbor]                                                                                                                
+            smoothD[:,spot] += weight * single_total_bb_RD[:,neighbor]
+
+    X = smoothX
+    single_total_bb_RD = smoothD
+            
+    downsampling_rate = 10
+    idx = np.arange(0, X.shape[0], downsampling_rate)
+
+    # TODO reduce discretization effects by aggregating.
+    xs = np.add.reduceat(X[:, 1, :], idx, axis=0)
+    ds = np.add.reduceat(single_total_bb_RD, idx, axis=0)
+    
+    # NB baf S/N ~ 2 * sqrt(N) * |p - 0.5|, all segments and spots.
+    bafs = xs/ds
+
+    """
+    spot_baf_detection = np.sqrt(ds) * np.abs(bafs - 0.5)
+    spot_baf_detection[~np.isfinite(spot_baf_detection)] = 0.0
+    spot_baf_detection[np.abs(bafs - 0.5) < 0.1] = 0.0
+    
+    spot_baf_detection = np.sum(spot_baf_detection, axis=0)
+            
+    # smooth_baf_detection = np.log10(smooth_baf_detection)
+    
     sns.scatterplot(
-        x=shifted_coords,
-        y=-shifted_coords,
+        x=shifted_coords[:, 0],
+        y=-shifted_coords[:, 1],
         s=10,
         hue=spot_baf_detection,
         linewidth=0,
         legend=None,
         ax=axes,
+        palette=palette,
     )
 
-    axes.set_title(",".join(sample_list), loc="left")
+    norm = mpl.colors.Normalize(
+        vmin=np.nanmin(spot_baf_detection), vmax=np.nanmax(spot_baf_detection)
+    )
+    sm = mpl.cm.ScalarMappable(cmap=palette, norm=norm)
+    sm.set_array([])
+
+    label="BAF S/N"
+    fig.colorbar(sm, ax=axes, label=None)
+    """
+
+    sns.histplot(
+        bafs.ravel(),
+        bins=50,
+        stat="density",
+        color="0.6",
+        edgecolor=None,
+        ax=axes,
+        kde=False,
+    )
+
+    # axes.set_title(",".join(sample_list), loc="left")
     fig.tight_layout()
 
     return fig

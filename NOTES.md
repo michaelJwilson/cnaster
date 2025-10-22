@@ -12,6 +12,8 @@ RECOMB/ISMB
 
 
 KEY
+- Deprecate Neyman-Pearson.
+
 - filter on X umi count for choosing initial states.
 - +579 hmrf.py feed clone_stack vs not to GMM.
 - ln mu -> mu convergence check.

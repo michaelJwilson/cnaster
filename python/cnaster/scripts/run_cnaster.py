@@ -57,7 +57,7 @@ from cnaster.integer_copy import (
     hill_climbing_integer_copynumber_oneclone,
     hill_climbing_integer_copynumber_fixdiploid,
 )
-from cnaster.plotting import plot_clones_genomic, plot_clones_spatial
+from cnaster.plotting import plot_clones_genomic, plot_clones_spatial, plot_baf_detection
 from collections import defaultdict
 
 start_time = time.time()
@@ -339,12 +339,12 @@ def run_cnaster(config_path):
         coords, config.hmrf.n_clones, random_state=0
     )
     """
-
+    """
     # TODO HACK
     initial_clone_index_baf, clone_id = fixed_rectangle_partition(
         coords, 4, 4, single_tumor_prop=None, threshold=0.5
     )
-
+    """
     """
     # TODO HACK? adata.layers["count"]
     initial_clone_index_baf, clone_id, spot_umi_counts = sufficient_umis_initial_clone(
@@ -355,7 +355,13 @@ def run_cnaster(config_path):
         500_000,
     )
     """
+
+    # NB labels
+    clone_id = pd.read_csv(config.annotation.clone_label, sep="\t", index_col=0)["labels"].str.replace("clone_","").str.replace("normal","-1").astype(int).to_numpy()
+    clone_id += 1
     
+    initial_clone_index_baf = [np.where(clone_id == xx)[0] for xx in np.unique(clone_id)]
+        
     # NB construct clone labels.
     df_clone_label = pd.DataFrame(
         {"x": coords[:, 0], "y": coords[:, 1]}, index=barcodes
@@ -396,8 +402,24 @@ def run_cnaster(config_path):
     )
 
     fig_path = f"{config.paths.output_dir}/plots/initial_clones_spatial.pdf"
-
     write_fig(fig_path, initial_clones_fig, transparent=True, bbox_inches="tight")
+    """
+    # NB baf detection figure.
+    baf_detection_fig = plot_baf_detection(
+        coords,
+        single_X,
+        single_total_bb_RD,
+        adjacency_mat,
+        smooth_mat,
+        sample_list=sample_list,
+        sample_ids=sample_ids,
+        base_width=4,
+        base_height=3,
+        palette="rocket",
+    )
+    """
+    # fig_path = f"{config.paths.output_dir}/plots/baf_detection.pdf"
+    # write_fig(fig_path, baf_detection_fig, transparent=True, bbox_inches="tight")
     
     logger.info(
         "Solving HMM & HMRF for copy states and clone assignment with BAF only."
@@ -473,9 +495,10 @@ def run_cnaster(config_path):
 
     fig_path = f"{config.paths.output_dir}/plots/bafonly_clones_spatial.pdf"
     write_fig(fig_path, bafonly_clones_fig, transparent=True, bbox_inches="tight")
-        
+
+    """
     # NB merge similar clones based on Neyman-Pearson
-    merging_groups, merged_res = neyman_pearson_similarity(
+    _, merged_res = neyman_pearson_similarity(
         X,
         base_nb_mean,
         total_bb_RD,
@@ -486,8 +509,12 @@ def run_cnaster(config_path):
         tumor_prop=tumor_prop,
         hmmclass=hmm_nophasing,
     )
+    """
 
-    merging_groups, merged_res = merge_by_minspots(
+    # TODO HACK
+    merged_res = res.copy()
+    
+    _, merged_res = merge_by_minspots(
         merged_res["new_assignment"],
         merged_res,
         single_total_bb_RD,
@@ -538,8 +565,6 @@ def run_cnaster(config_path):
     )
 
     write_tsv(opath, df_clone_label, header=True, index=True, index_label="barcode")
-
-    exit(0)
     
     # TODO
     n_obs = single_X.shape[0]
@@ -847,7 +872,7 @@ def run_cnaster(config_path):
 
             # NB merge rdr split clones (within baf clone) based on Neyman-Pearson similarity;
             #    does not account for similarity across baf-clones.
-            merging_groups, merged_res = neyman_pearson_similarity(
+            _, merged_res = neyman_pearson_similarity(
                 X,
                 base_nb_mean,
                 total_bb_RD,
@@ -875,7 +900,7 @@ def run_cnaster(config_path):
             )
 
             # NB num. of rdr-split clones within baf clone after merging.
-            n_merged_clones = len(merging_groups)
+            n_merged_clones = len(merging_groups) 
             tmp = copy.copy(merged_res["new_assignment"])
 
             # NB compute posterior using the newly merged pseudobulk
@@ -1445,7 +1470,8 @@ def run_cnaster(config_path):
     # TODO
     fig_path = f"{config.paths.output_dir}/plots/clones_genomic.pdf"
     write_fig(fig_path, rdr_baf_fig, transparent=True, bbox_inches="tight")
-
+    """
+    # TODO issue when indexing of initial clones incompatiable/bigger than final clones.
     initial_rdr_baf_fig = plot_clones_genomic(
         df_seglevel_cnv,
         lengths,
@@ -1466,6 +1492,7 @@ def run_cnaster(config_path):
     # TODO                                                                                                                                                                                                                              
     fig_path = f"{config.paths.output_dir}/plots/initial_clones_genomic.pdf"
     write_fig(fig_path, initial_rdr_baf_fig, transparent=True, bbox_inches="tight")
+    """
     """
     clone_index = [
         np.where(res_combine["new_assignment"] == c)[0]

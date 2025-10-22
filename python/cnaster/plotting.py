@@ -387,6 +387,57 @@ def plot_clones_genomic(
     return fig
 
 
+def plot_baf_detection(
+    coords,
+    X,
+    single_total_bb_RD,
+    sample_list=None,
+    sample_ids=None,
+    base_width=4,
+    base_height=3,
+    palette="rocket",
+):
+    """
+    Plot the BAF S/N
+    """
+    # NB shift coordinates across samples
+    shifted_coords = copy.copy(coords)
+
+    if sample_ids is not None:
+        x_offset = 0
+
+        for s, sname in enumerate(sample_list):
+            index = np.where(sample_ids == s)[0]
+            shifted_coords[index, 0] = shifted_coords[index, 0] + x_offset
+            x_offset += np.max(coords[index, 0]) + 10
+
+    n_samples = 1 if sample_list is None else len(sample_list)
+    fig, axes = plt.subplots(
+        1, 1, figsize=(base_width * n_samples, base_height), dpi=300, facecolor="white"
+    )
+
+    # NB baf S/N ~ 2 * sqrt(N) * |p - 0.5|, all segments and spots.
+    spot_baf_detection = np.sqrt(single_total_bb_RD) * np.abs(
+        X[:, 1, :] / single_total_bb_RD
+    )
+    spot_baf_detection = np.sum(spot_baf_detection, axis=0)
+
+    sns.scatterplot(
+        x=shifted_coords,
+        y=-shifted_coords,
+        s=10,
+        hue=spot_baf_detection,
+        linewidth=0,
+        legend=None,
+        ax=axes,
+    )
+
+    axes.set_title(",".join(sample_list), loc="left")
+    fig.tight_layout()
+
+    return fig
+
+
 def plot_clones_spatial(
     coords,
     assignment,

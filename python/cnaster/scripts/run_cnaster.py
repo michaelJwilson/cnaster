@@ -870,6 +870,7 @@ def run_cnaster(config_path):
             if tumor_prop is not None:
                 tumor_prop = np.repeat(tumor_prop, X.shape[0]).reshape(-1, 1)
 
+            """
             # NB merge rdr split clones (within baf clone) based on Neyman-Pearson similarity;
             #    does not account for similarity across baf-clones.
             _, merged_res = neyman_pearson_similarity(
@@ -883,7 +884,11 @@ def run_cnaster(config_path):
                 tumor_prop=tumor_prop,
                 hmmclass=hmm_nophasing,
             )
+            """
 
+            # TODO HACK
+            merged_res = res.copy()
+            
             # TODO check merge_by_minspots logging.
             merging_groups, merged_res = merge_by_minspots(
                 merged_res["new_assignment"],

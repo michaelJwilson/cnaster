@@ -166,6 +166,7 @@ def plot_clones_genomic(
         single_tumor_prop,
     )
     n_obs = X.shape[0]
+    spots_per_clone = [len(xx) for xx in clone_index]
     nonempty_clones = np.where(np.sum(total_bb_RD, axis=0) > 0)[0]
 
     # TODO?
@@ -357,6 +358,7 @@ def plot_clones_genomic(
             ncol=len(legend_elements),
             frameon=False,
             bbox_transform=axes[2 * s].transAxes,
+            title=f"{spots_per_clone[c]} spots:  "
         )
 
     for i in range(len(lengths)):
@@ -386,103 +388,6 @@ def plot_clones_genomic(
             # bbox=dict(facecolor="white", alpha=0.7),
         )
 
-    fig.tight_layout()
-
-    return fig
-
-
-def plot_baf_detection(
-    coords,
-    X,
-    single_total_bb_RD,
-    adjacency_mat=None,
-    smooth_mat=None,
-    sample_list=None,
-    sample_ids=None,
-    base_width=4,
-    base_height=3,
-    palette="rocket",
-):
-    # NB shift coordinates across samples
-    shifted_coords = copy.copy(coords)
-
-    if sample_ids is not None:
-        x_offset = 0
-
-        for s, sname in enumerate(sample_list):
-            index = np.where(sample_ids == s)[0]
-            shifted_coords[index, 0] = shifted_coords[index, 0] + x_offset
-            x_offset += np.max(coords[index, 0]) + 10
-
-    n_samples = 1 if sample_list is None else len(sample_list)
-    fig, axes = plt.subplots(
-        1, 1, figsize=(base_width * n_samples, base_height), dpi=300, facecolor="white"
-    )
-
-    adj_list = cast_csr(adjacency_mat)
-
-    smoothX = np.zeros_like(X)
-    smoothD = np.zeros_like(single_total_bb_RD, dtype=float)
-    
-    for spot, neighbors in enumerate(adj_list):
-        for neighbor, weight in neighbors:                                                                                                                                                     
-            smoothX[:,:,spot] += weight * X[:,:,neighbor]                                                                                                                
-            smoothD[:,spot] += weight * single_total_bb_RD[:,neighbor]
-
-    X = smoothX
-    single_total_bb_RD = smoothD
-            
-    downsampling_rate = 10
-    idx = np.arange(0, X.shape[0], downsampling_rate)
-
-    # TODO reduce discretization effects by aggregating.
-    xs = np.add.reduceat(X[:, 1, :], idx, axis=0)
-    ds = np.add.reduceat(single_total_bb_RD, idx, axis=0)
-    
-    # NB baf S/N ~ 2 * sqrt(N) * |p - 0.5|, all segments and spots.
-    bafs = xs/ds
-
-    """
-    spot_baf_detection = np.sqrt(ds) * np.abs(bafs - 0.5)
-    spot_baf_detection[~np.isfinite(spot_baf_detection)] = 0.0
-    spot_baf_detection[np.abs(bafs - 0.5) < 0.1] = 0.0
-    
-    spot_baf_detection = np.sum(spot_baf_detection, axis=0)
-            
-    # smooth_baf_detection = np.log10(smooth_baf_detection)
-    
-    sns.scatterplot(
-        x=shifted_coords[:, 0],
-        y=-shifted_coords[:, 1],
-        s=10,
-        hue=spot_baf_detection,
-        linewidth=0,
-        legend=None,
-        ax=axes,
-        palette=palette,
-    )
-
-    norm = mpl.colors.Normalize(
-        vmin=np.nanmin(spot_baf_detection), vmax=np.nanmax(spot_baf_detection)
-    )
-    sm = mpl.cm.ScalarMappable(cmap=palette, norm=norm)
-    sm.set_array([])
-
-    label="BAF S/N"
-    fig.colorbar(sm, ax=axes, label=None)
-    """
-
-    sns.histplot(
-        bafs.ravel(),
-        bins=50,
-        stat="density",
-        color="0.6",
-        edgecolor=None,
-        ax=axes,
-        kde=False,
-    )
-
-    # axes.set_title(",".join(sample_list), loc="left")
     fig.tight_layout()
 
     return fig

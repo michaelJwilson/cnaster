@@ -53,6 +53,7 @@ def cna_mixture_init(
     X,
     base_nb_mean,
     total_bb_RD,
+        anneal=True,
     width=1,
     max_iter=500,
     only_minor=False,
@@ -73,12 +74,12 @@ def cna_mixture_init(
     solution, solution_lnlike = None, -np.inf
 
     if known_normal_frac > 0.0:
-        grid_alphas = np.logspace(-3, -1, num=5, base=10.0)
+        grid_alphas = np.logspace(-3, -1, num=3, base=10.0)
     else:
         # TODO HACK
         grid_alphas = np.array([1.e-2])
 
-    grid_taus = np.logspace(1, 3, 4)
+    grid_taus = np.logspace(1, 3, 3)
     
     num_to_solve = len(grid_alphas) * len(grid_taus) * max_iter
     num_solved = 0
@@ -117,6 +118,10 @@ def cna_mixture_init(
 
                     if known_normal_frac > 0.0:
                         ps[base_nb_mean == 0.0] = 0.0
+
+                    if anneal:
+                        thres = np.percentile(ps, 100. * 1. - (len(log_mu) / (n_states - 1)))
+                        ps[ps < thres] = 0.
                     
                     ps /= ps.sum()
                     ps = ps.ravel()
@@ -174,7 +179,7 @@ def cna_mixture_init(
 
 # TODO define width
 def plot_cna_mixture(
-    init_log_mu, init_alphas, init_p_binom, init_taus, X, base_nb_mean, total_bb_RD, width=1, prefix="initial"
+        init_log_mu, init_alphas, init_p_binom, init_taus, X, base_nb_mean, total_bb_RD, width=1, prefix="initial",
 ):
     logger.info(f"Plotting initial copy state mixture for X.shape={X.shape}.")
 
@@ -265,6 +270,10 @@ def plot_cna_mixture(
     g.ax_joint.scatter(
         init_p_binom, init_mu, marker="*", facecolor="none", edgecolor="k", s=25
     )
+
+    xticks = np.arange(0.0, 1.05, 0.05)
+    g.ax_joint.set_xticks(xticks)
+    g.ax_joint.set_xticklabels([f"{x:.2f}" if ((1+ii) % 2) else "" for ii, x in enumerate(xticks)])
 
     bins = 50
 

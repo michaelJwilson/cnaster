@@ -57,7 +57,7 @@ from cnaster.integer_copy import (
     hill_climbing_integer_copynumber_oneclone,
     hill_climbing_integer_copynumber_fixdiploid,
 )
-from cnaster.plotting import plot_clones_genomic, plot_clones_spatial, plot_baf_detection
+from cnaster.plotting import plot_clones_genomic, plot_clones_spatial
 from collections import defaultdict
 
 start_time = time.time()

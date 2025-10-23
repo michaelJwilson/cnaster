@@ -53,19 +53,21 @@ def cna_mixture_init(
     X,
     base_nb_mean,
     total_bb_RD,
-    max_iter=5,
-    width=None,
+    width=1,
+    max_iter=250,
+    only_minor=False,
 ):
-    logger.info(f"Initializing HMM emission with CNA Mixture++.")
+    logger.info(f"Initializing HMM emission with CNA Mixture++ for X.shape={X.shape}.")
+
+    # TODO X is a clone stack along axis 0.
+    if width is not None:
+        X = top_hat_sum(X, width)[::width]
+        base_nb_mean = top_hat_sum(base_nb_mean, width)[::width]
+        total_bb_RD = top_hat_sum(total_bb_RD, width)[::width]
 
     known_normal = np.any(base_nb_mean)
     num_segments, _, num_spots = X.shape
-
-    if width is not None:
-        X = top_hat_sum(X, width)
-        base_nb_mean = top_hat_sum(base_nb_mean, width)
-        total_bb_RD = top_hat_sum(total_bb_RD, width)
-
+        
     solution, solution_lnlike = None, -np.inf
 
     if known_normal:
@@ -74,7 +76,7 @@ def cna_mixture_init(
         # TODO HACK
         grid_alphas = np.array([1.e-2])
 
-    grid_taus = np.arange(10, 5_011, 500)
+    grid_taus = np.arange(1_000, 3_011, 1_000)
 
     num_to_solve = len(grid_alphas) * len(grid_taus) * max_iter
     num_solved = 0
@@ -91,7 +93,7 @@ def cna_mixture_init(
                 ).reshape((1, 1))
 
                 while len(log_mu) < n_states:
-                    # NB (n_states, n_obs, n_spots)
+                    # NB (n_states, n_obs, n_spots) where n_states includes phase flip complement.
                     lnlike_rdr, lnlike_baf = (
                         hmm_sitewise.compute_emission_probability_nb_betabinom(
                             X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus
@@ -104,25 +106,42 @@ def cna_mixture_init(
                     # TODO track finite.
                     lnlike[~np.isfinite(lnlike)] = -np.inf
 
+                    # NB emission prob. under best state (includes phase flip complement).
                     best_lnlike = np.max(lnlike, axis=0)
-
                     total_best_lnlike = best_lnlike.sum()
 
+                    # NB >>1 where current emission states are not a good fit.
                     ps = -best_lnlike.ravel()
                     ps /= ps.sum()
 
-                    try:
-                        sample_idx = np.random.choice(
-                            np.arange(num_segments * num_spots), p=ps
-                        )
-                    except:
-                        continue
+                    print(np.sort(ps))
+                    
+                    # NB renormalize given class imbalance.
+                    bins = np.array([np.percentile(ps, q) for q in np.arange(101)])
+                    bins[-1] += 1.e-6
+                    
+                    ip = np.digitize(ps, bins=bins)                    
+                    cp = np.array([len(ps[ip == idx]) for idx in range(len(bins))])
+                    
+                    for idx in range(len(bins)):
+                        ps[ip == idx] /= cp[idx]
+
+                    ps /= ps.sum()
+
+                    print(np.sort(ps))
+
+                    exit(0)
+                        
+                    sample_idx = np.random.choice(
+                        np.arange(num_segments * num_spots), p=ps
+                    )
 
                     sample_segment, sample_spot = (
                         sample_idx // num_spots,
                         sample_idx % num_spots,
                     )
 
+                    # TODO base_nb_mean is (N,1)?
                     sample_ln_rdr = np.log(
                         X[sample_segment, 0, sample_spot]
                         / base_nb_mean[sample_segment, 0]
@@ -136,6 +155,7 @@ def cna_mixture_init(
                     if known_normal and (
                         ~np.isfinite(sample_ln_rdr) or ~np.isfinite(sample_baf)
                     ):
+                        logger.warning(f"Invalid sample with non-finite RDR/BAF found.")
                         continue
 
                     log_mu = np.vstack([log_mu, [[sample_ln_rdr]]])
@@ -150,11 +170,13 @@ def cna_mixture_init(
                         )
 
                 logger.debug(alpha, tau, ii, total_best_lnlike, p_binom.tolist())
-
                 num_solved += 1
 
     log_mu, alphas, p_binom, taus = solution
 
+    if only_minor:
+        p_binom = np.where(p_binom > 0.5, 1.0 - p_binom, p_binom)
+    
     if not known_normal:
         log_mu, alphas = None, None
 
@@ -167,7 +189,7 @@ def cna_mixture_init(
 
 # TODO define width
 def plot_cna_mixture(
-    init_log_mu, init_p_binom, X, base_nb_mean, total_bb_RD, width=1, prefix="initial"
+    init_log_mu, init_alphas, init_p_binom, init_taus, X, base_nb_mean, total_bb_RD, width=1, prefix="initial"
 ):
     logger.info(f"Plotting initial copy state mixture for X.shape={X.shape}.")
 
@@ -199,6 +221,14 @@ def plot_cna_mixture(
     else:
         init_mu = np.ones_like(init_p_binom)
 
+    if init_alphas is None:
+        config = get_global_config()
+        init_alphas = config.nbinom.start_disp * np.ones_like(init_log_mu)
+
+    if init_taus is None:
+        config = get_global_config()
+        init_taus = config.betabinom.start_disp * np.ones_like(init_p_binom)
+        
     num_clones, num_segments = X.shape[2], X.shape[0]
 
     # NB S,n = 3,4 ... [0 1 2 0 1 2 0 1 2 0 1 2], i.e. column major.
@@ -212,6 +242,26 @@ def plot_cna_mixture(
     g = sns.JointGrid(x=x, y=y, height=8, ratio=3, space=0.15)
     valid_mask = np.isfinite(x) & np.isfinite(y)
 
+    lnlike_rdr, lnlike_baf = (
+        hmm_sitewise.compute_emission_probability_nb_betabinom(
+            X, base_nb_mean, init_log_mu, init_alphas, total_bb_RD, init_p_binom, init_taus
+        )
+    )
+
+    lnlike = lnlike_baf # + lnlike_rdr
+
+    # TODO track finite.
+    lnlike[~np.isfinite(lnlike)] = -np.inf
+
+    # NB emission prob. under (0.0, 0.5)
+    best_lnlike = lnlike[0,:,:].ravel()
+    
+    # NB emission prob. under best state (includes phase flip complement).
+    # best_lnlike = np.max(lnlike, axis=0).ravel()
+    
+    like_ratio = np.exp(best_lnlike - best_lnlike.max())
+    alpha = 0.2 + (like_ratio - like_ratio.min()) * 0.8 / (1.0 - like_ratio.min())
+    
     for c in range(num_clones):
         clone_mask = (clone_idx == c) & valid_mask
 
@@ -221,7 +271,7 @@ def plot_cna_mixture(
                 y[clone_mask],
                 s=1,
                 marker=".",
-                alpha=0.6,
+                alpha=alpha,
                 color=palette[c],
             )
 
@@ -234,10 +284,7 @@ def plot_cna_mixture(
     validx = np.isfinite(x)
     validy = np.isfinite(y)
 
-    # bins_x = np.histogram_bin_edges(x[validx], bins=bins)
-    # bins_y = np.histogram_bin_edges(y[validy], bins=bins)
-
-    bins_x = np.arange(-0.01, 0.6, 5.0e-3)
+    bins_x = np.arange(-0.01, 1.0, 5.0e-3)
     bins_y = np.arange(-0.1, 10.0, 0.1)
 
     centers_x = 0.5 * (bins_x[:-1] + bins_x[1:])

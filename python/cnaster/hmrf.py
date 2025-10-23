@@ -476,7 +476,8 @@ def clone_stack_obs(
     )
 
     logger.info(f"Stacked X from shape {X.shape} to {clone_stack_X.shape}.")
-
+    logger.info(f"Stacked total_bb_RD from shape {total_bb_RD.shape} to {clone_stack_total_bb_RD.shape}.")
+    
     return (
         clone_stack_X,
         clone_stack_base_nb_mean,
@@ -599,9 +600,12 @@ def hmrfmix_concatenate_pipeline(
             clone_stack_total_bb_RD,
         )
         """
+        """
         plot_cna_mixture(
             init_log_mu,
+            init_alphas,
             init_p_binom,
+            init_taus,
             X,
             base_nb_mean,
             total_bb_RD,
@@ -610,13 +614,16 @@ def hmrfmix_concatenate_pipeline(
         """
         plot_cna_mixture(
             init_log_mu,
+            init_alphas,
             init_p_binom,
+            init_taus,
             clone_stack_X,
             clone_stack_base_nb_mean,
             clone_stack_total_bb_RD,
             prefix=f"instance{hmrfmix_concatenate_pipeline.call_count-1}_clone",
 	)
-        """
+
+        exit(0)
         
     last_log_mu = init_log_mu if "m" in params else None
     last_p_binom = init_p_binom if "p" in params else None

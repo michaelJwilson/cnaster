@@ -76,7 +76,9 @@ class hmm_sitewise:
             Log emission probability for each gene each spot (or sample) under each state. There is a common bag of states across all spots.
         """
         n_obs, _, n_spots = X.shape
-        n_states = log_mu.shape[0]
+
+        # NB HACK? previously log_mu, which is not defined before normal spot detection.
+        n_states = p_binom.shape[0]
 
         # NB twice as with/out phase switch.
         log_emission_rdr = np.zeros((2 * n_states, n_obs, n_spots))

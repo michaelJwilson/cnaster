@@ -54,7 +54,7 @@ def cna_mixture_init(
     base_nb_mean,
     total_bb_RD,
     width=1,
-    max_iter=250,
+    max_iter=500,
     only_minor=False,
 ):
     logger.info(f"Initializing HMM emission with CNA Mixture++ for X.shape={X.shape}.")
@@ -65,19 +65,21 @@ def cna_mixture_init(
         base_nb_mean = top_hat_sum(base_nb_mean, width)[::width]
         total_bb_RD = top_hat_sum(total_bb_RD, width)[::width]
 
-    known_normal = np.any(base_nb_mean)
+    known_normal_frac = np.mean(base_nb_mean > 0.0)
     num_segments, _, num_spots = X.shape
-        
+
+    logger.info(f"Initializing HMM emission with CNA Mixture++ for X.shape={X.shape}, base_nb_mean.shape={base_nb_mean.shape} and known normal frac.={known_normal_frac}")
+    
     solution, solution_lnlike = None, -np.inf
 
-    if known_normal:
+    if known_normal_frac > 0.0:
         grid_alphas = np.logspace(-3, -1, num=5, base=10.0)
     else:
         # TODO HACK
         grid_alphas = np.array([1.e-2])
 
-    grid_taus = np.arange(1_000, 3_011, 1_000)
-
+    grid_taus = np.logspace(1, 3, 4)
+    
     num_to_solve = len(grid_alphas) * len(grid_taus) * max_iter
     num_solved = 0
     
@@ -111,52 +113,35 @@ def cna_mixture_init(
                     total_best_lnlike = best_lnlike.sum()
 
                     # NB >>1 where current emission states are not a good fit.
-                    ps = -best_lnlike.ravel()
+                    ps = -best_lnlike
+
+                    if known_normal_frac > 0.0:
+                        ps[base_nb_mean == 0.0] = 0.0
+                    
                     ps /= ps.sum()
+                    ps = ps.ravel()
 
-                    print(np.sort(ps))
+                    sample_ln_rdr, sample_baf = np.inf, np.inf
                     
-                    # NB renormalize given class imbalance.
-                    bins = np.array([np.percentile(ps, q) for q in np.arange(101)])
-                    bins[-1] += 1.e-6
-                    
-                    ip = np.digitize(ps, bins=bins)                    
-                    cp = np.array([len(ps[ip == idx]) for idx in range(len(bins))])
-                    
-                    for idx in range(len(bins)):
-                        ps[ip == idx] /= cp[idx]
+                    while (~np.isfinite(sample_ln_rdr) and known_normal_frac > 0.0) or ~np.isfinite(sample_baf):
+                        sample_idx = np.random.choice(
+                            np.arange(num_segments * num_spots), p=ps
+                        )
 
-                    ps /= ps.sum()
+                        sample_segment, sample_spot = (
+                            sample_idx // num_spots,
+                            sample_idx % num_spots,
+                        )
 
-                    print(np.sort(ps))
-
-                    exit(0)
-                        
-                    sample_idx = np.random.choice(
-                        np.arange(num_segments * num_spots), p=ps
-                    )
-
-                    sample_segment, sample_spot = (
-                        sample_idx // num_spots,
-                        sample_idx % num_spots,
-                    )
-
-                    # TODO base_nb_mean is (N,1)?
-                    sample_ln_rdr = np.log(
-                        X[sample_segment, 0, sample_spot]
-                        / base_nb_mean[sample_segment, 0]
-                    )
-                    sample_baf = (
-                        X[sample_segment, 1, sample_spot]
-                        / total_bb_RD[sample_segment, 0]
-                    )
-
-                    # TODO
-                    if known_normal and (
-                        ~np.isfinite(sample_ln_rdr) or ~np.isfinite(sample_baf)
-                    ):
-                        logger.warning(f"Invalid sample with non-finite RDR/BAF found.")
-                        continue
+                        # TODO base_nb_mean is (N,1)?
+                        sample_ln_rdr = np.log(
+                            X[sample_segment, 0, sample_spot]
+                            / base_nb_mean[sample_segment, 0]
+                        )
+                        sample_baf = (
+                            X[sample_segment, 1, sample_spot]
+                            / total_bb_RD[sample_segment, 0]
+                        )
 
                     log_mu = np.vstack([log_mu, [[sample_ln_rdr]]])
                     p_binom = np.vstack([p_binom, [[sample_baf]]])
@@ -177,7 +162,7 @@ def cna_mixture_init(
     if only_minor:
         p_binom = np.where(p_binom > 0.5, 1.0 - p_binom, p_binom)
     
-    if not known_normal:
+    if not (known_normal_frac > 0.0):
         log_mu, alphas = None, None
 
     logger.info(
@@ -248,19 +233,21 @@ def plot_cna_mixture(
         )
     )
 
-    lnlike = lnlike_baf # + lnlike_rdr
+    lnlike = lnlike_baf + lnlike_rdr
 
     # TODO track finite.
     lnlike[~np.isfinite(lnlike)] = -np.inf
 
     # NB emission prob. under (0.0, 0.5)
-    best_lnlike = lnlike[0,:,:].ravel()
+    # best_lnlike = lnlike[0,:,:].ravel()
     
     # NB emission prob. under best state (includes phase flip complement).
-    # best_lnlike = np.max(lnlike, axis=0).ravel()
+    best_lnlike = np.max(lnlike, axis=0).ravel()
     
     like_ratio = np.exp(best_lnlike - best_lnlike.max())
-    alpha = 0.2 + (like_ratio - like_ratio.min()) * 0.8 / (1.0 - like_ratio.min())
+    
+    # alpha = 0.2 + (like_ratio - like_ratio.min()) * 0.8 / (1.0 - like_ratio.min())
+    alpha = like_ratio
     
     for c in range(num_clones):
         clone_mask = (clone_idx == c) & valid_mask

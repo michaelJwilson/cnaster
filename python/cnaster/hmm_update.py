@@ -479,7 +479,7 @@ def update_emission_params_nb_nophasing_uniqvalues(
 
             exposure, y, weights, features, state_posweights = [], [], [], [], []
             config = get_global_config()
-            
+
             for s in range(n_spots):
                 idx_nonzero = np.where(unique_values[s][:, 1] > 0)[0]
 
@@ -533,24 +533,24 @@ def update_emission_params_nb_nophasing_uniqvalues(
             model = Weighted_NegativeBinomial(
                 y, features, weights=weights, exposure=exposure
             )
-            
+
             if config.nbinom.run_default:
                 res = model.fit(**settings)
-            
+
                 for s, idx_state_posweight in enumerate(state_posweights):
                     l1 = int(np.sum([len(x) for x in state_posweights[:s]]))
                     l2 = int(np.sum([len(x) for x in state_posweights[: (s + 1)]]))
-                    
+
                     # NB (n_states, n_spots)?  n_spots = n_clones? TBC
                     new_log_mu[idx_state_posweight, s] = res.params[l1:l2]
-                
+
                 if res.params[-1] > 0:
                     new_alphas[:, :] = res.params[-1]
 
                 default_nloglikeobs = model.nloglikeobs(res.params)
             else:
                 default_nloglikeobs = np.inf
-                
+
             if start_log_mu is not None:
                 res2 = model.fit(
                     **settings,
@@ -580,7 +580,7 @@ def update_emission_params_nb_nophasing_uniqvalues(
 
     new_log_mu[new_log_mu > max_log_rdr] = max_log_rdr
     new_log_mu[new_log_mu < min_log_rdr] = min_log_rdr
-    
+
     return new_log_mu, new_alphas
 
 
@@ -1427,7 +1427,7 @@ def update_emission_params_bb_nophasing_uniqvalues(
 
             exposure, y, weights, features, state_posweights = [], [], [], [], []
             config = get_global_config()
-            
+
             for s in np.arange(len(unique_values)):
                 idx_nonzero = np.where(unique_values[s][:, 1] > 0)[0]
 
@@ -1474,22 +1474,22 @@ def update_emission_params_bb_nophasing_uniqvalues(
             features = scipy.linalg.block_diag(*features)
 
             model = Weighted_BetaBinom(y, features, weights=weights, exposure=exposure)
-            
+
             if config.betabinom.run_default:
                 res = model.fit(**settings)
-                
+
                 for s, idx_state_posweight in enumerate(state_posweights):
                     l1 = int(np.sum([len(x) for x in state_posweights[:s]]))
                     l2 = int(np.sum([len(x) for x in state_posweights[: (s + 1)]]))
                     new_p_binom[idx_state_posweight, s] = res.params[l1:l2]
-                    
+
                 if res.params[-1] > 0:
                     new_taus[:, :] = res.params[-1]
 
                 default_nloglikeobs = model.nloglikeobs(res.params)
             else:
                 default_nloglikeobs = np.inf
-                    
+
             if start_p_binom is not None:
                 res2 = model.fit(
                     **settings,

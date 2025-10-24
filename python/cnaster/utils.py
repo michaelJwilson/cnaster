@@ -65,7 +65,7 @@ def write_fig(opath, fig=None, transparent=True, bbox_inches="tight"):
 def top_hat_sum(arr, width):
     # TODO HACK?
     arr = np.atleast_2d(arr)
-    
+
     n = arr.shape[0]
     out = np.empty(arr.shape, dtype=arr.dtype)
 

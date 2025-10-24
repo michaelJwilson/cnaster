@@ -13,6 +13,7 @@ from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
 from cnaster.integer_copy import get_ordered_acn
 from cnaster.utils import cast_clone_label
 from cnaster.hmrf_utils import cast_csr
+from cnaster.config import get_global_config
 
 logger = logging.getLogger(__name__)
 
@@ -210,8 +211,18 @@ def plot_clones_genomic(
     if sample_list is not None:
         axes[0].set_title(",".join(sample_list), loc="left")
 
-    logger.info(f"Found non-empty clones: {nonempty_clones} for final_clone_ids={final_clone_ids}")
-        
+    logger.info(
+        f"Found non-empty clones: {nonempty_clones} for final_clone_ids={final_clone_ids}"
+    )
+
+    config = get_global_config()
+    secondary_min_umi = config.quality.secondary_min_umi
+    valid = np.sum(total_bb_RD, axis=-1) > secondary_min_umi
+
+    logger.info(
+        f"Found valid fraction of {np.mean(valid):.3f} for secondary_min_umi filter."
+    )
+
     for s, c in enumerate(nonempty_clones):
         cid = final_clone_ids[c]
 
@@ -248,11 +259,27 @@ def plot_clones_genomic(
 
         # NB plot RDR.
         sns.scatterplot(
-            x=np.arange(X[:, 1, c].shape[0]),  # NB integer per segment.
-            y=X[:, 0, c] / base_nb_mean[:, c],  # NB UMIs relative to normal baseline.
-            hue=hue,
+            x=np.arange(X[valid, 1, c].shape[0]),  # NB integer per segment.
+            y=X[valid, 0, c]
+            / base_nb_mean[valid, c],  # NB UMIs relative to normal baseline.
+            hue=hue[valid],
             palette=palette,
             s=pointsize,
+            edgecolor="none",
+            linewidth=linewidth,
+            alpha=0.8,
+            legend=False,
+            ax=axes[2 * s],
+        )
+
+        sns.scatterplot(
+            x=np.arange(X[~valid, 1, c].shape[0]),  # NB integer per segment.
+            y=X[~valid, 0, c]
+            / base_nb_mean[~valid, c],  # NB UMIs relative to normal baseline.
+            hue=hue[~valid],
+            palette=palette,
+            s=pointsize,
+            marker="x",
             edgecolor="none",
             linewidth=linewidth,
             alpha=0.8,
@@ -378,7 +405,7 @@ def plot_clones_genomic(
         ax.text(
             -0.04,
             0.00,
-            f"{cast_clone_label(final_clone_ids[c])} ({spots_per_clone[c]} spots)",
+            f"{cast_clone_label(final_clone_ids[c])} - {spots_per_clone[c]} spots",
             ha="center",
             va="center",
             fontsize=12,

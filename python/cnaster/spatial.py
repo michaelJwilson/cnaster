@@ -122,7 +122,7 @@ def sufficient_umis_initial_clone(
     spot_gene_umis,
     sample_list,
     sample_ids,
-    min_clone_umis=5_000_000, # 5_000_000
+    min_clone_umis=5_000_000,  # 5_000_000
     acceptance=1.0,
     max_growth_rounds=50,
     random_state=0,
@@ -143,7 +143,7 @@ def sufficient_umis_initial_clone(
 
     # TODO HACK axis?
     spot_counts = np.sum(spot_gene_umis, axis=0)
-    
+
     for i, sname in enumerate(sample_list):
         index = np.where(sample_ids == i)[0]
         this_coords = np.array(coords[index, :])
@@ -165,7 +165,7 @@ def sufficient_umis_initial_clone(
             num_rounds = 0
 
             last_dist = np.inf
-            
+
             # NB grow group by adding nearest unassigned neighbors until MIN_CLONE_UMIS is reached
             while group_umis < min_clone_umis and len(group) < len(index):
                 # NB find unassigned neighbors (by Euclidean distance from seed.)
@@ -177,9 +177,9 @@ def sufficient_umis_initial_clone(
 
                 for dist, neighbor in zip(sorted_dists, sorted_neighbors):
                     # NB guard against disjoint groups.
-                    if dist > 5. * last_dist:
+                    if dist > 5.0 * last_dist:
                         break
-                    
+
                     if neighbor not in group:
                         group.add(neighbor)
                         group_umis += this_spot_counts[neighbor]
@@ -188,7 +188,7 @@ def sufficient_umis_initial_clone(
                         break
 
                     last_dist = dist
-                    
+
                 if num_rounds == max_growth_rounds:
                     logger.warning(
                         f"Max growth rounds reached for clone {clone_id} in sample {sname}."
@@ -222,9 +222,9 @@ def rectangle_initialize_initial_clone(coords, n_clones, random_state=0):
         f"Solving for non-contiguous clone initialization for {n_clones} clones."
     )
 
-    # NB partition x and y range into ~n_clones based on Dirichlet sampling.                                                                                                                                       
+    # NB partition x and y range into ~n_clones based on Dirichlet sampling.
     p = int(np.ceil(np.sqrt(n_clones)))
-    
+
     if n_clones > 1:
         # NB e.g. [0.22, 0.28, 0.25, 0.25], non-negative, sum to unity, Dirichlet sampled.
         px = np.random.dirichlet(np.ones(p) * 10)
@@ -236,14 +236,14 @@ def rectangle_initialize_initial_clone(coords, n_clones, random_state=0):
         # NB x positions to dice up input coords.
         xboundary = xrange[0] + (xrange[1] - xrange[0]) * np.cumsum(px)
         xboundary[-1] = np.max(coords[:, 0]) + 1
-        
+
         # NB x bin for each input (x,y) given x dicing.
         xdigit = np.digitize(coords[:, 0], xboundary, right=True)
 
         # NB same for y.
         py = np.random.dirichlet(np.ones(p) * 10)
         py[-1] += 1e-4
-    
+
         yrange = [np.percentile(coords[:, 1], 5), np.percentile(coords[:, 1], 95)]
 
         yboundary = yrange[0] + (yrange[1] - yrange[0]) * np.cumsum(py)
@@ -262,7 +262,7 @@ def rectangle_initialize_initial_clone(coords, n_clones, random_state=0):
         logger.info(f"Solved for clone initialization for {n_clones} clones.")
 
         return initial_clone_index, clone_id
-        
+
     # NB assigning initial blocks to n_clones (note that if sqrt(n_clone) is not an integer,
     #    multiple blocks can be assigned to a given clone).
     while True:

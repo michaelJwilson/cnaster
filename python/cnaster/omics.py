@@ -512,6 +512,10 @@ def greedy_binning_nobreak(block_lengths, block_umi, secondary_min_umi, max_binl
 
             # NB current block is too long, time to split.
             if np.sum(block_lengths[s:t]) >= max_binlength:
+                logger.warning(
+                    f"Block failed max_binlength filter with fraction={np.sum(block_umi[s:t]) / secondary_min_umi:.3f}"
+                )
+
                 t = max(t - 1, s + 1)
                 break
 
@@ -520,9 +524,13 @@ def greedy_binning_nobreak(block_lengths, block_umi, secondary_min_umi, max_binl
             s > 0
             and t == len(block_lengths)
             and np.sum(block_umi[s:t]) < secondary_min_umi
+            # TODO HACK
             # and np.sum(block_umi[s:t]) < 0.5 * secondary_min_umi
             # and np.sum(block_lengths[s:t]) < 0.5 * max_binlength
         ):
+            logger.warning(
+                f"Last block failed secondary_min_umi filter with fraction={np.sum(block_umi[s:t]) / secondary_min_umi:.3f}"
+            )
             bin_ranges[-1][1] = t
         else:
             bin_ranges.append([s, t])
@@ -581,6 +589,8 @@ def create_bin_ranges(
 
     # NB summed across spots.
     block_umi = np.sum(single_total_bb_RD, axis=1)
+
+    # assert len(block_umi) == n_blocks, f"{len(block_umi)} != {n_blocks}"
 
     logger.info(
         f"Creating bin ranges assuming a max length of {max_binlength} and min. block UMI of {secondary_min_umi}."

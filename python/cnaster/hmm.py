@@ -258,7 +258,7 @@ def pipeline_baum_welch(
     logger.info(
         f"Solved HMM with LLF={llf:.6e} for new_log_mu.shape={new_log_mu.shape} given X.shape={X.shape}"
     )
-    
+
     return {
         "new_log_mu": new_log_mu,
         "new_alphas": new_alphas,

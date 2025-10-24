@@ -117,7 +117,7 @@ def run_cnaster(config_path):
         smooth_mat,
         exp_counts,
     ) = load_tables_to_matrices()
-
+    
     # TODO HACK check against above.
     smooth_mat, adjacency_mat = choose_adjacency_by_readcounts(
         coords, single_total_bb_RD

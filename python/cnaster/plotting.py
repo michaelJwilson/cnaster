@@ -260,8 +260,8 @@ def plot_clones_genomic(
         # NB plot RDR.
         sns.scatterplot(
             x=np.arange(X[:, 1, c].shape[0])[valid],  # NB integer per segment.
-            y=X[valid, 0, c]
-            / base_nb_mean[valid, c],  # NB UMIs relative to normal baseline.
+            y=np.log2(X[valid, 0, c]
+            / base_nb_mean[valid, c]),  # NB UMIs relative to normal baseline.
             hue=hue[valid],
             palette=palette,
             s=pointsize,
@@ -274,8 +274,8 @@ def plot_clones_genomic(
 
         sns.scatterplot(
             x=np.arange(X[:, 1, c].shape[0])[~valid],  # NB integer per segment.
-            y=X[~valid, 0, c]
-            / base_nb_mean[~valid, c],  # NB UMIs relative to normal baseline.
+            y=np.log2(X[~valid, 0, c]
+            / base_nb_mean[~valid, c]),  # NB UMIs relative to normal baseline.
             hue=hue[~valid],
             palette=palette,
             s=pointsize,
@@ -287,7 +287,7 @@ def plot_clones_genomic(
             ax=axes[2 * s],
         )
 
-        axes[2 * s].set_ylabel(f"\nRDR")
+        axes[2 * s].set_ylabel(f"\nlog$_2$ RDR")
         axes[2 * s].set_yticks(np.arange(1, rdr_ylim, 1.0, dtype=float))
         axes[2 * s].set_ylim([0, rdr_ylim])
         axes[2 * s].set_yticklabels([f"{y:.1f}" for y in axes[2 * s].get_yticks()])

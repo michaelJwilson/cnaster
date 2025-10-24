@@ -2,6 +2,7 @@ import copy
 import seaborn as sns
 import numpy as np
 import matplotlib
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import pandas as pd
 
@@ -11,6 +12,7 @@ from matplotlib.lines import Line2D
 from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
 from cnaster.integer_copy import get_ordered_acn
 from cnaster.utils import cast_clone_label
+from cnaster.hmrf_utils import cast_csr
 
 logger = logging.getLogger(__name__)
 
@@ -164,6 +166,7 @@ def plot_clones_genomic(
         single_tumor_prop,
     )
     n_obs = X.shape[0]
+    spots_per_clone = [len(xx) for xx in clone_index]
     nonempty_clones = np.where(np.sum(total_bb_RD, axis=0) > 0)[0]
 
     # TODO?
@@ -207,6 +210,8 @@ def plot_clones_genomic(
     if sample_list is not None:
         axes[0].set_title(",".join(sample_list), loc="left")
 
+    logger.info(f"Found non-empty clones: {nonempty_clones} for final_clone_ids={final_clone_ids}")
+        
     for s, c in enumerate(nonempty_clones):
         cid = final_clone_ids[c]
 
@@ -373,7 +378,7 @@ def plot_clones_genomic(
         ax.text(
             -0.04,
             0.00,
-            cast_clone_label(final_clone_ids[c]),
+            f"{cast_clone_label(final_clone_ids[c])} ({spots_per_clone[c]} spots)",
             ha="center",
             va="center",
             fontsize=12,

@@ -222,37 +222,47 @@ def rectangle_initialize_initial_clone(coords, n_clones, random_state=0):
         f"Solving for non-contiguous clone initialization for {n_clones} clones."
     )
 
-    # NB partition x and y range into ~n_clones based on Dirichlet sampling.
+    # NB partition x and y range into ~n_clones based on Dirichlet sampling.                                                                                                                                       
     p = int(np.ceil(np.sqrt(n_clones)))
+    
+    if n_clones > 1:
+        # NB e.g. [0.22, 0.28, 0.25, 0.25], non-negative, sum to unity, Dirichlet sampled.
+        px = np.random.dirichlet(np.ones(p) * 10)
+        px[-1] += 1e-4
 
-    # NB e.g. [0.22, 0.28, 0.25, 0.25], non-negative, sum to unity, Dirichlet sampled.
-    px = np.random.dirichlet(np.ones(p) * 10)
-    px[-1] += 1e-4
+        # NB set xrange as from 5% to 95% percentile of input coords (all slices).
+        xrange = [np.percentile(coords[:, 0], 5), np.percentile(coords[:, 0], 95)]
 
-    # NB set xrange as from 5% to 95% percentile of input coords (all slices).
-    xrange = [np.percentile(coords[:, 0], 5), np.percentile(coords[:, 0], 95)]
+        # NB x positions to dice up input coords.
+        xboundary = xrange[0] + (xrange[1] - xrange[0]) * np.cumsum(px)
+        xboundary[-1] = np.max(coords[:, 0]) + 1
+        
+        # NB x bin for each input (x,y) given x dicing.
+        xdigit = np.digitize(coords[:, 0], xboundary, right=True)
 
-    # NB x positions to dice up input coords.
-    xboundary = xrange[0] + (xrange[1] - xrange[0]) * np.cumsum(px)
-    xboundary[-1] = np.max(coords[:, 0]) + 1
+        # NB same for y.
+        py = np.random.dirichlet(np.ones(p) * 10)
+        py[-1] += 1e-4
+    
+        yrange = [np.percentile(coords[:, 1], 5), np.percentile(coords[:, 1], 95)]
 
-    # NB x bin for each input (x,y) given x dicing.
-    xdigit = np.digitize(coords[:, 0], xboundary, right=True)
+        yboundary = yrange[0] + (yrange[1] - yrange[0]) * np.cumsum(py)
+        yboundary[-1] = np.max(coords[:, 1]) + 1
 
-    # NB same for y.
-    py = np.random.dirichlet(np.ones(p) * 10)
-    py[-1] += 1e-4
+        ydigit = np.digitize(coords[:, 1], yboundary, right=True)
 
-    yrange = [np.percentile(coords[:, 1], 5), np.percentile(coords[:, 1], 95)]
+        # NB partitioned the space into unequal sized blocks.
+        block_id = xdigit * p + ydigit
+    else:
+        block_id = np.zeros(len(coords), dtype=int)
+        clone_id = np.zeros(len(coords), dtype=int)
 
-    yboundary = yrange[0] + (yrange[1] - yrange[0]) * np.cumsum(py)
-    yboundary[-1] = np.max(coords[:, 1]) + 1
+        initial_clone_index = [np.where(clone_id == i)[0] for i in range(n_clones)]
 
-    ydigit = np.digitize(coords[:, 1], yboundary, right=True)
+        logger.info(f"Solved for clone initialization for {n_clones} clones.")
 
-    # NB partitioned the space into unequal sized blocks.
-    block_id = xdigit * p + ydigit
-
+        return initial_clone_index, clone_id
+        
     # NB assigning initial blocks to n_clones (note that if sqrt(n_clone) is not an integer,
     #    multiple blocks can be assigned to a given clone).
     while True:
@@ -273,6 +283,8 @@ def rectangle_initialize_initial_clone(coords, n_clones, random_state=0):
 
         # NB create a map of block id to clone id.
         block_clone_map = {i: block_clone_map[i] for i in range(len(block_clone_map))}
+
+        # NB maps spots to clones via blocks.
         clone_id = np.array([block_clone_map[i] for i in block_id])
 
         # NB list of lists: block ids per clone.

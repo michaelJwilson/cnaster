@@ -519,8 +519,9 @@ def greedy_binning_nobreak(block_lengths, block_umi, secondary_min_umi, max_binl
         if (
             s > 0
             and t == len(block_lengths)
-            and np.sum(block_umi[s:t]) < 0.5 * secondary_min_umi
-            and np.sum(block_lengths[s:t]) < 0.5 * max_binlength
+            and np.sum(block_umi[s:t]) < secondary_min_umi
+            # and np.sum(block_umi[s:t]) < 0.5 * secondary_min_umi
+            # and np.sum(block_lengths[s:t]) < 0.5 * max_binlength
         ):
             bin_ranges[-1][1] = t
         else:

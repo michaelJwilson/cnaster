@@ -53,29 +53,34 @@ def cna_mixture_init(
     X,
     base_nb_mean,
     total_bb_RD,
-    max_iter=5,
-    width=None,
+    anneal=True,
+    width=1,
+    max_iter=500,
+    only_minor=False,
 ):
-    logger.info(f"Initializing HMM emission with CNA Mixture++.")
+    logger.info(f"Initializing HMM emission with CNA Mixture++ for X.shape={X.shape}.")
 
-    known_normal = np.any(base_nb_mean)
+    # TODO X is a clone stack along axis 0.
+    if width is not None:
+        X = top_hat_sum(X, width)[::width]
+        base_nb_mean = top_hat_sum(base_nb_mean, width)[::width]
+        total_bb_RD = top_hat_sum(total_bb_RD, width)[::width]
+
+    known_normal_frac = np.mean(base_nb_mean > 0.0)
     num_segments, _, num_spots = X.shape
 
-    if width is not None:
-        X = top_hat_sum(X, width)
-        base_nb_mean = top_hat_sum(base_nb_mean, width)
-        total_bb_RD = top_hat_sum(total_bb_RD, width)
-
+    logger.info(f"Initializing HMM emission with CNA Mixture++ for X.shape={X.shape}, base_nb_mean.shape={base_nb_mean.shape} and known normal frac.={known_normal_frac}")
+    
     solution, solution_lnlike = None, -np.inf
 
-    if known_normal:
-        grid_alphas = np.logspace(-3, -1, num=5, base=10.0)
+    if known_normal_frac > 0.0:
+        grid_alphas = np.logspace(-3, -1, num=3, base=10.0)
     else:
         # TODO HACK
         grid_alphas = np.array([1.e-2])
 
-    grid_taus = np.arange(10, 5_011, 500)
-
+    grid_taus = np.logspace(1, 3, 3)
+    
     num_to_solve = len(grid_alphas) * len(grid_taus) * max_iter
     num_solved = 0
     
@@ -91,7 +96,7 @@ def cna_mixture_init(
                 ).reshape((1, 1))
 
                 while len(log_mu) < n_states:
-                    # NB (n_states, n_obs, n_spots)
+                    # NB (n_states, n_obs, n_spots) where n_states includes phase flip complement.
                     lnlike_rdr, lnlike_baf = (
                         hmm_sitewise.compute_emission_probability_nb_betabinom(
                             X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus
@@ -104,39 +109,44 @@ def cna_mixture_init(
                     # TODO track finite.
                     lnlike[~np.isfinite(lnlike)] = -np.inf
 
+                    # NB emission prob. under best state (includes phase flip complement).
                     best_lnlike = np.max(lnlike, axis=0)
-
                     total_best_lnlike = best_lnlike.sum()
 
-                    ps = -best_lnlike.ravel()
-                    ps /= ps.sum()
+                    # NB >>1 where current emission states are not a good fit.
+                    ps = -best_lnlike
 
-                    try:
+                    if known_normal_frac > 0.0:
+                        ps[base_nb_mean == 0.0] = 0.0
+
+                    if anneal:
+                        thres = np.percentile(ps, 100. * 1. - (len(log_mu) / (n_states - 1)))
+                        ps[ps < thres] = 0.
+                    
+                    ps /= ps.sum()
+                    ps = ps.ravel()
+
+                    sample_ln_rdr, sample_baf = np.inf, np.inf
+                    
+                    while (~np.isfinite(sample_ln_rdr) and known_normal_frac > 0.0) or ~np.isfinite(sample_baf):
                         sample_idx = np.random.choice(
                             np.arange(num_segments * num_spots), p=ps
                         )
-                    except:
-                        continue
 
-                    sample_segment, sample_spot = (
-                        sample_idx // num_spots,
-                        sample_idx % num_spots,
-                    )
+                        sample_segment, sample_spot = (
+                            sample_idx // num_spots,
+                            sample_idx % num_spots,
+                        )
 
-                    sample_ln_rdr = np.log(
-                        X[sample_segment, 0, sample_spot]
-                        / base_nb_mean[sample_segment, 0]
-                    )
-                    sample_baf = (
-                        X[sample_segment, 1, sample_spot]
-                        / total_bb_RD[sample_segment, 0]
-                    )
-
-                    # TODO
-                    if known_normal and (
-                        ~np.isfinite(sample_ln_rdr) or ~np.isfinite(sample_baf)
-                    ):
-                        continue
+                        # TODO base_nb_mean is (N,1)?
+                        sample_ln_rdr = np.log(
+                            X[sample_segment, 0, sample_spot]
+                            / base_nb_mean[sample_segment, 0]
+                        )
+                        sample_baf = (
+                            X[sample_segment, 1, sample_spot]
+                            / total_bb_RD[sample_segment, 0]
+                        )
 
                     log_mu = np.vstack([log_mu, [[sample_ln_rdr]]])
                     p_binom = np.vstack([p_binom, [[sample_baf]]])
@@ -150,12 +160,14 @@ def cna_mixture_init(
                         )
 
                 logger.debug(alpha, tau, ii, total_best_lnlike, p_binom.tolist())
-
                 num_solved += 1
 
     log_mu, alphas, p_binom, taus = solution
 
-    if not known_normal:
+    if only_minor:
+        p_binom = np.where(p_binom > 0.5, 1.0 - p_binom, p_binom)
+    
+    if not (known_normal_frac > 0.0):
         log_mu, alphas = None, None
 
     logger.info(
@@ -167,7 +179,7 @@ def cna_mixture_init(
 
 # TODO define width
 def plot_cna_mixture(
-    init_log_mu, init_p_binom, X, base_nb_mean, total_bb_RD, width=1, prefix="initial"
+    init_log_mu, init_alphas, init_p_binom, init_taus, X, base_nb_mean, total_bb_RD, width=1, prefix="initial",
 ):
     logger.info(f"Plotting initial copy state mixture for X.shape={X.shape}.")
 
@@ -199,6 +211,14 @@ def plot_cna_mixture(
     else:
         init_mu = np.ones_like(init_p_binom)
 
+    if init_alphas is None:
+        config = get_global_config()
+        init_alphas = config.nbinom.start_disp * np.ones_like(init_log_mu)
+
+    if init_taus is None:
+        config = get_global_config()
+        init_taus = config.betabinom.start_disp * np.ones_like(init_p_binom)
+        
     num_clones, num_segments = X.shape[2], X.shape[0]
 
     # NB S,n = 3,4 ... [0 1 2 0 1 2 0 1 2 0 1 2], i.e. column major.
@@ -212,6 +232,28 @@ def plot_cna_mixture(
     g = sns.JointGrid(x=x, y=y, height=8, ratio=3, space=0.15)
     valid_mask = np.isfinite(x) & np.isfinite(y)
 
+    lnlike_rdr, lnlike_baf = (
+        hmm_sitewise.compute_emission_probability_nb_betabinom(
+            X, base_nb_mean, init_log_mu, init_alphas, total_bb_RD, init_p_binom, init_taus
+        )
+    )
+
+    lnlike = lnlike_baf + lnlike_rdr
+
+    # TODO track finite.
+    lnlike[~np.isfinite(lnlike)] = -np.inf
+
+    # NB emission prob. under (0.0, 0.5)
+    # best_lnlike = lnlike[0,:,:].ravel()
+    
+    # NB emission prob. under best state (includes phase flip complement).
+    best_lnlike = np.max(lnlike, axis=0).ravel()
+    
+    like_ratio = np.exp(best_lnlike - best_lnlike.max())
+    
+    # alpha = 0.2 + (like_ratio - like_ratio.min()) * 0.8 / (1.0 - like_ratio.min())
+    alpha = like_ratio
+    
     for c in range(num_clones):
         clone_mask = (clone_idx == c) & valid_mask
 
@@ -221,7 +263,7 @@ def plot_cna_mixture(
                 y[clone_mask],
                 s=1,
                 marker=".",
-                alpha=0.6,
+                alpha=alpha,
                 color=palette[c],
             )
 
@@ -229,15 +271,16 @@ def plot_cna_mixture(
         init_p_binom, init_mu, marker="*", facecolor="none", edgecolor="k", s=25
     )
 
+    xticks = np.arange(0.0, 1.05, 0.05)
+    g.ax_joint.set_xticks(xticks)
+    g.ax_joint.set_xticklabels([f"{x:.2f}" if ((1+ii) % 2) else "" for ii, x in enumerate(xticks)])
+
     bins = 50
 
     validx = np.isfinite(x)
     validy = np.isfinite(y)
 
-    # bins_x = np.histogram_bin_edges(x[validx], bins=bins)
-    # bins_y = np.histogram_bin_edges(y[validy], bins=bins)
-
-    bins_x = np.arange(-0.01, 0.6, 5.0e-3)
+    bins_x = np.arange(-0.01, 1.0, 5.0e-3)
     bins_y = np.arange(-0.1, 10.0, 0.1)
 
     centers_x = 0.5 * (bins_x[:-1] + bins_x[1:])
@@ -282,7 +325,7 @@ def plot_cna_mixture(
             mpatches.Patch(
                 facecolor="none",
                 edgecolor=palette[c],
-                label=cast_clone_label(f"clone {c}"),
+                label=cast_clone_label(f"clone {c}") if num_clones>1 else "",
             )
         )
 

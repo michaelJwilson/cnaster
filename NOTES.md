@@ -13,6 +13,8 @@ RECOMB/ISMB
 
 KEY
 - +522 omics.py enforce secondary_min_umi for last block.
+- Deprecate Neyman-Pearson.
+- normal tumor prop. from LOH - sequencing error? 
 - filter on X umi count for choosing initial states.
 - +579 hmrf.py feed clone_stack vs not to GMM.
 - ln mu -> mu convergence check.

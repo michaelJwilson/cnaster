@@ -351,8 +351,6 @@ def plot_clones_genomic(
             for i in hue.unique()
         ]
 
-        legend_elements = [f"{spots_per_clone[c]} spots:  "] + legend_elements
-
         axes[2 * s].legend(
             handles=legend_elements,
             loc="upper right",
@@ -380,7 +378,7 @@ def plot_clones_genomic(
         ax.text(
             -0.04,
             0.00,
-            cast_clone_label(final_clone_ids[c]),
+            f"{cast_clone_label(final_clone_ids[c])} ({spots_per_clone[c]} spots)",
             ha="center",
             va="center",
             fontsize=12,

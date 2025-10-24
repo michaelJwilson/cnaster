@@ -582,6 +582,7 @@ def hmrfmix_concatenate_pipeline(
     )
 
     if (init_log_mu is None) or (init_p_binom is None):
+        """
         init_log_mu, init_p_binom = gmm_init(
             n_states,
             clone_stack_X,
@@ -593,25 +594,15 @@ def hmrfmix_concatenate_pipeline(
             only_minor=False,  # TODO BUG?
         )
         """
+
         init_log_mu, init_alphas, init_p_binom, init_taus = cna_mixture_init(
             n_states,
             clone_stack_X,
             clone_stack_base_nb_mean,
             clone_stack_total_bb_RD,
+            width=10,
         )
-        """
-        """
-        plot_cna_mixture(
-            init_log_mu,
-            init_alphas,
-            init_p_binom,
-            init_taus,
-            X,
-            base_nb_mean,
-            total_bb_RD,
-            prefix=f"instance{hmrfmix_concatenate_pipeline.call_count-1}",
-        )
-        """
+
         plot_cna_mixture(
             init_log_mu,
             init_alphas,
@@ -620,6 +611,7 @@ def hmrfmix_concatenate_pipeline(
             clone_stack_X,
             clone_stack_base_nb_mean,
             clone_stack_total_bb_RD,
+            width=10,
             prefix=f"instance{hmrfmix_concatenate_pipeline.call_count-1}_clone",
 	)
         

@@ -53,7 +53,7 @@ def cna_mixture_init(
     X,
     base_nb_mean,
     total_bb_RD,
-        anneal=True,
+    anneal=True,
     width=1,
     max_iter=500,
     only_minor=False,
@@ -179,7 +179,7 @@ def cna_mixture_init(
 
 # TODO define width
 def plot_cna_mixture(
-        init_log_mu, init_alphas, init_p_binom, init_taus, X, base_nb_mean, total_bb_RD, width=1, prefix="initial",
+    init_log_mu, init_alphas, init_p_binom, init_taus, X, base_nb_mean, total_bb_RD, width=1, prefix="initial",
 ):
     logger.info(f"Plotting initial copy state mixture for X.shape={X.shape}.")
 
@@ -325,7 +325,7 @@ def plot_cna_mixture(
             mpatches.Patch(
                 facecolor="none",
                 edgecolor=palette[c],
-                label=cast_clone_label(f"clone {c}"),
+                label=cast_clone_label(f"clone {c}") if num_clones>1 else "",
             )
         )
 

@@ -217,7 +217,7 @@ def plot_clones_genomic(
 
     config = get_global_config()
     secondary_min_umi = config.quality.secondary_min_umi
-    valid = np.sum(total_bb_RD, axis=-1) > secondary_min_umi
+    valid = np.sum(total_bb_RD, axis=-1) >= secondary_min_umi
 
     logger.info(
         f"Found valid fraction of {np.mean(valid):.3f} for secondary_min_umi filter."
@@ -259,7 +259,7 @@ def plot_clones_genomic(
 
         # NB plot RDR.
         sns.scatterplot(
-            x=np.arange(X[valid, 1, c].shape[0]),  # NB integer per segment.
+            x=np.arange(X[:, 1, c].shape[0])[valid],  # NB integer per segment.
             y=X[valid, 0, c]
             / base_nb_mean[valid, c],  # NB UMIs relative to normal baseline.
             hue=hue[valid],
@@ -273,7 +273,7 @@ def plot_clones_genomic(
         )
 
         sns.scatterplot(
-            x=np.arange(X[~valid, 1, c].shape[0]),  # NB integer per segment.
+            x=np.arange(X[:, 1, c].shape[0])[~valid],  # NB integer per segment.
             y=X[~valid, 0, c]
             / base_nb_mean[~valid, c],  # NB UMIs relative to normal baseline.
             hue=hue[~valid],

@@ -37,7 +37,7 @@ from cnaster.spatial import (
     sufficient_umis_initial_clone,
     compute_weighted_adjacency,
     choose_adjacency_by_readcounts,
-    renormalize_adjacency_mat
+    renormalize_adjacency_mat,
 )
 from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
 from cnaster.neyman_pearson import (
@@ -99,7 +99,7 @@ def run_cnaster(config_path):
     config = YAMLConfig.from_file(config_path)
 
     set_global_config(config)
-    
+
     (
         lengths,
         single_X,
@@ -117,7 +117,7 @@ def run_cnaster(config_path):
         smooth_mat,
         exp_counts,
     ) = load_tables_to_matrices()
-    
+
     # TODO HACK check against above.
     smooth_mat, adjacency_mat = choose_adjacency_by_readcounts(
         coords, single_total_bb_RD
@@ -128,7 +128,7 @@ def run_cnaster(config_path):
     logger.info(f"Found adjacency matrix:\n{adjacency_mat}")
 
     adjacency_mat = renormalize_adjacency_mat(adjacency_mat)
-    
+
     """
     # NB start run_parse_n_load::parse_visium::load_joint_data
     #    adata: (barcode x gene) transcripts ('count') + 'tumor_annotation' + 'X_pos' + slice ('sample').
@@ -357,11 +357,19 @@ def run_cnaster(config_path):
     """
 
     # NB labels
-    clone_id = pd.read_csv(config.annotation.clone_label, sep="\t", index_col=0)["labels"].str.replace("clone_","").str.replace("normal","-1").astype(int).to_numpy()
+    clone_id = (
+        pd.read_csv(config.annotation.clone_label, sep="\t", index_col=0)["labels"]
+        .str.replace("clone_", "")
+        .str.replace("normal", "-1")
+        .astype(int)
+        .to_numpy()
+    )
     clone_id += 1
-    
-    initial_clone_index_baf = [np.where(clone_id == xx)[0] for xx in np.unique(clone_id)]
-        
+
+    initial_clone_index_baf = [
+        np.where(clone_id == xx)[0] for xx in np.unique(clone_id)
+    ]
+
     # NB construct clone labels.
     df_clone_label = pd.DataFrame(
         {"x": coords[:, 0], "y": coords[:, 1]}, index=barcodes
@@ -387,7 +395,7 @@ def run_cnaster(config_path):
     logger.info(f"Writing initial clone labels to {opath},\n{df_clone_label.head()}")
 
     write_tsv(opath, df_clone_label, header=True, index=True, index_label="barcode")
-    
+
     # TODO HACK
     assignment = pd.Series([f"clone {x}" for x in clone_id])
 
@@ -420,13 +428,13 @@ def run_cnaster(config_path):
     """
     # fig_path = f"{config.paths.output_dir}/plots/baf_detection.pdf"
     # write_fig(fig_path, baf_detection_fig, transparent=True, bbox_inches="tight")
-    
+
     logger.info(
         "Solving HMM & HMRF for copy states and clone assignment with BAF only."
     )
 
-    # NB baf-only run: zero transcript counts for all segments/spots.                                                                                                                                                                                                      
-    # TODO can drop zero of single_X?  would be useful ...                                                                                                                                                                                                                 
+    # NB baf-only run: zero transcript counts for all segments/spots.
+    # TODO can drop zero of single_X?  would be useful ...
     single_X[:, 0, :] = 0
     single_base_nb_mean[:, :] = 0
 
@@ -460,7 +468,7 @@ def run_cnaster(config_path):
         spatial_weight=config.hmrf.spatial_weight,
         tumorprop_threshold=config.hmrf.tumorprop_threshold,
     )
-    
+
     # NB number of bins/segments/blocks
     n_obs = single_X.shape[0]
 
@@ -513,7 +521,7 @@ def run_cnaster(config_path):
 
     # TODO HACK
     merged_res = res.copy()
-    
+
     _, merged_res = merge_by_minspots(
         merged_res["new_assignment"],
         merged_res,
@@ -524,7 +532,7 @@ def run_cnaster(config_path):
         threshold=config.hmrf.tumorprop_threshold,
     )
 
-    # TODO HACK                                                                                                                                                                                       
+    # TODO HACK
     assignment = pd.Series([f"clone {x}" for x in merged_res["new_assignment"]])
     merged_bafonly_clones_fig = plot_clones_spatial(
         coords,
@@ -537,8 +545,10 @@ def run_cnaster(config_path):
     )
 
     fig_path = f"{config.paths.output_dir}/plots/merged_bafonly_clones_spatial.pdf"
-    write_fig(fig_path, merged_bafonly_clones_fig, transparent=True, bbox_inches="tight")
-    
+    write_fig(
+        fig_path, merged_bafonly_clones_fig, transparent=True, bbox_inches="tight"
+    )
+
     # NB construct clone labels.
     df_clone_label = pd.DataFrame(
         {"x": coords[:, 0], "y": coords[:, 1]}, index=barcodes
@@ -565,7 +575,7 @@ def run_cnaster(config_path):
     )
 
     write_tsv(opath, df_clone_label, header=True, index=True, index_label="barcode")
-    
+
     # TODO
     n_obs = single_X.shape[0]
 
@@ -831,6 +841,8 @@ def run_cnaster(config_path):
 
         # NB baf clone was not split.
         if len(np.unique(res["new_assignment"])) == 1:
+            logger.info(f"Clone {bafc} was not split by RDR.")
+
             # NB clone id.
             c, n_merged_clones = res["new_assignment"][0], 1
 
@@ -852,6 +864,8 @@ def run_cnaster(config_path):
             pred_cnv = res["pred_cnv"][(c * n_obs) : (c * n_obs + n_obs)].reshape(
                 (-1, 1)
             )
+
+            n_merged_clones = 1
         else:
             clone_index = [
                 np.where(res["new_assignment"] == c)[0]
@@ -888,7 +902,7 @@ def run_cnaster(config_path):
 
             # TODO HACK
             merged_res = res.copy()
-            
+
             # TODO check merge_by_minspots logging.
             merging_groups, merged_res = merge_by_minspots(
                 merged_res["new_assignment"],
@@ -905,7 +919,7 @@ def run_cnaster(config_path):
             )
 
             # NB num. of rdr-split clones within baf clone after merging.
-            n_merged_clones = len(merging_groups) 
+            n_merged_clones = len(merging_groups)
             tmp = copy.copy(merged_res["new_assignment"])
 
             # NB compute posterior using the newly merged pseudobulk
@@ -989,55 +1003,53 @@ def run_cnaster(config_path):
                 ]
             ).T
 
-            # TODO safe merge.
-            if len(res_combine) == 1:
-                res_combine.update(
-                    {
-                        "new_log_mu": np.hstack(
-                            n_merged_clones * [merged_res["new_log_mu"]]
-                        ),
-                        "new_alphas": np.hstack(
-                            n_merged_clones * [merged_res["new_alphas"]]
-                        ),
-                        "new_p_binom": np.hstack(
-                            n_merged_clones * [merged_res["new_p_binom"]]
-                        ),
-                        "new_taus": np.hstack(
-                            n_merged_clones * [merged_res["new_taus"]]
-                        ),
-                        "log_gamma": log_gamma,
-                        "pred_cnv": pred_cnv,
-                    }
-                )
-            else:
-                res_combine.update(
-                    {
-                        "new_log_mu": np.hstack(
-                            [res_combine["new_log_mu"]]
-                            + n_merged_clones * [merged_res["new_log_mu"]]
-                        ),
-                        "new_alphas": np.hstack(
-                            [res_combine["new_alphas"]]
-                            + n_merged_clones * [merged_res["new_alphas"]]
-                        ),
-                        "new_p_binom": np.hstack(
-                            [res_combine["new_p_binom"]]
-                            + n_merged_clones * [merged_res["new_p_binom"]]
-                        ),
-                        "new_taus": np.hstack(
-                            [res_combine["new_taus"]]
-                            + n_merged_clones * [merged_res["new_taus"]]
-                        ),
-                        "log_gamma": np.dstack([res_combine["log_gamma"], log_gamma]),
-                        "pred_cnv": np.hstack([res_combine["pred_cnv"], pred_cnv]),
-                    }
-                )
-
-            res_combine["prev_assignment"][idx_spots] = (
-                merged_res["new_assignment"] + offset_clone
+        # TODO safe merge.
+        if len(res_combine) == 1:
+            res_combine.update(
+                {
+                    "new_log_mu": np.hstack(
+                        n_merged_clones * [merged_res["new_log_mu"]]
+                    ),
+                    "new_alphas": np.hstack(
+                        n_merged_clones * [merged_res["new_alphas"]]
+                    ),
+                    "new_p_binom": np.hstack(
+                        n_merged_clones * [merged_res["new_p_binom"]]
+                    ),
+                    "new_taus": np.hstack(n_merged_clones * [merged_res["new_taus"]]),
+                    "log_gamma": log_gamma,
+                    "pred_cnv": pred_cnv,
+                }
+            )
+        else:
+            res_combine.update(
+                {
+                    "new_log_mu": np.hstack(
+                        [res_combine["new_log_mu"]]
+                        + n_merged_clones * [merged_res["new_log_mu"]]
+                    ),
+                    "new_alphas": np.hstack(
+                        [res_combine["new_alphas"]]
+                        + n_merged_clones * [merged_res["new_alphas"]]
+                    ),
+                    "new_p_binom": np.hstack(
+                        [res_combine["new_p_binom"]]
+                        + n_merged_clones * [merged_res["new_p_binom"]]
+                    ),
+                    "new_taus": np.hstack(
+                        [res_combine["new_taus"]]
+                        + n_merged_clones * [merged_res["new_taus"]]
+                    ),
+                    "log_gamma": np.dstack([res_combine["log_gamma"], log_gamma]),
+                    "pred_cnv": np.hstack([res_combine["pred_cnv"], pred_cnv]),
+                }
             )
 
-            offset_clone += n_merged_clones
+        res_combine["prev_assignment"][idx_spots] = (
+            merged_res["new_assignment"] + offset_clone
+        )
+
+        offset_clone += n_merged_clones
 
     # HACK broadcast max. dispersion across all clones.
     res_combine["new_alphas"][:, :] = np.max(res_combine["new_alphas"])
@@ -1452,7 +1464,7 @@ def run_cnaster(config_path):
     logger.info(f"Writing inferred clone labels to {opath},\n{df_clone_label.head()}")
 
     write_tsv(opath, df_clone_label, header=True, index=True, index_label="barcode")
-    
+
     rdr_baf_fig = plot_clones_genomic(
         df_seglevel_cnv,
         lengths,

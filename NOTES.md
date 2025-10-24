@@ -13,6 +13,7 @@ RECOMB/ISMB
 
 KEY
 - Deprecate Neyman-Pearson.
+- normal tumor prop. from LOH - sequencing error? 
 
 - filter on X umi count for choosing initial states.
 - +579 hmrf.py feed clone_stack vs not to GMM.

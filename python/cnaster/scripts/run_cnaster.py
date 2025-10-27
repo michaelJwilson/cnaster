@@ -386,7 +386,7 @@ def run_cnaster(config_path):
     df_clone_label["clone_label"] = clone_id
 
     # TODO HACK
-    # df_clone_label["UMIs"] = spot_umi_counts   
+    # df_clone_label["UMIs"] = spot_umi_counts
 
     # NB cannot sort before barcode-ordered assignments etc!
     df_clone_label = df_clone_label.groupby("sample_id", group_keys=False).apply(
@@ -506,7 +506,7 @@ def run_cnaster(config_path):
     else:
         # TODO HACK
         merged_res = res.copy()
-        
+
     _, merged_res = merge_by_minspots(
         merged_res["new_assignment"],
         merged_res,
@@ -560,7 +560,7 @@ def run_cnaster(config_path):
     )
 
     write_tsv(opath, df_clone_label, header=True, index=True, index_label="barcode")
-    
+
     # TODO
     n_obs = single_X.shape[0]
 
@@ -806,6 +806,12 @@ def run_cnaster(config_path):
             tol=config.hmm.tol,
             spatial_weight=config.hmrf.spatial_weight,
             tumorprop_threshold=config.hmrf.tumorprop_threshold,
+            init_p_binom=merged_res[
+                "new_p_binom"
+            ],  # HACK? BAF states known from BAF-only run.
+            init_log_mu=np.zeros_like(
+                merged_res["new_p_binom"]
+            ),  # HACK? BAF states known from BAF-only run.
         )
 
         clone_res[prefix] = merge_dicts(clone_res[prefix], new_clone_res)
@@ -967,7 +973,7 @@ def run_cnaster(config_path):
                     else None
                 ),
                 hmmclass=hmm_nophasing,
-                merge_threshold=config.hmm.np_merge_threshold, # MAGIC 0.1
+                merge_threshold=config.hmm.np_merge_threshold,  # MAGIC 0.1
             )
 
             log_gamma = np.stack(
@@ -1203,7 +1209,7 @@ def run_cnaster(config_path):
     medfix = [""] + [f"_{pp}" for pp in config.int_copy_num.ploidy.split(",")]
 
     int_ploidy_map = {"": None, "diploid": 2, "triploid": 3, "tetraploid": 4}
-    int_ploidy = [int_ploidy_map[key] for key in medfix]
+    int_ploidy = [int_ploidy_map[key.replace("_", "")] for key in medfix]
 
     for o, max_medploidy in enumerate(int_ploidy):
         logger.info(
@@ -1515,22 +1521,28 @@ def run_cnaster(config_path):
     fig_path = f"{config.paths.output_dir}/plots/clones_spatial.pdf"
     write_fig(fig_path, clones_fig, transparent=True, bbox_inches="tight")
 
-    clone_index = [                                                                                                                                                                                                                                                            
-        np.where(res_combine["new_assignment"] == c)[0]                                                                                                                                                                                                                         
-        for c, _ in enumerate(final_clone_ids)                                                                                                                                                                                                                                  
-    ]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
-    # NB create pseudobulk for each clone.                                                                                                                                                                                                                                     
-    X, base_nb_mean, total_bb_RD, _ = merge_pseudobulk_by_index_mix(                                                                                                                                                                                                            
-        single_X,                                                                                                                                                                                                                                                               
-        single_base_nb_mean,                                                                                                                                                                                                                                                    
-        single_total_bb_RD,                                                                                                                                                                                                                                                     
-        clone_index,                                                                                                                                                                                                                                                            
-        single_tumor_prop,                                                                                                                                                                                                                                                      
-    )                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
-    plot_cna_mixture(                                                                                                                                                                                                                                                           
-        res_combine["new_log_mu"], res_combine["new_p_binom"], X, base_nb_mean, total_bb_RD, prefix="final"                                                                                                                                                                     
-    )                                                                                                                                                                                                                                                                           
-    
+    clone_index = [
+        np.where(res_combine["new_assignment"] == c)[0]
+        for c, _ in enumerate(final_clone_ids)
+    ]
+    # NB create pseudobulk for each clone.
+    X, base_nb_mean, total_bb_RD, _ = merge_pseudobulk_by_index_mix(
+        single_X,
+        single_base_nb_mean,
+        single_total_bb_RD,
+        clone_index,
+        single_tumor_prop,
+    )
+    plot_cna_mixture(
+        res_combine["new_log_mu"],
+        res_combine["new_alphas"],
+        res_combine["new_p_binom"],
+        res_combine["new_taus"],
+        X,
+        base_nb_mean,
+        total_bb_RD,
+        prefix="final",
+    )
     logger.info(f"Done in {(time.time() - start_time)/60.:.2f} minutes.")
 
 

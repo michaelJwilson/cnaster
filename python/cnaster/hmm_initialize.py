@@ -195,8 +195,6 @@ def plot_cna_mixture(
     width=1,
     prefix="initial",
 ):
-    logger.info(f"Plotting initial copy state mixture for X.shape={X.shape}.")
-
     # NB base_nb_mean is zero until post-BAF normal identication; in which case,
     #    these will be NAN.
     X_gmm_rdr = np.vstack(
@@ -448,7 +446,7 @@ def gmm_init(
                 last_idx_notna = i
 
     logger.info(
-        f"Patched {num_patched/X_gmm.shape[1]:.4f} values with NaNs in input data."
+        f"Patched {num_patched/X_gmm.shape[1]:.4f} values with NaNs in input RDR/BAF data."
     )
 
     valid = np.sum(np.isnan(X_gmm), axis=1) == 0
@@ -503,6 +501,6 @@ def gmm_init(
             f"GMM initialized p binom > 0.5, {gmm_p_binom[gmm_p_binom > 0.5]}"
         )
 
-    logger.info(f"Solved for GMM initialized parameters:\n{gmm_log_mu}\n{gmm_p_binom}")
+    logger.debug(f"Solved for GMM initialized parameters:\n{gmm_log_mu}\n{gmm_p_binom}")
 
     return gmm_log_mu, gmm_p_binom

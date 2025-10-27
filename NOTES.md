@@ -12,6 +12,7 @@ RECOMB/ISMB
 
 
 KEY
+- propagate BAF values from baf only run to RDR refinement.
 - transcript definition based on visium gene selection vs gencode coding regions!
 - +522 omics.py enforce secondary_min_umi for last block.
 - Deprecate Neyman-Pearson.

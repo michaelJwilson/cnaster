@@ -584,7 +584,7 @@ def hmrfmix_concatenate_pipeline(
     )
 
     if (init_log_mu is None) or (init_p_binom is None):
-        init_log_mu, init_p_binom = gmm_init(
+        new_init_log_mu, new_init_p_binom = gmm_init(
             n_states,
             clone_stack_X,
             clone_stack_base_nb_mean,
@@ -595,8 +595,11 @@ def hmrfmix_concatenate_pipeline(
             only_minor=False,  # TODO BUG?
         )
 
+        new_init_alphas = init_alphas
+        new_init_taus = init_taus
+        
         """
-        init_log_mu, init_alphas, init_p_binom, init_taus = cna_mixture_init(
+        new_init_log_mu, new_init_alphas, new_init_p_binom, new_init_taus = cna_mixture_init(
             n_states,
             clone_stack_X,
             clone_stack_base_nb_mean,
@@ -604,6 +607,17 @@ def hmrfmix_concatenate_pipeline(
             width=10,
         )
         """
+        if init_log_mu is None:
+            init_log_mu = new_init_log_mu
+            init_alphas = new_init_alphas
+
+        if init_p_binom is None:
+            init_p_binom = new_init_p_binom
+            init_taus = new_init_taus
+
+        logger.info(f"Solved for HMM initialized parameters:\n{init_log_mu}\n{init_p_binom}")
+        logger.info(f"Plotting initial copy state mixture for instance {hmrfmix_concatenate_pipeline.call_count-1} with X.shape={X.shape}.")
+        
         plot_cna_mixture(
             init_log_mu,
             init_alphas,

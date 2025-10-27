@@ -8,6 +8,7 @@ import pandas as pd
 
 import logging
 import matplotlib.gridspec as gridspec
+import cnaster.log_linear
 from matplotlib.lines import Line2D
 from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
 from cnaster.integer_copy import get_ordered_acn
@@ -260,8 +261,8 @@ def plot_clones_genomic(
         # NB plot RDR.
         sns.scatterplot(
             x=np.arange(X[:, 1, c].shape[0])[valid],  # NB integer per segment.
-            y=np.log2(X[valid, 0, c]
-            / base_nb_mean[valid, c]),  # NB UMIs relative to normal baseline.
+            y=X[valid, 0, c]
+            / base_nb_mean[valid, c],  # NB UMIs relative to normal baseline.
             hue=hue[valid],
             palette=palette,
             s=pointsize,
@@ -271,11 +272,11 @@ def plot_clones_genomic(
             legend=False,
             ax=axes[2 * s],
         )
-
+        
         sns.scatterplot(
             x=np.arange(X[:, 1, c].shape[0])[~valid],  # NB integer per segment.
-            y=np.log2(X[~valid, 0, c]
-            / base_nb_mean[~valid, c]),  # NB UMIs relative to normal baseline.
+            y=X[~valid, 0, c]
+            / base_nb_mean[~valid, c],  # NB UMIs relative to normal baseline.
             hue=hue[~valid],
             palette=palette,
             s=pointsize,
@@ -287,6 +288,7 @@ def plot_clones_genomic(
             ax=axes[2 * s],
         )
 
+        axes[2 * s].set_yscale("linlog", threshold=1.0, base=2.0)
         axes[2 * s].set_ylabel(f"\nlog$_2$ RDR")
         axes[2 * s].set_yticks(np.arange(1, rdr_ylim, 1.0, dtype=float))
         axes[2 * s].set_ylim([0, rdr_ylim])

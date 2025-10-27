@@ -319,7 +319,10 @@ def plot_clones_genomic(
 
         axes[2 * s].set_yscale("linlog", threshold=1.0, base=2.0)
         axes[2 * s].set_ylabel(f"\nRDR")
-        axes[2 * s].set_yticks(np.logspace(0., np.log2(rdr_ylim), np.ceil(np.log2(rdr_ylim)), dtype=float))
+
+        k = int(np.floor(np.log2(rdr_ylim)))
+        axes[2 * s].set_yticks(np.logspace(0, k, num=k + 1, base=2.0))
+
         axes[2 * s].set_ylim([0, rdr_ylim])
         axes[2 * s].set_yticklabels([f"{y:.1f}" for y in axes[2 * s].get_yticks()])
         axes[2 * s].set_xlim([0, n_obs])

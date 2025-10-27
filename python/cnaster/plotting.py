@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
 import pandas as pd
 
 import logging
@@ -258,6 +259,23 @@ def plot_clones_genomic(
                 f"Found unique copy number states: {np.unique(res_combine["pred_cnv"][:, c])} and unique categories {hue.unique()}"
             )
 
+        rd = base_nb_mean[valid, c].astype(float)
+        rd = np.nan_to_num(rd, nan=0.0, posinf=0.0, neginf=0.0)
+
+        if rd.max() > 0:
+            alpha = rd / rd.max()
+        else:
+            alpha = np.zeros_like(rd)
+
+        # map hue categories to base RGB colors, then inject per-point alpha
+        codes = hue.codes
+        base_colors = np.array(
+            [mcolors.to_rgba(palette[i]) if i >= 0 else (0, 0, 0, 1.0) for i in codes],
+            dtype=float,
+        )
+        base_colors[:, 3] = alpha
+
+        """
         # NB plot RDR.
         sns.scatterplot(
             x=np.arange(X[:, 1, c].shape[0])[valid],  # NB integer per segment.
@@ -271,6 +289,17 @@ def plot_clones_genomic(
             alpha=0.8,
             legend=False,
             ax=axes[2 * s],
+        )
+        """
+
+        axes[2 * s + 1].scatter(
+            x=np.arange(X[:, 1, c].shape[0])[valid],  # NB integer per segment.
+            y=X[valid, 0, c]
+            / base_nb_mean[valid, c],  # NB UMIs relative to normal baseline.
+            c=base_colors[valid],
+            s=pointsize,
+            edgecolor="none",
+            linewidth=linewidth,
         )
         
         sns.scatterplot(

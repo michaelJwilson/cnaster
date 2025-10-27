@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 from matplotlib import transforms as mtransforms, scale as mscale, ticker as mticker
 import matplotlib.ticker as mticker
 
+
 class LinearThenLogTransform(mtransforms.Transform):
     input_dims = output_dims = 1
     is_separable = True
@@ -48,8 +49,10 @@ class InvertedLinearThenLogTransform(mtransforms.Transform):
     def inverted(self):
         return LinearThenLogTransform(self.threshold, self.base)
 
+
 class LinearThenLogMinorLocator(mticker.Locator):
     """Minor locator: auto below threshold, log-like above threshold."""
+
     def __init__(self, threshold=1.0, base=10.0):
         self.threshold = threshold
         self.base = base
@@ -70,13 +73,15 @@ class LinearThenLogMinorLocator(mticker.Locator):
         log_min = np.log(t_min / self.threshold) / np.log(self.base)
         log_max = np.log(t_max / self.threshold) / np.log(self.base)
         decades = np.arange(np.floor(log_min), np.ceil(log_max) + 1)
-        ticks = self.threshold * (self.base ** decades)
+        ticks = self.threshold * (self.base**decades)
         # filter to view range
         ticks = ticks[(ticks >= vmin) & (ticks <= vmax)]
         return ticks
 
+
 class LinearThenLogFormatter(mticker.Formatter):
     """Format ticks: linear below threshold, base^n above threshold."""
+
     def __init__(self, threshold=1.0, base=10.0):
         self.threshold = threshold
         self.base = base
@@ -117,8 +122,8 @@ class LinearThenLogScale(mscale.ScaleBase):
         axis.set_minor_locator(LinearThenLogMinorLocator(self.threshold, self.base))
         axis.set_major_formatter(LinearThenLogFormatter(self.threshold, self.base))
 
-
     def limit_range_for_scale(self, vmin, vmax, minpos):
         return vmin, vmax
+
 
 mscale.register_scale(LinearThenLogScale)

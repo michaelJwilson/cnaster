@@ -117,7 +117,7 @@ def run_cnaster(config_path):
         smooth_mat,
         exp_counts,
     ) = load_tables_to_matrices()
-    
+
     # TODO HACK check against above.
     smooth_mat, adjacency_mat = choose_adjacency_by_readcounts(
         coords, single_total_bb_RD
@@ -127,6 +127,7 @@ def run_cnaster(config_path):
 
     logger.info(f"Found adjacency matrix:\n{adjacency_mat}")
 
+    # NB renormalize cumulative edge weight to median in each case.
     adjacency_mat = renormalize_adjacency_mat(adjacency_mat)
 
     """
@@ -356,7 +357,7 @@ def run_cnaster(config_path):
     )
     """
 
-    # NB labels
+    # NB known annotation.
     clone_id = (
         pd.read_csv(config.annotation.clone_label, sep="\t", index_col=0)["labels"]
         .str.replace("clone_", "")
@@ -382,8 +383,10 @@ def run_cnaster(config_path):
     if config.preprocessing.tumorprop_file is not None:
         df_clone_label["tumor_proportion"] = single_tumor_prop
 
-    # df_clone_label["UMIs"] = spot_umi_counts
     df_clone_label["clone_label"] = clone_id
+
+    # TODO HACK
+    # df_clone_label["UMIs"] = spot_umi_counts   
 
     # NB cannot sort before barcode-ordered assignments etc!
     df_clone_label = df_clone_label.groupby("sample_id", group_keys=False).apply(
@@ -411,23 +414,6 @@ def run_cnaster(config_path):
 
     fig_path = f"{config.paths.output_dir}/plots/initial_clones_spatial.pdf"
     write_fig(fig_path, initial_clones_fig, transparent=True, bbox_inches="tight")
-    """
-    # NB baf detection figure.
-    baf_detection_fig = plot_baf_detection(
-        coords,
-        single_X,
-        single_total_bb_RD,
-        adjacency_mat,
-        smooth_mat,
-        sample_list=sample_list,
-        sample_ids=sample_ids,
-        base_width=4,
-        base_height=3,
-        palette="rocket",
-    )
-    """
-    # fig_path = f"{config.paths.output_dir}/plots/baf_detection.pdf"
-    # write_fig(fig_path, baf_detection_fig, transparent=True, bbox_inches="tight")
 
     logger.info(
         "Solving HMM & HMRF for copy states and clone assignment with BAF only."
@@ -504,24 +490,23 @@ def run_cnaster(config_path):
     fig_path = f"{config.paths.output_dir}/plots/bafonly_clones_spatial.pdf"
     write_fig(fig_path, bafonly_clones_fig, transparent=True, bbox_inches="tight")
 
-    """
-    # NB merge similar clones based on Neyman-Pearson
-    _, merged_res = neyman_pearson_similarity(
-        X,
-        base_nb_mean,
-        total_bb_RD,
-        res,
-        threshold=config.hmm.np_threshold,
-        minlength=config.hmm.np_eventminlen,
-        params="sp",
-        tumor_prop=tumor_prop,
-        hmmclass=hmm_nophasing,
-    )
-    """
-
-    # TODO HACK
-    merged_res = res.copy()
-
+    if config.hmrf.np_merge:
+        # NB merge similar clones based on Neyman-Pearson
+        _, merged_res = neyman_pearson_similarity(
+            X,
+            base_nb_mean,
+            total_bb_RD,
+            res,
+            threshold=config.hmm.np_threshold,
+            minlength=config.hmm.np_eventminlen,
+            params="sp",
+            tumor_prop=tumor_prop,
+            hmmclass=hmm_nophasing,
+        )
+    else:
+        # TODO HACK
+        merged_res = res.copy()
+        
     _, merged_res = merge_by_minspots(
         merged_res["new_assignment"],
         merged_res,
@@ -576,6 +561,8 @@ def run_cnaster(config_path):
 
     write_tsv(opath, df_clone_label, header=True, index=True, index_label="barcode")
 
+    exit(0)
+    
     # TODO
     n_obs = single_X.shape[0]
 

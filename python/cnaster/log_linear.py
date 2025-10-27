@@ -75,6 +75,31 @@ class LinearThenLogMinorLocator(mticker.Locator):
         ticks = ticks[(ticks >= vmin) & (ticks <= vmax)]
         return ticks
 
+class LinearThenLogFormatter(mticker.Formatter):
+    """Format ticks: linear below threshold, base^n above threshold."""
+    def __init__(self, threshold=1.0, base=10.0):
+        self.threshold = threshold
+        self.base = base
+
+    def __call__(self, x, pos=None):
+        if x <= self.threshold:
+            return f"{x:.2g}"
+        else:
+            # log region: compute exponent n such that x ≈ threshold * base^n
+            # solve: x = threshold * base^n  =>  n = log_base(x / threshold)
+            n = np.log(x / self.threshold) / np.log(self.base)
+            # if n is close to integer, show as base^n; else decimal
+            if np.isclose(n, round(n), atol=0.05):
+                n_int = int(round(n))
+                if self.base == 10:
+                    return f"$10^{{{n_int}}}$"
+                elif self.base == 2:
+                    return f"$2^{{{n_int}}}$"
+                else:
+                    return f"${self.base:.0f}^{{{n_int}}}$"
+            else:
+                return f"{x:.2g}"
+
 
 class LinearThenLogScale(mscale.ScaleBase):
     name = "linlog"
@@ -90,7 +115,8 @@ class LinearThenLogScale(mscale.ScaleBase):
     def set_default_locators_and_formatters(self, axis):
         axis.set_major_locator(mticker.AutoLocator())
         axis.set_minor_locator(LinearThenLogMinorLocator(self.threshold, self.base))
-        axis.set_major_formatter(mticker.ScalarFormatter())
+        axis.set_major_formatter(LinearThenLogFormatter(self.threshold, self.base))
+
 
     def limit_range_for_scale(self, vmin, vmax, minpos):
         return vmin, vmax

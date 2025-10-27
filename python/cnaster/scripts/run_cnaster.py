@@ -560,8 +560,6 @@ def run_cnaster(config_path):
     )
 
     write_tsv(opath, df_clone_label, header=True, index=True, index_label="barcode")
-
-    exit(0)
     
     # TODO
     n_obs = single_X.shape[0]
@@ -871,24 +869,22 @@ def run_cnaster(config_path):
             if tumor_prop is not None:
                 tumor_prop = np.repeat(tumor_prop, X.shape[0]).reshape(-1, 1)
 
-            """
-            # NB merge rdr split clones (within baf clone) based on Neyman-Pearson similarity;
-            #    does not account for similarity across baf-clones.
-            _, merged_res = neyman_pearson_similarity(
-                X,
-                base_nb_mean,
-                total_bb_RD,
-                res,
-                threshold=config.hmm.np_threshold,
-                minlength=config.hmm.np_eventminlen,
-                params="smp",
-                tumor_prop=tumor_prop,
-                hmmclass=hmm_nophasing,
-            )
-            """
-
-            # TODO HACK
-            merged_res = res.copy()
+            if config.hmrf.np_merge:
+                # NB merge rdr split clones (within baf clone) based on Neyman-Pearson similarity;
+                #    does not account for similarity across baf-clones.
+                _, merged_res = neyman_pearson_similarity(
+                    X,
+                    base_nb_mean,
+                    total_bb_RD,
+                    res,
+                    threshold=config.hmm.np_threshold,
+                    minlength=config.hmm.np_eventminlen,
+                    params="smp",
+                    tumor_prop=tumor_prop,
+                    hmmclass=hmm_nophasing,
+                )
+            else:
+                merged_res = res.copy()
 
             # TODO check merge_by_minspots logging.
             merging_groups, merged_res = merge_by_minspots(
@@ -959,8 +955,6 @@ def run_cnaster(config_path):
             )
 
             merged_res["new_assignment"] = copy.copy(tmp)
-
-            # TODO
             merged_res = combine_similar_states_across_clones(
                 X,
                 base_nb_mean,
@@ -973,7 +967,7 @@ def run_cnaster(config_path):
                     else None
                 ),
                 hmmclass=hmm_nophasing,
-                merge_threshold=0.1,
+                merge_threshold=config.hmm.np_merge_threshold, # MAGIC 0.1
             )
 
             log_gamma = np.stack(
@@ -1073,6 +1067,7 @@ def run_cnaster(config_path):
                 ]
             ).T
 
+            # TODO!!
             new_assignment, single_llf, total_llf, posterior = aggr_hmrf_reassignment(
                 single_X,
                 single_base_nb_mean,
@@ -1205,12 +1200,10 @@ def run_cnaster(config_path):
         raise RuntimeError(f"{output_dir} does not exist!")
 
     # NB assumed ploidy for integer copy number problem
-    # medfix = ["", "_diploid", "_triploid", "_tetraploid"]
     medfix = [""] + [f"_{pp}" for pp in config.int_copy_num.ploidy.split(",")]
 
-    # TODO HACK
-    # int_ploidy = [None, 2, 3, 4]
-    int_ploidy = [None, 2]
+    int_ploidy_map = {"": None, "diploid": 2, "triploid": 3, "tetraploid": 4}
+    int_ploidy = [int_ploidy_map[key] for key in medfix]
 
     for o, max_medploidy in enumerate(int_ploidy):
         logger.info(
@@ -1291,6 +1284,7 @@ def run_cnaster(config_path):
                 f"Solved for (max. med ploidy, clone) = ({max_medploidy}, {s}) with integer copy number loss = {loss:.4e}"
             )
 
+            # NB best integer copies for each clone and each ploidy.
             allele_specific_copy.append(
                 pd.DataFrame(
                     best_integer_copies[res_combine["pred_cnv"][:, s], 0].reshape(
@@ -1373,18 +1367,12 @@ def run_cnaster(config_path):
                 )
 
         if len(state_cnv) == 0:
+            logger.warning(f"Found empty state integer copy numbers for clone{s}!")
             continue
 
         logger.info(
             f"Solved for integer copy numbers @ genes:\n{df_genelevel_cnv.head()}"
         )
-
-        """
-        # HACK
-        df_genelevel_cnv = df_genelevel_cnv.rename(
-            columns={col: col.replace(" ", "_") for col in df_genelevel_cnv.columns}
-        )
-        """
 
         opath = f"{config.paths.output_dir}/cnv{medfix[o]}_genelevel.tsv"
 
@@ -1401,9 +1389,6 @@ def run_cnaster(config_path):
             }
         )
         df_seglevel_cnv = df_seglevel_cnv.join(allele_specific_copy.T)
-
-        # HACK
-        # df_seglevel_cnv = df_seglevel_cnv.rename(columns={col: col.replace(" ", "_") for col in df_seglevel_cnv.columns})
 
         logger.info(
             f"Solved for integer copy numbers @ segments:\n{df_seglevel_cnv.head()}"
@@ -1424,7 +1409,6 @@ def run_cnaster(config_path):
         )
 
         opath = f"{config.paths.output_dir}/cnv{medfix[o]}_perstate.tsv"
-
         write_tsv(opath, state_cnv, header=True, index=False)
 
     # NB construct clone labels.
@@ -1531,6 +1515,22 @@ def run_cnaster(config_path):
     fig_path = f"{config.paths.output_dir}/plots/clones_spatial.pdf"
     write_fig(fig_path, clones_fig, transparent=True, bbox_inches="tight")
 
+    clone_index = [                                                                                                                                                                                                                                                            
+        np.where(res_combine["new_assignment"] == c)[0]                                                                                                                                                                                                                         
+        for c, _ in enumerate(final_clone_ids)                                                                                                                                                                                                                                  
+    ]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
+    # NB create pseudobulk for each clone.                                                                                                                                                                                                                                     
+    X, base_nb_mean, total_bb_RD, _ = merge_pseudobulk_by_index_mix(                                                                                                                                                                                                            
+        single_X,                                                                                                                                                                                                                                                               
+        single_base_nb_mean,                                                                                                                                                                                                                                                    
+        single_total_bb_RD,                                                                                                                                                                                                                                                     
+        clone_index,                                                                                                                                                                                                                                                            
+        single_tumor_prop,                                                                                                                                                                                                                                                      
+    )                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
+    plot_cna_mixture(                                                                                                                                                                                                                                                           
+        res_combine["new_log_mu"], res_combine["new_p_binom"], X, base_nb_mean, total_bb_RD, prefix="final"                                                                                                                                                                     
+    )                                                                                                                                                                                                                                                                           
+    
     logger.info(f"Done in {(time.time() - start_time)/60.:.2f} minutes.")
 
 

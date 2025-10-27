@@ -475,10 +475,11 @@ def combine_similar_states_across_clones(
         X, base_nb_mean, total_bb_RD, res, params, tumor_prop, hmmclass
     )
 
-    # NB make the pair of states consistent between clone c1 and clone c2 if their t_neymanpearson test statistics is small
+    # NB make the (distinct) pair of states consistent between clone c1 and clone c2 if their t_neymanpearson test statistics is small
     for c1 in range(n_clones):
         for c2 in range(c1 + 1, n_clones):
             list_t_neymanpearson = all_test_statistics[(c1, c2)]
+            
             for p1, p2, t_neymanpearson in list_t_neymanpearson:
                 if t_neymanpearson < merge_threshold:
                     c_keep = (

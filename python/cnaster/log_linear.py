@@ -18,10 +18,8 @@ class LinearThenLogTransform(mtransforms.Transform):
         out = np.empty_like(a, dtype=float)
         mask = a <= self.threshold
         out[mask] = a[mask]
-        # map values > threshold to threshold + log_base(y/threshold)
-        out[~mask] = self.threshold + np.log(a[~mask] / self.threshold) / np.log(
-            self.base
-        )
+        out[~mask] = 1. + np.log2(a[~mask])
+        
         return out
 
     def inverted(self):
@@ -42,8 +40,7 @@ class InvertedLinearThenLogTransform(mtransforms.Transform):
         out = np.empty_like(a, dtype=float)
         mask = a <= self.threshold
         out[mask] = a[mask]
-        # inverse: y = threshold * base^(v - threshold)
-        out[~mask] = self.threshold * (self.base ** (a[~mask] - self.threshold))
+        out[~mask] = 2 ** (a[~mask] - 1.)
         return out
 
     def inverted(self):
@@ -67,13 +64,13 @@ class LinearThenLogMinorLocator(mticker.Locator):
         transform = self.axis.get_transform()
         inv = transform.inverted()
         # get log-spaced minors in transformed space
-        t_min = max(self.threshold, vmin)
+        t_min = self.threshold
         t_max = vmax
-        # simple approach: log minors from threshold to vmax
-        log_min = np.log(t_min / self.threshold) / np.log(self.base)
-        log_max = np.log(t_max / self.threshold) / np.log(self.base)
+
+        log_min = 1. + np.log2(t_min)
+        log_max = 1. + np.log2(t_max)
         decades = np.arange(np.floor(log_min), np.ceil(log_max) + 1)
-        ticks = self.threshold * (self.base**decades)
+        ticks = 2**(decades - 1.)
         # filter to view range
         ticks = ticks[(ticks >= vmin) & (ticks <= vmax)]
         return ticks
@@ -91,7 +88,9 @@ class LinearThenLogFormatter(mticker.Formatter):
             return f"{x:.2g}"
         else:
             assert base == 2.0
-            n_int = np.floor(np.log2(x))            
+
+            # NB assumes passed log_base{...} -> x
+            n_int = np.floor(np.log2(x))
             return f"{2**n_int}"
 
 
@@ -108,9 +107,12 @@ class LinearThenLogScale(mscale.ScaleBase):
 
     def set_default_locators_and_formatters(self, axis):
         axis.set_major_locator(mticker.AutoLocator())
-        axis.set_minor_locator(LinearThenLogMinorLocator(self.threshold, self.base))
-        axis.set_major_formatter(LinearThenLogFormatter(self.threshold, self.base))
+        axis.set_minor_locator(mticker.AutoMinorLocator())
+        axis.set_major_formatter(mticker.ScalarFormatter())
 
+        # axis.set_minor_locator(LinearThenLogMinorLocator(self.threshold, self.base))
+        # axis.set_major_formatter(LinearThenLogFormatter(self.threshold, self.base))
+        
     def limit_range_for_scale(self, vmin, vmax, minpos):
         return vmin, vmax
 

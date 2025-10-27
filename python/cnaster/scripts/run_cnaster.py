@@ -702,14 +702,12 @@ def run_cnaster(config_path):
 
     # NB >>>>>  determine normal baseline expression.
     MIN_NORMAL_COUNT_PERBIN = 20  # MAGIC
-    bidx_inconfident = np.where(
-        np.sum(copy_single_X_rdr[:, (normal_candidate == True)], axis=1)
-        < MIN_NORMAL_COUNT_PERBIN
-    )[0]
 
     # NB normal baseline transcript count; unnormalized.
     rdr_normal = np.sum(copy_single_X_rdr[:, (normal_candidate == True)], axis=1)
 
+    bidx_inconfident = np.where(rdr_normal < MIN_NORMAL_COUNT_PERBIN)[0]
+    
     # NB where normal transcript count < MIN_NORMAL_COUNT_PERBIN, zero.
     rdr_normal[bidx_inconfident] = 0
 
@@ -720,7 +718,7 @@ def run_cnaster(config_path):
     #    should have no expression if normal does not - true for copy number models.
     copy_single_X_rdr[bidx_inconfident, :] = 0
 
-    # NB normalize copy_single_X_rdr by expected normal.
+    # NB replicate and normalize rdr_normal to the per-spot total transcripts, T_n.
     copy_single_base_nb_mean = rdr_normal.reshape(-1, 1) @ np.sum(
         copy_single_X_rdr, axis=0
     ).reshape(1, -1)
@@ -782,7 +780,7 @@ def run_cnaster(config_path):
             None,  # NB prefix
             single_X[:, :, idx_spots],
             lengths,
-            single_base_nb_mean[:, idx_spots],
+            single_base_nb_mean[:, idx_spots], # NB per-spot replications normalized to T_n.
             single_total_bb_RD[:, idx_spots],
             single_tumor_prop[idx_spots] if single_tumor_prop is not None else None,
             initial_clone_index,  # NB
@@ -1453,7 +1451,6 @@ def run_cnaster(config_path):
         sample_list=sample_list,
         clone_ids=None,
         remove_xticks=True,
-        rdr_ylim=5,
         # chrtext_shift=-0.3,
         base_height=3.2,
         # pointsize=15,
@@ -1478,7 +1475,6 @@ def run_cnaster(config_path):
 	clone_ids=None,
         clone_index=initial_clone_index_baf,
         remove_xticks=True,
-	rdr_ylim=5,
 	base_height=3.2,
         palette_name="chisel",
     )

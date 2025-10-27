@@ -90,20 +90,9 @@ class LinearThenLogFormatter(mticker.Formatter):
         if x <= self.threshold:
             return f"{x:.2g}"
         else:
-            # log region: compute exponent n such that x ≈ threshold * base^n
-            # solve: x = threshold * base^n  =>  n = log_base(x / threshold)
-            n = np.log(x / self.threshold) / np.log(self.base)
-            # if n is close to integer, show as base^n; else decimal
-            if np.isclose(n, round(n), atol=0.02):
-                n_int = int(round(n))
-                if self.base == 10:
-                    return f"{10**n_int}"
-                elif self.base == 2:
-                    return f"{2**n_int}"
-                else:
-                    raise NotImplementedError()
-            else:
-                return f"{2**n_int}"
+            assert base == 2.0
+            n_int = np.floor(np.log2(x))            
+            return f"{2**n_int}"
 
 
 class LinearThenLogScale(mscale.ScaleBase):

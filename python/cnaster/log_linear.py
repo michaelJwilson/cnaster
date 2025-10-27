@@ -18,8 +18,8 @@ class LinearThenLogTransform(mtransforms.Transform):
         out = np.empty_like(a, dtype=float)
         mask = a <= self.threshold
         out[mask] = a[mask]
-        out[~mask] = 1. + np.log2(a[~mask])
-        
+        out[~mask] = 1.0 + np.log2(a[~mask])
+
         return out
 
     def inverted(self):
@@ -40,7 +40,7 @@ class InvertedLinearThenLogTransform(mtransforms.Transform):
         out = np.empty_like(a, dtype=float)
         mask = a <= self.threshold
         out[mask] = a[mask]
-        out[~mask] = 2 ** (a[~mask] - 1.)
+        out[~mask] = 2 ** (a[~mask] - 1.0)
         return out
 
     def inverted(self):
@@ -67,10 +67,14 @@ class LinearThenLogMinorLocator(mticker.Locator):
         t_min = self.threshold
         t_max = vmax
 
-        log_min = 1. + np.log2(t_min)
-        log_max = 1. + np.log2(t_max)
-        decades = np.arange(np.floor(log_min), np.ceil(log_max) + 1)
-        ticks = 2**(decades - 1.)
+        log_min = 1.0 + np.log2(t_min)
+        log_max = 1.0 + np.log2(t_max)
+        
+        # decades = np.arange(np.floor(log_min), np.ceil(log_max) + 1)
+        # ticks = 2 ** (decades - 1.0)
+
+        ticks = np.arange(1.0, 2** np.ceil(log_max), 1.)
+        
         # filter to view range
         ticks = ticks[(ticks >= vmin) & (ticks <= vmax)]
         return ticks
@@ -107,12 +111,12 @@ class LinearThenLogScale(mscale.ScaleBase):
 
     def set_default_locators_and_formatters(self, axis):
         axis.set_major_locator(mticker.AutoLocator())
-        axis.set_minor_locator(mticker.AutoMinorLocator())
+        # axis.set_minor_locator(mticker.AutoMinorLocator())
         axis.set_major_formatter(mticker.ScalarFormatter())
 
-        # axis.set_minor_locator(LinearThenLogMinorLocator(self.threshold, self.base))
+        axis.set_minor_locator(LinearThenLogMinorLocator(self.threshold, self.base))
         # axis.set_major_formatter(LinearThenLogFormatter(self.threshold, self.base))
-        
+
     def limit_range_for_scale(self, vmin, vmax, minpos):
         return vmin, vmax
 

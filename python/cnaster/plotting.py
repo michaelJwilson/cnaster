@@ -222,8 +222,8 @@ def plot_clones_genomic(
 
     # TODO HACK
     valid = np.sum(total_bb_RD, axis=-1) >= secondary_min_umi
-    valid = np.sum(total_bb_RD, axis=-1) >= 0 
-    
+    valid = np.sum(total_bb_RD, axis=-1) >= 0
+
     logger.info(
         f"Found valid fraction of {np.mean(valid):.3f} for secondary_min_umi filter."
     )
@@ -266,10 +266,9 @@ def plot_clones_genomic(
         rd = np.nan_to_num(rd, nan=0.0, posinf=0.0, neginf=0.0)
 
         if rd.max() > 0:
-            norm = np.percentile(base_nb_mean, 80.)
-            
-            alpha = (rd / norm)
-            alpha = np.clip(alpha, 0.2, 1.0)
+            alpha = rd / np.median(base_nb_mean[np.isfinite(base_nb_mean)])
+            alpha = np.clip(alpha, None, 1.0)
+            alpha[alpha < 0.2] = 0.3
         else:
             alpha = np.zeros_like(rd)
 
@@ -290,7 +289,7 @@ def plot_clones_genomic(
             edgecolor="none",
             linewidth=linewidth,
         )
-        
+
         axes[2 * s].set_yscale("linlog", threshold=1.0, base=2.0)
         axes[2 * s].set_ylabel(f"\nRDR")
 
@@ -330,6 +329,33 @@ def plot_clones_genomic(
             alpha=0.8,
             legend=False,
             ax=axes[2 * s + 1],
+        )
+
+        sd = total_bb_RD[:, c]
+        sd = np.nan_to_num(sd, nan=0.0, posinf=0.0, neginf=0.0)
+
+        if sd.max() > 0:
+            alpha = sd / np.median(total_bb_RD[np.isfinite(total_bb_RD)])
+            alpha = np.clip(alpha, None, 1.0)
+            alpha[alpha < 0.2] = 0.3
+        else:
+            alpha = np.zeros_like(sd)
+
+        # map hue categories to base RGB colors, then inject per-point alpha
+        codes = hue.codes
+        base_colors = np.array(
+            [mcolors.to_rgba(palette[i]) if i >= 0 else (0, 0, 0, 1.0) for i in codes],
+            dtype=float,
+        )
+        base_colors[:, 3] = alpha
+
+        axes[2 * s + 1].scatter(
+            x=np.arange(X[:, 1, c].shape[0]),  # NB integer per segment.
+            y=X[:, 1, c] / total_bb_RD[:, c],  # NB BAF.
+            c=base_colors,
+            s=pointsize,
+            edgecolor="none",
+            linewidth=linewidth,
         )
 
         axes[2 * s + 1].set_ylabel(f"\nBAF")

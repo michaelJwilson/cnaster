@@ -94,16 +94,16 @@ class LinearThenLogFormatter(mticker.Formatter):
             # solve: x = threshold * base^n  =>  n = log_base(x / threshold)
             n = np.log(x / self.threshold) / np.log(self.base)
             # if n is close to integer, show as base^n; else decimal
-            if np.isclose(n, round(n), atol=0.05):
+            if np.isclose(n, round(n), atol=0.02):
                 n_int = int(round(n))
                 if self.base == 10:
-                    return f"$10^{{{n_int}}}$"
+                    return f"{10**n_int}"
                 elif self.base == 2:
-                    return f"$2^{{{n_int}}}$"
+                    return f"{2**n_int}"
                 else:
-                    return f"${self.base:.0f}^{{{n_int}}}$"
+                    raise NotImplementedError()
             else:
-                return f"{x:.2g}"
+                return f"{2**n_int}"
 
 
 class LinearThenLogScale(mscale.ScaleBase):

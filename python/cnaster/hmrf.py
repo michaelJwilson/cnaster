@@ -659,7 +659,6 @@ def hmrfmix_concatenate_pipeline(
 
         # NB segments for each clone stacked.
         sample_length = np.ones(X.shape[2], dtype=int) * X.shape[0]
-
         remain_kwargs = {"sample_length": sample_length, "lambd": lambd}
 
         """
@@ -890,7 +889,8 @@ def merge_by_minspots(
     else:
         tmp_single_tumor_prop = single_tumor_prop
     unique_assignment = np.unique(new_assignment)
-    # NB find entries in unique_assignment such that either: i) min_spots_thresholds ii) min_umicount_thresholds are not satisfied
+    
+    # NB find entries in unique_assignment such that either: i) min_spots_thresholds ii) (SNP) min_umicount_thresholds are not satisfied
     failed_clones = [
         c
         for c in unique_assignment
@@ -908,17 +908,17 @@ def merge_by_minspots(
         )
     ]
     logger.info(
-        f"Found {len(failed_clones)} new clones failing thresholds on min. spots or min. umis."
+        f"Found {len(failed_clones)} new clones failing thresholds on min. spots or min. SNP umis."
     )
 
     # NB find the remaining unique_assigment that satisfies both thresholds
     successful_clones = [c for c in unique_assignment if not c in failed_clones]
     # NB initial merging groups: each successful clone is its own group
     merging_groups = [[i] for i in successful_clones]
-    # NB for each failed clone, assign them to the 'closest' successful clone
+
     if len(failed_clones) > 0:
         for c in failed_clones:
-            # NB selects new clone with largest RD amongst those viable.
+            # NB assigns failed clone to the clone with large SNP UMIs.
             idx_max = np.argmax(
                 [
                     np.sum(
@@ -931,6 +931,8 @@ def merge_by_minspots(
                     for c_prime in successful_clones
                 ]
             )
+            logger.warning(f"Assigning failed clone {c} to clone {[successful_clones[idx_max]]} (with largest SNP UMIs).")
+            
             merging_groups[idx_max].append(c)
     map_clone_id = {}
     for i, x in enumerate(merging_groups):

@@ -504,10 +504,7 @@ def run_cnaster(config_path):
             hmmclass=hmm_nophasing,
         )
     else:
-        # TODO HACK
         merged_res = res.copy()
-
-    exit(0)
         
     _, merged_res = merge_by_minspots(
         merged_res["new_assignment"],
@@ -749,16 +746,23 @@ def run_cnaster(config_path):
         # TODO split will be on RDR, seems an odd requirement?
         if np.sum(single_total_bb_RD[:, idx_spots]) < 20 * single_X.shape[0]:
             logger.warning(
-                f"Skipping BAF identified clone {bafc} as too few snp-covering UMIs."
+                f"Skipping RDR refinment of BAF identified clone {bafc} as too few snp-covering UMIs!"
             )
             continue
 
+        """
         # NB initialize new set of clones within this BAF identified clone.
         # TODO tumor_prop, i.e. _mix.
         initial_clone_index, _ = rectangle_initialize_initial_clone(
             coords[idx_spots],
             config.hmrf.n_clones_rdr,
             random_state=0,  # TODO HACK.
+        )
+        """
+
+        # TODO HACK?
+        initial_clone_index, _ = fixed_rectangle_partition(
+            coords[idx_spots], config.hmrf.n_clones_rdr, 1,
         )
 
         initial_assignment = np.zeros(len(idx_spots), dtype=int)
@@ -855,8 +859,6 @@ def run_cnaster(config_path):
             pred_cnv = res["pred_cnv"][(c * n_obs) : (c * n_obs + n_obs)].reshape(
                 (-1, 1)
             )
-
-            n_merged_clones = 1
         else:
             clone_index = [
                 np.where(res["new_assignment"] == c)[0]

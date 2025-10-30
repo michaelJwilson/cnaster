@@ -118,6 +118,8 @@ def run_cnaster(config_path):
         exp_counts,
     ) = load_tables_to_matrices()
 
+    original_single_X = single_X.copy()
+    
     # TODO HACK check against above.
     smooth_mat, adjacency_mat = choose_adjacency_by_readcounts(
         coords, single_total_bb_RD
@@ -1468,12 +1470,12 @@ def run_cnaster(config_path):
     # TODO
     fig_path = f"{config.paths.output_dir}/plots/clones_genomic.pdf"
     write_fig(fig_path, rdr_baf_fig, transparent=True, bbox_inches="tight")
-    """
+
     # TODO issue when indexing of initial clones incompatiable/bigger than final clones.
     initial_rdr_baf_fig = plot_clones_genomic(
         df_seglevel_cnv,
         lengths,
-        single_X,
+        original_single_X,
         single_base_nb_mean,
         single_total_bb_RD,
         res_combine,
@@ -1489,14 +1491,13 @@ def run_cnaster(config_path):
     # TODO                                                                                                                                                                                                                              
     fig_path = f"{config.paths.output_dir}/plots/initial_clones_genomic.pdf"
     write_fig(fig_path, initial_rdr_baf_fig, transparent=True, bbox_inches="tight")
-    """
-    """
+
     clone_index = [
         np.where(res_combine["new_assignment"] == c)[0]
         for c, _ in enumerate(final_clone_ids)
     ]
 
-    # NB create pseudobulk for each clone.                                                                                                                                                                                                                                      
+    # NB create pseudobulk for each clone.
     X, base_nb_mean, total_bb_RD, _ = merge_pseudobulk_by_index_mix(
         single_X,
         single_base_nb_mean,
@@ -1508,7 +1509,7 @@ def run_cnaster(config_path):
     plot_cna_mixture(
         res_combine["new_log_mu"], res_combine["new_p_binom"], X, base_nb_mean, total_bb_RD, prefix="final"
     )
-    """
+    
     # NB clones fig.
     assignment = pd.Series([f"clone {x}" for x in res_combine["new_assignment"]])
     clones_fig = plot_clones_spatial(

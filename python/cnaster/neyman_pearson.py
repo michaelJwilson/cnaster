@@ -56,14 +56,16 @@ def eval_neymanpearson_rdrbaf(
         log_emission_baf_c1.shape[0] == n_states
         or log_emission_baf_c1.shape[0] == 2 * n_states
     )
-    # NB likelihood under the corresponding state
+    # NB log likelihood under the corresponding state for segments in the copy state
+    #    pair selected by bidx.
     llf_original = np.append(
         log_emission_rdr_c1[pred_c1[bidx], bidx]
         + log_emission_baf_c1[pred_c1[bidx], bidx],
         log_emission_rdr_c2[pred_c2[bidx], bidx]
         + log_emission_baf_c2[pred_c2[bidx], bidx],
     ).reshape(-1, 1)
-    # NB likelihood under the switched state
+    
+    # NB likelihood under the switched state, p is the copy state pair.
     if log_emission_baf_c1.shape[0] == 2 * n_states:
         if (res["new_p_binom"][p[0], 0] > 0.5) == (res["new_p_binom"][p[1], 0] > 0.5):
             switch_pred_c1 = n_states * (pred_c1 >= n_states) + (pred_c2 % n_states)
@@ -74,13 +76,15 @@ def eval_neymanpearson_rdrbaf(
     else:
         switch_pred_c1 = pred_c2
         switch_pred_c2 = pred_c1
+        
     llf_switch = np.append(
         log_emission_rdr_c1[switch_pred_c1[bidx], bidx]
         + log_emission_baf_c1[switch_pred_c1[bidx], bidx],
         log_emission_rdr_c2[switch_pred_c2[bidx], bidx]
         + log_emission_baf_c2[switch_pred_c2[bidx], bidx],
     ).reshape(-1, 1)
-    # NB log likelihood difference
+    
+    # NB mean log likelihood difference.
     return np.mean(llf_original) - np.mean(llf_switch)
 
 
@@ -200,15 +204,19 @@ def neyman_pearson_similarity(
     # NB all distinct clone pairs.
     for c1 in range(n_clones):
         for c2 in range(c1 + 1, n_clones):
-            # NB unique copy number states in this pair?
+            # NB unique copy number state pairs, i.e. (A, B) for the copy states A,B in two clones
+            #    @ same segment.
             unique_pair_states = [
                 x
                 for x in np.unique(reshaped_pred_cnv[np.array([c1, c2]), :], axis=1).T
                 if x[0] != x[1]
             ]
+
+            # NB Neyman-Pearson test statistics for all copy state pairs in this clone pair.
             list_t_neymanpearson = []
 
             for p in unique_pair_states:
+                # NB rows assigned to this copy state pair.
                 bidx = np.where(
                     (reshaped_pred_cnv[c1, :] == p[0])
                     & (reshaped_pred_cnv[c2, :] == p[1])
@@ -241,7 +249,7 @@ def neyman_pearson_similarity(
                     )
 
                 logger.info(
-                    f"Evaluated Neyman-Pearson for ({c1},{c2}) with p={p} and t={t_neymanpearson:+.4f}"
+                    f"Evaluated Neyman-Pearson test statistic for clone pair ({c1},{c2}) & copy state pair p={p} with NP threshold={t_neymanpearson:+.4f}"
                 )
 
                 all_test_statistics.append([c1, c2, p, t_neymanpearson])
@@ -249,6 +257,11 @@ def neyman_pearson_similarity(
                 # NB number of genomic bins with this copy state pair across clones.
                 if len(bidx) >= minlength:
                     list_t_neymanpearson.append(t_neymanpearson)
+                else:
+                    logger.warning(f"Copy state pair fails to meet segment usage criteria by {len(bidx)}/{minlength}")
+
+            # NB As there are no copy state pairs with sufficient usage, or the max. NP distinction between a copy state pair is less than desired,
+            #    this pair is a candidate to be merged.
             if (
                 len(list_t_neymanpearson) == 0
                 or np.max(list_t_neymanpearson) < threshold
@@ -259,37 +272,52 @@ def neyman_pearson_similarity(
                     else 1e-3
                 )
                 G.add_weighted_edges_from([(c1, c2, max_v)])
-    # NB maximal cliques: set of nodes that are all neighbors, and these nodes are not a sub-set of any
-    #    larger clique.
+                
+                logger.info("Added edge for candidate clone pair {c1}-{c2} to be merged with edge weight {max_v}")
+            else:
+                logger.warning("Candidate clone pair found to be distinct with max_t={np.max(list_t_neymanpearson)}.")
+                
+    # NB  cliques: set of nodes that are all neighbors.
+    #     maximal cliques: clique that is not a sub-set of any larger clique.
     cliques = []
-    for x in nx.find_cliques(G):
+
+    # NB  returns iterator over maximal cliques, each of which is a list of nodes in G.
+    #     see https://networkx.org/documentation/stable/reference/algorithms/generated/networkx.algorithms.clique.find_cliques.html
+    maximal_cliques = nx.find_cliques(G)
+
+    # NB we sort the maximal cliques by size, breaking ties according to the sum of the max NP statisic for all pairs in the clique.
+    for x in maximal_cliques:
         # NB number of nodes in clique, presumably.
-        this_len = len(x)
+        clique_size = len(x)
 
         # NB sum of edge weights, dropping (b,a) given (a,b).
-        this_weights = (
+        clique_weights = (
             np.sum([G.get_edge_data(a, b)["weight"] for a in x for b in x if a != b])
             / 2.0
         )
-        cliques.append((x, this_len, this_weights))
-
-    # NB -x[1]: Sorts by clique size (number of nodes) in descending order (largest cliques first).
-    #     x[2]: For cliques of the same size, sorts by total edge weight in ascending order (smaller weights first).
+        cliques.append((x, clique_size, clique_weights))
+        
+    # NB -x[1]: Sorts by clique size (number of nodes) in descending order (i.e. largest cliques first).
+    #     x[2]: For cliques of the same size, sorts by total edge weight in ascending order (smaller weights first),
+    #           i.e. 
     cliques.sort(key=lambda x: (-x[1], x[2]))
 
-    # NB all nodes assigned to a group.
+    logger.info(f"Found sorted, maximal cliques for NP merging:\n{cliques}")
+    
+    # NB all nodes assigned to a group, new clone?
     covered_nodes = set()
 
     # NB stores final groups of nodes (cliques or singletons).
     merging_groups = []
+    
     for c in cliques:
-        # NB if none of the nodes in this clique are already in covered_nodes, add
-        #    clique as group.
+        # NB if none of the nodes in this clique are already in covered_nodes,
+        #    add maximal clique as a new group.
         if len(set(c[0]) & covered_nodes) == 0:
             merging_groups.append(list(c[0]))
             covered_nodes = covered_nodes | set(c[0])
 
-    # NB add singleton groups for uncovered nodes.
+    # NB add all of original clones that are not merge candidates as singletons.
     for c in range(n_clones):
         if not (c in covered_nodes):
             merging_groups.append([c])
@@ -303,6 +331,7 @@ def neyman_pearson_similarity(
     for i, x in enumerate(merging_groups):
         for z in x:
             map_clone_id[z] = i
+            
     new_assignment = np.array([map_clone_id[x] for x in res["new_assignment"]])
     merged_res = copy.copy(res)
     merged_res["new_assignment"] = new_assignment
@@ -320,8 +349,7 @@ def neyman_pearson_similarity(
         ]
     )
 
-    # TODO
-    logger.info(f"BAF clone merging after comparing similarity: {merging_groups}")
+    logger.info(f"New merged groups  after comparing NP similarity:\n{merging_groups}")
 
     return merging_groups, merged_res
 

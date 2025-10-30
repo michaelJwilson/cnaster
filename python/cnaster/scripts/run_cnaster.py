@@ -507,6 +507,8 @@ def run_cnaster(config_path):
         # TODO HACK
         merged_res = res.copy()
 
+    exit(0)
+        
     _, merged_res = merge_by_minspots(
         merged_res["new_assignment"],
         merged_res,

@@ -57,8 +57,8 @@ def filter_normal_diffexp(
     quantile_threshold=80,
 ):
     """
-    Identify and filter out genes that are differentially expressed between "normal" candidates and other cell populations (such as tumor cells) in a dataset
-    based on statistical tests.
+    Identify and filter out genes that are differentially expressed between "normal" candidates and other cell populations (such as tumor cells)
+    in a dataset based on statistical tests.
 
     Attributes
     ----------
@@ -241,7 +241,7 @@ def normal_baf_bin_filter(
     index_remaining = np.where(~(removal_indicator1 | removal_indicator2))[0]
 
     logger.info(
-        f"Removing {100. * np.mean(removal_indicator1 | removal_indicator2):.4f}% of genomic bins with potential allele-specific expression based on normal spot candidates."
+        f"Removing {100. * np.mean(removal_indicator1 | removal_indicator2):.4f}% of genomic bins with potential allele-specific expression based on normal spot candidates assuming confidence={confidence_interval} and min_betabinom_tau={min_betabinom_tau}."
     )
 
     # NB below constructs single_X, single_base_nb_mean, single_total_bb_RD with segments removed.

@@ -32,13 +32,14 @@ def eval_neymanpearson_bafonly(
     else:
         switch_pred_c1 = pred_c2
         switch_pred_c2 = pred_c1
+        
     llf_switch = np.append(
         log_emission_baf_c1[switch_pred_c1[bidx], bidx],
         log_emission_baf_c2[switch_pred_c2[bidx], bidx],
     ).reshape(-1, 1)
-    # NB log likelihood difference
+    
     return np.mean(llf_original) - np.mean(llf_switch)
-
+    
 
 def eval_neymanpearson_rdrbaf(
     log_emission_rdr_c1,
@@ -102,7 +103,7 @@ def neyman_pearson_similarity(
     **kwargs,
 ):
     logger.info(
-        "Solving for Neyman-Pearson similiarity with {hmmclass.__name__} instance."
+        "Solving for Neyman-Pearson similiarity with {hmmclass.__name__} instance and\nnew_log_mu={res['new_log_mu']}\nnew_p_binom={res['new_p_binom']}"
     )
 
     n_obs, _, n_clones = X.shape
@@ -249,7 +250,7 @@ def neyman_pearson_similarity(
                     )
 
                 logger.info(
-                    f"Evaluated Neyman-Pearson test statistic for clone pair ({c1},{c2}) & copy state pair p={p} with NP threshold={t_neymanpearson:+.4f}"
+                    f"Evaluated NP statistic={t_neymanpearson:+.4f} for clone pair ({c1},{c2}) & copy state pair p={p}"
                 )
 
                 all_test_statistics.append([c1, c2, p, t_neymanpearson])
@@ -258,7 +259,7 @@ def neyman_pearson_similarity(
                 if len(bidx) >= minlength:
                     list_t_neymanpearson.append(t_neymanpearson)
                 else:
-                    logger.warning(f"Copy state pair fails to meet segment usage criteria by {len(bidx)}/{minlength}")
+                    logger.warning(f"Copy state pair fails to meet segment usage criteria ({len(bidx)}/{minlength}) and is not used for merging.")
 
             # NB As there are no copy state pairs with sufficient usage, or the max. NP distinction between a copy state pair is less than desired,
             #    this pair is a candidate to be merged.
@@ -273,9 +274,9 @@ def neyman_pearson_similarity(
                 )
                 G.add_weighted_edges_from([(c1, c2, max_v)])
                 
-                logger.info("Added edge for candidate clone pair {c1}-{c2} to be merged with edge weight {max_v}")
+                logger.info(f"Added edge for candidate clone pair {c1}-{c2} to be merged with edge weight {max_v}")
             else:
-                logger.warning("Candidate clone pair found to be distinct with max_t={np.max(list_t_neymanpearson)}.")
+                logger.warning(f"Candidate clone pair found to be distinct with max_t={np.max(list_t_neymanpearson)} vs threshold={threshold}.")
                 
     # NB  cliques: set of nodes that are all neighbors.
     #     maximal cliques: clique that is not a sub-set of any larger clique.

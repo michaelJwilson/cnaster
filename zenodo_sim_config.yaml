@@ -51,13 +51,14 @@ hmrf:
   inertia : 0
   construct_adjacency_method : hexagon
   construct_adjacency_w : 1.0
-  np_merge : False 
+  np_merge : True
 
 # TODO HACK max_iter : 30 ->
 #           solver: nm ->
 #           t: 0.99999 ->
 #           tol: 0.0001 ->
 #           n_states: 7 ->
+#           np_eventminlen : 10 ->
 hmm:
   solver: "L-BFGS-B"
   n_states : 7
@@ -74,7 +75,7 @@ hmm:
   gmm_random_state : 0
   gmm_maxiter: 30
   np_threshold : 1.0
-  np_eventminlen : 10
+  np_eventminlen : 5
   em_maxiter: 1500
   em_xtol: 1e-4
   em_ftol: 1e-4

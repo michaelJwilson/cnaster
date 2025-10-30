@@ -746,7 +746,7 @@ def run_cnaster(config_path):
         # TODO split will be on RDR, seems an odd requirement?
         if np.sum(single_total_bb_RD[:, idx_spots]) < 20 * single_X.shape[0]:
             logger.warning(
-                f"Skipping RDR refinment of BAF identified clone {bafc} as too few snp-covering UMIs!"
+                f"Skipping RDR refinment of BAF identified clone {bafc} as too few snp-covering UMIs ({np.sum(single_total_bb_RD[:, idx_spots])}/{20 * single_X.shape[0]})!"
             )
             continue
 
@@ -760,7 +760,7 @@ def run_cnaster(config_path):
         )
         """
 
-        # TODO HACK?
+        # TODO HACK?  splits each BAF clone along the x direction.
         initial_clone_index, _ = fixed_rectangle_partition(
             coords[idx_spots], config.hmrf.n_clones_rdr, 1,
         )
@@ -820,7 +820,6 @@ def run_cnaster(config_path):
 
         clone_res[prefix] = merge_dicts(clone_res[prefix], new_clone_res)
 
-    # TODO HACK
     logger.info(f"Combining results across clones.")
 
     # NB combined assignment for all spots.
@@ -894,7 +893,6 @@ def run_cnaster(config_path):
             else:
                 merged_res = res.copy()
 
-            # TODO check merge_by_minspots logging.
             merging_groups, merged_res = merge_by_minspots(
                 merged_res["new_assignment"],
                 merged_res,
@@ -963,6 +961,8 @@ def run_cnaster(config_path):
             )
 
             merged_res["new_assignment"] = copy.copy(tmp)
+
+            # NB combined only between similar states in the RDR split clones.
             merged_res = combine_similar_states_across_clones(
                 X,
                 base_nb_mean,
@@ -1040,6 +1040,9 @@ def run_cnaster(config_path):
 
         offset_clone += n_merged_clones
 
+    logger.info(f"Assuming max. alpha dispersion between clones given current:\n{res_combine['new_alphas']}")
+    logger.info(f"Assuming min. tau dispersion between clones given current:\n{res_combine['new_taus']}")
+
     # HACK broadcast max. dispersion across all clones.
     res_combine["new_alphas"][:, :] = np.max(res_combine["new_alphas"])
 
@@ -1051,6 +1054,8 @@ def run_cnaster(config_path):
 
     logger.info(f"Inferred {n_final_clones} clones given BAF+RDR data.")
 
+    exit(0)
+    
     log_persample_weights = np.zeros((n_final_clones, len(sample_list)))
 
     for sidx in range(len(sample_list)):

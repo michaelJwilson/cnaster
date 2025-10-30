@@ -149,6 +149,7 @@ def pipeline_baum_welch(
         # NB re-normalize logmu according to the inferred copy number states, denominator is
         #    the total expected read count.
         if ("m" in params) and ("sample_length" in kwargs):
+            logger.warning(f"Applying logmu_shift to renormalized total expect read count according to current CNA profile.")
             logmu_shift = []
 
             # NB presumably one per contig.

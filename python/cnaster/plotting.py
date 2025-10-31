@@ -148,9 +148,8 @@ def plot_clones_genomic(
         [(cid in final_clone_ids) for cid in clone_ids]
     )
 
-    unique_chrs = np.unique(df_cnv.CHR.values)
-
     n_states = res_combine["new_p_binom"].shape[0]
+    unique_chrs = np.unique(df_cnv.CHR.values)
 
     assert single_X.shape[0] == df_cnv.shape[0]
 
@@ -175,15 +174,6 @@ def plot_clones_genomic(
     # TODO?
     assert clone_ids is None
 
-    """
-    fig, axes = plt.subplots(
-        2 * len(nonempty_clones),  # RDR + BAF (pseudobulk, all segments) for each clone
-        1,
-        figsize=(20, base_height * len(nonempty_clones)),
-        dpi=200,
-        facecolor="white",
-    )
-    """
     n_axes = 2 * len(nonempty_clones)  # RDR + BAF for each clone
     n_pairs = len(nonempty_clones)
     fig = plt.figure(figsize=(20, base_height * n_pairs), dpi=300, facecolor="white")
@@ -217,10 +207,10 @@ def plot_clones_genomic(
         f"Found non-empty clones: {nonempty_clones} for final_clone_ids={final_clone_ids}"
     )
 
+    # TODO HACK
     config = get_global_config()
     secondary_min_umi = config.quality.secondary_min_umi
-
-    # TODO HACK
+    
     valid = np.sum(total_bb_RD, axis=-1) >= secondary_min_umi
     valid = np.sum(total_bb_RD, axis=-1) >= 0
 

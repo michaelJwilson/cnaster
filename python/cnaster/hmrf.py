@@ -490,6 +490,54 @@ def clone_stack_obs(
     )
 
 
+def validation_summary(
+    lengths, X, base_nb_mean, total_bb_RD, tumor_prop,
+):
+    n_segments, _, n_bulk = X.shape
+    n_contigs = len(lengths)
+
+    config = get_global_config()
+    secondary_min_umi = config.quality.secondary_min_umi
+    
+    # TODO
+    assert n_contigs == 22
+
+    zero_point = 0
+
+    for ii, ll in enumerate(lengths):
+        contig_num_extreme_major_baf, contig_num_extreme_minor_baf = [], []
+        contig_num_insufficient_snp_umi, contig_num_insufficient_umi = [], []
+
+        for c in range(n_bulk):
+            contig_rdrs = (
+                X[zero_point : zero_point + ll, 0, c]
+                / base_nb_mean[zero_point : zero_point + ll, c]
+            )
+            contig_bafs = (
+                X[zero_point : zero_point + ll, 1, c]
+                / total_bb_RD[zero_point : zero_point + ll, c]
+            )
+
+            contig_num_extreme_major_baf.append(np.count_nonzero(contig_bafs >= 0.65))
+            contig_num_extreme_minor_baf.append(np.count_nonzero(contig_bafs <= 0.35))
+
+            contig_num_insufficient_snp_umi.append(
+                np.count_nonzero(total_bb_RD[zero_point : zero_point + ll,c] < secondary_min_umi)
+            )
+
+            contig_num_insufficient_umi.append(
+		np.count_nonzero(base_nb_mean[zero_point : zero_point + ll,c] < 10 * secondary_min_umi)
+            )
+
+        logger.info(
+            f"Contig {1 + ii} \t {contig_num_extreme_major_baf} \t {contig_num_extreme_minor_baf} \t {contig_num_insufficient_snp_umi} \t {contig_num_insufficient_umi}"
+        )
+
+        zero_point += ll
+
+    exit(0)
+
+
 @count_calls
 def hmrfmix_concatenate_pipeline(
     outdir,
@@ -570,6 +618,8 @@ def hmrfmix_concatenate_pipeline(
         threshold=tumorprop_threshold,
     )
 
+    validation_summary(lengths, X, base_nb_mean, total_bb_RD, tumor_prop)
+
     # NB transform (n_obs, 2, n_clones) to (n_obs * n_clones, 2, 1) for HMM processing.
     #    i.e. stack bins per clone lengthwise, useful for fitting shared copy state.
     (
@@ -597,7 +647,7 @@ def hmrfmix_concatenate_pipeline(
 
         new_init_alphas = init_alphas
         new_init_taus = init_taus
-        
+
         """
         new_init_log_mu, new_init_alphas, new_init_p_binom, new_init_taus = cna_mixture_init(
             n_states,
@@ -615,9 +665,13 @@ def hmrfmix_concatenate_pipeline(
             init_p_binom = new_init_p_binom
             init_taus = new_init_taus
 
-        logger.info(f"Solved for HMM initialized parameters:\n{init_log_mu}\n{init_p_binom}")
-        logger.info(f"Plotting initial copy state mixture for instance {hmrfmix_concatenate_pipeline.call_count-1} with X.shape={X.shape}.")
-        
+        logger.info(
+            f"Solved for HMM initialized parameters:\n{init_log_mu}\n{init_p_binom}"
+        )
+        logger.info(
+            f"Plotting initial copy state mixture for instance {hmrfmix_concatenate_pipeline.call_count-1} with X.shape={X.shape}."
+        )
+
         plot_cna_mixture(
             init_log_mu,
             init_alphas,
@@ -889,7 +943,7 @@ def merge_by_minspots(
     else:
         tmp_single_tumor_prop = single_tumor_prop
     unique_assignment = np.unique(new_assignment)
-    
+
     # NB find entries in unique_assignment such that either: i) min_spots_thresholds ii) (SNP) min_umicount_thresholds are not satisfied
     failed_clones = [
         c
@@ -931,8 +985,10 @@ def merge_by_minspots(
                     for c_prime in successful_clones
                 ]
             )
-            logger.warning(f"Assigning failed clone {c} to clone {[successful_clones[idx_max]]} (with largest SNP UMIs).")
-            
+            logger.warning(
+                f"Assigning failed clone {c} to clone {[successful_clones[idx_max]]} (with largest SNP UMIs)."
+            )
+
             merging_groups[idx_max].append(c)
     map_clone_id = {}
     for i, x in enumerate(merging_groups):

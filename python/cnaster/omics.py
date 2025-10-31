@@ -590,8 +590,6 @@ def create_bin_ranges(
     # NB summed across spots.
     block_umi = np.sum(single_total_bb_RD, axis=1)
 
-    # assert len(block_umi) == n_blocks, f"{len(block_umi)} != {n_blocks}"
-
     logger.info(
         f"Creating bin ranges assuming a max length of {max_binlength} and min. block UMI of {secondary_min_umi}."
     )

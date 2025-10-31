@@ -42,7 +42,7 @@ def merge_pseudobulk_by_index_mix(
 
             # NB assumes mean tumor proportion for all spots assigned to this clone.
             tumor_prop[k] = np.mean(single_tumor_prop[idx]) if len(idx) > 0 else 0.0
-
+        
         X[:, :, k] = np.sum(single_X[:, :, idx], axis=2)
 
         base_nb_mean[:, k] = np.sum(single_base_nb_mean[:, idx], axis=1)

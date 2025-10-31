@@ -240,15 +240,18 @@ def load_input_data(
     )
 
     # TODO HACK >>>>>>>>
-    sample_id_patcher = {
-        sample_id.split("-")[1]: sample_id for sample_id in df_meta.sample_id.to_numpy()
-    }
+    try:
+        sample_id_patcher = {
+            sample_id.split("-")[1]: sample_id for sample_id in df_meta.sample_id.to_numpy()
+        }
 
-    df_agg_barcode["sample_id"] = df_agg_barcode["sample_id"].map(sample_id_patcher)
+        df_agg_barcode["sample_id"] = df_agg_barcode["sample_id"].map(sample_id_patcher)
 
-    snp_barcodes["barcodes"] = snp_barcodes["barcodes"].map(
-        lambda xx: xx.split("_")[0] + "_" + sample_id_patcher[xx.split("_")[-1]]
-    )
+        snp_barcodes["barcodes"] = snp_barcodes["barcodes"].map(
+            lambda xx: xx.split("_")[0] + "_" + sample_id_patcher[xx.split("_")[-1]]
+        )
+    except:
+        logger.warning(f"Failed to patch input sample ids.")
     # <<<<<<<<<
 
     unique_snp_ids = np.load(f"{snp_dir}/unique_snp_ids.npy", allow_pickle=True)
@@ -309,8 +312,11 @@ def load_input_data(
         adatatmp.obs["sample"] = sname
 
         # NB index by {barcode}_{sample} (TBC)
-        adatatmp.obs.index = [f"{x}_{sname}" for x in adatatmp.obs.index]
+        # adatatmp.obs.index = [f"{x}_{sname}" for x in adatatmp.obs.index]
 
+        # TODO HACK
+        adatatmp.obs.index = [f"{x}" for x in adatatmp.obs.index]
+        
         # NB concatenate across samples.
         adata = (
             adatatmp
@@ -324,7 +330,7 @@ def load_input_data(
     isin = snp_barcodes.barcodes.isin(shared_barcodes).to_numpy()
 
     # TODO barcode inconsistent between snps and umis.
-    assert np.any(isin)
+    assert np.any(isin), f"Found inconsistent barcodes between SNPs and UMIs, e.g. {list(snp_barcodes.barcodes)[:5]} vs {list(adata.obs.index)[:5]}"
 
     logger.info(
         f"Retaining {100.0 * np.mean(isin):.3f}% of SNP barcodes (shared between UMIs and SNPs)."

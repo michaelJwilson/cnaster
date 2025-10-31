@@ -1,6 +1,6 @@
 # NB mirrors original @ /n/fs/ragr-data/users/congma/Datasets/CalicoST_simulation/nomixing_calicost_related/numcnas1.2_cnasize1e7_ploidy2_random0/parsed_inputs/
 paths:
-  sample_sheet : None
+  sample_sheet : zenodo_sample_sheet.tsv
   output_dir : /u/mw9568/scratch/calicost_sims/nomixing_calicost_related/numcnas1.2_cnasize1e7_ploidy2_random0/
 
 # tumorprop_file : /n/fs/scratch/mw9568/cnaster/loh_estimator_tumor_prop.tsv

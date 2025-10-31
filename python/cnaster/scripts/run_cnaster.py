@@ -99,7 +99,7 @@ def run_cnaster(config_path):
     config = YAMLConfig.from_file(config_path)
 
     set_global_config(config)
-
+    """
     (
         lengths,
         single_X,
@@ -131,8 +131,8 @@ def run_cnaster(config_path):
 
     # NB renormalize cumulative edge weight to median in each case.
     adjacency_mat = renormalize_adjacency_mat(adjacency_mat)
-
     """
+    
     # NB start run_parse_n_load::parse_visium::load_joint_data
     #    adata: (barcode x gene) transcripts ('count') + 'tumor_annotation' + 'X_pos' + slice ('sample').
     #    cell_snp_Aallele: haplotype H0 counts (barcode x snp).
@@ -271,6 +271,8 @@ def run_cnaster(config_path):
         f"Solved for initial phase given Eagle & BAF in {(time.time() - start_time):.2f} seconds."
     )
 
+    exit(0)
+    
     # NB phase is None for genes and otherwise True/False for the phase of each block.
     df_gene_snp["phase"] = np.where(
         df_gene_snp.snp_id.isnull(),
@@ -330,7 +332,7 @@ def run_cnaster(config_path):
 
     # NB by construction, require normal spots (based on BAF to determine baseline).
     assert np.all(single_base_nb_mean == 0)
-    """
+
     # TODO
     copy_single_X_rdr = copy.copy(single_X[:, 0, :])
     copy_single_base_nb_mean = copy.copy(single_base_nb_mean)

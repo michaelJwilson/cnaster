@@ -245,6 +245,8 @@ def run_cnaster(config_path):
 
     logger.warning("Assuming five BAF states for phasing.")
 
+    assert single_X.ndim == 3 
+    
     # NB single_base_nb_mean initialized to zero - requires normal spot. determination.
     phase_indicator, refined_lengths = initial_phase_given_partition(
         single_X,

@@ -28,7 +28,7 @@ def merge_pseudobulk_by_index_mix(
         logger.warning(
             f"Merging pseudobulk assigning threshold tumor proportion={threshold}"
         )
-
+        
     for k, idx in enumerate(clone_index):
         if len(idx) == 0:
             logger.warning(f"Clone {k} has no cells, skipping")
@@ -42,8 +42,8 @@ def merge_pseudobulk_by_index_mix(
 
             # NB assumes mean tumor proportion for all spots assigned to this clone.
             tumor_prop[k] = np.mean(single_tumor_prop[idx]) if len(idx) > 0 else 0.0
-        
-        X[:, :, k] = np.sum(single_X[:, :, idx], axis=2)
+            
+        X[:, :, k] = np.sum(single_X[:, :, idx], axis=-1)
 
         base_nb_mean[:, k] = np.sum(single_base_nb_mean[:, idx], axis=1)
         total_bb_RD[:, k] = np.sum(single_total_bb_RD[:, idx], axis=1)

@@ -428,6 +428,8 @@ def summarize_counts_for_blocks(
     for i, c in enumerate(df_gene_snp.CHR.unique()):
         lengths[i] = len(df_gene_snp[df_gene_snp.CHR == c].block_id.unique())
 
+    assert single_X.ndim == 3
+        
     # NB single_base_nb_mean is currently all zeros.
     return (
         lengths,
@@ -777,6 +779,8 @@ def summarize_counts_for_bins(
         np.arange(1, len(log_sitewise_transmat), 2)
     ]
 
+    assert bin_single_X.ndim == 3
+    
     return (
         lengths,
         bin_single_X,

@@ -80,13 +80,15 @@ def fixed_rectangle_partition(
 
 def initialize_clones(
     coords, sample_ids, x_part, y_part, single_tumor_prop=None, threshold=None
-):
-    logger.info(f"Initializing clones given fixed grid partitions.")
+): 
+    logger.info(f"Initializing clones given fixed grid partitions and max. sample_id={np.max(sample_ids)}")
 
     initial_clone_index = []
 
     # NB for all slices.
     for s in range(1 + np.max(sample_ids)):
+        logger.debug(f"Solving for sample_id={s}")
+        
         # NB sample_ids idx for all spots in this slice.
         index = np.where(sample_ids == s)[0]
 
@@ -99,7 +101,7 @@ def initialize_clones(
             single_tumor_prop[index] if single_tumor_prop is not None else None
         )
 
-        tmp_clone_index = fixed_rectangle_partition(
+        tmp_clone_index, _ = fixed_rectangle_partition(
             coords[index, :],
             x_part,
             y_part,
@@ -113,7 +115,7 @@ def initialize_clones(
     logger.info(
         f"Initialized {len(initial_clone_index)} clones given x_part,y_part={x_part},{y_part}."
     )
-
+    
     return initial_clone_index
 
 

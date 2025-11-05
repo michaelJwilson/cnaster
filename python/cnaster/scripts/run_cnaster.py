@@ -100,9 +100,7 @@ def run_cnaster(config_path, over_rides=None):
     config.over_ride(over_rides)
 
     logger.info(f"Read configuration:\n{config}")
-    
-    exit(0)
-    
+        
     set_global_config(config)
     """
     (
@@ -155,8 +153,6 @@ def run_cnaster(config_path, over_rides=None):
         filter_gene_file=config.references.filtergenelist_file,
         filter_range_file=config.references.filterregion_file,
     )
-
-    exit(0)
     
     # NB e.g. 'AAACAAGTATCTCCCA-1_HT112C1-U1' currently.
     barcodes = adata.obs.index
@@ -279,8 +275,6 @@ def run_cnaster(config_path, over_rides=None):
     logger.info(
         f"Solved for initial phase given Eagle & BAF in {(time.time() - start_time):.2f} seconds."
     )
-
-    exit(0)
     
     # NB phase is None for genes and otherwise True/False for the phase of each block.
     df_gene_snp["phase"] = np.where(
@@ -410,6 +404,8 @@ def run_cnaster(config_path, over_rides=None):
 
     logger.info(f"Writing initial clone labels to {opath},\n{df_clone_label.head()}")
 
+    exit(0)
+    
     write_tsv(opath, df_clone_label, header=True, index=True, index_label="barcode")
 
     # TODO HACK

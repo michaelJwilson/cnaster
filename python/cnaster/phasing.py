@@ -28,6 +28,7 @@ def initial_phase_given_partition(
     threshold,
     min_snpumi=2e3,
 ):
+    # NB on input phase_indicator is 0s by construction, up to phase switch errors TBD.
     logger.info(f"Starting phasing assuming {len(initial_clone_index)} clones.")
 
     # NB aggregate given initial clones.
@@ -41,11 +42,13 @@ def initial_phase_given_partition(
     )
 
     # NB (initial clones, segments).
-    baf_profiles = np.zeros((X.shape[2], X.shape[0]))
-
+    n_clones = X.shape[2]
+    baf_profiles = np.zeros((n_clones, X.shape[0]))
+    phase_flips = np.zeros((n_clones, X.shape[0]), dtype=int)
+    
     # NB loop over initial clones.
-    for i in range(X.shape[2]):
-        logger.info(f"Solving for phasing of initial clone {i} of {X.shape[2]}.")
+    for i in range(n_clones):
+        logger.info(f"Solving for phasing of initial clone {i} of {n_clones}.")
 
         # NB assumes BAF = 0.5 for insufficient snp umi count; initial binning chosen so this is not the case
         #    for pseudobulk of all spots?
@@ -82,8 +85,10 @@ def initial_phase_given_partition(
 
             # NB MAP estimate of state given log posterior; pred. > n_states indicates switch-error.
             pred = np.argmax(res["log_gamma"], axis=0)
-
-            # NB BAF by mirroring by inferred haplotype.
+            phase_flip = pred >= n_states
+            
+            # NB BAF by mirroring by inferred haplotype - assumed baf is not e.g. minor, but initialization
+            #    dependent.
             this_baf_profiles = np.where(
                 pred < n_states,
                 res["new_p_binom"][pred % n_states, 0],
@@ -95,12 +100,15 @@ def initial_phase_given_partition(
 
             # NB TODO attractor to 0.5 if sufficiently close, independent of coverage.
             EPS_BAF = 0.05  # MAGIC
-            this_baf_profiles[np.abs(this_baf_profiles - 0.5) < EPS_BAF] = 0.5
+            
+            assumed_normal = np.abs(this_baf_profiles - 0.5) < EPS_BAF            
+            this_baf_profiles[assumed_normal] = 0.5
 
             # NB solved for baf_profile of this clone, mitigating switch errors.
             baf_profiles[i, :] = this_baf_profiles
-
-    mirror_baf_profiles = np.where(baf_profiles < 0.5, baf_profiles, 1.0 - baf_profiles)
+            
+    # NB assumed minor baf profile.
+    minor_baf_profiles = np.where(baf_profiles < 0.5, baf_profiles, 1.0 - baf_profiles)
 
     # NB compute population-level BAF with weighted mean by clone size.
     if single_tumor_prop is None:
@@ -128,6 +136,8 @@ def initial_phase_given_partition(
             @ baf_profiles
         )
 
+    logger.info(f"Found non-normal population BAF to be:\n{population_baf[population_baf != 0.5]}")
+
     # NB makes sense: phasing determined with all clones; copy state BAF phased appropriately.
     phase_indicator = population_baf < 0.5
     refined_lengths = []
@@ -144,8 +154,8 @@ def initial_phase_given_partition(
             # NB min. segment size of 10
             if i > s + MIN_SEGMENT_SIZE and np.any(
                 np.abs(
-                    mirror_baf_profiles[:, i + cumlen]
-                    - mirror_baf_profiles[:, i + cumlen - 1]
+                    minor_baf_profiles[:, i + cumlen]
+                    - minor_baf_profiles[:, i + cumlen - 1]
                 )
                 > BAF_CHANGE_THRESHOLD
             ):

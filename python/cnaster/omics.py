@@ -598,6 +598,7 @@ def create_bin_ranges(
 
     # TODO max_binlength.
     # NB get a list of points where existing block must be broken as too long.
+    #    refined_lengths derived (tangentially) from phasing; forced break when minor BAF changes by e.g. 0.1
     breakpoints = np.concatenate(
         [
             np.cumsum(refined_lengths),

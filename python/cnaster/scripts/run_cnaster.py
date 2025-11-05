@@ -99,6 +99,8 @@ def run_cnaster(config_path, over_rides=None):
     config = YAMLConfig.from_file(config_path)
     config.over_ride(over_rides)
 
+    logger.info(f"Read configuration:\n{config}")
+    
     exit(0)
     
     set_global_config(config)
@@ -1559,6 +1561,7 @@ def run_cnaster(config_path, over_rides=None):
     logger.info(f"Done in {(time.time() - start_time)/60.:.2f} minutes.")
 
 
+# NB run_cnaster zenodo_sim_config (-o paths.sample_sheet='dummy_sample_sheet.tsv')
 def main():
     parser = argparse.ArgumentParser(description="Run CNAster pipeline")
     parser.add_argument(

@@ -76,8 +76,6 @@ class YAMLConfig:
 
         config = cls(config_dict)
 
-        logger.info(f"Read configuration:\n{config}")
-
         return config
 
     def over_ride(self, over_rides):

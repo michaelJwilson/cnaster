@@ -409,10 +409,8 @@ def run_cnaster(config_path, over_rides=None):
 
     logger.info(f"Writing initial clone labels to {opath},\n{df_clone_label.head()}")
 
-    exit(0)
-
     write_tsv(opath, df_clone_label, header=True, index=True, index_label="barcode")
-
+    
     # TODO HACK
     assignment = pd.Series([f"clone {x}" for x in clone_id])
 
@@ -1495,7 +1493,7 @@ def run_cnaster(config_path, over_rides=None):
     initial_rdr_baf_fig = plot_clones_genomic(
         df_seglevel_cnv,
         lengths,
-        original_single_X,
+        single_X,
         single_base_nb_mean,
         single_total_bb_RD,
         res_combine,
@@ -1525,16 +1523,7 @@ def run_cnaster(config_path, over_rides=None):
         clone_index,
         single_tumor_prop,
     )
-
-    plot_cna_mixture(
-        res_combine["new_log_mu"],
-        res_combine["new_p_binom"],
-        X,
-        base_nb_mean,
-        total_bb_RD,
-        prefix="final",
-    )
-
+    
     # NB clones fig.
     assignment = pd.Series([f"clone {x}" for x in res_combine["new_assignment"]])
     clones_fig = plot_clones_spatial(

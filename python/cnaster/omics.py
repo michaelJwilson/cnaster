@@ -512,12 +512,8 @@ def greedy_binning_nobreak(block_lengths, block_umi, secondary_min_umi, max_binl
         while t < len(block_lengths) and np.sum(block_umi[s:t]) < secondary_min_umi:
             t += 1
 
-            # NB current block is too long, time to split.
-            if np.sum(block_lengths[s:t]) >= max_binlength:
-                logger.warning(
-                    f"Block failed max_binlength filter with fraction={np.sum(block_umi[s:t]) / secondary_min_umi:.3f}"
-                )
-
+            # NB current block is too long, time to split & meets SNP UMI count.
+            if (np.sum(block_lengths[s:t]) >= max_binlength) and (np.sum(block_umi[s:t]) >= secondary_min_umi):
                 t = max(t - 1, s + 1)
                 break
 
@@ -530,8 +526,8 @@ def greedy_binning_nobreak(block_lengths, block_umi, secondary_min_umi, max_binl
             # and np.sum(block_umi[s:t]) < 0.5 * secondary_min_umi
             # and np.sum(block_lengths[s:t]) < 0.5 * max_binlength
         ):
-            logger.warning(
-                f"Last block failed secondary_min_umi filter with fraction={np.sum(block_umi[s:t]) / secondary_min_umi:.3f}"
+            logger.debug(
+                f"Last block failed secondary_min_umi filter with fraction={np.sum(block_umi[s:t]) / secondary_min_umi:.3f}, merging with previous."
             )
             bin_ranges[-1][1] = t
         else:

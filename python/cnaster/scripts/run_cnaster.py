@@ -151,6 +151,8 @@ def run_cnaster(config_path):
         filter_range_file=config.references.filterregion_file,
     )
 
+    exit(0)
+    
     # NB e.g. 'AAACAAGTATCTCCCA-1_HT112C1-U1' currently.
     barcodes = adata.obs.index
     sample_list = [adata.obs["sample"].iloc[0]]

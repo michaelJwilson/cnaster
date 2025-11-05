@@ -93,11 +93,14 @@ logger.addHandler(stream_handler)
 logger = logging.getLogger(__name__)
 
 
-def run_cnaster(config_path):
+def run_cnaster(config_path, over_rides=None):
     logger.info("----  Welcome to cnaster  ----")
 
     config = YAMLConfig.from_file(config_path)
+    config.over_ride(over_rides)
 
+    exit(0)
+    
     set_global_config(config)
     """
     (
@@ -1556,7 +1559,6 @@ def run_cnaster(config_path):
     logger.info(f"Done in {(time.time() - start_time)/60.:.2f} minutes.")
 
 
-# NB run_cnaster config.yaml
 def main():
     parser = argparse.ArgumentParser(description="Run CNAster pipeline")
     parser.add_argument(
@@ -1564,10 +1566,17 @@ def main():
         type=str,
         help="Path to the YAML configuration file",
     )
+    parser.add_argument(
+        "--over_rides",
+        "-o",
+        action="append",
+        default=[],
+        help="Over ride config keys in dot notation, e.g. -o paths.sample_sheet=/path/to/sheet.csv",
+    )
 
     args = parser.parse_args()
 
-    run_cnaster(args.config_path)
+    run_cnaster(args.config_path, over_rides=args.over_rides)
 
 
 if __name__ == "__main__":

@@ -57,7 +57,7 @@ def filter_normal_diffexp(
     quantile_threshold=80,
 ):
     """
-    Identify and filter out genes that are differentially expressed between "normal" candidates and other cell populations (such as tumor cells)
+    Identify and filter out genes that are differentially expressed between "normal" candidates & other cell populations (such as tumor cells)
     in a dataset based on statistical tests.
 
     Attributes
@@ -95,6 +95,7 @@ def filter_normal_diffexp(
             np.sum(tmpadata.layers["count"][tmpadata.obs["normal_candidate"], :])
             < tmpadata.shape[1] * 10  # MAGIC
         ):
+            logger.warning(f"TODO!")
             continue
 
         umi_threshold = np.percentile(
@@ -218,6 +219,8 @@ def normal_baf_bin_filter(
 
     tmpres = model.fit(**settings)
 
+    logger.info(f"Best-fit BetaBinom model to normal spot BAF has parameters={tmpres.params}")
+    
     # TODO warn if patched.
     # NB patches parameters assuming min_betabinom_tau=30;
     tmpres.params[0] = 0.5

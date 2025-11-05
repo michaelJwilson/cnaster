@@ -692,6 +692,9 @@ def run_cnaster(config_path, over_rides=None):
 
     index_normal = np.where(normal_candidate)[0]
 
+    # TODO HACK
+    single_X[:,0,:] = copy_single_X_rdr
+    
     # NB filter out genomic segments with potential allele-specific expression based on normal spot candidates.
     (
         lengths,
@@ -715,14 +718,19 @@ def run_cnaster(config_path, over_rides=None):
     df_bininfo = binned_gene_snp(df_gene_snp)
 
     # NB filter out high-UMI DE genes, which may bias RDR estimates.
-    copy_single_X_rdr, _ = filter_normal_diffexp(
-        exp_counts,
-        df_bininfo,
-        normal_candidate,
-        sample_list=sample_list,
-        sample_ids=sample_ids,
-    )
-
+    if config.quality.filter_normal_diffexp:
+        copy_single_X_rdr, _ = filter_normal_diffexp(
+            exp_counts,
+            df_bininfo,
+            normal_candidate,
+            sample_list=sample_list,
+            sample_ids=sample_ids,
+        )
+    # TODO CHECK?
+    else:
+        logger.warning(f"Assuming no filter for normall differential expression.")
+        copy_single_X_rdr = single_X[:,0,:]
+        
     # NB >>>>>  determine normal baseline expression.
     MIN_NORMAL_COUNT_PERBIN = 20  # MAGIC
 

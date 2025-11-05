@@ -410,7 +410,7 @@ def run_cnaster(config_path, over_rides=None):
     logger.info(f"Writing initial clone labels to {opath},\n{df_clone_label.head()}")
 
     write_tsv(opath, df_clone_label, header=True, index=True, index_label="barcode")
-    
+
     # TODO HACK
     assignment = pd.Series([f"clone {x}" for x in clone_id])
 
@@ -622,9 +622,15 @@ def run_cnaster(config_path, over_rides=None):
         )
         id_nearnormal_clone = np.argmin(baf_deviations)
 
+        logger.info(
+            f"Found clone {id_nearnormal_clone} to be the most normal-like given BAF deviations."
+        )
+
         # NB measure the standard deviation of log-transformed, smoothed transcript counts for each spot.
         vec_stds = np.std(np.log1p(copy_single_X_rdr @ smooth_mat), axis=0)
 
+        prior_stdthreshold = np.inf
+        
         while True:
             # NB spots assigned to the normal-like clone AND 40% with smallest BAF deviation from 0.5;
             stdthreshold = np.percentile(
@@ -634,17 +640,23 @@ def run_cnaster(config_path, over_rides=None):
             normal_candidate = (vec_stds < stdthreshold) & (
                 merged_res["new_assignment"] == id_nearnormal_clone
             )
-            if (
-                np.sum(copy_single_X_rdr[:, (normal_candidate == True)])
-                > 200 * single_X.shape[0]  # MAGIC.
-            ):
+            # HACK
+            # if (
+            #    np.sum(copy_single_X_rdr[:, (normal_candidate == True)])
+            #    > 200 * single_X.shape[0]  # MAGIC.
+            # ):
+            # NB 25% increase in std of RDR
+            if stdthreshold > 1.5 * prior_stdthreshold: # MAGIC
                 logger.info(
                     f"Determined {PERCENT_NORMAL}% normal spots with sufficient UMIs, assigned to normal like clone."
+                )
+                logger.info(
+                    f"BAF-clone breakdown:\n{np.unique(merged_res["new_assignment"][normal_candidate], return_counts=True)}"
                 )
                 break
             elif PERCENT_NORMAL == 100:
                 logger.warning(
-                    f"Failed to determine normal spots with sufficient UMIs."
+                    f"All spots for clone {id_nearnormal_clone} considered to be normal."
                 )
                 break
 
@@ -719,8 +731,10 @@ def run_cnaster(config_path, over_rides=None):
 
     bidx_inconfident = np.where(rdr_normal < MIN_NORMAL_COUNT_PERBIN)[0]
 
-    logger.info(f"Found {100. * np.mean(rdr_normal >= MIN_NORMAL_COUNT_PERBIN):.3f}% of segments with confident normal baseline for MIN_NORMAL_COUNT_PERBIN={MIN_NORMAL_COUNT_PERBIN}")
-    
+    logger.info(
+        f"Found {100. * np.mean(rdr_normal >= MIN_NORMAL_COUNT_PERBIN):.3f}% of segments with confident normal baseline for MIN_NORMAL_COUNT_PERBIN={MIN_NORMAL_COUNT_PERBIN}"
+    )
+
     # NB where normal transcript count < MIN_NORMAL_COUNT_PERBIN, zero.
     rdr_normal[bidx_inconfident] = 0
 
@@ -1525,7 +1539,7 @@ def run_cnaster(config_path, over_rides=None):
         clone_index,
         single_tumor_prop,
     )
-    
+
     # NB clones fig.
     assignment = pd.Series([f"clone {x}" for x in res_combine["new_assignment"]])
     clones_fig = plot_clones_spatial(

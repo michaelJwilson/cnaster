@@ -719,6 +719,8 @@ def run_cnaster(config_path, over_rides=None):
 
     bidx_inconfident = np.where(rdr_normal < MIN_NORMAL_COUNT_PERBIN)[0]
 
+    logger.info(f"Found {100. * np.mean(rdr_normal >= MIN_NORMAL_COUNT_PERBIN):.3f}% of segments with confident normal baseline for MIN_NORMAL_COUNT_PERBIN={MIN_NORMAL_COUNT_PERBIN}")
+    
     # NB where normal transcript count < MIN_NORMAL_COUNT_PERBIN, zero.
     rdr_normal[bidx_inconfident] = 0
 

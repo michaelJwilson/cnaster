@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# SAMPLE_IDS=("numcnas1.2_cnasize1e7_ploidy2_random0")
-SAMPLE_IDS=("numcnas3.3_cnasize5e7_ploidy2_random0")
+SAMPLE_IDS=("numcnas1.2_cnasize1e7_ploidy2_random0")
+# SAMPLE_IDS=("numcnas3.3_cnasize5e7_ploidy2_random0")
 
 for SAMPLE_ID in "${SAMPLE_IDS[@]}"; do
     echo "Solving for ${SAMPLE_ID}"

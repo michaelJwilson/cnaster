@@ -211,7 +211,7 @@ def plot_clones_genomic(
     config = get_global_config()
     secondary_min_umi = config.quality.secondary_min_umi
     
-    valid = np.sum(total_bb_RD, axis=-1) >= secondary_min_umi
+    # valid = np.sum(total_bb_RD, axis=-1) >= secondary_min_umi
     valid = np.sum(total_bb_RD, axis=-1) >= 0
 
     logger.info(

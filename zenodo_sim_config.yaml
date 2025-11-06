@@ -21,11 +21,14 @@ references:
   filtergenelist_file : /u/mw9568/research/data/references/ig_gene_list.txt
   filterregion_file : /u/mw9568/research/data/references/HLA_regions.bed
 
-# TODO HACK secondary_min_umi : 300 -> 1
+# TODO HACK min_normal_count_perbin : 20 ->
+#           min_percent_expressed_spots : 0.005 ->
 quality:
+  min_percent_expressed_spots : 0.0
   secondary_min_umi : 300
-  local_outlier_filter : True
+  local_outlier_filter : False
   filter_normal_diffexp : False
+  min_normal_count_perbin : 1
 
 # TODO HACK npart_phasing : 3 -> 1
 phasing:
@@ -54,6 +57,7 @@ hmrf:
   construct_adjacency_method : hexagon
   construct_adjacency_w : 1.0
   np_merge : False
+  fixed_assignment : True 
 
 # TODO HACK max_iter : 30 ->
 #           solver: nm ->

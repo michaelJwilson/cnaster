@@ -390,7 +390,7 @@ def load_input_data(
 
     # NB filter out genes that are expressed in < min_percent_expressed_spots spots.
     indicator = (
-        # NB number of barcodes expressing a particular gene;        num. spots.
+        # NB number of barcodes expressing a particular gene; num. spots.
         np.sum(adata.X > 0, axis=0)
         >= min_percent_expressed_spots * adata.shape[0]
     ).A.flatten()

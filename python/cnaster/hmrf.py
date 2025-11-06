@@ -397,8 +397,24 @@ def aggr_hmrfmix_reassignment_concatenate(
     # NB Posterior probabilities if return_posterior=True.
     posterior = np.zeros((N, n_clones))
 
-    # NB updates new_assignment and posterior in place given log emission likelihood.
-    niter, new_cost = icm_sweep(
+    if get_global_config().hmrf.fixed_assignment:
+        logger.warning(f"Assuming a fixed assignment")
+    else:        
+        # NB updates new_assignment and posterior in place given log emission likelihood.
+        niter, new_cost = icm_sweep(
+            single_llf,
+            adj_spots,
+            adj_neighbors,
+            adj_weights,
+            new_assignment,
+            spatial_weight,
+            posterior,
+            tol=0.1,  # MAGIC TODO
+            log_persample_weights=log_persample_weights,
+            sample_ids=sample_ids,
+        )
+        """
+        niter, new_cost = wolff_sweep(
         single_llf,
         adj_spots,
         adj_neighbors,
@@ -406,26 +422,15 @@ def aggr_hmrfmix_reassignment_concatenate(
         new_assignment,
         spatial_weight,
         posterior,
-        tol=0.1,  # MAGIC TODO
         log_persample_weights=log_persample_weights,
         sample_ids=sample_ids,
-    )
-    """
-    niter, new_cost = wolff_sweep(
-        single_llf,
-        adj_spots,
-        adj_neighbors,
-        adj_weights,
-        new_assignment,
-        spatial_weight,
-        posterior,
-        log_persample_weights=log_persample_weights,
-        sample_ids=sample_ids,
-    )
-    """
-    logger.info(
-        f"Solved for updated clone labels with new cost {new_cost:.6e} in {niter} iterations (took {time.time() - start_time:.2f} seconds)."
-    )
+        )
+        """
+        _, cnts = np.unique(new_assignment, return_counts=True)
+        
+        logger.info(
+            f"Solved for updated clone labels with new cost {new_cost:.6e} and clone breakdown={cnts} in {niter} iterations (took {time.time() - start_time:.2f} seconds)."
+        )
 
     # NB compute total ln likelihood.
     total_llf = np.sum(single_llf[np.arange(N), new_assignment])
@@ -765,7 +770,7 @@ def hmrfmix_concatenate_pipeline(
             single_tumor_prop=single_tumor_prop,
             hmmclass=hmmclass,
         )
-
+        
         # NB handle the case when one clone has zero spots.
         if len(np.unique(new_assignment)) < X.shape[2]:
             logger.warning(

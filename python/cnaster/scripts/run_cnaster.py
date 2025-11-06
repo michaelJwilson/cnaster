@@ -99,8 +99,8 @@ def run_cnaster(config_path, over_rides=None):
     config = YAMLConfig.from_file(config_path)
     config.over_ride(over_rides)
 
-    exit(0)
-    
+    logger.info(f"Read configuration:\n{config}")
+
     set_global_config(config)
     """
     (
@@ -135,7 +135,7 @@ def run_cnaster(config_path, over_rides=None):
     # NB renormalize cumulative edge weight to median in each case.
     adjacency_mat = renormalize_adjacency_mat(adjacency_mat)
     """
-    
+
     # NB start run_parse_n_load::parse_visium::load_joint_data
     #    adata: (barcode x gene) transcripts ('count') + 'tumor_annotation' + 'X_pos' + slice ('sample').
     #    cell_snp_Aallele: haplotype H0 counts (barcode x snp).
@@ -154,8 +154,6 @@ def run_cnaster(config_path, over_rides=None):
         filter_range_file=config.references.filterregion_file,
     )
 
-    exit(0)
-    
     # NB e.g. 'AAACAAGTATCTCCCA-1_HT112C1-U1' currently.
     barcodes = adata.obs.index
     sample_list = [adata.obs["sample"].iloc[0]]
@@ -211,7 +209,12 @@ def run_cnaster(config_path, over_rides=None):
 
     # NB parse_visium::create_haplotype_block_ranges
     df_gene_snp = assign_initial_blocks(
-        df_gene_snp, adata, cell_snp_Aallele, cell_snp_Ballele, unique_snp_ids
+        df_gene_snp,
+        adata,
+        cell_snp_Aallele,
+        cell_snp_Ballele,
+        unique_snp_ids,
+        initial_min_umi=15,
     )
 
     # NB num. of blocks per contig; SN-based H0 and H0+H1 counts block; total UMIs per block.
@@ -250,8 +253,8 @@ def run_cnaster(config_path, over_rides=None):
 
     logger.warning("Assuming five BAF states for phasing.")
 
-    assert single_X.ndim == 3 
-    
+    assert single_X.ndim == 3
+
     # NB single_base_nb_mean initialized to zero - requires normal spot. determination.
     phase_indicator, refined_lengths = initial_phase_given_partition(
         single_X,
@@ -278,8 +281,6 @@ def run_cnaster(config_path, over_rides=None):
         f"Solved for initial phase given Eagle & BAF in {(time.time() - start_time):.2f} seconds."
     )
 
-    exit(0)
-    
     # NB phase is None for genes and otherwise True/False for the phase of each block.
     df_gene_snp["phase"] = np.where(
         df_gene_snp.snp_id.isnull(),
@@ -516,7 +517,7 @@ def run_cnaster(config_path, over_rides=None):
         )
     else:
         merged_res = res.copy()
-        
+
     _, merged_res = merge_by_minspots(
         merged_res["new_assignment"],
         merged_res,
@@ -621,9 +622,15 @@ def run_cnaster(config_path, over_rides=None):
         )
         id_nearnormal_clone = np.argmin(baf_deviations)
 
+        logger.info(
+            f"Found clone {id_nearnormal_clone} to be the most normal-like given BAF deviations."
+        )
+
         # NB measure the standard deviation of log-transformed, smoothed transcript counts for each spot.
         vec_stds = np.std(np.log1p(copy_single_X_rdr @ smooth_mat), axis=0)
 
+        prior_stdthreshold = np.inf
+        
         while True:
             # NB spots assigned to the normal-like clone AND 40% with smallest BAF deviation from 0.5;
             stdthreshold = np.percentile(
@@ -633,17 +640,23 @@ def run_cnaster(config_path, over_rides=None):
             normal_candidate = (vec_stds < stdthreshold) & (
                 merged_res["new_assignment"] == id_nearnormal_clone
             )
-            if (
-                np.sum(copy_single_X_rdr[:, (normal_candidate == True)])
-                > 200 * single_X.shape[0]  # MAGIC.
-            ):
+            # HACK
+            # if (
+            #    np.sum(copy_single_X_rdr[:, (normal_candidate == True)])
+            #    > 200 * single_X.shape[0]  # MAGIC.
+            # ):
+            # NB 25% increase in std of RDR
+            if stdthreshold > 1.5 * prior_stdthreshold: # MAGIC
                 logger.info(
                     f"Determined {PERCENT_NORMAL}% normal spots with sufficient UMIs, assigned to normal like clone."
+                )
+                logger.info(
+                    f"BAF-clone breakdown:\n{np.unique(merged_res["new_assignment"][normal_candidate], return_counts=True)}"
                 )
                 break
             elif PERCENT_NORMAL == 100:
                 logger.warning(
-                    f"Failed to determine normal spots with sufficient UMIs."
+                    f"All spots for clone {id_nearnormal_clone} considered to be normal."
                 )
                 break
 
@@ -679,6 +692,9 @@ def run_cnaster(config_path, over_rides=None):
 
     index_normal = np.where(normal_candidate)[0]
 
+    # TODO HACK
+    single_X[:,0,:] = copy_single_X_rdr
+    
     # NB filter out genomic segments with potential allele-specific expression based on normal spot candidates.
     (
         lengths,
@@ -702,14 +718,19 @@ def run_cnaster(config_path, over_rides=None):
     df_bininfo = binned_gene_snp(df_gene_snp)
 
     # NB filter out high-UMI DE genes, which may bias RDR estimates.
-    copy_single_X_rdr, _ = filter_normal_diffexp(
-        exp_counts,
-        df_bininfo,
-        normal_candidate,
-        sample_list=sample_list,
-        sample_ids=sample_ids,
-    )
-
+    if config.quality.filter_normal_diffexp:
+        copy_single_X_rdr, _ = filter_normal_diffexp(
+            exp_counts,
+            df_bininfo,
+            normal_candidate,
+            sample_list=sample_list,
+            sample_ids=sample_ids,
+        )
+    # TODO CHECK?
+    else:
+        logger.warning(f"Assuming no filter for normall differential expression.")
+        copy_single_X_rdr = single_X[:,0,:]
+        
     # NB >>>>>  determine normal baseline expression.
     MIN_NORMAL_COUNT_PERBIN = 20  # MAGIC
 
@@ -717,7 +738,11 @@ def run_cnaster(config_path, over_rides=None):
     rdr_normal = np.sum(copy_single_X_rdr[:, (normal_candidate == True)], axis=1)
 
     bidx_inconfident = np.where(rdr_normal < MIN_NORMAL_COUNT_PERBIN)[0]
-    
+
+    logger.info(
+        f"Found {100. * np.mean(rdr_normal >= MIN_NORMAL_COUNT_PERBIN):.3f}% of segments with confident normal baseline for MIN_NORMAL_COUNT_PERBIN={MIN_NORMAL_COUNT_PERBIN}"
+    )
+
     # NB where normal transcript count < MIN_NORMAL_COUNT_PERBIN, zero.
     rdr_normal[bidx_inconfident] = 0
 
@@ -773,7 +798,9 @@ def run_cnaster(config_path, over_rides=None):
 
         # TODO HACK?  splits each BAF clone along the x direction.
         initial_clone_index, _ = fixed_rectangle_partition(
-            coords[idx_spots], config.hmrf.n_clones_rdr, 1,
+            coords[idx_spots],
+            config.hmrf.n_clones_rdr,
+            1,
         )
 
         initial_assignment = np.zeros(len(idx_spots), dtype=int)
@@ -797,7 +824,9 @@ def run_cnaster(config_path, over_rides=None):
             None,  # NB prefix
             single_X[:, :, idx_spots],
             lengths,
-            single_base_nb_mean[:, idx_spots], # NB per-spot replications normalized to T_n.
+            single_base_nb_mean[
+                :, idx_spots
+            ],  # NB per-spot replications normalized to T_n.
             single_total_bb_RD[:, idx_spots],
             single_tumor_prop[idx_spots] if single_tumor_prop is not None else None,
             initial_clone_index,  # NB
@@ -1051,8 +1080,12 @@ def run_cnaster(config_path, over_rides=None):
 
         offset_clone += n_merged_clones
 
-    logger.info(f"Assuming max. alpha dispersion between clones given current:\n{res_combine['new_alphas']}")
-    logger.info(f"Assuming min. tau dispersion between clones given current:\n{res_combine['new_taus']}")
+    logger.info(
+        f"Assuming max. alpha dispersion between clones given current:\n{res_combine['new_alphas']}"
+    )
+    logger.info(
+        f"Assuming min. tau dispersion between clones given current:\n{res_combine['new_taus']}"
+    )
 
     # HACK broadcast max. dispersion across all clones.
     res_combine["new_alphas"][:, :] = np.max(res_combine["new_alphas"])
@@ -1064,7 +1097,7 @@ def run_cnaster(config_path, over_rides=None):
     n_final_clones = len(np.unique(res_combine["prev_assignment"]))
 
     logger.info(f"Inferred {n_final_clones} clones given BAF+RDR data.")
-    
+
     log_persample_weights = np.zeros((n_final_clones, len(sample_list)))
 
     for sidx in range(len(sample_list)):
@@ -1484,20 +1517,20 @@ def run_cnaster(config_path, over_rides=None):
     initial_rdr_baf_fig = plot_clones_genomic(
         df_seglevel_cnv,
         lengths,
-        original_single_X,
+        single_X,
         single_base_nb_mean,
         single_total_bb_RD,
         res_combine,
         single_tumor_prop=single_tumor_prop,
         sample_list=sample_list,
-	clone_ids=None,
+        clone_ids=None,
         clone_index=initial_clone_index_baf,
         remove_xticks=True,
-	base_height=3.2,
+        base_height=3.2,
         palette_name="chisel",
     )
 
-    # TODO                                                                                                                                                                                                                              
+    # TODO
     fig_path = f"{config.paths.output_dir}/plots/initial_clones_genomic.pdf"
     write_fig(fig_path, initial_rdr_baf_fig, transparent=True, bbox_inches="tight")
 
@@ -1514,11 +1547,7 @@ def run_cnaster(config_path, over_rides=None):
         clone_index,
         single_tumor_prop,
     )
-    
-    plot_cna_mixture(
-        res_combine["new_log_mu"], res_combine["new_p_binom"], X, base_nb_mean, total_bb_RD, prefix="final"
-    )
-    
+
     # NB clones fig.
     assignment = pd.Series([f"clone {x}" for x in res_combine["new_assignment"]])
     clones_fig = plot_clones_spatial(
@@ -1559,6 +1588,7 @@ def run_cnaster(config_path, over_rides=None):
     logger.info(f"Done in {(time.time() - start_time)/60.:.2f} minutes.")
 
 
+# NB run_cnaster zenodo_sim_config (-o paths.sample_sheet='dummy_sample_sheet.tsv')
 def main():
     parser = argparse.ArgumentParser(description="Run CNAster pipeline")
     parser.add_argument(

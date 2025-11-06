@@ -151,7 +151,7 @@ def assign_initial_blocks(
     cell_snp_Aallele,
     cell_snp_Ballele,
     unique_snp_ids,
-    initial_min_umi=15,
+    initial_min_umi,
 ):
     """
     Initially assigns SNPs to blocks along the genome, based on merging overlapping gene intervals
@@ -287,6 +287,7 @@ def assign_initial_blocks(
             )
 
             if reach_end:
+                logger.warning(f"Reached last block with {this_snp_umis}/{initial_min_umi} required SNP UMIs.")
                 break
 
             if change_chr:
@@ -309,6 +310,8 @@ def assign_initial_blocks(
                     + np.sum(cell_snp_Ballele[:, involved_snp_idx])
                 )
 
+                logger.warning(f"Reached contig end with {this_snp_umis}/{initial_min_umi} required SNP UMIs.")
+                
                 break
 
             if this_snp_umis >= initial_min_umi:
@@ -336,7 +339,7 @@ def assign_initial_blocks(
         df_gene_snp.iloc[x[0] : x[1], -1] = i
 
     logger.info(
-        "Updating block assignment based on input phased genotypes and min. snp-covering UMI threshold"
+        f"Updating block assignment based on input phased genotypes and min. snp-covering UMI threshold={initial_min_umi}"
     )
 
     summarize_block_ids(df_gene_snp["block_id"])
@@ -584,12 +587,10 @@ def greedy_binning_nobreak(block_lengths, block_umi, secondary_min_umi, max_binl
         while t < len(block_lengths) and np.sum(block_umi[s:t]) < secondary_min_umi:
             t += 1
 
-            # NB current block is too long, time to split.
-            if np.sum(block_lengths[s:t]) >= max_binlength:
-                logger.warning(
-                    f"Block failed max_binlength filter with fraction={np.sum(block_umi[s:t]) / secondary_min_umi:.3f}"
-                )
-
+            # NB current block is too long, time to split & meets SNP UMI count.
+            if (np.sum(block_lengths[s:t]) >= max_binlength) and (np.sum(block_umi[s:t]) >= secondary_min_umi):
+                logger.warning(f"Solved for block with length={np.sum(block_lengths[s:t])/max_binlength} [max_binlength] given secondary_min_umi threshold.")
+                
                 t = max(t - 1, s + 1)
                 break
 
@@ -602,8 +603,8 @@ def greedy_binning_nobreak(block_lengths, block_umi, secondary_min_umi, max_binl
             # and np.sum(block_umi[s:t]) < 0.5 * secondary_min_umi
             # and np.sum(block_lengths[s:t]) < 0.5 * max_binlength
         ):
-            logger.warning(
-                f"Last block failed secondary_min_umi filter with fraction={np.sum(block_umi[s:t]) / secondary_min_umi:.3f}"
+            logger.debug(
+                f"Last block failed secondary_min_umi filter with fraction={np.sum(block_umi[s:t]) / secondary_min_umi:.3f}, merging with previous."
             )
             bin_ranges[-1][1] = t
         else:

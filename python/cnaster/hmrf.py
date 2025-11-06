@@ -535,8 +535,6 @@ def validation_summary(
 
         zero_point += ll
 
-    exit(0)
-
 
 @count_calls
 def hmrfmix_concatenate_pipeline(
@@ -618,7 +616,7 @@ def hmrfmix_concatenate_pipeline(
         threshold=tumorprop_threshold,
     )
 
-    validation_summary(lengths, X, base_nb_mean, total_bb_RD, tumor_prop)
+    # validation_summary(lengths, X, base_nb_mean, total_bb_RD, tumor_prop)
 
     # NB transform (n_obs, 2, n_clones) to (n_obs * n_clones, 2, 1) for HMM processing.
     #    i.e. stack bins per clone lengthwise, useful for fitting shared copy state.

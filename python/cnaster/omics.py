@@ -133,14 +133,19 @@ def form_gene_snp_table(
     return df_gene_snp
 
 
-def summarize_blocks(gene_snp_table, adata, block_key=None):
+def summarize_blocks(gene_snp_table, adata, cell_snp_Aallele,
+    cell_snp_Ballele,
+    unique_snp_ids,block_key=None):
     assert block_key is not None, "block_key must be specified"
     assert block_key in gene_snp_table.columns, f"{block_key} not in DataFrame"
+
+    map_snp_index = {x: i for i, x in enumerate(unique_snp_ids)}
 
     block_summary = gene_snp_table.groupby(block_key).agg(
         num_snps=("snp_id", lambda x: x.notna().sum()),
         num_genes=("is_interval", "sum"),
         genes=("gene", lambda x: list({g for g in x if g is not None})),
+        snp_ids=("snp_id", lambda x: [s for s in x if s is not None]),
     )
 
     gene_names = adata.var.index.to_numpy()
@@ -148,6 +153,8 @@ def summarize_blocks(gene_snp_table, adata, block_key=None):
     count_matrix = adata.layers["count"]  # (n_spots, n_genes)
 
     total_umis = np.zeros(len(block_summary), dtype=int)
+    snp_umis = np.zeros(len(block_summary), dtype=int)
+
     for idx, (block_id, row) in enumerate(block_summary.iterrows()):
         genes = row["genes"]
         if genes:
@@ -156,22 +163,40 @@ def summarize_blocks(gene_snp_table, adata, block_key=None):
                 block_sum = count_matrix[:, gene_idx].sum()
                 total_umis[idx] = int(block_sum)
 
+        # SNP-covering UMIs
+        snp_ids = row["snp_ids"]
+        if snp_ids:
+            snp_idx = np.array([map_snp_index[s] for s in snp_ids])
+            if len(snp_idx) > 0:
+                snp_umis[idx] = int(
+                    cell_snp_Aallele[:, snp_idx].sum() +
+                    cell_snp_Ballele[:, snp_idx].sum()
+                )
+
     block_summary["total_umi"] = total_umis
+    block_summary["snp_umi"] = snp_umis
 
     logger.info(f"Breakdown of genes/SNPs/UMI per {block_key}:")
-    logger.info(f"{'Block ID':<10}\t{'SNPs':>8}\t{'Genes':>8}\t{'Total UMI':>12}")
-    logger.info("-" * 50)
+    logger.info(
+        f"{'Block ID':<10}\t{'SNPs':>8}\t{'Genes':>8}\t{'Total UMI':>12}\t{'SNP UMI':>12}"
+    )
+    logger.info("-" * 65)
 
     for block_id, row in block_summary.iterrows():
         logger.info(
-            f"{block_id:<10}\t{row['num_snps']:>8}\t{row['num_genes']:>8}\t{row['total_umi']:>12}"
+            f"{block_id:<10}\t{row['num_snps']:>8}\t{row['num_genes']:>8}\t"
+            f"{row['total_umi']:>12}\t{row['snp_umi']:>12}"
         )
 
+    # Summary statistics
     logger.info(
         f"Total blocks: {len(block_summary)}, "
         f"median SNPs/block: {block_summary['num_snps'].median():.1f}, "
-        f"median genes/block: {block_summary['num_genes'].median():.1f}"
-        f"median umis/block: {block_summary['total_umis'].median():.1f}"
+        f"median genes/block: {block_summary['num_genes'].median():.1f}, "
+        f"median UMI/block: {block_summary['total_umi'].median():.1f}, "
+        f"median SNP-UMI/block: {block_summary['snp_umi'].median():.1f}, "
+        f"total UMI: {block_summary['total_umi'].sum()}, "
+        f"total SNP-UMI: {block_summary['snp_umi'].sum()}"
     )
 
     exit(0)

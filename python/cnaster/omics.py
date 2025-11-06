@@ -159,16 +159,22 @@ def summarize_blocks(gene_snp_table, adata, block_key=None):
     block_summary["total_umi"] = total_umis
 
     logger.info(f"Breakdown of genes/SNPs/UMI per {block_key}:")
-    logger.info(f"{block_key}\tSNPs\tGenes\tTotal UMI")
+    logger.info(f"{'Block ID':<10}\t{'SNPs':>8}\t{'Genes':>8}\t{'Total UMI':>12}")
+    logger.info("-" * 50)
 
     for block_id, row in block_summary.iterrows():
-        logger.info(f"{block_id}\t{row['num_snps']}\t{row['num_genes']}\t{row['total_umi']}")
+        logger.info(
+            f"{block_id:<10}\t{row['num_snps']:>8}\t{row['num_genes']:>8}\t{row['total_umi']:>12}"
+        )
 
     logger.info(
         f"Total blocks: {len(block_summary)}, "
-        f"mean SNPs/block: {block_summary['num_snps'].mean():.1f}, "
-        f"mean genes/block: {block_summary['num_genes'].mean():.1f}"
+        f"median SNPs/block: {block_summary['num_snps'].median():.1f}, "
+        f"median genes/block: {block_summary['num_genes'].median():.1f}"
+        f"median umis/block: {block_summary['total_umis'].median():.1f}"
     )
+
+    exit(0)
 
 
 def assign_initial_blocks(
@@ -234,7 +240,7 @@ def assign_initial_blocks(
 
     # NB TODO 20%?
     logger.info(
-        f"Merged {100.0 * merged / len(tmp_block_genome_intervals):.3f}% of geness to ranges as overlapping."
+        f"Merged {100.0 * merged / len(tmp_block_genome_intervals):.3f}% of genes to ranges as overlapping."
     )
 
     # NB map block_genome_intervals to block_ranges for rows of df_gene_snp.
@@ -313,7 +319,9 @@ def assign_initial_blocks(
             )
 
             if reach_end:
-                logger.warning(f"Reached last block with {this_snp_umis}/{initial_min_umi} required SNP UMIs.")
+                logger.warning(
+                    f"Reached last block with {this_snp_umis}/{initial_min_umi} required SNP UMIs."
+                )
                 break
 
             if change_chr:
@@ -336,8 +344,10 @@ def assign_initial_blocks(
                     + np.sum(cell_snp_Ballele[:, involved_snp_idx])
                 )
 
-                logger.warning(f"Reached contig end with {this_snp_umis}/{initial_min_umi} required SNP UMIs.")
-                
+                logger.warning(
+                    f"Reached contig end with {this_snp_umis}/{initial_min_umi} required SNP UMIs."
+                )
+
                 break
 
             if this_snp_umis >= initial_min_umi:
@@ -421,11 +431,11 @@ def summarize_counts_for_blocks_legacy(
     )
 
     logger.info(f"Summarizing counts for blocks")
-    
+
     # NB loop over blocks.
     for b in range(df_block_contents.shape[0]):
         logger.info(f"Solved for block {b}/{df_block_contents.shape[0]}")
-        
+
         # NB BAF (SNPs)
         involved_snps_ids = [
             x for x in df_block_contents.snp_id.to_numpy()[b] if x is not None
@@ -462,7 +472,7 @@ def summarize_counts_for_blocks_legacy(
         lengths[i] = len(df_gene_snp[df_gene_snp.CHR == c].block_id.unique())
 
     assert single_X.ndim == 3
-        
+
     # NB single_base_nb_mean is currently all zeros.
     return (
         lengths,
@@ -483,32 +493,32 @@ def summarize_counts_for_blocks(
 
     # precompute mapping: snp_id -> index
     map_snp_index = {x: i for i, x in enumerate(unique_snp_ids)}
-    
+
     # filter to SNPs only (drop genes)
     df_snps = df_gene_snp[df_gene_snp.snp_id.notna()].copy()
     df_snps["snp_idx"] = df_snps.snp_id.map(map_snp_index)
-    
+
     # group SNPs by block_id and aggregate indices as lists
     snp_groups = df_snps.groupby("block_id")["snp_idx"].apply(np.array)
-    
+
     # TODO HACK?  df_gene_snp.gene.notna()
     df_genes = df_gene_snp[df_gene_snp.is_interval == True].copy()
     gene_groups = df_genes.groupby("block_id")["gene"].apply(lambda x: list(set(x)))
-    
+
     # NB block_ids formed by merging overlapping genes into intervals, merging said intervals
     #    until a threshold min. snp-covering reads and assigning counts to intervals below.
     blocks = df_gene_snp.block_id.unique()
     n_blocks = len(blocks)
     n_spots = adata.shape[0]
-    
+
     single_X = np.zeros((n_blocks, 2, n_spots), dtype=int)
     single_base_nb_mean = np.zeros((n_blocks, n_spots))
     single_total_bb_RD = np.zeros((n_blocks, n_spots), dtype=int)
-    
+
     # precompute gene counts if using sparse matrix (for efficiency)
     gene_counts = adata.layers["count"]  # (n_spots, n_genes)
     gene_names = adata.var.index.to_numpy()
-    
+
     for block_id in blocks:
         # NB BAF/SNPs
         if block_id in snp_groups.index:
@@ -518,22 +528,21 @@ def summarize_counts_for_blocks(
                 single_X[block_id, 1, :] = cell_snp_Aallele[:, snp_idx].sum(axis=1)
 
                 # NB sum haplotype A + haplotype B counts for SNPs in block.
-                single_total_bb_RD[block_id, :] = (
-                    cell_snp_Aallele[:, snp_idx].sum(axis=1) +
-                    cell_snp_Ballele[:, snp_idx].sum(axis=1)
-                )
-        
+                single_total_bb_RD[block_id, :] = cell_snp_Aallele[:, snp_idx].sum(
+                    axis=1
+                ) + cell_snp_Ballele[:, snp_idx].sum(axis=1)
+
         # NB RDR/Genes
         if block_id in gene_groups.index:
             genes = gene_groups[block_id]
             gene_mask = np.isin(gene_names, genes)
             if gene_mask.any():
                 single_X[block_id, 0, :] = gene_counts[:, gene_mask].sum(axis=1)
-    
+
     lengths = df_gene_snp.groupby("CHR")["block_id"].nunique().to_numpy()
-    
+
     assert single_X.ndim == 3
-    
+
     return (
         lengths,
         single_X,
@@ -616,9 +625,13 @@ def greedy_binning_nobreak(block_lengths, block_umi, secondary_min_umi, max_binl
             t += 1
 
             # NB current block is too long, time to split & meets SNP UMI count.
-            if (np.sum(block_lengths[s:t]) >= max_binlength) and (np.sum(block_umi[s:t]) >= secondary_min_umi):
-                logger.warning(f"Solved for block with length={np.sum(block_lengths[s:t])/max_binlength} [max_binlength] given secondary_min_umi threshold.")
-                
+            if (np.sum(block_lengths[s:t]) >= max_binlength) and (
+                np.sum(block_umi[s:t]) >= secondary_min_umi
+            ):
+                logger.warning(
+                    f"Solved for block with length={np.sum(block_lengths[s:t])/max_binlength} [max_binlength] given secondary_min_umi threshold."
+                )
+
                 t = max(t - 1, s + 1)
                 break
 
@@ -882,7 +895,7 @@ def summarize_counts_for_bins_legacy(
     ]
 
     assert bin_single_X.ndim == 3
-    
+
     return (
         lengths,
         bin_single_X,
@@ -974,13 +987,13 @@ def summarize_counts_for_bins(
         # RDR (genes): gather involved gene indices
         involved_genes = [x for x in gene_sets[b] if x is not None]
         if involved_genes:
-            gene_idx = [gene_index_map[g] for g in involved_genes if g in gene_index_map]
+            gene_idx = [
+                gene_index_map[g] for g in involved_genes if g in gene_index_map
+            ]
             if gene_idx:
                 block_sum = count_matrix[:, gene_idx].sum(axis=1)
                 # Handle scipy.sparse result
-                bin_single_X[b, 0, :] = (
-                    np.asarray(block_sum).ravel()
-                )
+                bin_single_X[b, 0, :] = np.asarray(block_sum).ravel()
         else:
             logger.debug(f"No genes found for bin row {b}.")
 

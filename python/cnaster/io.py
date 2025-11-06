@@ -407,7 +407,7 @@ def load_input_data(
     adata = adata[:, indicator]
 
     logger.info(
-        f"Median spot UMI after filtering genes based on num. spots expressed = {np.median(np.sum(adata.layers['count'], axis=1)):.3e}"
+        f"Median spot UMI after filtering genes based on num. spots expressed = {np.median(np.sum(adata.layers['count'], axis=1)):.3f}"
     )
 
     if filter_gene_file is not None:

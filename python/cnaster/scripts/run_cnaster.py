@@ -732,8 +732,8 @@ def run_cnaster(config_path, over_rides=None):
         copy_single_X_rdr = single_X[:,0,:]
         
     # NB >>>>>  determine normal baseline expression.
-    MIN_NORMAL_COUNT_PERBIN = 20  # MAGIC
-
+    MIN_NORMAL_COUNT_PERBIN = config.quality.min_normal_count_perbin
+    
     # NB normal baseline transcript count; unnormalized.
     rdr_normal = np.sum(copy_single_X_rdr[:, (normal_candidate == True)], axis=1)
 

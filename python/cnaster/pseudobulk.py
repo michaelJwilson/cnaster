@@ -64,8 +64,8 @@ def merge_pseudobulk_by_index_mix(
 
                 logger.info(f"Applied normal baseline outlier correction={np.mean(inlier_norm / outlier_norm)}")
 
-        percentiles = np.arange(50, 105, 5)
-
+        percentiles = [50, 75, 90, 95, 99, 100]
+                
         bafs = X[:, 1, k] / total_bb_RD[:, k]
 
         valid_rdr = base_nb_mean[:,k] > 0
@@ -78,8 +78,8 @@ def merge_pseudobulk_by_index_mix(
             if not np.isclose(np.nansum(X[:, 0, k]), np.nansum(base_nb_mean[:, k]), rtol=1e-5, atol=1e-6):
                 logger.warning(f"Expected consistency between normal baseline normalization total UMI for the clone, {np.nansum(X[:,0,k])} != {np.sum(base_nb_mean[:,k])}")
             
-            logger.info(f"Found median RDR={np.median(rdrs[valid_rdr]):.3f} for clone {k} with {100. * np.mean(valid_rdr > 0.0):.3f}% valid.")
-            logger.info(f"Found UMI percentiles={np.percentile(X[:, 0, k], percentiles)} for {percentiles} [%].")
+            logger.info(f"Found median UMIs={np.median(X[:, 0, k])} and median RDR={np.median(rdrs[valid_rdr]):.3f} for clone {k} with {100. * np.mean(valid_rdr > 0.0):.3f}% valid.")
+            logger.info(f"Found UMI percentiles=\n{np.percentile(X[:, 0, k], percentiles)}\nfor\n{percentiles} [%].")
             
     logger.info(f"Merged single_X to pseudobulk of shape {X.shape[2]}.")
     

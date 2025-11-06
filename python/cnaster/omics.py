@@ -133,16 +133,42 @@ def form_gene_snp_table(
     return df_gene_snp
 
 
-def summarize_block_ids(block_ids):
-    ids, cnts = np.unique(block_ids, return_counts=True)
-    ids, cnts = np.unique(cnts, return_counts=True)
+def summarize_blocks(gene_snp_table, adata, block_key=None):
+    assert block_key is not None, "block_key must be specified"
+    assert block_key in gene_snp_table.columns, f"{block_key} not in DataFrame"
 
-    logger.info("Breakdown of snps per block:")
+    block_summary = gene_snp_table.groupby(block_key).agg(
+        num_snps=("snp_id", lambda x: x.notna().sum()),
+        num_genes=("is_interval", "sum"),
+        genes=("gene", lambda x: list({g for g in x if g is not None})),
+    )
 
-    logger.info("# SNPs/block\t# occurrences")
+    gene_names = adata.var.index.to_numpy()
+    gene_index_map = {g: i for i, g in enumerate(gene_names)}
+    count_matrix = adata.layers["count"]  # (n_spots, n_genes)
 
-    for ii, cnt in zip(ids, cnts):
-        logger.info(f"{ii}\t{cnt}")
+    total_umis = np.zeros(len(block_summary), dtype=int)
+    for idx, (block_id, row) in enumerate(block_summary.iterrows()):
+        genes = row["genes"]
+        if genes:
+            gene_idx = [gene_index_map[g] for g in genes if g in gene_index_map]
+            if gene_idx:
+                block_sum = count_matrix[:, gene_idx].sum()
+                total_umis[idx] = int(block_sum)
+
+    block_summary["total_umi"] = total_umis
+
+    logger.info(f"Breakdown of genes/SNPs/UMI per {block_key}:")
+    logger.info(f"{block_key}\tSNPs\tGenes\tTotal UMI")
+
+    for block_id, row in block_summary.iterrows():
+        logger.info(f"{block_id}\t{row['num_snps']}\t{row['num_genes']}\t{row['total_umi']}")
+
+    logger.info(
+        f"Total blocks: {len(block_summary)}, "
+        f"mean SNPs/block: {block_summary['num_snps'].mean():.1f}, "
+        f"mean genes/block: {block_summary['num_genes'].mean():.1f}"
+    )
 
 
 def assign_initial_blocks(
@@ -246,7 +272,7 @@ def assign_initial_blocks(
         "Assigned SNPs to initial blocks (intervals formed by overlapping genes)."
     )
 
-    summarize_block_ids(df_gene_snp["initial_block_id"])
+    summarize_blocks(df_gene_snp, adata, block_key="initial_block_id")
 
     # NB second level: group the first level blocks into "haplotype blocks" such that the minimum SNP-covering UMI counts >= initial_min_umi.
     #    maps snp id, {chr}_{pos}_{ref}_{alt} to integer index.
@@ -342,7 +368,7 @@ def assign_initial_blocks(
         f"Updating block assignment based on input phased genotypes and min. snp-covering UMI threshold={initial_min_umi}"
     )
 
-    summarize_block_ids(df_gene_snp["block_id"])
+    summarize_blocks(df_gene_snp, adata, block_key="block_id")
 
     return df_gene_snp.drop(columns=["initial_block_id"])
 
@@ -671,7 +697,7 @@ def create_bin_ranges(
 
     # TODO max_binlength.
     # NB get a list of points where existing block must be broken as too long.
-    #    refined_lengths derived (tangentially) from phasing; forced break when minor BAF changes by e.g. 0.1
+    #    refined_lengths derived (tangentially) from phasing - represents contig boundaries; forced break when minor BAF changes by e.g. 0.1
     breakpoints = np.concatenate(
         [
             np.cumsum(refined_lengths),
@@ -714,7 +740,7 @@ def create_bin_ranges(
         {i: x for i, x in enumerate(bin_ids)}
     )
 
-    summarize_block_ids(df_gene_snp["bin_id"])
+    summarize_blocks(df_gene_snp, adata, block_key="bin_id")
 
     return df_gene_snp
 

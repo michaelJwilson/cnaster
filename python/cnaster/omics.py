@@ -347,7 +347,7 @@ def assign_initial_blocks(
     return df_gene_snp.drop(columns=["initial_block_id"])
 
 
-def summarize_counts_for_blocks(
+def summarize_counts_for_blocks_legacy(
     df_gene_snp,
     adata,
     cell_snp_Aallele,
@@ -426,6 +426,8 @@ def summarize_counts_for_blocks(
             single_X[b, 0, :] = np.sum(
                 adata.layers["count"][:, adata.var.index.isin(involved_genes)], axis=1
             )
+        else:
+            logger.warning(f"No genes found for block {b}.")
 
     # NB array of number of unique blocks by contig.
     lengths = np.zeros(len(df_gene_snp.CHR.unique()), dtype=int)
@@ -436,6 +438,76 @@ def summarize_counts_for_blocks(
     assert single_X.ndim == 3
         
     # NB single_base_nb_mean is currently all zeros.
+    return (
+        lengths,
+        single_X,
+        single_base_nb_mean,
+        single_total_bb_RD,
+    )
+
+
+def summarize_counts_for_blocks(
+    df_gene_snp,
+    adata,
+    cell_snp_Aallele,
+    cell_snp_Ballele,
+    unique_snp_ids,
+):
+    logger.info(f"Summarizing counts for blocks (vectorized)")
+
+    # precompute mapping: snp_id -> index
+    map_snp_index = {x: i for i, x in enumerate(unique_snp_ids)}
+    
+    # filter to SNPs only (drop genes)
+    df_snps = df_gene_snp[df_gene_snp.snp_id.notna()].copy()
+    df_snps["snp_idx"] = df_snps.snp_id.map(map_snp_index)
+    
+    # group SNPs by block_id and aggregate indices as lists
+    snp_groups = df_snps.groupby("block_id")["snp_idx"].apply(np.array)
+    
+    # TODO HACK?  df_gene_snp.gene.notna()
+    df_genes = df_gene_snp[df_gene_snp.is_interval == True].copy()
+    gene_groups = df_genes.groupby("block_id")["gene"].apply(lambda x: list(set(x)))
+    
+    # NB block_ids formed by merging overlapping genes into intervals, merging said intervals
+    #    until a threshold min. snp-covering reads and assigning counts to intervals below.
+    blocks = df_gene_snp.block_id.unique()
+    n_blocks = len(blocks)
+    n_spots = adata.shape[0]
+    
+    single_X = np.zeros((n_blocks, 2, n_spots), dtype=int)
+    single_base_nb_mean = np.zeros((n_blocks, n_spots))
+    single_total_bb_RD = np.zeros((n_blocks, n_spots), dtype=int)
+    
+    # precompute gene counts if using sparse matrix (for efficiency)
+    gene_counts = adata.layers["count"]  # (n_spots, n_genes)
+    gene_names = adata.var.index.to_numpy()
+    
+    for block_id in blocks:
+        # NB BAF/SNPs
+        if block_id in snp_groups.index:
+            snp_idx = snp_groups[block_id]
+            if len(snp_idx) > 0:
+                # NB sum haplotype A counts for SNPs in block.
+                single_X[block_id, 1, :] = cell_snp_Aallele[:, snp_idx].sum(axis=1)
+
+                # NB sum haplotype A + haplotype B counts for SNPs in block.
+                single_total_bb_RD[block_id, :] = (
+                    cell_snp_Aallele[:, snp_idx].sum(axis=1) +
+                    cell_snp_Ballele[:, snp_idx].sum(axis=1)
+                )
+        
+        # NB RDR/Genes
+        if block_id in gene_groups.index:
+            genes = gene_groups[block_id]
+            gene_mask = np.isin(gene_names, genes)
+            if gene_mask.any():
+                single_X[block_id, 0, :] = gene_counts[:, gene_mask].sum(axis=1)
+    
+    lengths = df_gene_snp.groupby("CHR")["block_id"].nunique().to_numpy()
+    
+    assert single_X.ndim == 3
+    
     return (
         lengths,
         single_X,

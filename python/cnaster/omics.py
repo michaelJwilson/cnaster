@@ -720,7 +720,7 @@ def create_bin_ranges(
 
 
 # TODO duplicates summarize_counts_for_blocks?
-def summarize_counts_for_bins(
+def summarize_counts_for_bins_legacy(
     df_gene_snp,
     adata,
     single_X,
@@ -855,6 +855,147 @@ def summarize_counts_for_bins(
 
     assert bin_single_X.ndim == 3
     
+    return (
+        lengths,
+        bin_single_X,
+        bin_single_base_nb_mean,
+        bin_single_total_bb_RD,
+        log_sitewise_transmat,
+    )
+
+
+def summarize_counts_for_bins(
+    df_gene_snp,
+    adata,
+    single_X,
+    single_total_bb_RD,
+    phase_indicator,
+    nu,
+    logphase_shift,
+    geneticmap_file,
+):
+    """
+    Attributes:
+    ----------
+    df_gene_snp : pd.DataFrame
+        Contain "block_id" column to indicate which genes/snps belong to which block.
+
+    Returns
+    ----------
+    lengths : array, (n_chromosomes,)
+        Number of blocks per chromosome.
+
+    single_X : array, (n_bins, 2, n_spots)
+        Transcript counts and B allele count per bin per cell.
+
+    single_base_nb_mean : array, (n_bins, n_spots)
+        Baseline transcript counts in normal diploid per bin per cell.
+
+    single_total_bb_RD : array, (n_bins, n_spots)
+        Total allele count per bin per cell.
+
+    log_sitewise_transmat : array, (n_bins,)
+        Log phase switch probability between each pair of adjacent bins.
+    """
+    logger.info(f"Summarizing counts for bins.")
+
+    has_assigned_bin = ~df_gene_snp.bin_id.isnull()
+    # Use only assigned for shape; keeps original logic otherwise
+    bins = df_gene_snp.loc[has_assigned_bin, "bin_id"].unique()
+
+    # NB last axis is the number of spot (barcodes).
+    n_bins = len(bins)
+    n_spots = adata.shape[0]
+    bin_single_X = np.zeros((n_bins, 2, n_spots), dtype=int)
+    bin_single_base_nb_mean = np.zeros((n_bins, n_spots))
+    bin_single_total_bb_RD = np.zeros((n_bins, n_spots), dtype=int)
+
+    logger.info(
+        f"Retaining {100. * np.mean(has_assigned_bin):.2f}% of gene/snps with assigned bin."
+    )
+
+    df_bin_contents = (
+        df_gene_snp[has_assigned_bin]
+        .groupby("bin_id", sort=True)
+        .agg({"block_id": set, "gene": set})
+    )
+    block_sets = df_bin_contents["block_id"].to_numpy()
+    gene_sets = df_bin_contents["gene"].to_numpy()
+
+    gene_names = adata.var.index.to_numpy()
+    gene_index_map = {g: i for i, g in enumerate(gene_names)}
+    count_matrix = adata.layers["count"]  # (n_spots, n_genes), sparse or dense.
+
+    for b in range(df_bin_contents.shape[0]):
+        # BAF (SNPs): gather involved blocks
+        involved_blocks = [x for x in block_sets[b] if x is not None]
+        if involved_blocks:
+            ib = np.fromiter(involved_blocks, dtype=int)
+            # phased B counts per block
+            phased = np.where(
+                phase_indicator[ib].reshape(-1, 1),
+                single_X[ib, 1, :],
+                single_total_bb_RD[ib, :] - single_X[ib, 1, :],
+            )
+            # NB H0 counts for each bin (summed over blocks).
+            bin_single_X[b, 1, :] = phased.sum(axis=0)
+
+            # NB H0+H1 counts for each bin (summed over blocks).
+            bin_single_total_bb_RD[b, :] = single_total_bb_RD[ib, :].sum(axis=0)
+
+        # RDR (genes): gather involved gene indices
+        involved_genes = [x for x in gene_sets[b] if x is not None]
+        if involved_genes:
+            gene_idx = [gene_index_map[g] for g in involved_genes if g in gene_index_map]
+            if gene_idx:
+                block_sum = count_matrix[:, gene_idx].sum(axis=1)
+                # Handle scipy.sparse result
+                bin_single_X[b, 0, :] = (
+                    np.asarray(block_sum).ravel()
+                )
+        else:
+            logger.debug(f"No genes found for bin row {b}.")
+
+    # Array of number of unique bins by chromosome (vectorized)
+    chr_order = df_gene_snp.CHR.unique()
+    lengths = (
+        df_gene_snp.loc[has_assigned_bin]
+        .groupby("CHR")["bin_id"]
+        .nunique()
+        .reindex(chr_order, fill_value=0)
+        .to_numpy()
+    )
+
+    # Phase switch probability from genetic distance (UNCHANGED)
+    sorted_chr_pos_first = df_gene_snp.groupby("bin_id").agg(
+        {"CHR": "first", "START": "first"}
+    )
+    sorted_chr_pos_first = list(
+        zip(sorted_chr_pos_first.CHR.to_numpy(), sorted_chr_pos_first.START.to_numpy())
+    )
+    sorted_chr_pos_last = df_gene_snp.groupby("bin_id").agg(
+        {"CHR": "last", "END": "last"}
+    )
+    sorted_chr_pos_last = list(
+        zip(sorted_chr_pos_last.CHR.to_numpy(), sorted_chr_pos_last.END.to_numpy())
+    )
+    tmp_sorted_chr_pos = [
+        val for pair in zip(sorted_chr_pos_first, sorted_chr_pos_last) for val in pair
+    ]
+    ref_positions_cM = get_reference_recomb_rates(geneticmap_file)
+    position_cM = assign_centiMorgans(tmp_sorted_chr_pos, ref_positions_cM)
+    phase_switch_prob = compute_numbat_phase_switch_prob(
+        position_cM, tmp_sorted_chr_pos, nu
+    )
+    log_sitewise_transmat = np.minimum(
+        np.log(0.5), np.log(phase_switch_prob) - logphase_shift
+    )
+    log_sitewise_transmat = log_sitewise_transmat[
+        np.arange(1, len(log_sitewise_transmat), 2)
+    ]
+
+    assert bin_single_X.ndim == 3
+
     return (
         lengths,
         bin_single_X,

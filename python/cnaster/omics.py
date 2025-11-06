@@ -377,8 +377,6 @@ def summarize_counts_for_blocks(
     log_sitewise_transmat : array, (n_blocks,)
         Log phase switch probability between each pair of adjacent blocks.
     """
-    logger.info(f"Summarizing counts for blocks")
-
     # NB block_ids formed by merging overlapping genes into intervals, merging said intervals
     #    until a threshold min. snp-covering reads and assigning counts to intervals below.
     blocks = df_gene_snp.block_id.unique()
@@ -396,8 +394,12 @@ def summarize_counts_for_blocks(
         {"snp_id": list, "gene": list}
     )
 
+    logger.info(f"Summarizing counts for blocks")
+    
     # NB loop over blocks.
     for b in range(df_block_contents.shape[0]):
+        logger.info(f"Solved for block {b}/{df_block_contents.shape[0]}")
+        
         # NB BAF (SNPs)
         involved_snps_ids = [
             x for x in df_block_contents.snp_id.to_numpy()[b] if x is not None

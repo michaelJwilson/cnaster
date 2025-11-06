@@ -214,7 +214,6 @@ def load_input_data(
     normal_idx_file=None,
     min_snp_umis=50,
     min_percent_expressed_spots=5.0e-3,  # BUG actually a fraction.
-    local_outlier_filter=True,
 ):
     # NB see https://github.com/raphael-group/CalicoST/blob/5e4a8a1230e71505667d51390dc9c035a69d60d9/src/calicost/utils_IO.py#L127
     df_meta = get_sample_sheet(config.paths.sample_sheet)
@@ -469,7 +468,7 @@ def load_input_data(
 
         unique_snp_ids = unique_snp_ids[indicator_filter]
 
-    if local_outlier_filter:
+    if config.quality.local_outlier_filter:
         # NB  k-NN defined density estimates used to filter local outliers given density wrt neighbors.
         #     see https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.LocalOutlierFactor.html
         #         https://en.wikipedia.org/wiki/Local_outlier_factor

@@ -24,6 +24,8 @@ references:
 # TODO HACK secondary_min_umi : 300 -> 1
 quality:
   secondary_min_umi : 300
+  local_outlier_filter : True
+  filter_normal_diffexp : False
 
 # TODO HACK npart_phasing : 3 -> 1
 phasing:
@@ -37,7 +39,7 @@ phasing:
 #           n_clones_rdr : 2 -> 
 hmrf:
   n_clones : 3
-  n_clones_rdr : 2
+  n_clones_rdr : 1
   min_spots_per_clone : 100
   min_avgumi_per_clone : 10
   maxspots_pooling : 7
@@ -51,7 +53,7 @@ hmrf:
   inertia : 0
   construct_adjacency_method : hexagon
   construct_adjacency_w : 1.0
-  np_merge : True
+  np_merge : False
 
 # TODO HACK max_iter : 30 ->
 #           solver: nm ->

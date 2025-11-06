@@ -11,6 +11,7 @@ def merge_pseudobulk_by_index_mix(
     clone_index,
     single_tumor_prop=None,
     threshold=0.5,
+    outlier_percentile=None,
 ):
     n_obs = single_X.shape[0]
 
@@ -44,10 +45,25 @@ def merge_pseudobulk_by_index_mix(
             tumor_prop[k] = np.mean(single_tumor_prop[idx]) if len(idx) > 0 else 0.0
             
         X[:, :, k] = np.sum(single_X[:, :, idx], axis=-1)
-
-        base_nb_mean[:, k] = np.sum(single_base_nb_mean[:, idx], axis=1)
+        
         total_bb_RD[:, k] = np.sum(single_total_bb_RD[:, idx], axis=1)
+        base_nb_mean[:, k] = np.sum(single_base_nb_mean[:, idx], axis=1)
 
+        assert outlier_percentile is None
+        
+        if outlier_percentile is not None:
+            thres = np.percentile(base_nb_mean[:, k], outlier_percentile)
+
+            valid = base_nb_mean[:, k] <= thres
+            inlier_norm = 100. * np.sum(base_nb_mean[valid, k]) / outlier_percentile
+
+            outlier_norm = np.sum(base_nb_mean[:, k])
+
+            if outlier_norm > 0.0:
+                base_nb_mean[:, k] *= inlier_norm / outlier_norm
+
+                logger.info(f"Applied normal baseline outlier correction={np.mean(inlier_norm / outlier_norm)}")
+                
     logger.info(f"Merged single_X to pseudobulk of shape {X.shape[2]}.")
 
     return X, base_nb_mean, total_bb_RD, tumor_prop

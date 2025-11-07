@@ -265,6 +265,8 @@ def normal_baf_bin_filter(
     )
     df_gene_snp.bin_id = df_gene_snp.bin_id.astype("Int64")
 
+    logger.info(f"Solved for unique bin ids:\n{np.unique(df_gene_snp.bin_id)}")
+    
     single_X = single_X[index_remaining, :, :]
     single_base_nb_mean = single_base_nb_mean[index_remaining, :]
     single_total_bb_RD = single_total_bb_RD[index_remaining, :]
@@ -277,6 +279,9 @@ def normal_baf_bin_filter(
                 (df_gene_snp.CHR == c) & (~df_gene_snp.bin_id.isnull())
             ].bin_id.unique()
         )
+
+    assert df_gene_snp["bin_id"].nunique(dropna=True) == single_X.shape[0], f"{df_gene_snp['bin_id'].notna().sum()} != {single_X.shape[0]}"
+    assert df_gene_snp["bin_id"].nunique(dropna=True) == sum(lengths), f"{df_gene_snp['bin_id'].notna().sum()} != {sum(lengths)}"
 
     # NB phase switch probability from genetic distance
     sorted_chr_pos_first = df_gene_snp.groupby("bin_id").agg(

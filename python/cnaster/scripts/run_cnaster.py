@@ -791,16 +791,36 @@ def run_cnaster(config_path, over_rides=None):
         config.quality.secondary_min_snp_umi,
         config.quality.secondary_min_normal_umi,
         max_binlength=config.quality.max_binlength,
+        normal_candidates=normal_candidate,
+        key="bin_id"
     )
 
     # NB new bin info.                                                                                                                                                                                              
     df_bininfo = binned_gene_snp(df_gene_snp)
 
+    # TODO separate transmat.
+    phase_indicator = np.ones(single_X.shape[0])
+    
+    (
+        lengths,
+        single_X,
+        single_base_nb_mean,
+        single_total_bb_RD,
+        log_sitewise_transmat,
+    ) = summarize_counts_for_bins(
+        df_gene_snp,
+        adata,
+        single_X,
+        single_total_bb_RD,
+        phase_indicator,
+        nu=config.phasing.nu,
+        logphase_shift=config.phasing.logphase_shift,
+        geneticmap_file=config.references.geneticmap_file,
+    )
+
     copy_single_X_rdr = single_X[:, 0, :]
     # <<<<<<<<<<<<
     
-    exit(0)
-
     # NB >>>>>  determine normal baseline expression.
     MIN_NORMAL_COUNT_PERBIN = config.quality.min_normal_count_perbin
 

@@ -140,7 +140,8 @@ def summarize_blocks(
     cell_snp_Ballele,
     unique_snp_ids,
     block_key=None,
-    normal_candidates=None
+    normal_candidates=None,
+    sort_key=None, # "total_umi"
 ):
     assert block_key is not None, "block_key must be specified"
     assert block_key in gene_snp_table.columns, f"{block_key} not in DataFrame"
@@ -206,7 +207,8 @@ def summarize_blocks(
     block_summary["normal_umi"] = normal_umis
     block_summary["normal_snp_umi"] = normal_snp_umis
 
-    block_summary = block_summary.sort_values("total_umi", ascending=False)    
+    if sort_key is not None:
+        block_summary = block_summary.sort_values(sort_key, ascending=False)    
     
     logger.info(f"Breakdown of genes/SNPs/UMI per {block_key}:")
     logger.info(
@@ -233,6 +235,9 @@ def summarize_blocks(
         f"total normal umis: {block_summary['normal_umi'].sum()},\n"
         f"total normal snp-umis: {block_summary['normal_snp_umi'].sum()}\n"
     )
+
+    if block_summary.index.isna().any():
+        logger.warning(f"Found ill-defined group:/n{block_summary.loc[np.nan]}")
 
 
 def assign_initial_blocks(
@@ -502,6 +507,9 @@ def summarize_counts_for_blocks_legacy(
         {"snp_id": list, "gene": list}
     )
 
+    if df_block_contents.index.isna().any():
+        logger.warning(f"Found ill-defined group with None entries for group.")
+    
     logger.info(f"Summarizing counts for blocks")
 
     # NB loop over blocks.
@@ -569,7 +577,7 @@ def summarize_counts_for_blocks(
     # filter to SNPs only (drop genes)
     df_snps = df_gene_snp[df_gene_snp.snp_id.notna()].copy()
     df_snps["snp_idx"] = df_snps.snp_id.map(map_snp_index)
-
+    
     # group SNPs by block_id and aggregate indices as lists
     snp_groups = df_snps.groupby("block_id")["snp_idx"].apply(np.array)
 
@@ -639,6 +647,9 @@ def get_sitewise_transmat(df_gene_snp, geneticmap_file, nu, logphase_shift):
         {"CHR": "first", "START": "first"}
     )
 
+    if sorted_chr_pos_first.index.isna().any():
+        logger.warning(f"Found ill-defined group with None entries for group.")
+    
     # NB dataframe to list.
     sorted_chr_pos_first = list(
         zip(sorted_chr_pos_first.CHR.to_numpy(), sorted_chr_pos_first.START.to_numpy())
@@ -767,13 +778,19 @@ def create_bin_ranges_legacy(
     df_gene_snp : data frame, (CHR, START, END, snp_id, gene, is_interval, block_id, bin_id)
         The newly added bin_id column indicates which bin each gene or SNP belongs to.
     """
-    logger.info(f"Recalculating blocks given new phasing.")
-
     # NB block intervals, sorted by contig and start?
+    # TODO BUG dropna?
     sorted_chr_pos_both = df_gene_snp.groupby("block_id").agg(
         {"CHR": "first", "START": "first", "END": "last"}
     )
 
+    if sorted_chr_pos_first.index.isna().any():
+        logger.warning(f"Found ill-defined group with None entries for group.")
+    
+    unique_blocks = sorted_chr_pos_both.index
+
+    logger.info(f"Recalculating blocks (given new phasing) and unique block ids:\n{unique_blocks}")
+    
     block_lengths = (
         sorted_chr_pos_both.END.to_numpy() - sorted_chr_pos_both.START.to_numpy()
     )
@@ -950,6 +967,7 @@ def create_bin_ranges(
     secondary_min_normal_umi,
     normal_candidates=None,
     max_binlength=5e6,
+    key="block_id",
 ):
     """
     Aggregate haplotype blocks to bins with multiple UMI constraints.
@@ -986,12 +1004,15 @@ def create_bin_ranges(
     df_gene_snp : pd.DataFrame
         Updated with bin_id column.
     """
-    logger.info(f"Calculating bins (given phasing).")
-
     # Block intervals
-    sorted_chr_pos_both = df_gene_snp.groupby("block_id").agg(
+    # TODO BUG dropna?
+    sorted_chr_pos_both = df_gene_snp.groupby(key).agg(
         {"CHR": "first", "START": "first", "END": "last"}
     )
+
+    unique_blocks = sorted_chr_pos_both.index
+
+    logger.info(f"Recalculating bins (given phasing) and unique bins ids:\n{unique_blocks}")
 
     block_lengths = (
         sorted_chr_pos_both.END.to_numpy() - sorted_chr_pos_both.START.to_numpy()
@@ -1072,8 +1093,12 @@ def create_bin_ranges(
             bin_ids[b1:b2] = offset + this_bin_ids
             offset += np.max(this_bin_ids) + 1
 
+    if "bin_id" in df_gene_snp.columns:
+        logger.warning(f"Overwriting bin_id column, storing in block_id.")        
+        df_gene_snp["block_id"] = df_gene_snp["bin_id"]
+            
     # Append bin_ids to df_gene_snp
-    df_gene_snp["bin_id"] = df_gene_snp.block_id.map(
+    df_gene_snp["bin_id"] = getattr(df_gene_snp, key).map(
         {i: x for i, x in enumerate(bin_ids)}
     )
 
@@ -1146,7 +1171,7 @@ def summarize_counts_for_bins_legacy(
         .groupby("bin_id")
         .agg({"block_id": set, "gene": set})
     )
-
+    
     # NB loop over bins (phased blocks meeting max. length and min. UMI requirements).
     for b in range(df_bin_contents.shape[0]):
         # BAF (SNPs)
@@ -1192,6 +1217,9 @@ def summarize_counts_for_bins_legacy(
         {"CHR": "first", "START": "first"}
     )
 
+    if sorted_chr_pos_first.index.isna().any():
+        logger.warning(f"Found ill-defined group with None entries for group.")
+    
     sorted_chr_pos_first = list(
         zip(sorted_chr_pos_first.CHR.to_numpy(), sorted_chr_pos_first.START.to_numpy())
     )
@@ -1290,6 +1318,10 @@ def summarize_counts_for_bins(
         .groupby("bin_id", sort=True)
         .agg({"block_id": set, "gene": set})
     )
+
+    if df_bin_contents.index.isna().any():
+        logger.warning(f"Found ill-defined group with None entries for group.")
+    
     block_sets = df_bin_contents["block_id"].to_numpy()
     gene_sets = df_bin_contents["gene"].to_numpy()
 
@@ -1341,6 +1373,10 @@ def summarize_counts_for_bins(
     sorted_chr_pos_first = df_gene_snp.groupby("bin_id").agg(
         {"CHR": "first", "START": "first"}
     )
+
+    if sorted_chr_pos_first.index.isna().any():
+        logger.warning
+    
     sorted_chr_pos_first = list(
         zip(sorted_chr_pos_first.CHR.to_numpy(), sorted_chr_pos_first.START.to_numpy())
     )

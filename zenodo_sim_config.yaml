@@ -26,6 +26,7 @@ references:
 #           normal_allele_specific_confidence : (0.05, 0.95) -> 
 quality:
   min_percent_expressed_spots : 0.0
+  normalize_gene_outliers : True
   secondary_min_umi : 300
   secondary_min_snp_umi : 300
   secondary_min_normal_umi : 300

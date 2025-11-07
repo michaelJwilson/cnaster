@@ -525,6 +525,30 @@ def load_input_data(
         # NB zero count of outlier genes (!)
         adata.layers["count"][:, to_zero] = 0
 
+    elif config.quality.normalize_gene_outliers:
+        PERCENTILE = 90
+        
+        gene_counts = np.sum(adata.layers["count"], axis=0)
+
+        total_umis = np.sum(gene_counts)
+
+        threshold = np.percentile(gene_counts, PERCENTILE)
+
+        top_genes_indices = np.where(gene_counts >= threshold)[0]
+
+        top_genes_umis = np.sum(gene_counts[top_genes_indices])
+
+        target_umis = (1. - PERCENTILE / 100) * (total_umis - top_genes_umis)
+
+        for gene_idx in top_genes_indices:
+            current_umis = gene_counts[gene_idx]
+            
+            if current_umis > target_umis:
+                downsampling_factor = target_umis / current_umis
+                adata.layers["count"][:, gene_idx] = adata.layers["count"][:, gene_idx] * downsampling_factor
+                
+        logger.info(f"Downsampled top {100. - PERCENTILE}% genes to ensure they contribute only {100. - PERCENTILE}% of final UMIs; originally {100. * top_genes_umis / total_umis:.3f} [%].")
+        
     if normal_idx_file is not None:
         normal_barcodes = (
             pd.read_csv(normal_idx_file, header=None).iloc[:, 0].to_numpy()

@@ -802,6 +802,9 @@ def run_cnaster(config_path, over_rides=None):
         zeroed_genes = np.zeros_like(gene_names, dtype=int)
                 
         for b in range(df_bin_contents.shape[0]):
+            if not exp_diff_exp[b]:
+                continue
+            
             involved_genes = [x for x in gene_sets[b] if x is not None]
 
             if involved_genes:

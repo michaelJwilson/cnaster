@@ -784,14 +784,29 @@ def run_cnaster(config_path, over_rides=None):
         total_umis = copy_single_X_rdr.sum()
         
         single_X[exp_diff_exp, 0, :] = 0.0
-
-        # NB set bin_id to be None if the bin_id is masked by exp_diff_exp.
-        df_gene_snp["bin_id"] = df_gene_snp["bin_id"].where(~df_gene_snp["bin_id"].isin(np.where(exp_diff_exp)[0]), other=None
-        
-        retained_umis = copy_single_X_rdr.sum()
+        retained_umis = single_X.sum()
                 
         logger.info(f"Estimated {100. * np.mean(exp_diff_exp):.3f} [%] of segments with {(1. - retained_umis/total_umis):.3f} of UMIs to be driven by differential expression.")
         
+        df_bin_contents = (
+            df_gene_snp[~df_gene_snp.bin_id.isnull()]
+            .groupby("bin_id", sort=True)
+            .agg({"gene": set})
+        )
+    
+        gene_names = adata.var.index.to_numpy()
+        gene_index_map = {g: i for i, g in enumerate(gene_names)}
+        
+        for b in range(df_bin_contents.shape[0]):
+            involved_genes = [x for x in gene_sets[b] if x is not None]
+
+            if involved_genes:
+                gene_idx = [
+                    gene_index_map[g] for g in involved_genes if g in gene_index_map
+                ]
+                if gene_idx:
+                   adata.layers["count"][:, gene_idx] = 0.0
+
     # TODO CHECK?
     else:
         logger.warning(f"Assuming no filter for normal differential expression.")

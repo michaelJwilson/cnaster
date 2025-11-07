@@ -153,7 +153,12 @@ def summarize_blocks(
         num_genes=("is_interval", "sum"),
         genes=("gene", lambda x: list({g for g in x if g is not None})),
         snp_ids=("snp_id", lambda x: [s for s in x if s is not None]),
+        chr=("CHR", "first"),
+        start=("START", "min"),
+        end=("END", "max"),
     )
+
+    block_summary["length"] = block_summary["end"] - block_summary["start"]
 
     gene_names = adata.var.index.to_numpy()
     gene_index_map = {g: i for i, g in enumerate(gene_names)}
@@ -212,19 +217,20 @@ def summarize_blocks(
     
     logger.info(f"Breakdown of genes/SNPs/UMI per {block_key}:")
     logger.info(
-        f"{'Block ID':<10}\t{'SNPs':>8}\t{'Genes':>8}\t{'Total UMI':>12}\t{'SNP UMI':>12}\t{'Normal UMI':>12}\t{'Normal SNP UMI':>12}"
+        f"{'Block ID':<10}\t{'Chr':>4}\t{'Start':>12}\t{'Length':>12}\t{'SNPs':>8}\t{'Genes':>8}\t{'Total UMI':>12}\t{'SNP UMI':>12}\t{'Normal UMI':>12}\t{'Normal SNP UMI':>12}"
     )
-    logger.info("-" * 100)
+    logger.info("-" * 136)
 
     for block_id, row in block_summary.iterrows():
         logger.info(
-            f"{block_id:<10}\t{row['num_snps']:>8}\t{row['num_genes']:>8}\t"
+            f"{block_id:<10}\t{row['chr']:>4}\t{row['start']:>12}\t{row['length']:>12}\t{row['num_snps']:>8}\t{row['num_genes']:>8}\t"
             f"{row['total_umi']:>12}\t{row['snp_umi']:>12}\t{row['normal_umi']:>12}\t{row['normal_snp_umi']:>12}"
         )
 
     # Summary statistics
     logger.info(
         f"\n"
+        f"median block length: {block_summary['length'].median():.1f} bp,\n"
         f"median snps/block: {block_summary['num_snps'].median():.1f},\n"
         f"median genes/block: {block_summary['num_genes'].median():.1f},\n"
         f"median umis/block: {block_summary['total_umi'].median():.1f},\n"

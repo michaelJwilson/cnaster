@@ -781,10 +781,10 @@ def run_cnaster(config_path, over_rides=None):
         scaled_normal_segment_counts = normal_segment_counts * len(normal_candidate) / np.count_nonzero(normal_candidate)
         exp_diff_exp = (tumor_segment_counts / scaled_normal_segment_counts) > 6. # MAGIC
 
-        total_umis = copy_single_X_rdr.sum()
+        total_umis = single_X[:, 0, :].sum()
         
         single_X[exp_diff_exp, 0, :] = 0.0
-        retained_umis = single_X.sum()
+        retained_umis = single_X[:,0,:].sum()
                 
         logger.info(f"Estimated {100. * np.mean(exp_diff_exp):.3f} [%] of segments with {(1. - retained_umis/total_umis):.3f} of UMIs estimated to be driven by differential expression.")
         
@@ -800,7 +800,8 @@ def run_cnaster(config_path, over_rides=None):
         gene_index_map = {g: i for i, g in enumerate(gene_names)}
 
         zeroed_genes = np.zeros_like(gene_names, dtype=int)
-                
+        total_original_umis = adata.layers["count"].sum()
+        
         for b in range(df_bin_contents.shape[0]):
             if not exp_diff_exp[b]:
                 continue
@@ -815,7 +816,9 @@ def run_cnaster(config_path, over_rides=None):
                    adata.layers["count"][:, gene_idx] = 0.0
                    zeroed_genes[gene_idx] = 1
 
-        logger.info(f"Zeroed {100. * np.mean(zeroed_genes):.3f} [%] of genes estimated to be driven by differential expression.")
+        total_original_umis_retained = adata.layers["count"].sum()
+                   
+        logger.info(f"Zeroed {100. * np.mean(zeroed_genes):.3f} [%] of genes with {(1. - total_original_umis_retained/total_original_umis):.3f} of UMIs estimated to be driven by differential expression.")
                    
     # TODO CHECK?
     else:
@@ -830,8 +833,6 @@ def run_cnaster(config_path, over_rides=None):
         block_key="bin_id",
         normal_candidates=normal_candidate,
     )
-
-    exit(0)
 
     # TODO HACK >>>>>>
     df_gene_snp = create_bin_ranges(

@@ -38,6 +38,7 @@ quality:
 
 # TODO HACK npart_phasing : 3 -> 1
 phasing:
+  run : False
   nu : 1.0
   logphase_shift : -2.0
   npart_phasing : 2

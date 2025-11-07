@@ -141,7 +141,7 @@ def summarize_blocks(
     unique_snp_ids,
     block_key=None,
     normal_candidates=None,
-    sort_key=None, # "total_umi"
+    sort_key="total_umi"
 ):
     assert block_key is not None, "block_key must be specified"
     assert block_key in gene_snp_table.columns, f"{block_key} not in DataFrame"

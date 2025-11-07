@@ -274,31 +274,37 @@ def run_cnaster(config_path, over_rides=None):
 
     assert single_X.ndim == 3
 
-    # NB single_base_nb_mean initialized to zero - requires normal spot. determination.
-    phase_indicator, refined_lengths = initial_phase_given_partition(
-        single_X,
-        lengths,
-        single_base_nb_mean,
-        single_total_bb_RD,
-        single_tumor_prop,
-        initial_clone_for_phasing,
-        5,  # MAGIC n_states
-        log_sitewise_transmat,
-        "sp",  # MAGIC params (start prob. & baf states, no transition).
-        config.hmm.t_phaseing,
-        config.hmm.gmm_random_state,
-        config.hmm.fix_NB_dispersion,
-        config.hmm.shared_NB_dispersion,
-        config.hmm.fix_BB_dispersion,
-        config.hmm.shared_BB_dispersion,
-        config.hmm.max_iter,
-        1.0e-3,  # MAGIC tol on HMM parameter end.
-        threshold=config.hmrf.tumorprop_threshold,
-    )
 
-    logger.info(
-        f"Solved for initial phase given Eagle & BAF in {(time.time() - start_time):.2f} seconds."
-    )
+    if config.phasing.run:
+        # NB single_base_nb_mean initialized to zero - requires normal spot. determination.
+        phase_indicator, refined_lengths = initial_phase_given_partition(
+            single_X,
+            lengths,
+            single_base_nb_mean,
+            single_total_bb_RD,
+            single_tumor_prop,
+            initial_clone_for_phasing,
+            5,  # MAGIC n_states
+            log_sitewise_transmat,
+            "sp",  # MAGIC params (start prob. & baf states, no transition).
+            config.hmm.t_phaseing,
+            config.hmm.gmm_random_state,
+            config.hmm.fix_NB_dispersion,
+            config.hmm.shared_NB_dispersion,
+            config.hmm.fix_BB_dispersion,
+            config.hmm.shared_BB_dispersion,
+            config.hmm.max_iter,
+            1.0e-3,  # MAGIC tol on HMM parameter end.
+            threshold=config.hmrf.tumorprop_threshold,
+        )
+
+        logger.info(
+            f"Solved for initial phase given Eagle & BAF in {(time.time() - start_time):.2f} seconds."
+        )
+
+    else:
+        phase_indicator = np.zeros(single_X.shape[0])
+        refined_lengths = lengths
 
     # NB phase is None for genes and otherwise True/False for the phase of each block.
     df_gene_snp["phase"] = np.where(

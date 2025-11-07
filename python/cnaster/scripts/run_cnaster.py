@@ -779,7 +779,7 @@ def run_cnaster(config_path, over_rides=None):
         tumor_segment_counts = np.sum(copy_single_X_rdr[:, ~normal_candidate], axis=-1)
 
         scaled_normal_segment_counts = normal_segment_counts * len(normal_candidate) / np.count_nonzero(normal_candidate)
-        exp_diff_exp = (tumor_segment_counts / scaled_normal_segment_counts) > 6. # MAGIC
+        exp_diff_exp = (tumor_segment_counts / scaled_normal_segment_counts) > 4. # MAGIC
 
         total_umis = single_X[:, 0, :].sum()
         

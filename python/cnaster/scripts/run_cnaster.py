@@ -759,6 +759,8 @@ def run_cnaster(config_path, over_rides=None):
     # NB new bin info.
     df_bininfo = binned_gene_snp(df_gene_snp)
 
+    copy_single_X_rdr = single_X[:, 0, :]
+    
     # NB filter out high-UMI DE genes, which may bias RDR estimates.
     if config.quality.filter_normal_diffexp:
         copy_single_X_rdr, _ = filter_normal_diffexp(
@@ -768,10 +770,30 @@ def run_cnaster(config_path, over_rides=None):
             sample_list=sample_list,
             sample_ids=sample_ids,
         )
+
+    # TODO HACK
+    elif True:
+        logger.warning(f"Assuming basic normal differential expression.")
+
+        normal_segment_counts = np.sum(copy_single_X_rdr[:, normal_candidate], axis=-1)
+        tumor_segment_counts = np.sum(copy_single_X_rdr[:, ~normal_candidate], axis=-1)
+
+        scaled_normal_segment_counts = normal_segment_counts * len(normal_candidate) / np.count_nonzero(normal_candidate)
+        exp_diff_exp = (tumor_segment_counts / scaled_normal_segment_counts) > 6. # MAGIC
+
+        total_umis = copy_single_X_rdr.sum()
+        
+        single_X[exp_diff_exp, 0, :] = 0.0
+
+        df_gene_snp["bin_id"] = df_gene_snp["bin_id"].map()
+        
+        retained_umis = copy_single_X_rdr.sum()
+                
+        logger.info(f"Estimated {100. * np.mean(exp_diff_exp):.3f} [%] of segments with {(1. - retained_umis/total_umis):.3f} of UMIs to be driven by differential expression.")
+        
     # TODO CHECK?
     else:
         logger.warning(f"Assuming no filter for normal differential expression.")
-        copy_single_X_rdr = single_X[:, 0, :]
 
     summarize_blocks(
         df_gene_snp,

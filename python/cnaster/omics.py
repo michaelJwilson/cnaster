@@ -217,20 +217,20 @@ def summarize_blocks(
     
     logger.info(f"Breakdown of genes/SNPs/UMI per {block_key}:")
     logger.info(
-        f"{'Block ID':<10}\t{'Chr':>4}\t{'Start':>12}\t{'Length':>12}\t{'SNPs':>8}\t{'Genes':>8}\t{'Total UMI':>12}\t{'SNP UMI':>12}\t{'Normal UMI':>12}\t{'Normal SNP UMI':>12}"
+        f"{'Block ID':<10}\t{'Chr':>4}\t{'Start':>12}\t{'Length':>12} [Mbp]\t{'SNPs':>8}\t{'Genes':>8}\t{'Total UMI':>12}\t{'SNP UMI':>12}\t{'Normal UMI':>12}\t{'Normal SNP UMI':>12}"
     )
     logger.info("-" * 136)
 
     for block_id, row in block_summary.iterrows():
         logger.info(
-            f"{block_id:<10}\t{row['chr']:>4}\t{row['start']:>12}\t{row['length']:>12}\t{row['num_snps']:>8}\t{row['num_genes']:>8}\t"
+            f"{block_id:<10}\t{row['chr']:>4}\t{row['start']:>12}\t{row['length'] / 1.e6:>12}\t{row['num_snps']:>8}\t{row['num_genes']:>8}\t"
             f"{row['total_umi']:>12}\t{row['snp_umi']:>12}\t{row['normal_umi']:>12}\t{row['normal_snp_umi']:>12}"
         )
 
     # Summary statistics
     logger.info(
         f"\n"
-        f"median block length: {block_summary['length'].median():.1f} bp,\n"
+        f"median block length: {block_summary['length'].median() / 1.e6:.1f} [Mbp],\n"
         f"median snps/block: {block_summary['num_snps'].median():.1f},\n"
         f"median genes/block: {block_summary['num_genes'].median():.1f},\n"
         f"median umis/block: {block_summary['total_umi'].median():.1f},\n"
@@ -1305,7 +1305,7 @@ def summarize_counts_for_bins(
     logger.info(f"Summarizing counts for bins.")
 
     has_assigned_bin = ~df_gene_snp.bin_id.isnull()
-    # Use only assigned for shape; keeps original logic otherwise
+
     bins = df_gene_snp.loc[has_assigned_bin, "bin_id"].unique()
 
     # NB last axis is the number of spot (barcodes).

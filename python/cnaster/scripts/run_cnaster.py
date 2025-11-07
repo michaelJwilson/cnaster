@@ -319,7 +319,7 @@ def run_cnaster(config_path, over_rides=None):
         config.quality.secondary_min_umi,
     )
     """
-
+    
     df_gene_snp = create_bin_ranges(
         df_gene_snp,
         adata,
@@ -332,7 +332,6 @@ def run_cnaster(config_path, over_rides=None):
         config.quality.secondary_min_umi,
         config.quality.secondary_min_snp_umi,
         config.quality.secondary_min_normal_umi,
-        normal_candidates=normal_candidates,
         max_binlength=config.quality.max_binlength,
     )
 
@@ -778,15 +777,29 @@ def run_cnaster(config_path, over_rides=None):
         normal_candidates=normal_candidate,
     )
 
-    # TODO HACK?
-    total_segment_umis = np.sum(copy_single_X_rdr, axis=-1)
-    thres = np.percentile(total_segment_umis, 85.0)
-
-    logger.info(
-        f"Removing {100. * np.mean(total_segment_umis > thres):.3f} [%] outlier segments for {85} percentile with {np.sum(copy_single_X_rdr[total_segment_umis > thres, :]) / np.sum(copy_single_X_rdr):.3f} of total UMIs."
+    # TODO HACK >>>>>>
+    df_gene_snp = create_bin_ranges(
+        df_gene_snp,
+        adata,
+        cell_snp_Aallele,
+        cell_snp_Ballele,
+        unique_snp_ids,
+        single_X,
+        single_total_bb_RD,
+        lengths,
+        config.quality.secondary_min_umi,
+        config.quality.secondary_min_snp_umi,
+        config.quality.secondary_min_normal_umi,
+        max_binlength=config.quality.max_binlength,
     )
 
-    copy_single_X_rdr[total_segment_umis > thres, :] = 0.0
+    # NB new bin info.                                                                                                                                                                                              
+    df_bininfo = binned_gene_snp(df_gene_snp)
+
+    copy_single_X_rdr = single_X[:, 0, :]
+    # <<<<<<<<<<<<
+    
+    exit(0)
 
     # NB >>>>>  determine normal baseline expression.
     MIN_NORMAL_COUNT_PERBIN = config.quality.min_normal_count_perbin

@@ -860,8 +860,14 @@ def greedy_binning_nobreak(
     - minimum normal UMIs
     - maximum bin length
     """
-    assert len(block_lengths) == len(block_umi) == len(block_snp_umi) == len(block_normal_umi)
-
+    assert len(block_lengths) == len(block_umi) == len(block_snp_umi) == len(block_normal_umi), (
+        f"Block array length mismatch: "
+        f"lengths={len(block_lengths)}, "
+        f"umi={len(block_umi)}, "
+        f"snp_umi={len(block_snp_umi)}, "
+        f"normal_umi={len(block_normal_umi)}"
+    )
+    
     bin_ranges = []
     s = 0
 
@@ -980,7 +986,7 @@ def create_bin_ranges(
     df_gene_snp : pd.DataFrame
         Updated with bin_id column.
     """
-    logger.info(f"Recalculating blocks given new phasing.")
+    logger.info(f"Calculating bins (given phasing).")
 
     # Block intervals
     sorted_chr_pos_both = df_gene_snp.groupby("block_id").agg(
@@ -1008,8 +1014,16 @@ def create_bin_ranges(
         block_normal_umi = np.sum(single_X[:, 0, normal_idx], axis=1)
     else:
         block_normal_umi = np.zeros(n_blocks, dtype=int)
-        secondary_min_normal_umi = 0  # disable normal constraint
-
+        secondary_min_normal_umi = 0
+        
+    assert len(block_lengths) == len(block_umi) == len(block_snp_umi) == len(block_normal_umi), (
+        f"Block array length mismatch: "
+        f"lengths={len(block_lengths)}, "
+        f"umi={len(block_umi)}, "
+        f"snp_umi={len(block_snp_umi)}, "
+        f"normal_umi={len(block_normal_umi)}"
+    )
+    
     logger.info(
         f"Creating bin ranges: max_length={max_binlength}, "
         f"min_umi={secondary_min_umi}, "
@@ -1054,6 +1068,7 @@ def create_bin_ranges(
                 secondary_min_normal_umi,
                 max_binlength,
             )
+
             bin_ids[b1:b2] = offset + this_bin_ids
             offset += np.max(this_bin_ids) + 1
 

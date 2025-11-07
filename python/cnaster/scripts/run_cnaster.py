@@ -785,7 +785,8 @@ def run_cnaster(config_path, over_rides=None):
         
         single_X[exp_diff_exp, 0, :] = 0.0
 
-        df_gene_snp["bin_id"] = df_gene_snp["bin_id"].map()
+        # NB set bin_id to be None if the bin_id is masked by exp_diff_exp.
+        df_gene_snp["bin_id"] = df_gene_snp["bin_id"].where(~df_gene_snp["bin_id"].isin(np.where(exp_diff_exp)[0]), other=None
         
         retained_umis = copy_single_X_rdr.sum()
                 

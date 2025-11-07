@@ -784,27 +784,23 @@ def run_cnaster(config_path, over_rides=None):
         total_umis = copy_single_X_rdr.sum()
         
         single_X[exp_diff_exp, 0, :] = 0.0
-<<<<<<< HEAD
-
-        # NB set bin_id to be None if the bin_id is masked by exp_diff_exp.
-        df_gene_snp["bin_id"] = df_gene_snp["bin_id"].where(~df_gene_snp["bin_id"].isin(np.where(exp_diff_exp)[0]), other=None)
-        
-        retained_umis = copy_single_X_rdr.sum()
-=======
         retained_umis = single_X.sum()
->>>>>>> e708d86d71382fe73b0a476c043ec8ef776f5737
                 
-        logger.info(f"Estimated {100. * np.mean(exp_diff_exp):.3f} [%] of segments with {(1. - retained_umis/total_umis):.3f} of UMIs to be driven by differential expression.")
+        logger.info(f"Estimated {100. * np.mean(exp_diff_exp):.3f} [%] of segments with {(1. - retained_umis/total_umis):.3f} of UMIs estimated to be driven by differential expression.")
         
         df_bin_contents = (
             df_gene_snp[~df_gene_snp.bin_id.isnull()]
             .groupby("bin_id", sort=True)
             .agg({"gene": set})
         )
+
+        gene_sets = df_bin_contents["gene"].to_numpy()
     
         gene_names = adata.var.index.to_numpy()
         gene_index_map = {g: i for i, g in enumerate(gene_names)}
-        
+
+        zeroed_genes = np.zeros_like(gene_names, dtype=int)
+                
         for b in range(df_bin_contents.shape[0]):
             involved_genes = [x for x in gene_sets[b] if x is not None]
 
@@ -814,11 +810,14 @@ def run_cnaster(config_path, over_rides=None):
                 ]
                 if gene_idx:
                    adata.layers["count"][:, gene_idx] = 0.0
+                   zeroed_genes[gene_idx] = 1
 
+        logger.info(f"Zeroed {100. * np.mean(zeroed_genes):.3f} [%] of genes estimated to be driven by differential expression.")
+                   
     # TODO CHECK?
     else:
         logger.warning(f"Assuming no filter for normal differential expression.")
-
+        
     summarize_blocks(
         df_gene_snp,
         adata,
@@ -828,6 +827,8 @@ def run_cnaster(config_path, over_rides=None):
         block_key="bin_id",
         normal_candidates=normal_candidate,
     )
+
+    exit(0)
 
     # TODO HACK >>>>>>
     df_gene_snp = create_bin_ranges(

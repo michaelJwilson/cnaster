@@ -23,12 +23,14 @@ references:
 
 # TODO HACK min_normal_count_perbin : 20 ->
 #           min_percent_expressed_spots : 0.005 ->
+#           normal_allele_specific_confidence : (0.05, 0.95) -> 
 quality:
   min_percent_expressed_spots : 0.0
   secondary_min_umi : 300
   local_outlier_filter : False
   filter_normal_diffexp : False
-  min_normal_count_perbin : 1
+  normal_allele_specific_confidence : (0.01, 0.99)
+  min_normal_count_perbin : 100
 
 # TODO HACK npart_phasing : 3 -> 1
 phasing:

@@ -164,6 +164,12 @@ def summarize_blocks(
     normal_umis = np.zeros(len(block_summary), dtype=int)
     normal_snp_umis = np.zeros(len(block_summary), dtype=int)
 
+    if normal_candidates is not None:
+        assert count_matrix.shape[0] == len(normal_candidates), f"{count_matrix.shape[0]} != {len(normal_candidates)}"
+        
+        assert cell_snp_Aallele.shape[0] == len(normal_candidates), f"{cell_snp_Aallele.shape[0]} != {len(normal_candidates)}"
+        assert cell_snp_Ballele.shape[0] == len(normal_candidates), f"{cell_snp_Ballele.shape[0]} != {len(normal_candidates)}"
+        
     for idx, (block_id, row) in enumerate(block_summary.iterrows()):
         genes = row["genes"]
         if genes:
@@ -187,11 +193,12 @@ def summarize_blocks(
                 )
 
                 # Calculate SNP-covering UMIs for normal spots
-                if normal_spots is not None:
+                if normal_candidates is not None:
                     normal_snp_umis[idx] = int(
-                        cell_snp_Aallele[normal_spots, snp_idx].sum() +
-                        cell_snp_Ballele[normal_spots, snp_idx].sum()
+                        cell_snp_Aallele[np.ix_(normal_candidates, snp_idx)].sum() +
+                        cell_snp_Ballele[np.ix_(normal_candidates, snp_idx)].sum()
                     )
+                    
 
     block_summary["total_umi"] = total_umis
     block_summary["snp_umi"] = snp_umis
@@ -199,11 +206,13 @@ def summarize_blocks(
     block_summary["normal_umi"] = normal_umis
     block_summary["normal_snp_umi"] = normal_snp_umis
 
+    block_summary = block_summary.sort_values("total_umi", ascending=False)    
+    
     logger.info(f"Breakdown of genes/SNPs/UMI per {block_key}:")
     logger.info(
         f"{'Block ID':<10}\t{'SNPs':>8}\t{'Genes':>8}\t{'Total UMI':>12}\t{'SNP UMI':>12}\t{'Normal UMI':>12}\t{'Normal SNP UMI':>12}"
     )
-    logger.info("-" * 85)
+    logger.info("-" * 100)
 
     for block_id, row in block_summary.iterrows():
         logger.info(
@@ -213,15 +222,16 @@ def summarize_blocks(
 
     # Summary statistics
     logger.info(
-        f"Total blocks: {len(block_summary)},\n"
-        f"median SNPs/block: {block_summary['num_snps'].median():.1f},\n"
+        f"\n"
+        f"median snps/block: {block_summary['num_snps'].median():.1f},\n"
         f"median genes/block: {block_summary['num_genes'].median():.1f},\n"
-        f"median UMI/block: {block_summary['total_umi'].median():.1f},\n"
-        f"median SNP-UMI/block: {block_summary['snp_umi'].median():.1f},\n"
-        f"total UMI: {block_summary['total_umi'].sum()},\n"
-        f"total SNP-UMI: {block_summary['snp_umi'].sum()},\n"
-        f"total normal UMI: {block_summary['normal_umi'].sum()},\n"
-        f"total normal SNP-UMI: {block_summary['normal_snp_umi'].sum()}\n"
+        f"median umis/block: {block_summary['total_umi'].median():.1f},\n"
+        f"median snp-umis/block: {block_summary['snp_umi'].median():.1f},\n"
+        f"total blocks: {len(block_summary)},\n"
+        f"total umis: {block_summary['total_umi'].sum()},\n"
+        f"total snp-umis: {block_summary['snp_umi'].sum()},\n"
+        f"total normal umis: {block_summary['normal_umi'].sum()},\n"
+        f"total normal snp-umis: {block_summary['normal_snp_umi'].sum()}\n"
     )
 
 
@@ -551,7 +561,7 @@ def summarize_counts_for_blocks(
     cell_snp_Ballele,
     unique_snp_ids,
 ):
-    logger.info(f"Summarizing counts for blocks (vectorized)")
+    logger.info(f"Summarizing counts for blocks")
 
     # precompute mapping: snp_id -> index
     map_snp_index = {x: i for i, x in enumerate(unique_snp_ids)}

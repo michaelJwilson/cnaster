@@ -25,6 +25,7 @@ from cnaster.omics import (
     create_bin_ranges,
     form_gene_snp_table,
     get_sitewise_transmat,
+    summarize_blocks,
     summarize_counts_for_bins,
     summarize_counts_for_blocks,
 )
@@ -243,16 +244,16 @@ def run_cnaster(config_path, over_rides=None):
     # NB (x,y) per spot.
     coords = adata.obsm["X_pos"]
 
-    # NB equivalent to parse_visium::perform_partition                                                                                                                                                                                                                         
-    # TODO (requires paste).                                                                                                                                                                                                                                                   
+    # NB equivalent to parse_visium::perform_partition
+    # TODO (requires paste).
     initial_clone_for_phasing = initialize_clones(
         coords,
-        sample_ids,  # NB for all spots in all slices.                                                                                                                                                                                                                          
+        sample_ids,  # NB for all spots in all slices.
         x_part=config.phasing.npart_phasing,
         y_part=config.phasing.npart_phasing,
     )
-    
-    # NB known annotation.                                                                                                                                                                                                                                                     
+
+    # NB known annotation.
     clone_id = (
         pd.read_csv(config.annotation.clone_label, sep="\t", index_col=0)["labels"]
         .str.replace("clone_", "")
@@ -268,7 +269,7 @@ def run_cnaster(config_path, over_rides=None):
 
     # TODO HACK!
     initial_clone_for_phasing = initial_clone_index_baf
-    
+
     logger.warning("Assuming five BAF states for phasing.")
 
     assert single_X.ndim == 3
@@ -337,8 +338,6 @@ def run_cnaster(config_path, over_rides=None):
         geneticmap_file=config.references.geneticmap_file,
     )
 
-    exit(0)
-    
     # NB sparse transcript counts (spot, gene).
     exp_counts = pd.DataFrame.sparse.from_spmatrix(
         scipy.sparse.csc_matrix(adata.layers["count"]),
@@ -650,7 +649,7 @@ def run_cnaster(config_path, over_rides=None):
         vec_stds = np.std(np.log1p(copy_single_X_rdr @ smooth_mat), axis=0)
 
         prior_stdthreshold = np.inf
-        
+
         while True:
             # NB spots assigned to the normal-like clone AND 40% with smallest BAF deviation from 0.5;
             stdthreshold = np.percentile(
@@ -666,7 +665,7 @@ def run_cnaster(config_path, over_rides=None):
             #    > 200 * single_X.shape[0]  # MAGIC.
             # ):
             # NB 25% increase in std of RDR
-            if stdthreshold > 1.5 * prior_stdthreshold: # MAGIC
+            if stdthreshold > 1.5 * prior_stdthreshold:  # MAGIC
                 logger.info(
                     f"Determined {PERCENT_NORMAL}% normal spots with sufficient UMIs, assigned to normal like clone."
                 )
@@ -713,8 +712,8 @@ def run_cnaster(config_path, over_rides=None):
     index_normal = np.where(normal_candidate)[0]
 
     # TODO HACK
-    single_X[:,0,:] = copy_single_X_rdr
-    
+    single_X[:, 0, :] = copy_single_X_rdr
+
     # NB filter out genomic segments with potential allele-specific expression based on normal spot candidates.
     (
         lengths,
@@ -749,13 +748,35 @@ def run_cnaster(config_path, over_rides=None):
     # TODO CHECK?
     else:
         logger.warning(f"Assuming no filter for normal differential expression.")
-        copy_single_X_rdr = single_X[:,0,:]
-        
+        copy_single_X_rdr = single_X[:, 0, :]
+
+    summarize_blocks(
+        df_gene_snp,
+        adata,
+        cell_snp_Aallele,
+        cell_snp_Ballele,
+        unique_snp_ids,
+        block_key="bin_id",
+        normal_candidates=normal_candidate,
+    )
+
+    # TODO HACK?
+    total_segment_umis = np.sum(copy_single_X_rdr, axis=-1)
+    thres = np.percentile(total_segment_umis, 85.0)
+
+    logger.info(
+        f"Removing {100. * np.mean(total_segment_umis > thres):.3f} [%] outlier segments for {85} percentile with {np.sum(copy_single_X_rdr[total_segment_umis > thres, :]) / np.sum(copy_single_X_rdr):.3f} of total UMIs."
+    )
+
+    copy_single_X_rdr[total_segment_umis > thres, :] = 0.0
+
     # NB >>>>>  determine normal baseline expression.
     MIN_NORMAL_COUNT_PERBIN = config.quality.min_normal_count_perbin
 
-    logger.info(f"Found sparsity of normal spot set={100. * np.mean(copy_single_X_rdr[:, (normal_candidate == True)]) == 0.:.3f}%")
-    
+    logger.info(
+        f"Found sparsity of normal spot set={100. * np.mean(copy_single_X_rdr[:, (normal_candidate == True)]) == 0.:.3f}%"
+    )
+
     # NB normal baseline transcript count; unnormalized.
     rdr_normal = np.sum(copy_single_X_rdr[:, (normal_candidate == True)], axis=1)
 
@@ -764,7 +785,7 @@ def run_cnaster(config_path, over_rides=None):
     logger.info(
         f"Found {100. * np.mean(rdr_normal >= MIN_NORMAL_COUNT_PERBIN):.3f}% of segments with confident normal baseline for MIN_NORMAL_COUNT_PERBIN={MIN_NORMAL_COUNT_PERBIN}"
     )
-    
+
     # NB where normal transcript count < MIN_NORMAL_COUNT_PERBIN, zero.
     rdr_normal[bidx_inconfident] = 0
 
@@ -777,7 +798,7 @@ def run_cnaster(config_path, over_rides=None):
 
     # NB replicate and normalize rdr_normal to the per-spot total transcripts, T_n.
     spots_coverage = np.sum(copy_single_X_rdr, axis=0)
-    
+
     copy_single_base_nb_mean = rdr_normal.reshape(-1, 1) @ spots_coverage.reshape(1, -1)
 
     # NB adding back RDR signal

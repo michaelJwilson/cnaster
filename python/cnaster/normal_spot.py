@@ -1,3 +1,4 @@
+import ast
 import logging
 import scipy
 import scipy.stats
@@ -10,6 +11,7 @@ from cnaster.hmm_emission import Weighted_BetaBinom
 from cnaster.reference import get_reference_recomb_rates
 from cnaster.recomb import assign_centiMorgans, compute_numbat_phase_switch_prob
 from cnaster.hmm_utils import get_em_solver_params
+from cnaster.config import get_global_config
 
 logger = logging.getLogger(__name__)
 
@@ -197,12 +199,17 @@ def normal_baf_bin_filter(
     logphase_shift,
     index_normal,
     geneticmap_file,
-    confidence_interval=(0.05, 0.95),
+    confidence_interval=None,
     min_betabinom_tau=30,
 ):
     """
     Remove bins that potentially contain allele-specific expression based on normal spot BAF.
     """
+    if confidence_interval is None:
+        confidence_interval = ast.literal_eval(
+            get_global_config().quality.normal_allele_specific_confidence
+        )
+
     logger.info("Selecting bins for removal based on normal spot BAF.")
 
     # NB pool b-allele counts for each bin across all normal spots; 1D genomic segments.
@@ -219,8 +226,10 @@ def normal_baf_bin_filter(
 
     tmpres = model.fit(**settings)
 
-    logger.info(f"Best-fit BetaBinom model to normal spot BAF has parameters={tmpres.params}")
-    
+    logger.info(
+        f"Best-fit BetaBinom model to normal spot BAF has parameters={tmpres.params}"
+    )
+
     # TODO warn if patched.
     # NB patches parameters assuming min_betabinom_tau=30;
     tmpres.params[0] = 0.5

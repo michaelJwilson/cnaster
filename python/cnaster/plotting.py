@@ -166,6 +166,7 @@ def plot_clones_genomic(
         single_total_bb_RD,
         clone_index,
         single_tumor_prop,
+        normal_clone_index=0, # TODO HACK!! BUG?
     )
     n_obs = X.shape[0]
     spots_per_clone = [len(xx) for xx in clone_index]

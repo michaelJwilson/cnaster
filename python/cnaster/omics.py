@@ -133,9 +133,14 @@ def form_gene_snp_table(
     return df_gene_snp
 
 
-def summarize_blocks(gene_snp_table, adata, cell_snp_Aallele,
+def summarize_blocks(
+    gene_snp_table,
+    adata,
+    cell_snp_Aallele,
     cell_snp_Ballele,
-    unique_snp_ids,block_key=None):
+    unique_snp_ids,
+    block_key=None,
+):
     assert block_key is not None, "block_key must be specified"
     assert block_key in gene_snp_table.columns, f"{block_key} not in DataFrame"
 
@@ -169,8 +174,8 @@ def summarize_blocks(gene_snp_table, adata, cell_snp_Aallele,
             snp_idx = np.array([map_snp_index[s] for s in snp_ids])
             if len(snp_idx) > 0:
                 snp_umis[idx] = int(
-                    cell_snp_Aallele[:, snp_idx].sum() +
-                    cell_snp_Ballele[:, snp_idx].sum()
+                    cell_snp_Aallele[:, snp_idx].sum()
+                    + cell_snp_Ballele[:, snp_idx].sum()
                 )
 
     block_summary["total_umi"] = total_umis
@@ -190,16 +195,14 @@ def summarize_blocks(gene_snp_table, adata, cell_snp_Aallele,
 
     # Summary statistics
     logger.info(
-        f"Total blocks: {len(block_summary)}, "
-        f"median SNPs/block: {block_summary['num_snps'].median():.1f}, "
-        f"median genes/block: {block_summary['num_genes'].median():.1f}, "
-        f"median UMI/block: {block_summary['total_umi'].median():.1f}, "
-        f"median SNP-UMI/block: {block_summary['snp_umi'].median():.1f}, "
-        f"total UMI: {block_summary['total_umi'].sum()}, "
-        f"total SNP-UMI: {block_summary['snp_umi'].sum()}"
+        f"Total blocks: {len(block_summary)},\n"
+        f"median SNPs/block: {block_summary['num_snps'].median():.1f},\n"
+        f"median genes/block: {block_summary['num_genes'].median():.1f},\n"
+        f"median UMI/block: {block_summary['total_umi'].median():.1f},\n"
+        f"median SNP-UMI/block: {block_summary['snp_umi'].median():.1f},\n"
+        f"total UMI: {block_summary['total_umi'].sum()},\n"
+        f"total SNP-UMI: {block_summary['snp_umi'].sum()}\n"
     )
-
-    exit(0)
 
 
 def assign_initial_blocks(
@@ -303,7 +306,14 @@ def assign_initial_blocks(
         "Assigned SNPs to initial blocks (intervals formed by overlapping genes)."
     )
 
-    summarize_blocks(df_gene_snp, adata, block_key="initial_block_id")
+    summarize_blocks(
+        df_gene_snp,
+        adata,
+        cell_snp_Aallele,
+        cell_snp_Ballele,
+        unique_snp_ids,
+        block_key="initial_block_id",
+    )
 
     # NB second level: group the first level blocks into "haplotype blocks" such that the minimum SNP-covering UMI counts >= initial_min_umi.
     #    maps snp id, {chr}_{pos}_{ref}_{alt} to integer index.
@@ -403,8 +413,15 @@ def assign_initial_blocks(
         f"Updating block assignment based on input phased genotypes and min. snp-covering UMI threshold={initial_min_umi}"
     )
 
-    summarize_blocks(df_gene_snp, adata, block_key="block_id")
-
+    summarize_blocks(
+        df_gene_snp,
+        adata,
+        cell_snp_Aallele,
+        cell_snp_Ballele,
+        unique_snp_ids,
+        block_key="block_id",
+    )
+    
     return df_gene_snp.drop(columns=["initial_block_id"])
 
 
@@ -688,6 +705,10 @@ def greedy_binning_nobreak(block_lengths, block_umi, secondary_min_umi, max_binl
 
 def create_bin_ranges(
     df_gene_snp,
+    adata,
+    cell_snp_Aallele,
+    cell_snp_Ballele,
+    unique_snp_ids,
     single_total_bb_RD,
     refined_lengths,
     secondary_min_umi,
@@ -780,8 +801,15 @@ def create_bin_ranges(
         {i: x for i, x in enumerate(bin_ids)}
     )
 
-    summarize_blocks(df_gene_snp, adata, block_key="bin_id")
-
+    summarize_blocks(
+        df_gene_snp,
+        adata,
+        cell_snp_Aallele,
+        cell_snp_Ballele,
+        unique_snp_ids,
+        block_key="bin_id",
+    )
+    
     return df_gene_snp
 
 

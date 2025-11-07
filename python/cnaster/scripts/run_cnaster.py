@@ -308,6 +308,10 @@ def run_cnaster(config_path, over_rides=None):
 
     df_gene_snp = create_bin_ranges(
         df_gene_snp,
+        adata,
+        cell_snp_Aallele,
+        cell_snp_Ballele,
+        unique_snp_ids,
         single_total_bb_RD,
         refined_lengths,
         config.quality.secondary_min_umi,
@@ -333,6 +337,8 @@ def run_cnaster(config_path, over_rides=None):
         geneticmap_file=config.references.geneticmap_file,
     )
 
+    exit(0)
+    
     # NB sparse transcript counts (spot, gene).
     exp_counts = pd.DataFrame.sparse.from_spmatrix(
         scipy.sparse.csc_matrix(adata.layers["count"]),

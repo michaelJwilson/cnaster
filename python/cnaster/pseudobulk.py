@@ -11,6 +11,7 @@ def merge_pseudobulk_by_index_mix(
     clone_index,
     single_tumor_prop=None,
     threshold=0.5,
+    normal_clone_index=0, # TODO HACK!! BUG FIX
 ):
     n_obs = single_X.shape[0]
 
@@ -48,6 +49,13 @@ def merge_pseudobulk_by_index_mix(
         total_bb_RD[:, k] = np.sum(single_total_bb_RD[:, idx], axis=1)
         base_nb_mean[:, k] = np.sum(single_base_nb_mean[:, idx], axis=1)
 
+    if normal_clone_index is not None:
+        normal_base_nb_mean = single_base_nb_mean[:, normal_clone_index]
+
+        for k, idx in enumerate(clone_index):
+            base_nb_mean[:, k] = normal_base_nb_mean * len(clone_index[k]) / len(clone_index[normal_clone_index])
+
+    for k, idx in enumerate(clone_index):
         percentiles = [50, 75, 90, 95, 99, 100]
                 
         bafs = X[:, 1, k] / total_bb_RD[:, k]

@@ -526,7 +526,7 @@ def load_input_data(
         adata.layers["count"][:, to_zero] = 0
 
     elif config.quality.normalize_gene_outliers:
-        PERCENTILE = 90
+        PERCENTILE = 95
         
         gene_counts = np.sum(adata.layers["count"], axis=0)
 

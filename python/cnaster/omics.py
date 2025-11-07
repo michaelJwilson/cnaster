@@ -679,7 +679,7 @@ def get_sitewise_transmat(df_gene_snp, geneticmap_file, nu, logphase_shift):
     return log_sitewise_transmat
 
 
-def greedy_binning_nobreak(block_lengths, block_umi, secondary_min_umi, max_binlength):
+def greedy_binning_nobreak_legacy(block_lengths, block_umi, secondary_min_umi, max_binlength):
     """
     Given a set of blocks, find new blocks that meet a requirement on the minimum number
     of UMIs and do not exceed max_binlength.
@@ -733,7 +733,7 @@ def greedy_binning_nobreak(block_lengths, block_umi, secondary_min_umi, max_binl
     return bin_ids
 
 
-def create_bin_ranges(
+def create_bin_ranges_legacy(
     df_gene_snp,
     adata,
     cell_snp_Aallele,
@@ -840,6 +840,238 @@ def create_bin_ranges(
         block_key="bin_id",
     )
     
+    return df_gene_snp
+
+
+def greedy_binning_nobreak(
+    block_lengths,
+    block_umi,
+    block_snp_umi,
+    block_normal_umi,
+    secondary_min_umi,
+    secondary_min_snp_umi,
+    secondary_min_normal_umi,
+    max_binlength,
+):
+    """
+    Given a set of blocks, find new bins that meet requirements on:
+    - minimum total UMIs
+    - minimum SNP-covering UMIs
+    - minimum normal UMIs
+    - maximum bin length
+    """
+    assert len(block_lengths) == len(block_umi) == len(block_snp_umi) == len(block_normal_umi)
+
+    bin_ranges = []
+    s = 0
+
+    while s < len(block_lengths):
+        t = s + 1
+
+        # NB extend included blocks until meets required umi count.
+        while t < len(block_lengths):
+            total_umi = np.sum(block_umi[s:t])
+            snp_umi = np.sum(block_snp_umi[s:t])
+            normal_umi = np.sum(block_normal_umi[s:t])
+            length = np.sum(block_lengths[s:t])
+
+            # Check if all min requirements are met
+            meets_umi = total_umi >= secondary_min_umi
+            meets_snp = snp_umi >= secondary_min_snp_umi
+            meets_normal = normal_umi >= secondary_min_normal_umi
+            all_criteria_met = meets_umi and meets_snp and meets_normal
+
+            # Break if bin is too long but meets UMI requirements
+            if length >= max_binlength and all_criteria_met:
+                logger.warning(
+                    f"Solved for bin with length={length/max_binlength:.2f} [max_binlength] "
+                    f"(UMI={total_umi}, SNP-UMI={snp_umi}, normal-UMI={normal_umi})"
+                )
+                t = max(t - 1, s + 1)
+                break
+
+            # Continue if criteria not met and not too long
+            if all_criteria_met:
+                break
+
+            t += 1
+
+        # Final counts for bin [s:t]
+        total_umi = np.sum(block_umi[s:t])
+        snp_umi = np.sum(block_snp_umi[s:t])
+        normal_umi = np.sum(block_normal_umi[s:t])
+        length = np.sum(block_lengths[s:t])
+
+        # Check if it's a small bin at the end that doesn't meet criteria
+        if s > 0 and t == len(block_lengths):
+            if (total_umi < secondary_min_umi or
+                snp_umi < secondary_min_snp_umi or
+                normal_umi < secondary_min_normal_umi):
+                logger.debug(
+                    f"Last bin failed thresholds "
+                    f"(UMI={total_umi}/{secondary_min_umi}, "
+                    f"SNP-UMI={snp_umi}/{secondary_min_snp_umi}, "
+                    f"normal-UMI={normal_umi}/{secondary_min_normal_umi}), "
+                    f"merging with previous."
+                )
+                bin_ranges[-1][1] = t
+            else:
+                bin_ranges.append([s, t])
+        else:
+            bin_ranges.append([s, t])
+
+        s = t
+
+    bin_ids = np.zeros(len(block_lengths), dtype=int)
+
+    for i, x in enumerate(bin_ranges):
+        bin_ids[x[0] : x[1]] = i
+
+    return bin_ids
+
+
+def create_bin_ranges(
+    df_gene_snp,
+    adata,
+    cell_snp_Aallele,
+    cell_snp_Ballele,
+    unique_snp_ids,
+    single_X,
+    single_total_bb_RD,
+    refined_lengths,
+    secondary_min_umi,
+    secondary_min_snp_umi,
+    secondary_min_normal_umi,
+    normal_candidates=None,
+    max_binlength=5e6,
+):
+    """
+    Aggregate haplotype blocks to bins with multiple UMI constraints.
+
+    Parameters
+    ----------
+    df_gene_snp : pd.DataFrame
+        Gene and SNP info with block_id assignments.
+    adata : AnnData
+        Annotated data object.
+    cell_snp_Aallele, cell_snp_Ballele : array, (n_spots, n_snps)
+        Allele counts.
+    unique_snp_ids : list
+        SNP identifiers.
+    single_X : array, (n_blocks, 2, n_spots)
+        Block-level transcript and SNP counts.
+    single_total_bb_RD : array, (n_blocks, n_spots)
+        Total SNP-covering reads per block.
+    refined_lengths : array
+        Number of blocks before each phase switch.
+    secondary_min_umi : int
+        Minimum total UMIs per bin.
+    secondary_min_snp_umi : int
+        Minimum SNP-covering UMIs per bin.
+    secondary_min_normal_umi : int
+        Minimum normal-spot UMIs per bin.
+    normal_candidates : array-like or None
+        Boolean mask or integer indices for normal spots.
+    max_binlength : int
+        Maximum genomic length per bin.
+
+    Returns
+    -------
+    df_gene_snp : pd.DataFrame
+        Updated with bin_id column.
+    """
+    logger.info(f"Recalculating blocks given new phasing.")
+
+    # Block intervals
+    sorted_chr_pos_both = df_gene_snp.groupby("block_id").agg(
+        {"CHR": "first", "START": "first", "END": "last"}
+    )
+
+    block_lengths = (
+        sorted_chr_pos_both.END.to_numpy() - sorted_chr_pos_both.START.to_numpy()
+    )
+    n_blocks = len(block_lengths)
+
+    # Total UMI per block (summed across spots)
+    block_umi = np.sum(single_X[:, 0, :], axis=1)  # transcript counts
+
+    # SNP-covering UMI per block
+    block_snp_umi = np.sum(single_total_bb_RD, axis=1)
+
+    # Normal-spot UMI per block
+    if normal_candidates is not None:
+        if isinstance(normal_candidates, (np.ndarray, pd.Series)) and normal_candidates.dtype == bool:
+            normal_idx = np.flatnonzero(normal_candidates)
+        else:
+            normal_idx = np.asarray(normal_candidates, dtype=int)
+            
+        block_normal_umi = np.sum(single_X[:, 0, normal_idx], axis=1)
+    else:
+        block_normal_umi = np.zeros(n_blocks, dtype=int)
+        secondary_min_normal_umi = 0  # disable normal constraint
+
+    logger.info(
+        f"Creating bin ranges: max_length={max_binlength}, "
+        f"min_umi={secondary_min_umi}, "
+        f"min_snp_umi={secondary_min_snp_umi}, "
+        f"min_normal_umi={secondary_min_normal_umi}"
+    )
+
+    # Breakpoints from phase switches and oversized blocks
+    breakpoints = np.concatenate(
+        [
+            np.cumsum(refined_lengths),
+            np.where(block_lengths > max_binlength)[0],
+            np.where(block_lengths > max_binlength)[0] + 1,
+        ]
+    )
+
+    breakpoints = np.sort(np.unique(breakpoints))
+
+    if breakpoints[0] != 0:
+        breakpoints = np.append([0], breakpoints)
+
+    assert np.all(breakpoints[:-1] < breakpoints[1:])
+
+    # Assign bin IDs
+    bin_ids = np.zeros(n_blocks, dtype=int)
+    offset = 0
+
+    for i in range(len(breakpoints) - 1):
+        b1, b2 = breakpoints[i], breakpoints[i + 1]
+
+        if b2 - b1 == 1:
+            bin_ids[b1:b2] = offset
+            offset += 1
+        else:
+            this_bin_ids = greedy_binning_nobreak(
+                block_lengths[b1:b2],
+                block_umi[b1:b2],
+                block_snp_umi[b1:b2],
+                block_normal_umi[b1:b2],
+                secondary_min_umi,
+                secondary_min_snp_umi,
+                secondary_min_normal_umi,
+                max_binlength,
+            )
+            bin_ids[b1:b2] = offset + this_bin_ids
+            offset += np.max(this_bin_ids) + 1
+
+    # Append bin_ids to df_gene_snp
+    df_gene_snp["bin_id"] = df_gene_snp.block_id.map(
+        {i: x for i, x in enumerate(bin_ids)}
+    )
+
+    summarize_blocks(
+        df_gene_snp,
+        adata,
+        cell_snp_Aallele,
+        cell_snp_Ballele,
+        unique_snp_ids,
+        block_key="bin_id",
+        normal_candidates=normal_candidates,
+    )
+
     return df_gene_snp
 
 

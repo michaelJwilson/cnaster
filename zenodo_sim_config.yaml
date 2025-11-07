@@ -27,6 +27,9 @@ references:
 quality:
   min_percent_expressed_spots : 0.0
   secondary_min_umi : 300
+  secondary_min_snp_umi : 300
+  secondary_min_normal_umi : 300
+  max_binlength	: 5000000
   local_outlier_filter : False
   filter_normal_diffexp : False
   normal_allele_specific_confidence : (0.01, 0.99)

@@ -307,6 +307,7 @@ def run_cnaster(config_path, over_rides=None):
         df_gene_snp.block_id.map({i: x for i, x in enumerate(phase_indicator)}),
     )
 
+    """
     df_gene_snp = create_bin_ranges(
         df_gene_snp,
         adata,
@@ -316,6 +317,23 @@ def run_cnaster(config_path, over_rides=None):
         single_total_bb_RD,
         refined_lengths,
         config.quality.secondary_min_umi,
+    )
+    """
+
+    df_gene_snp = create_bin_ranges(
+        df_gene_snp,
+        adata,
+        cell_snp_Aallele,
+        cell_snp_Ballele,
+        unique_snp_ids,
+        single_X,
+        single_total_bb_RD,
+        refined_lengths,
+        config.quality.secondary_min_umi,
+        config.quality.secondary_min_snp_umi,
+        config.quality.secondary_min_normal_umi,
+        normal_candidates=normal_candidates,
+        max_binlength=config.quality.max_binlength,
     )
 
     logger.info(f"Recalculating counts given new phase-based bins.")

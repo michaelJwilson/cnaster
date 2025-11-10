@@ -10,7 +10,7 @@ def remap_clone_num(columns):
     for col in columns:
         if col.startswith("normal_"):
             # normal -> true_clone_0
-            new_col = col.replace("normal_", "true_clone_0_").replace("_copy", "")
+            new_col = col.replace("normal_", "0_").replace("_copy", "")
             new_columns[col] = new_col
         elif col.startswith("clone_"):
             # Extract clone number and increment by 1
@@ -28,17 +28,16 @@ def get_sample_truth(root, sample_id, fname="truth_acn_profile.tsv"):
     truth_clones = pd.read_csv(
         f"{root}/simulated_data_related/{sample_id}/truth_clone_labels.tsv",
         sep="\t",
-        names=["barcode", "label", "x", "y"],
+        names=["barcode", "true_clone", "x", "y"],
         skiprows=1,
     )
 
-    truth_clones["label"] = truth_clones["label"].str.replace("clone", "true_clone")
+    truth_clones["true_clone"] = truth_clones["true_clone"].str.replace("clone_", "").astype(int)
 
     spots = truth_clones["barcode"].unique()
-    spot_to_clone = dict(zip(truth_clones["barcode"], truth_clones["label"]))
+    spot_to_clone = dict(zip(truth_clones["barcode"], truth_clones["true_clone"]))
 
-    logger.info(f"Found {truth_clones['label'].unique()} clones in truth for sample {sample_id} spaceranger.")
-
+    logger.info(f"Found {truth_clones['true_clone'].unique()} clones in truth for sample {sample_id} spaceranger.")
     # NB
     # clone	    chr	    start	    end	        A_copy	B_copy
     # clone_0	20	    51816053	61816053	0	    1
@@ -47,15 +46,15 @@ def get_sample_truth(root, sample_id, fname="truth_acn_profile.tsv"):
         sep="\t",
     ).rename(columns={"chr": "Chromosome", "start": "Start", "end": "End"})
 
-    # NB retain only the true segments that show a CNA for at least one clone.
     copy_num_columns = truth.columns[3:]
 
+    # NB retain only the true segments that show a CNA for at least one clone.
     truth_cna = truth[~(truth[copy_num_columns].eq(1).all(axis=1))]
 
     # NB remap normal to clone 0 and increment by 1 otherwise.
     truth_cna = truth_cna.rename(columns=remap_clone_num(copy_num_columns))
 
-    logger.info(f"Found {truth_cna['label'].unique()} clones in truth for sample {sample_id} cna.")
+    logger.info(f"Found {truth_cna['true_clone'].unique()} clones in truth for sample {sample_id} cna.")
 
     assert truth_clones['label'].unique() == truth_cna['label'].unique(), "Mismatch between clone labels in truth clones and truth cna: {truth_clones['label'].unique()} != {truth_cna['label'].unique()}"
 
@@ -160,6 +159,10 @@ if __name__ == "__main__":
     sample_id = "numcnas1.2_cnasize1e7_ploidy2_random0"
 
     spot_truth_cna = get_sample_truth(root, sample_id)
+
+    exit(0)
+
+    
     spot_calicost_cna = get_sample_calicost(root, sample_id)
 
     spot_join_cna = get_truth_calicost_join(spot_truth_cna, spot_calicost_cna)

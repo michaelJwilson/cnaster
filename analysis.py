@@ -102,9 +102,7 @@ calicost_clones = pd.read_csv(
     sep="\t",
 )
 
-print(calicost_clones)
-
-exit(0)
+spot_to_calicost_clone = dict(zip(calicost_clones["barcode"], calicost_clones["clone_label"]))
 
 calicost = pd.read_csv(
     "~/scratch/calicost_sims/nomixing_calicost_related/numcnas1.2_cnasize1e7_ploidy2_random0/cnv_seglevel.tsv",
@@ -118,6 +116,40 @@ calicost_cna = calicost[~(calicost[copy_num_columns].eq(1).all(axis=1))]
 calicost_cna.columns = calicost_cna.columns.str.replace(
     r"clone(\d+)\s+([AB])", r"clone_\1_\2", regex=True
 )
+
+calicost_expanded_rows = []
+
+for _, seg in calicost_cna.iterrows():
+    for spot in calicost_clones["barcode"].unique():
+        # Get clone assignment for this spot
+        clone_label = spot_to_calicost_clone[spot]
+        
+        # Determine which A/B columns to use based on clone
+        a_col = f"clone_{clone_label}_A"
+        b_col = f"clone_{clone_label}_B"
+        
+        # Extract A/B copies for this clone (handle missing columns)
+        a_copy = seg.get(a_col, 1)  # Default to 1 if column missing
+        b_copy = seg.get(b_col, 1)
+        
+        calicost_expanded_rows.append({
+            "Chromosome": seg["Chromosome"],
+            "Start": seg["Start"],
+            "End": seg["End"],
+            "barcode": spot,
+            "clone": str(clone_label),
+            "A": a_copy,
+            "B": b_copy,
+        })
+
+# Convert to DataFrame and PyRanges
+spot_calicost_cna = pd.DataFrame(calicost_expanded_rows)
+spot_calicost_cna = pr.PyRanges(spot_calicost_cna)
+
+print(spot_calicost_cna)
+
+exit(0)
+
 calicost_cna = pr.PyRanges(calicost_cna)
 
 join_cna = truth_cna.join_overlaps(calicost_cna)

@@ -124,12 +124,12 @@ def get_sample_truth(root, sample_id):
     return spot_truth_cna
 
 
-def get_sample_calicost(root, sample_id):
+def get_sample_estimate(root, sample_id, method="calicost"):
     # TODO !!
     clone_rectangle = "clone3_rectangle0_w1.0"
 
     logger.info(
-        f"Solving for {root}/nomixing_calicost_related/{sample_id}/{clone_rectangle}/clone_labels.tsv"
+        f"Solving for {root}/nomixing_{method}_related/{sample_id}/{clone_rectangle}/clone_labels.tsv"
     )
 
     # NB
@@ -137,61 +137,57 @@ def get_sample_calicost(root, sample_id):
     # spot_0  0       0       0       3
     usecols = ["BARCODES", "clone_label"]
 
-    calicost_clones = pd.read_csv(
-        f"{root}/nomixing_calicost_related/{sample_id}/{clone_rectangle}/clone_labels.tsv",
+    clones = pd.read_csv(
+        f"{root}/nomixing_{method}_related/{sample_id}/{clone_rectangle}/clone_labels.tsv",
         sep="\t",
         usecols=usecols,
     ).rename(columns={"clone_label": "clone", "BARCODES": "barcode"})
 
-    spots = calicost_clones["barcode"].unique()
-    spot_to_calicost_clone = dict(
-        zip(calicost_clones["barcode"], calicost_clones["clone"])
+    spots = clones["barcode"].unique()
+    spot_to_clone = dict(
+        zip(clones["barcode"], clones["clone"])
     )
 
-    # logger.info(
-    # f"Found {calicost_clones['clone'].unique()} clones in CalicoST for sample {sample_id}."
-    # )
-
-    calicost = pd.read_csv(
-        f"{root}/nomixing_calicost_related/{sample_id}/{clone_rectangle}/cnv_seglevel.tsv",
+    calls = pd.read_csv(
+        f"{root}/nomixing_{method}_related/{sample_id}/{clone_rectangle}/cnv_seglevel.tsv",
         sep="\t",
     ).rename(columns={"CHR": "Chromosome", "START": "Start", "END": "End"})
 
-    copy_num_columns = calicost.columns[3:]
+    copy_num_columns = calls.columns[3:]
 
     # NB only CalicoST segments that show CNA for at least one clone.
-    calicost_cna = calicost[~(calicost[copy_num_columns].eq(1).all(axis=1))]
+    # calls = calls[~(calls[copy_num_columns].eq(1).all(axis=1))]
 
     # NB clone 0 -> clone_0 etc.
-    calicost_cna.columns = calicost_cna.columns.str.replace(
+    calls.columns = calls.columns.str.replace(
         r"clone(\d+)\s+([AB])", r"clone_\1_\2", regex=True
     )
 
     # NB truth per spot, per segment ...
-    calicost_expanded_rows = []
+    calls_expanded_rows = []
 
-    for _, seg in calicost_cna.iterrows():
+    for _, seg in calls.iterrows():
         for spot in spots:
-            clone_label = spot_to_calicost_clone[spot]
-            calicost_expanded_rows.append(
+            clone_label = spot_to_clone[spot]
+            calls_expanded_rows.append(
                 {
                     "Chromosome": seg["Chromosome"],
                     "Start": seg["Start"],
                     "End": seg["End"],
                     "barcode": spot,
-                    "clone": int(spot_to_calicost_clone[spot]),
+                    "clone": int(spot_to_clone[spot]),
                     "A": seg.get(f"clone_{clone_label}_A"),
                     "B": seg.get(f"clone_{clone_label}_B"),
                 }
             )
 
-    spot_calicost_cna = pd.DataFrame(calicost_expanded_rows)
-    spot_calicost_cna.insert(3, "sample_id", sample_id)
-    spot_calicost_cna = pr.PyRanges(spot_calicost_cna)
+    spot_cna = pd.DataFrame(calls_expanded_rows)
+    spot_cna.insert(3, "sample_id", sample_id)
+    spot_cna = pr.PyRanges(spot_cna)
 
-    logger.info(f"Found calicost CNAs:\n{spot_calicost_cna}")
+    logger.info(f"Found {method} CNAs:\n{spot_cna}")
 
-    return spot_calicost_cna
+    return spot_cna
 
 
 def get_join(first, second):
@@ -247,15 +243,15 @@ def get_success_rate(spot_join_cna, include_flip=True):
 if __name__ == "__main__":
     root = "~/scratch/calicost_sims/"
 
+    # "numcnas1.2_cnasize1e7_ploidy2_random0"
     sample_ids = [
-        "numcnas1.2_cnasize1e7_ploidy2_random0",
         "numcnas3.3_cnasize3e7_ploidy2_random0",
     ]
     result = []
 
     for sample_id in sample_ids[:1]:
         spot_truth_cna = get_sample_truth(root, sample_id)
-        spot_calicost_cna = get_sample_calicost(root, sample_id)
+        spot_calicost_cna = get_sample_estimate(root, sample_id)
 
         spot_truth_cna_match = get_join(spot_truth_cna, spot_calicost_cna)
         # spot_calicost_cna_match = get_join(spot_truth_cna, spot_calicost_cna)

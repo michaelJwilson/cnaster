@@ -21,10 +21,11 @@ def remap_columns(columns):
 # NB e.g. {truth_cna.tsv}
 fname = "truth_acn_profile.tsv"
 
-
 #         labels  x       y
 # spot_0  clone_2 0       0
 truth_clones = pd.read_csv("~/scratch/calicost_sims/simulated_data_related/numcnas1.2_cnasize1e7_ploidy2_random0/truth_clone_labels.tsv", sep="\t")
+
+print(truth_clones)
 
 # clone	        chr	start	        end	        A_copy	B_copy
 # clone_0	20	51816053	61816053	0	1

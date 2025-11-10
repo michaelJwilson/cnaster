@@ -10,7 +10,7 @@ def remap_clone_num(entries):
     entries = np.unique(entries)
 
     # logger.debug(f"Found unique entries: {entries}")
-    
+
     has_normal = np.any(["normal" in xx for xx in entries])
     clone_zp = 1 if has_normal else 0
 
@@ -44,6 +44,8 @@ def remap_clone_num(entries):
 
 
 def get_sample_truth(root, sample_id, fname="truth_acn_profile.tsv"):
+    logger.info(f"Solving for {root}/simulated_data_related/{sample_id}/truth_clone_labels.tsv")
+    
     # NB
     #         labels  x       y
     # spot_0  clone_2 0       0
@@ -112,23 +114,29 @@ def get_sample_truth(root, sample_id, fname="truth_acn_profile.tsv"):
             )
 
     spot_truth_cna = pd.DataFrame(expanded_rows)
-    spot_truth_cna = pr.PyRanges(spot_truth_cna)
     spot_truth_cna.insert(3, "sample_id", sample_id)
 
     logger.info(f"Found true CNAs:\n{spot_truth_cna}")
-    
+
     return spot_truth_cna
 
 
 def get_sample_calicost(root, sample_id):
+    # TODO !!
+    clone_rectangle = "clone3_rectangle0_w1.0"
+
+    logger.info(f"Solving for {root}/nomixing_calicost_related/{sample_id}/{clone_rectangle}/clone_labels.tsv")
+    
     # NB
     # barcode sample_id       x       y       clone_label
     # spot_0  0       0       0       3
+    usecols= ["BARCODES", "clone_label"]
+    
     calicost_clones = pd.read_csv(
-        f"{root}/nomixing_calicost_related/{sample_id}/clone_labels.tsv",
+        f"{root}/nomixing_calicost_related/{sample_id}/{clone_rectangle}/clone_labels.tsv",
         sep="\t",
-        usecols=["barcode", "x", "y", "clone_label"],
-    ).rename(columns={"clone_label": "clone"})
+        usecols=usecols,
+    ).rename(columns={"clone_label": "clone", "BARCODES": "barcode"})
 
     spots = calicost_clones["barcode"].unique()
     spot_to_calicost_clone = dict(
@@ -140,7 +148,7 @@ def get_sample_calicost(root, sample_id):
     # )
 
     calicost = pd.read_csv(
-        f"{root}/nomixing_calicost_related/{sample_id}/cnv_seglevel.tsv",
+        f"{root}/nomixing_calicost_related/{sample_id}/{clone_rectangle}/cnv_seglevel.tsv",
         sep="\t",
     ).rename(columns={"CHR": "Chromosome", "START": "Start", "END": "End"})
 
@@ -173,11 +181,10 @@ def get_sample_calicost(root, sample_id):
             )
 
     spot_calicost_cna = pd.DataFrame(calicost_expanded_rows)
-    spot_calicost_cna = pr.PyRanges(spot_calicost_cna)
     spot_calicost_cna.insert(3, "sample_id", sample_id)
 
     logger.info(f"Found calicost CNAs:\n{spot_calicost_cna}")
-    
+
     return spot_calicost_cna
 
 
@@ -197,11 +204,17 @@ def get_truth_calicost_join(spot_truth_cna, spot_calicost_cna):
 
 if __name__ == "__main__":
     root = "~/scratch/calicost_sims/"
-    sample_id = "numcnas1.2_cnasize1e7_ploidy2_random0"
 
-    spot_truth_cna = get_sample_truth(root, sample_id)
-    spot_calicost_cna = get_sample_calicost(root, sample_id)
+    # sample_ids = ["numcnas1.2_cnasize1e7_ploidy2_random0", "numcnas3.3_cnasize3e7_ploidy2_random0"]
+    sample_ids = ["numcnas1.2_cnasize1e7_ploidy2_random0"]
     
+    spot_truth_cna = pr.PyRanges(
+        pd.concat([get_sample_truth(root, sample_id) for sample_id in sample_ids])
+    )
+    spot_calicost_cna = pr.PyRanges(
+        pd.concat([get_sample_calicost(root, sample_id) for sample_id in sample_ids])
+    )
+
     spot_join_cna = get_truth_calicost_join(spot_truth_cna, spot_calicost_cna)
 
     success_rate = (

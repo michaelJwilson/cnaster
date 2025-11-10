@@ -84,8 +84,8 @@ for _, seg in truth_cna.iterrows():
                 "End": seg["End"],
                 "barcode": spot,
                 "true_clone": clone_label.split("_")[-1],
-                "A": a_copy,
-                "B": b_copy,
+                "true_A": a_copy,
+                "true_B": b_copy,
             }
         )
 
@@ -117,6 +117,8 @@ calicost_cna.columns = calicost_cna.columns.str.replace(
     r"clone(\d+)\s+([AB])", r"clone_\1_\2", regex=True
 )
 
+print(calicost_cna)
+
 calicost_expanded_rows = []
 
 for _, seg in calicost_cna.iterrows():
@@ -146,13 +148,9 @@ for _, seg in calicost_cna.iterrows():
 spot_calicost_cna = pd.DataFrame(calicost_expanded_rows)
 spot_calicost_cna = pr.PyRanges(spot_calicost_cna)
 
-print(spot_calicost_cna)
+spot_calicost_cna = pr.PyRanges(spot_calicost_cna)
 
-exit(0)
-
-calicost_cna = pr.PyRanges(calicost_cna)
-
-join_cna = truth_cna.join_overlaps(calicost_cna)
+spot_join_cna = spot_truth_cna.join_overlaps(spot_calicost_cna)
 
 start_b = join_cna.pop("Start_b")
 end_b = join_cna.pop("End_b")
@@ -160,4 +158,4 @@ end_b = join_cna.pop("End_b")
 join_cna.insert(3, "Start_b", start_b)
 join_cna.insert(4, "End_b", end_b)
 
-# print(join_cna)
+print(spot_join_cna)

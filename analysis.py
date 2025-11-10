@@ -102,7 +102,9 @@ calicost_clones = pd.read_csv(
     sep="\t",
 )
 
-spot_to_calicost_clone = dict(zip(calicost_clones["barcode"], calicost_clones["clone_label"]))
+spot_to_calicost_clone = dict(
+    zip(calicost_clones["barcode"], calicost_clones["clone_label"])
+)
 
 calicost = pd.read_csv(
     "~/scratch/calicost_sims/nomixing_calicost_related/numcnas1.2_cnasize1e7_ploidy2_random0/cnv_seglevel.tsv",
@@ -117,7 +119,7 @@ calicost_cna.columns = calicost_cna.columns.str.replace(
     r"clone(\d+)\s+([AB])", r"clone_\1_\2", regex=True
 )
 
-print(calicost_cna)
+# print(calicost_cna)
 
 calicost_expanded_rows = []
 
@@ -125,24 +127,26 @@ for _, seg in calicost_cna.iterrows():
     for spot in calicost_clones["barcode"].unique():
         # Get clone assignment for this spot
         clone_label = spot_to_calicost_clone[spot]
-        
+
         # Determine which A/B columns to use based on clone
         a_col = f"clone_{clone_label}_A"
         b_col = f"clone_{clone_label}_B"
-        
+
         # Extract A/B copies for this clone (handle missing columns)
         a_copy = seg.get(a_col, 1)  # Default to 1 if column missing
         b_copy = seg.get(b_col, 1)
-        
-        calicost_expanded_rows.append({
-            "Chromosome": seg["Chromosome"],
-            "Start": seg["Start"],
-            "End": seg["End"],
-            "barcode": spot,
-            "clone": str(clone_label),
-            "A": a_copy,
-            "B": b_copy,
-        })
+
+        calicost_expanded_rows.append(
+            {
+                "Chromosome": seg["Chromosome"],
+                "Start": seg["Start"],
+                "End": seg["End"],
+                "barcode": spot,
+                "clone": str(clone_label),
+                "A": a_copy,
+                "B": b_copy,
+            }
+        )
 
 # Convert to DataFrame and PyRanges
 spot_calicost_cna = pd.DataFrame(calicost_expanded_rows)
@@ -150,12 +154,32 @@ spot_calicost_cna = pr.PyRanges(spot_calicost_cna)
 
 spot_calicost_cna = pr.PyRanges(spot_calicost_cna)
 
-spot_join_cna = spot_truth_cna.join_overlaps(spot_calicost_cna)
+# print(spot_calicost_cna)
 
-start_b = join_cna.pop("Start_b")
-end_b = join_cna.pop("End_b")
+spot_join_cna = spot_truth_cna.join_overlaps(spot_calicost_cna, match_by="barcode")
 
-join_cna.insert(3, "Start_b", start_b)
-join_cna.insert(4, "End_b", end_b)
+start_b = spot_join_cna.pop("Start_b")
+end_b = spot_join_cna.pop("End_b")
+
+spot_join_cna.insert(3, "Start_b", start_b)
+spot_join_cna.insert(4, "End_b", end_b)
 
 print(spot_join_cna)
+
+success_rate = (
+    (spot_join_cna["A"] == spot_join_cna["true_A"])
+    & (spot_join_cna["B"] == spot_join_cna["true_B"])
+).mean()
+
+print(success_rate)
+
+spot_join_cna = spot_join_cna[~(spot_join_cna[["true_A","true_B"]].eq(1).all(axis=1))]
+
+print(spot_join_cna)
+
+success_rate = (
+    (spot_join_cna["A"] == spot_join_cna["true_A"])
+    & (spot_join_cna["B"] == spot_join_cna["true_B"])
+).mean()
+
+print(success_rate)

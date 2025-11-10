@@ -33,8 +33,6 @@ truth_clones = pd.read_csv(
 )
 truth_clones["label"] = truth_clones["label"].str.replace("clone", "tru_clone")
 
-print(truth_clones)
-
 # clone	        chr	start	        end	        A_copy	B_copy
 # clone_0	20	51816053	61816053	0	1
 truth = pd.read_csv(
@@ -50,16 +48,63 @@ truth_cna = truth[~(truth[copy_num_columns].eq(1).all(axis=1))]
 truth_cna = truth_cna.rename(columns=remap_columns(copy_num_columns))
 truth_cna = pr.PyRanges(truth_cna)
 
-print(truth_cna)
+# print(truth_cna)
 
-exit(0)
+spot_to_clone = dict(zip(truth_clones["barcode"], truth_clones["label"]))
+spots = truth_clones["barcode"].unique()
+
+# Expand: create one row per (segment, spot) combination
+expanded_rows = []
+
+for _, seg in truth_cna.iterrows():
+    for spot in spots:
+        # Get clone assignment for this spot
+        clone_label = spot_to_clone[spot]
+
+        # Determine which A/B columns to use based on clone
+        if clone_label == "normal":
+            a_col = "tru_clone_0_A"
+            b_col = "tru_clone_0_B"
+        else:
+            # Extract clone number (e.g., "tru_clone_2" -> 2)
+            clone_num = int(clone_label.split("_")[2])
+            # Column names after remap: tru_clone_{N+1}_A
+            remapped_num = clone_num + 1
+            a_col = f"tru_clone_{remapped_num}_A"
+            b_col = f"tru_clone_{remapped_num}_B"
+
+        # Extract A/B copies for this clone (handle missing columns)
+        a_copy = seg.get(a_col, 1)  # Default to 1 if column missing
+        b_copy = seg.get(b_col, 1)
+
+        expanded_rows.append(
+            {
+                "Chromosome": seg["Chromosome"],
+                "Start": seg["Start"],
+                "End": seg["End"],
+                "barcode": spot,
+                "true_clone": clone_label.split("_")[-1],
+                "A": a_copy,
+                "B": b_copy,
+            }
+        )
+
+spot_truth_cna = pd.DataFrame(expanded_rows)
+spot_truth_cna = pr.PyRanges(spot_truth_cna)
+
+# print(spot_truth_cna)
 
 # barcode sample_id       x       y       clone_label
 # spot_0  0       0       0       3
 
 calicost_clones = pd.read_csv(
-    "~/scratch/calicost_sims/nomixing_calicost_related/numcnas1.2_cnasize1e7_ploidy2_random0/clone_labels.tsv"
+    "~/scratch/calicost_sims/nomixing_calicost_related/numcnas1.2_cnasize1e7_ploidy2_random0/clone_labels.tsv",
+    sep="\t",
 )
+
+print(calicost_clones)
+
+exit(0)
 
 calicost = pd.read_csv(
     "~/scratch/calicost_sims/nomixing_calicost_related/numcnas1.2_cnasize1e7_ploidy2_random0/cnv_seglevel.tsv",
@@ -83,4 +128,4 @@ end_b = join_cna.pop("End_b")
 join_cna.insert(3, "Start_b", start_b)
 join_cna.insert(4, "End_b", end_b)
 
-print(join_cna)
+# print(join_cna)

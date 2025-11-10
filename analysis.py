@@ -1,10 +1,33 @@
+import time
 import logging
 import numpy as np
 import pandas as pd
 import pyranges as pr
+from collections import Counter
 
-logger = logging.getLogger(__name__)
+start_time = time.time()
 
+class RuntimeFormatter(logging.Formatter):
+    def format(self, record):
+        runtime_minutes = (time.time() - start_time) / 60.0
+        record.runtime = f"{runtime_minutes:.2f}m"
+        return super().format(record)
+
+formatter = RuntimeFormatter(
+    fmt="%(asctime)s - %(runtime)s - %(name)s - %(levelname)s - %(filename)s:%(lineno)d - %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+
+logger = logging.getLogger()
+
+for handler in logger.handlers[:]:
+    logger.removeHandler(handler)
+    
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.INFO)
+console_handler.setFormatter(formatter)
+
+logger.addHandler(console_handler)
 
 def remap_clone_num(entries):
     entries = np.unique(entries)
@@ -84,15 +107,15 @@ def get_sample_truth(root, sample_id):
     copy_num_columns = truth.columns[3:]
 
     # NB retain only the true segments that show a CNA for at least one clone.
-    truth_cna = truth[~(truth[copy_num_columns].eq(1).all(axis=1))]
+    # truth = truth[~(truth[copy_num_columns].eq(1).all(axis=1))]
 
     # NB remap normal to clone 0 and increment by 1 otherwise.
-    truth_cna = truth_cna.rename(columns=remap_clone_num(copy_num_columns))
+    truth = truth.rename(columns=remap_clone_num(copy_num_columns))
 
     # NB expand to per-spot CNA truth ...
     expanded_rows = []
 
-    for _, seg in truth_cna.iterrows():
+    for _, seg in truth.iterrows():
         for spot in spots:
             clone_label = spot_to_clone[spot]
             clone_num = int(clone_label.split("_")[-1])
@@ -109,19 +132,19 @@ def get_sample_truth(root, sample_id):
                 }
             )
 
-    spot_truth_cna = pd.DataFrame(expanded_rows)
+    spot_truth = pd.DataFrame(expanded_rows)
 
     # NB retain only the true segments that show a CNA.
-    spot_truth_cna = spot_truth_cna[
-        ~(spot_truth_cna[["true_A", "true_B"]].eq(1).all(axis=1))
-    ]
+    # spot_truth = spot_truth[
+    #    ~(spot_truth[["true_A", "true_B"]].eq(1).all(axis=1))
+    #]
 
-    spot_truth_cna.insert(3, "sample_id", sample_id)
-    spot_truth_cna = pr.PyRanges(spot_truth_cna)
+    spot_truth.insert(3, "sample_id", sample_id)
+    spot_truth = pr.PyRanges(spot_truth)
 
-    logger.info(f"Found true CNAs:\n{spot_truth_cna}")
+    logger.info(f"Found true CNAs:\n{spot_truth}")
 
-    return spot_truth_cna
+    return spot_truth
 
 
 def get_sample_estimate(root, sample_id, method="calicost"):
@@ -140,13 +163,10 @@ def get_sample_estimate(root, sample_id, method="calicost"):
     clones = pd.read_csv(
         f"{root}/nomixing_{method}_related/{sample_id}/{clone_rectangle}/clone_labels.tsv",
         sep="\t",
-        usecols=usecols,
     ).rename(columns={"clone_label": "clone", "BARCODES": "barcode"})
 
     spots = clones["barcode"].unique()
-    spot_to_clone = dict(
-        zip(clones["barcode"], clones["clone"])
-    )
+    spot_to_clone = dict(zip(clones["barcode"], clones["clone"]))
 
     calls = pd.read_csv(
         f"{root}/nomixing_{method}_related/{sample_id}/{clone_rectangle}/cnv_seglevel.tsv",
@@ -237,21 +257,79 @@ def get_success_rate(spot_join_cna, include_flip=True):
         f"Found match rate={match_rate:.3f} with success rate={success_rate:.3f} for include_flip={include_flip}."
     )
 
-    return success_rate
+    match_spot_join_cna = spot_join_cna[match]
+    num_match = len(match_spot_join_cna)
+    
+    clone_marginals = Counter(match_spot_join_cna["true_clone"].astype(int))
+    clone_transitions = Counter(
+        zip(
+            match_spot_join_cna["true_clone"].astype(int),
+            match_spot_join_cna["clone"].astype(int),
+        )
+    )
+
+    print(clone_marginals)
+    
+    logger.info(f"Found clone transition rates:")
+
+    for (true_clone, pred_clone), count in sorted(clone_transitions.items()):
+        frac = (
+            count / clone_marginals[int(true_clone)]
+            if clone_marginals[int(true_clone)] > 0
+            else np.nan
+        )
+        logger.info(f"\t{true_clone}->{pred_clone}\t{count / num_match:.4f}\t{frac:<10.4f}")
+
+    cna_marginals = Counter(
+        zip(
+            match_spot_join_cna["true_A"].astype(int),
+            match_spot_join_cna["true_B"].astype(int),
+        )
+    )
+    cna_transitions = Counter(
+        zip(
+            match_spot_join_cna["true_A"].astype(int),
+            match_spot_join_cna["true_B"].astype(int),
+            match_spot_join_cna["A"].astype(int),
+            match_spot_join_cna["B"].astype(int),
+        )
+    )
+
+    logger.info(f"Found cna transition rates:")
+    
+    for (true_a, true_b, pred_a, pred_b), count in sorted(cna_transitions.items()):
+        frac = (
+            count / cna_marginals[(true_a, true_b)]
+            if cna_marginals[(true_a, true_b)] > 0
+            else np.nan
+        )
+
+        true_pair = f"({true_a},{true_b})"
+        pred_pair = f"({pred_a},{pred_b})"
+
+        logger.info(f"\t{true_pair}->{pred_pair}\t{count / num_match:.4f}\t{frac:.6e}")
+
+    return
 
 
 if __name__ == "__main__":
     root = "~/scratch/calicost_sims/"
 
-    # "numcnas1.2_cnasize1e7_ploidy2_random0"
+    # method = "cnaster"
+    method = "calicost"
+
+    # "numcnas1.2_cnasize1e7_ploidy2_random0",
+    # "numcnas3.3_cnasize3e7_ploidy2_random0",
+    # "numcnas3.3_cnasize5e7_ploidy2_random0",
+
     sample_ids = [
-        "numcnas3.3_cnasize3e7_ploidy2_random0",
+        "numcnas1.2_cnasize1e7_ploidy2_random0",
     ]
     result = []
 
     for sample_id in sample_ids[:1]:
         spot_truth_cna = get_sample_truth(root, sample_id)
-        spot_calicost_cna = get_sample_estimate(root, sample_id)
+        spot_calicost_cna = get_sample_estimate(root, sample_id, method=method)
 
         spot_truth_cna_match = get_join(spot_truth_cna, spot_calicost_cna)
         # spot_calicost_cna_match = get_join(spot_truth_cna, spot_calicost_cna)

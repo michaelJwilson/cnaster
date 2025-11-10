@@ -775,50 +775,23 @@ def run_cnaster(config_path, over_rides=None):
     elif True:
         logger.warning(f"Assuming basic normal differential expression.")
 
-        normal_segment_counts = np.sum(copy_single_X_rdr[:, normal_candidate], axis=-1)
-        tumor_segment_counts = np.sum(copy_single_X_rdr[:, ~normal_candidate], axis=-1)
+        normal_gene_counts = np.sum(adata.layers["count"][normal_candidate, :], axis=0)
+        tumor_gene_counts = np.sum(adata.layers["count"][~normal_candidate, :], axis=0)
 
-        scaled_normal_segment_counts = normal_segment_counts * len(normal_candidate) / np.count_nonzero(normal_candidate)
-        exp_diff_exp = (tumor_segment_counts / scaled_normal_segment_counts) > 4. # MAGIC
+        scaled_normal_gene_counts = normal_gene_counts * len(normal_candidate) / np.count_nonzero(normal_candidate)
 
-        total_umis = single_X[:, 0, :].sum()
-        
-        single_X[exp_diff_exp, 0, :] = 0.0
-        retained_umis = single_X[:,0,:].sum()
-                
-        logger.info(f"Estimated {100. * np.mean(exp_diff_exp):.3f} [%] of segments with {(1. - retained_umis/total_umis):.3f} of UMIs estimated to be driven by differential expression.")
-        
-        df_bin_contents = (
-            df_gene_snp[~df_gene_snp.bin_id.isnull()]
-            .groupby("bin_id", sort=True)
-            .agg({"gene": set})
-        )
+        # TODO HACK both ways?
+        diff_exp_thres = 6. # MAGIC
+        exp_diff_exp = (tumor_gene_counts / scaled_normal_gene_counts > diff_exp_thres) # | (scaled_normal_gene_counts / tumor_gene_counts > diff_exp_thres)
 
-        gene_sets = df_bin_contents["gene"].to_numpy()
-    
-        gene_names = adata.var.index.to_numpy()
-        gene_index_map = {g: i for i, g in enumerate(gene_names)}
-
-        zeroed_genes = np.zeros_like(gene_names, dtype=int)
         total_original_umis = adata.layers["count"].sum()
         
-        for b in range(df_bin_contents.shape[0]):
-            if not exp_diff_exp[b]:
-                continue
-            
-            involved_genes = [x for x in gene_sets[b] if x is not None]
-
-            if involved_genes:
-                gene_idx = [
-                    gene_index_map[g] for g in involved_genes if g in gene_index_map
-                ]
-                if gene_idx:
-                   adata.layers["count"][:, gene_idx] = 0.0
-                   zeroed_genes[gene_idx] = 1
-
+        # TODO assumes single_X etc will be re-calculated downstream.
+        adata.layers["count"][:, exp_diff_exp] = 0.0
+        
         total_original_umis_retained = adata.layers["count"].sum()
                    
-        logger.info(f"Zeroed {100. * np.mean(zeroed_genes):.3f} [%] of genes with {(1. - total_original_umis_retained/total_original_umis):.3f} of UMIs estimated to be driven by differential expression.")
+        logger.info(f"Zeroed {100. * np.mean(exp_diff_exp):.3f} [%] of genes with {(1. - total_original_umis_retained/total_original_umis):.3f} of UMIs estimated to be driven by differential expression.")
                    
     # TODO CHECK?
     else:

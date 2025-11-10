@@ -1,8 +1,10 @@
+import logging
 import pandas as pd
 import pyranges as pr
 
+logger = logging.getLogger(__name__)
 
-def remap_columns(columns):
+def remap_clone_num(columns):
     new_columns = {}
 
     for col in columns:
@@ -19,167 +21,165 @@ def remap_columns(columns):
 
     return new_columns
 
+def get_sample_truth(root, sample_id, fname="truth_acn_profile.tsv"):
+    # NB 
+    #         labels  x       y
+    # spot_0  clone_2 0       0
+    truth_clones = pd.read_csv(
+        f"{root}/simulated_data_related/{sample_id}/truth_clone_labels.tsv",
+        sep="\t",
+        names=["barcode", "label", "x", "y"],
+        skiprows=1,
+    )
 
-# NB e.g. {truth_cna.tsv}
-fname = "truth_acn_profile.tsv"
+    truth_clones["label"] = truth_clones["label"].str.replace("clone", "true_clone")
 
-#         labels  x       y
-# spot_0  clone_2 0       0
-truth_clones = pd.read_csv(
-    "~/scratch/calicost_sims/simulated_data_related/numcnas1.2_cnasize1e7_ploidy2_random0/truth_clone_labels.tsv",
-    sep="\t",
-    names=["barcode", "label", "x", "y"],
-    skiprows=1,
-)
-truth_clones["label"] = truth_clones["label"].str.replace("clone", "tru_clone")
+    spots = truth_clones["barcode"].unique()
+    spot_to_clone = dict(zip(truth_clones["barcode"], truth_clones["label"]))
 
-# clone	        chr	start	        end	        A_copy	B_copy
-# clone_0	20	51816053	61816053	0	1
-truth = pd.read_csv(
-    f"~/scratch/calicost_sims/simulated_data_related/numcnas1.2_cnasize1e7_ploidy2_random0/{fname}",
-    sep="\t",
-).rename(columns={"chr": "Chromosome", "start": "Start", "end": "End"})
-copy_num_columns = truth.columns[3:]
+    logger.info(f"Found {truth_clones['label'].unique()} clones in truth for sample {sample_id} spaceranger.")
 
-truth[copy_num_columns] = truth[copy_num_columns].astype("int8")
+    # NB
+    # clone	    chr	    start	    end	        A_copy	B_copy
+    # clone_0	20	    51816053	61816053	0	    1
+    truth = pd.read_csv(
+        f"{root}/simulated_data_related/{sample_id}/{fname}",
+        sep="\t",
+    ).rename(columns={"chr": "Chromosome", "start": "Start", "end": "End"})
 
-# NB entire rest of genome is the normal state.
-truth_cna = truth[~(truth[copy_num_columns].eq(1).all(axis=1))]
-truth_cna = truth_cna.rename(columns=remap_columns(copy_num_columns))
-truth_cna = pr.PyRanges(truth_cna)
+    # NB retain only the true segments that show a CNA for at least one clone.
+    copy_num_columns = truth.columns[3:]
 
-# print(truth_cna)
+    truth_cna = truth[~(truth[copy_num_columns].eq(1).all(axis=1))]
 
-spot_to_clone = dict(zip(truth_clones["barcode"], truth_clones["label"]))
-spots = truth_clones["barcode"].unique()
+    # NB remap normal to clone 0 and increment by 1 otherwise.
+    truth_cna = truth_cna.rename(columns=remap_clone_num(copy_num_columns))
 
-# Expand: create one row per (segment, spot) combination
-expanded_rows = []
+    logger.info(f"Found {truth_cna['label'].unique()} clones in truth for sample {sample_id} cna.")
 
-for _, seg in truth_cna.iterrows():
-    for spot in spots:
-        # Get clone assignment for this spot
-        clone_label = spot_to_clone[spot]
+    assert truth_clones['label'].unique() == truth_cna['label'].unique(), "Mismatch between clone labels in truth clones and truth cna: {truth_clones['label'].unique()} != {truth_cna['label'].unique()}"
 
-        # Determine which A/B columns to use based on clone
-        if clone_label == "normal":
-            a_col = "tru_clone_0_A"
-            b_col = "tru_clone_0_B"
-        else:
-            # Extract clone number (e.g., "tru_clone_2" -> 2)
-            clone_num = int(clone_label.split("_")[2])
-            # Column names after remap: tru_clone_{N+1}_A
-            remapped_num = clone_num + 1
-            a_col = f"tru_clone_{remapped_num}_A"
-            b_col = f"tru_clone_{remapped_num}_B"
+    # NB expand to per-spot CNA truth ... 
+    expanded_rows = []
 
-        # Extract A/B copies for this clone (handle missing columns)
-        a_copy = seg.get(a_col, 1)  # Default to 1 if column missing
-        b_copy = seg.get(b_col, 1)
+    for _, seg in truth_cna.iterrows():
+        for spot in spots:
+            clone_label = spot_to_clone[spot]
+            clone_num = int(clone_label.split("_")[-1])
 
-        expanded_rows.append(
-            {
-                "Chromosome": seg["Chromosome"],
-                "Start": seg["Start"],
-                "End": seg["End"],
-                "barcode": spot,
-                "true_clone": clone_label.split("_")[-1],
-                "true_A": a_copy,
-                "true_B": b_copy,
-            }
-        )
+            expanded_rows.append(
+                {
+                    "Chromosome": seg["Chromosome"],
+                    "Start": seg["Start"],
+                    "End": seg["End"],
+                    "barcode": spot,
+                    "true_clone": clone_num,
+                    "true_A": seg.get(f"true_clone_{clone_num}_A"),
+                    "true_B": seg.get(f"true_clone_{clone_num}_B"),
+                }
+            )
 
-spot_truth_cna = pd.DataFrame(expanded_rows)
-spot_truth_cna = pr.PyRanges(spot_truth_cna)
+    spot_truth_cna = pd.DataFrame(expanded_rows)
+    spot_truth_cna = pr.PyRanges(spot_truth_cna)
+    spot_truth_cna.insert(3, "sample_id", sample_id)
 
-# print(spot_truth_cna)
+    return spot_truth_cna
 
-# barcode sample_id       x       y       clone_label
-# spot_0  0       0       0       3
+def get_sample_calicost(root, sample_id):
+    # NB 
+    # barcode sample_id       x       y       clone_label
+    # spot_0  0       0       0       3
+    calicost_clones = pd.read_csv(
+        f"{root}/nomixing_calicost_related/{sample_id}/clone_labels.tsv",
+        sep="\t",
+        usecols=["barcode", "x", "y", "clone_label"],
+    ).rename(columns={"clone_label": "label"})
 
-calicost_clones = pd.read_csv(
-    "~/scratch/calicost_sims/nomixing_calicost_related/numcnas1.2_cnasize1e7_ploidy2_random0/clone_labels.tsv",
-    sep="\t",
-)
+    spots = calicost_clones["barcode"].unique()
+    spot_to_calicost_clone = dict(
+        zip(calicost_clones["barcode"], calicost_clones["label"])
+    )
 
-spot_to_calicost_clone = dict(
-    zip(calicost_clones["barcode"], calicost_clones["clone_label"])
-)
+    logger.info(f"Found {calicost_clones['label'].unique()} clones in CalicoST for sample {sample_id}.")
 
-calicost = pd.read_csv(
-    "~/scratch/calicost_sims/nomixing_calicost_related/numcnas1.2_cnasize1e7_ploidy2_random0/cnv_seglevel.tsv",
-    sep="\t",
-).rename(columns={"CHR": "Chromosome", "START": "Start", "END": "End"})
+    calicost = pd.read_csv(
+        f"{root}/nomixing_calicost_related/{sample_id}/cnv_seglevel.tsv",
+        sep="\t",
+    ).rename(columns={"CHR": "Chromosome", "START": "Start", "END": "End"})
 
-copy_num_columns = calicost.columns[3:]
+    copy_num_columns = calicost.columns[3:]
 
-calicost_cna = calicost[~(calicost[copy_num_columns].eq(1).all(axis=1))]
+    # NB only CalicoST segments that show CNA for at least one clone.
+    calicost_cna = calicost[~(calicost[copy_num_columns].eq(1).all(axis=1))]
 
-calicost_cna.columns = calicost_cna.columns.str.replace(
-    r"clone(\d+)\s+([AB])", r"clone_\1_\2", regex=True
-)
+    # NB clone 0 -> clone_0 etc.
+    calicost_cna.columns = calicost_cna.columns.str.replace(
+        r"clone(\d+)\s+([AB])", r"clone_\1_\2", regex=True
+    )
 
-# print(calicost_cna)
+    assert calicost_clones['label'].unique() == calicost_cna['label'].unique(), "Mismatch between clone labels in calicost clones and calicost cna: {calicost_clones['label'].unique()} != {calicost_cna['label'].unique()}"
 
-calicost_expanded_rows = []
+    # NB truth per spot, per segment ...
+    calicost_expanded_rows = []
 
-for _, seg in calicost_cna.iterrows():
-    for spot in calicost_clones["barcode"].unique():
-        # Get clone assignment for this spot
-        clone_label = spot_to_calicost_clone[spot]
+    for _, seg in calicost_cna.iterrows():
+        for spot in spots:
+            clone_label = spot_to_calicost_clone[spot]
+            calicost_expanded_rows.append(
+                {
+                    "Chromosome": seg["Chromosome"],
+                    "Start": seg["Start"],
+                    "End": seg["End"],
+                    "barcode": spot,
+                    "clone": int(spot_to_calicost_clone[spot]),
+                    "A": seg.get(f"clone_{clone_label}_A"),
+                    "B": seg.get(f"clone_{clone_label}_B"),
+                }
+            )
 
-        # Determine which A/B columns to use based on clone
-        a_col = f"clone_{clone_label}_A"
-        b_col = f"clone_{clone_label}_B"
+    spot_calicost_cna = pd.DataFrame(calicost_expanded_rows)
+    spot_calicost_cna = pr.PyRanges(spot_calicost_cna)
+    spot_calicost_cna.insert(3, "sample_id", sample_id)
 
-        # Extract A/B copies for this clone (handle missing columns)
-        a_copy = seg.get(a_col, 1)  # Default to 1 if column missing
-        b_copy = seg.get(b_col, 1)
+    return spot_calicost_cna
 
-        calicost_expanded_rows.append(
-            {
-                "Chromosome": seg["Chromosome"],
-                "Start": seg["Start"],
-                "End": seg["End"],
-                "barcode": spot,
-                "clone": str(clone_label),
-                "A": a_copy,
-                "B": b_copy,
-            }
-        )
+def get_truth_calicost_join(spot_truth_cna, spot_calicost_cna):
+    spot_join_cna = spot_truth_cna.join_overlaps(spot_calicost_cna, match_by=["barcode", "sample_id"])
 
-# Convert to DataFrame and PyRanges
-spot_calicost_cna = pd.DataFrame(calicost_expanded_rows)
-spot_calicost_cna = pr.PyRanges(spot_calicost_cna)
+    start_b = spot_join_cna.pop("Start_b")
+    end_b = spot_join_cna.pop("End_b")
 
-spot_calicost_cna = pr.PyRanges(spot_calicost_cna)
+    spot_join_cna.insert(3, "Start_b", start_b)
+    spot_join_cna.insert(4, "End_b", end_b)
 
-# print(spot_calicost_cna)
+    return spot_join_cna
 
-spot_join_cna = spot_truth_cna.join_overlaps(spot_calicost_cna, match_by="barcode")
 
-start_b = spot_join_cna.pop("Start_b")
-end_b = spot_join_cna.pop("End_b")
+if __name__ == "__main__":
+    root = "~/scratch/calicost_sims/"
+    sample_id = "numcnas1.2_cnasize1e7_ploidy2_random0"
 
-spot_join_cna.insert(3, "Start_b", start_b)
-spot_join_cna.insert(4, "End_b", end_b)
+    spot_truth_cna = get_sample_truth(root, sample_id)
+    spot_calicost_cna = get_sample_calicost(root, sample_id)
 
-print(spot_join_cna)
+    spot_join_cna = get_truth_calicost_join(spot_truth_cna, spot_calicost_cna)
 
-success_rate = (
-    (spot_join_cna["A"] == spot_join_cna["true_A"])
-    & (spot_join_cna["B"] == spot_join_cna["true_B"])
-).mean()
+    success_rate = (
+        (spot_join_cna["A"] == spot_join_cna["true_A"])
+        & (spot_join_cna["B"] == spot_join_cna["true_B"])
+    ).mean()
 
-print(success_rate)
+    print(success_rate)
 
-spot_join_cna = spot_join_cna[~(spot_join_cna[["true_A", "true_B"]].eq(1).all(axis=1))]
+    spot_join_cna = spot_join_cna[~(spot_join_cna[["true_A", "true_B"]].eq(1).all(axis=1))]
 
-print(spot_join_cna)
+    print(spot_join_cna)
 
-success_rate = (
-    (spot_join_cna["A"] == spot_join_cna["true_A"])
-    & (spot_join_cna["B"] == spot_join_cna["true_B"])
-).mean()
+    success_rate = (
+        (spot_join_cna["A"] == spot_join_cna["true_A"])
+        & (spot_join_cna["B"] == spot_join_cna["true_B"])
+    ).mean()
 
-print(success_rate)
+    print(success_rate)
+
+    logger.info("\n\nDone.\n\n")

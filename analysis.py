@@ -173,7 +173,7 @@ success_rate = (
 
 print(success_rate)
 
-spot_join_cna = spot_join_cna[~(spot_join_cna[["true_A","true_B"]].eq(1).all(axis=1))]
+spot_join_cna = spot_join_cna[~(spot_join_cna[["true_A", "true_B"]].eq(1).all(axis=1))]
 
 print(spot_join_cna)
 

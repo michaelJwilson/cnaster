@@ -6,6 +6,8 @@ import pandas as pd
 import pyranges as pr
 from pathlib import Path
 from collections import Counter
+from itertools import permutations
+from scipy.optimize import linear_sum_assignment
 from sklearn.metrics import adjusted_rand_score
 from cnaster.config import YAMLConfig
 
@@ -106,6 +108,73 @@ def remap_clone_num(entries):
     )
 
     return new_entries
+
+
+def best_permutation_accuracy(true_labels, pred_labels):
+    """
+    Assuming estimated clone labels are a permutation of the true labels,
+    find the best permutation that maximizes spot-wise matches and
+    return the mapping and fraction correct.
+
+    Parameters
+    ----------
+    true_labels, pred_labels : array-like
+        Label vectors (may be numeric or strings). NaNs are ignored pairwise.
+
+    Returns
+    -------
+    mapping : dict
+        Maps predicted_label -> matched_true_label
+    frac_correct : float
+        Fraction of entries that match after applying mapping
+    mapped_pred : np.ndarray
+        Predicted labels after applying the mapping (NaNs preserved)
+    """
+    import numpy as np
+
+    t = np.asarray(true_labels)
+    p = np.asarray(pred_labels)
+
+    # only consider finite pairs
+    mask = np.isfinite(t) & np.isfinite(p)
+    t_valid = t[mask]
+    p_valid = p[mask]
+
+    if len(t_valid) == 0:
+        return {}, 0.0, p.copy()
+
+    true_uniques, true_idx = np.unique(t_valid, return_inverse=True)
+    pred_uniques, pred_idx = np.unique(p_valid, return_inverse=True)
+
+    n_true = len(true_uniques)
+    n_pred = len(pred_uniques)
+    n = max(n_true, n_pred)
+
+    # NB build contingency counts (true x pred)
+    counts = np.zeros((n, n), dtype=int)
+    for ti, pi in zip(true_idx, pred_idx):
+        counts[ti, pi] += 1
+
+    # maximize total matches -> minimize negative counts
+    row_ind, col_ind = linear_sum_assignment(-counts)
+    
+    # build mapping pred -> true using assigned pairs where there was a real label
+    mapping = {}
+    for r, c in zip(row_ind, col_ind):
+        if r < n_true and c < n_pred:
+            mapping[pred_uniques[c]] = true_uniques[r]
+
+    # apply mapping to full pred array (preserve NaNs)
+    mapped = p.copy()
+    for i, val in enumerate(p):
+        if not np.isfinite(val):
+            continue
+        mapped[i] = mapping.get(val, val)
+
+    # compute fraction correct on finite pairs
+    frac_correct = (mapped[mask] == t_valid).mean()
+
+    return mapping, float(frac_correct), mapped
 
 
 def get_sample_truth(root, sample_id, cna_only=False):
@@ -373,9 +442,15 @@ def get_success_rate(spot_join_cna, include_flip=True):
 
     ari = adjusted_rand_score(spot_join_cna["true_clone"], spot_join_cna["clone"])
 
+    best_clone_mapping, clone_mapping_success_rate, _ = best_permutation_accuracy(
+        spot_join_cna["true_clone"].to_numpy(), spot_join_cna["clone"].to_numpy()
+    )
+
     logger.info(
         f"Found normal rate={is_normal.mean():.3f}, match rate={match_rate:.3f} with ari={ari:.6f}, normal recovery rate={normal_recovery.mean():.3f}, cna recovery rate={cna_recovery.mean():.3f} and cna false positive rate={cna_false_positive.mean():.3f} for include_flip={include_flip}."
     )
+
+    logger.info(f"Found best-permutation mapping: {best_clone_mapping}, with mapped fraction: {clone_mapping_success_rate:.4f}")
 
     # NB limit to the matches only.
     match_spot_join_cna = spot_join_cna[match]

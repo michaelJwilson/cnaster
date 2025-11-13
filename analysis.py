@@ -4,14 +4,17 @@ import numpy as np
 import pandas as pd
 import pyranges as pr
 from collections import Counter
+from sklearn.metrics import adjusted_rand_score
 
 start_time = time.time()
+
 
 class RuntimeFormatter(logging.Formatter):
     def format(self, record):
         runtime_minutes = (time.time() - start_time) / 60.0
         record.runtime = f"{runtime_minutes:.2f}m"
         return super().format(record)
+
 
 formatter = RuntimeFormatter(
     fmt="%(asctime)s - %(runtime)s - %(name)s - %(levelname)s - %(filename)s:%(lineno)d - %(message)s",
@@ -22,12 +25,13 @@ logger = logging.getLogger()
 
 for handler in logger.handlers[:]:
     logger.removeHandler(handler)
-    
+
 console_handler = logging.StreamHandler()
 console_handler.setLevel(logging.INFO)
 console_handler.setFormatter(formatter)
 
 logger.addHandler(console_handler)
+
 
 def remap_clone_num(entries):
     """
@@ -112,21 +116,21 @@ def get_sample_truth(root, sample_id, cna_only=False):
     )
 
     logger.info(f"Read {root}/simulated_data_related/{sample_id}/{fname}")
-    
+
     copy_num_columns = truth.columns[3:]
 
     # NB retain only the true segments that show a CNA for at least one clone.
     if cna_only:
         truth = truth[~(truth[copy_num_columns].eq(1).all(axis=1))]
-        
+
         logger.warning("Assuming a study of true CNA only.")
-        
+
     # NB remap normal to clone 0 and increment by 1 otherwise.
     truth = truth.rename(columns=remap_clone_num(copy_num_columns))
 
     # NB expand to per-spot CNA truth ...
     logger.info(f"Creating table of true CNAs for all spots and segments.")
-    
+
     expanded_rows = []
 
     for _, seg in truth.iterrows():
@@ -161,8 +165,10 @@ def get_sample_truth(root, sample_id, cna_only=False):
     return spot_truth
 
 
-def get_sample_estimate(root, sample_id, rectangle=0, method="calicost", cna_only=False):
-    clone_rectangle = "clone3_rectangle{rectangle}_w1.0"
+def get_sample_estimate(
+    root, sample_id, rectangle=0, method="calicost", cna_only=False
+):
+    clone_rectangle = f"clone3_rectangle{rectangle}_w1.0"
 
     logger.info(
         f"Solving for clone estimate: {root}/nomixing_{method}_related/{sample_id}/{clone_rectangle}/clone_labels.tsv"
@@ -179,7 +185,7 @@ def get_sample_estimate(root, sample_id, rectangle=0, method="calicost", cna_onl
     ).rename(columns={"clone_label": "clone", "BARCODES": "barcode"})
 
     spots = clones["barcode"].unique()
-    spot_to_clone = dict(zip(clones["barcode"], clones["clone"]))
+    spot_to_clone = dict(zip(clones["barcode"], clones["clone"].astype(int)))
 
     calls = pd.read_csv(
         f"{root}/nomixing_{method}_related/{sample_id}/{clone_rectangle}/cnv_seglevel.tsv",
@@ -199,19 +205,23 @@ def get_sample_estimate(root, sample_id, rectangle=0, method="calicost", cna_onl
 
     # NB truth per spot, per segment ...
     logger.info(f"Creating table of estimated CNAs for all spots and segments.")
-    
+
     calls_expanded_rows = []
 
     for _, seg in calls.iterrows():
+        interim = {
+            "Chromosome": seg["Chromosome"],
+            "Start": seg["Start"],
+            "End": seg["End"],
+        }
+
         for spot in spots:
             clone_label = spot_to_clone[spot]
             calls_expanded_rows.append(
-                {
-                    "Chromosome": seg["Chromosome"],
-                    "Start": seg["Start"],
-                    "End": seg["End"],
+                interim
+                | {
                     "barcode": spot,
-                    "clone": int(spot_to_clone[spot]),
+                    "clone": spot_to_clone[spot],
                     "A": seg.get(f"clone_{clone_label}_A"),
                     "B": seg.get(f"clone_{clone_label}_B"),
                 }
@@ -272,15 +282,23 @@ def get_success_rate(spot_join_cna, include_flip=True):
             spot_join_cna["B"] == spot_join_cna["true_A"]
         ) & (spot_join_cna["A"] == spot_join_cna["true_B"])
 
+    is_normal = (spot_join_cna["true_A"] == 1) & (spot_join_cna["true_B"] == 1)
+
+    normal_recovery = correct_match & is_normal
+
+    cna_recovery = correct_match & ~is_normal
+    cna_false_positive = ~correct_match & is_normal
+
     # NB was there an interval called on this truth segment?
     match_rate = match.mean()
-    success_rate = correct_match.mean()
+
+    ari = adjusted_rand_score(spot_join_cna["true_clone"], spot_join_cna["clone"])
 
     logger.info(
-        f"Found match rate={match_rate:.3f} with success rate={success_rate:.3f} for include_flip={include_flip}."
+        f"Found normal rate={is_normal.mean():.3f}, match rate={match_rate:.3f} with ari={ari:.6f}, normal recovery rate={normal_recovery.mean():.3f}, cna recovery rate={cna_recovery.mean():.3f} and cna false positive rate={cna_false_positive.mean():.3f} for include_flip={include_flip}."
     )
 
-    # NB limit to the matches only. 
+    # NB limit to the matches only.
     match_spot_join_cna = spot_join_cna[match]
     num_match = len(match_spot_join_cna)
 
@@ -293,7 +311,7 @@ def get_success_rate(spot_join_cna, include_flip=True):
         )
     )
 
-    logger.info(f"Found clone_marginals:\n{clone_marginals}")
+    logger.info(f"Found clone marginals:\n{clone_marginals}")
     logger.info(f"Found clone transition rates:")
 
     # NB normalized to answer the question: what happened to a given true clone?
@@ -303,7 +321,9 @@ def get_success_rate(spot_join_cna, include_flip=True):
             if clone_marginals[int(true_clone)] > 0
             else np.nan
         )
-        logger.info(f"\t{true_clone}->{pred_clone}\t{count / num_match:.4f}\t{frac:<10.4f}")
+        logger.info(
+            f"\t{true_clone}->{pred_clone}\t{count}\t{count / num_match:.4f}\t{frac:<10.4f}"
+        )
 
     # NB normalized to answer the question: what happened to a given true CNA?
     cna_marginals = Counter(
@@ -321,8 +341,9 @@ def get_success_rate(spot_join_cna, include_flip=True):
         )
     )
 
+    logger.info(f"Found cna marginals:\n{cna_marginals}")
     logger.info(f"Found cna transition rates:")
-    
+
     for (true_a, true_b, pred_a, pred_b), count in sorted(cna_transitions.items()):
         frac = (
             count / cna_marginals[(true_a, true_b)]
@@ -333,7 +354,9 @@ def get_success_rate(spot_join_cna, include_flip=True):
         true_pair = f"({true_a},{true_b})"
         pred_pair = f"({pred_a},{pred_b})"
 
-        logger.info(f"\t{true_pair}->{pred_pair}\t{count / num_match:.4f}\t{frac:.6e}")
+        logger.info(
+            f"\t{true_pair}->{pred_pair}\t{count}\t{count / num_match:.4f}\t{frac:.6e}"
+        )
 
     return
 
@@ -343,6 +366,7 @@ if __name__ == "__main__":
 
     # method = "cnaster"
     method = "calicost"
+    rectangle = 1
 
     # "numcnas1.2_cnasize1e7_ploidy2_random0",
     # "numcnas3.3_cnasize3e7_ploidy2_random0",
@@ -352,13 +376,17 @@ if __name__ == "__main__":
         "numcnas1.2_cnasize1e7_ploidy2_random0",
     ]
 
-    logger.info(f"Analyzing with {method} the sample_ids={sample_ids} for simulations @\n{root}")
-    
+    logger.info(
+        f"Analyzing with {method} the sample_ids={sample_ids} (for rectangle={rectangle}) simulations @\n{root}"
+    )
+
     result = []
 
     for sample_id in sample_ids[:1]:
         spot_truth_cna = get_sample_truth(root, sample_id)
-        spot_calicost_cna = get_sample_estimate(root, sample_id, method=method)
+        spot_calicost_cna = get_sample_estimate(
+            root, sample_id, method=method, rectangle=rectangle
+        )
 
         spot_truth_cna_match = get_join(spot_truth_cna, spot_calicost_cna)
         # spot_calicost_cna_match = get_join(spot_calicost_cna, spot_truth_cna)
@@ -368,4 +396,4 @@ if __name__ == "__main__":
     result = pr.concat(result)
     success_rate = get_success_rate(result)
 
-    logger.info("\n\nDone.\n\n")
+    logger.info("\n\nDone.\n")

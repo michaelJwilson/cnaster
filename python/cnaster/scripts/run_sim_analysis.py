@@ -1,10 +1,13 @@
+import glob
 import time
 import logging
 import numpy as np
 import pandas as pd
 import pyranges as pr
+from pathlib import Path
 from collections import Counter
 from sklearn.metrics import adjusted_rand_score
+from cnaster.config import YAMLConfig
 
 start_time = time.time()
 
@@ -31,6 +34,34 @@ console_handler.setLevel(logging.INFO)
 console_handler.setFormatter(formatter)
 
 logger.addHandler(console_handler)
+
+
+# TODO HACK
+def get_gene_ranges_path():
+    return "/u/mw9568/research/data/references/hgTables_hg38_gencode.txt"
+
+
+def read_gene_ranges():
+    """
+    Read in (contig, start, end) table for (coding) gene definition.
+    """
+    gene_ranges_path = get_gene_ranges_path()
+
+    gene_ranges = pd.read_csv(gene_ranges_path, sep="\t", header=0, index_col=0)
+    gene_ranges = gene_ranges[gene_ranges.chrom.isin([f"chr{i}" for i in range(1, 23)])]
+
+    # NB add chr column as integer without "chr" prefix
+    gene_ranges["chr"] = [int(x[3:]) for x in gene_ranges.chrom]
+    gene_ranges = gene_ranges.rename(
+        columns={
+            "chr": "Chromosome",
+            "cdsStart": "Start",
+            "cdsEnd": "End",
+            "name2": "Gene",
+        }
+    ).reset_index()
+
+    return pr.PyRanges(gene_ranges[["Chromosome", "Start", "End", "Gene"]])
 
 
 def remap_clone_num(entries):
@@ -165,9 +196,28 @@ def get_sample_truth(root, sample_id, cna_only=False):
     return spot_truth
 
 
-def get_sample_estimate(
-    root, sample_id, rectangle=0, method="calicost", cna_only=False
-):
+def get_sample_loglike(root, sample_id, method, rectangle):
+    rdr_baf_paths = sorted(
+        glob.glob(
+            f"{root}/nomixing_{method}_related/{sample_id}/{clone_rectangle}/rdrbaf_final_nstates*_smp.npz"
+        )
+    )
+
+    if len(rdr_baf_paths) == 0:
+        logger.warning(
+            f"Failed to find rdr_baf path for {root}/nomixing_{method}_related/{sample_id}/{clone_rectangle}"
+        )
+        return
+
+    rdr_baf = dict(
+        np.load(rdr_baf_paths[0]),
+        allow_pickle=True,
+    )
+
+    return rdr_baf["total_llf"]
+
+
+def get_sample_estimate(root, sample_id, method, rectangle, cna_only=False):
     clone_rectangle = f"clone3_rectangle{rectangle}_w1.0"
 
     logger.info(
@@ -231,9 +281,37 @@ def get_sample_estimate(
     spot_cna.insert(3, "sample_id", sample_id)
     spot_cna = pr.PyRanges(spot_cna)
 
-    logger.info(f"Found {method} estimated CNAs:\n{spot_cna}")
+    logger.info(f"Found {method} estimated CNAs with loglike={loglike}:\n{spot_cna}")
 
     return spot_cna
+
+
+def get_best_sample_estimate(root, sample_id, method, cna_only=False):
+    best_rectangle, best_loglike = None, -np.inf
+
+    for rectangle in range(10):
+        loglike = get_sample_loglike(root, sample_id, method, rectangle)
+
+        if loglike is None:
+            if rectangle < 5:
+                logger.warning("Expected at least 5 initializations")
+            break
+
+        if loglike >= best_loglike:
+            best_rectangle = rectangle
+            best_loglike = loglike
+
+    best_spot_cna = get_sample_estimate(
+        root,
+        sample_id,
+        method,
+        best_rectangle,
+        cna_only=cna_only,
+    )
+
+    logger.info(f"Found best {method} initialization={best_rectangle}")
+
+    return best_spot_cna, best_loglike
 
 
 def get_join(first, second):
@@ -295,13 +373,7 @@ def get_success_rate(spot_join_cna, include_flip=True):
     ari = adjusted_rand_score(spot_join_cna["true_clone"], spot_join_cna["clone"])
 
     logger.info(
-        f"Found normal rate={is_normal.mean():.3f},
-        match rate={match_rate:.3f} with
-        ari={ari:.6f},
-        normal recovery rate={normal_recovery.mean():.3f},
-        cna recovery rate={cna_recovery.mean():.3f} and
-        cna false positive rate={cna_false_positive.mean():.3f} for
-        include_flip={include_flip}."
+        f"Found normal rate={is_normal.mean():.3f}, match rate={match_rate:.3f} with ari={ari:.6f}, normal recovery rate={normal_recovery.mean():.3f}, cna recovery rate={cna_recovery.mean():.3f} and cna false positive rate={cna_false_positive.mean():.3f} for include_flip={include_flip}."
     )
 
     # NB limit to the matches only.
@@ -368,11 +440,11 @@ def get_success_rate(spot_join_cna, include_flip=True):
 
 
 def main():
-    root = "~/scratch/calicost_sims/"
+    root = "/u/mw9568//scratch/calicost_sims"
+    gene_ranges = read_gene_ranges()
 
     # method = "cnaster"
     method = "calicost"
-    rectangle = 0
 
     # "numcnas1.2_cnasize1e7_ploidy2_random0",
     # "numcnas3.3_cnasize3e7_ploidy2_random0",
@@ -383,19 +455,28 @@ def main():
     ]
 
     logger.info(
-        f"Analyzing with {method} the sample_ids={sample_ids} (for rectangle={rectangle}) simulations @\n{root}"
+        f"Analyzing with {method} the sample_ids={sample_ids} simulations @\n{root}"
     )
 
     result = []
 
     for sample_id in sample_ids[:1]:
         spot_truth_cna = get_sample_truth(root, sample_id)
-        spot_calicost_cna = get_sample_estimate(
-            root, sample_id, method=method, rectangle=rectangle
+        gene_spot_truth_cna = spot_truth_cna.overlap(gene_ranges)
+
+        logger.info(
+            f"Found overlap rate of truth CNAs with genes={len(gene_spot_truth_cna) / len(spot_truth_cna)}:.3f"
+        )
+
+        spot_truth_cna = gene_spot_truth_cna
+
+        spot_calicost_cna = get_best_sample_estimate(
+            root,
+            sample_id,
+            method,
         )
 
         spot_truth_cna_match = get_join(spot_truth_cna, spot_calicost_cna)
-        # spot_calicost_cna_match = get_join(spot_calicost_cna, spot_truth_cna)
 
         result.append(spot_truth_cna_match)
 

@@ -30,6 +30,10 @@ console_handler.setFormatter(formatter)
 logger.addHandler(console_handler)
 
 def remap_clone_num(entries):
+    """
+    Remap an iterable of labels containing a clone id to a standard one, e.g.
+    normal being clone 0 and other clones labelled accordingly.
+    """
     entries = np.unique(entries)
 
     logger.info(f"Found unique entries: {entries}")
@@ -38,6 +42,9 @@ def remap_clone_num(entries):
     clone_zp = 1 if has_normal else 0
 
     new_entries = {}
+
+    if has_normal:
+        logger.warning("Detected 'normal' in clone labelling, assuming clone 0.")
 
     for entry in entries:
         orig_entry = entry
@@ -66,7 +73,7 @@ def remap_clone_num(entries):
     return new_entries
 
 
-def get_sample_truth(root, sample_id):
+def get_sample_truth(root, sample_id, cna_only=False):
     logger.info(
         f"Solving for {root}/simulated_data_related/{sample_id}/truth_clone_labels.tsv"
     )
@@ -104,15 +111,22 @@ def get_sample_truth(root, sample_id):
         }
     )
 
+    logger.info(f"Read {root}/simulated_data_related/{sample_id}/{fname}")
+    
     copy_num_columns = truth.columns[3:]
 
     # NB retain only the true segments that show a CNA for at least one clone.
-    # truth = truth[~(truth[copy_num_columns].eq(1).all(axis=1))]
-
+    if cna_only:
+        truth = truth[~(truth[copy_num_columns].eq(1).all(axis=1))]
+        
+        logger.warning("Assuming a study of true CNA only.")
+        
     # NB remap normal to clone 0 and increment by 1 otherwise.
     truth = truth.rename(columns=remap_clone_num(copy_num_columns))
 
     # NB expand to per-spot CNA truth ...
+    logger.info(f"Creating table of true CNAs for all spots and segments.")
+    
     expanded_rows = []
 
     for _, seg in truth.iterrows():
@@ -134,10 +148,10 @@ def get_sample_truth(root, sample_id):
 
     spot_truth = pd.DataFrame(expanded_rows)
 
-    # NB retain only the true segments that show a CNA.
-    # spot_truth = spot_truth[
-    #    ~(spot_truth[["true_A", "true_B"]].eq(1).all(axis=1))
-    #]
+    # NB some spots will be normal, despite at least one clone having a CNA
+    #    here.  Retain only the true segments that show a CNA.
+    if cna_only:
+        spot_truth = spot_truth[~(spot_truth[["true_A", "true_B"]].eq(1).all(axis=1))]
 
     spot_truth.insert(3, "sample_id", sample_id)
     spot_truth = pr.PyRanges(spot_truth)
@@ -147,12 +161,11 @@ def get_sample_truth(root, sample_id):
     return spot_truth
 
 
-def get_sample_estimate(root, sample_id, method="calicost"):
-    # TODO !!
-    clone_rectangle = "clone3_rectangle0_w1.0"
+def get_sample_estimate(root, sample_id, rectangle=0, method="calicost", cna_only=False):
+    clone_rectangle = "clone3_rectangle{rectangle}_w1.0"
 
     logger.info(
-        f"Solving for {root}/nomixing_{method}_related/{sample_id}/{clone_rectangle}/clone_labels.tsv"
+        f"Solving for clone estimate: {root}/nomixing_{method}_related/{sample_id}/{clone_rectangle}/clone_labels.tsv"
     )
 
     # NB
@@ -176,7 +189,8 @@ def get_sample_estimate(root, sample_id, method="calicost"):
     copy_num_columns = calls.columns[3:]
 
     # NB only CalicoST segments that show CNA for at least one clone.
-    # calls = calls[~(calls[copy_num_columns].eq(1).all(axis=1))]
+    if cna_only:
+        calls = calls[~(calls[copy_num_columns].eq(1).all(axis=1))]
 
     # NB clone 0 -> clone_0 etc.
     calls.columns = calls.columns.str.replace(
@@ -184,6 +198,8 @@ def get_sample_estimate(root, sample_id, method="calicost"):
     )
 
     # NB truth per spot, per segment ...
+    logger.info(f"Creating table of estimated CNAs for all spots and segments.")
+    
     calls_expanded_rows = []
 
     for _, seg in calls.iterrows():
@@ -205,12 +221,15 @@ def get_sample_estimate(root, sample_id, method="calicost"):
     spot_cna.insert(3, "sample_id", sample_id)
     spot_cna = pr.PyRanges(spot_cna)
 
-    logger.info(f"Found {method} CNAs:\n{spot_cna}")
+    logger.info(f"Found {method} estimated CNAs:\n{spot_cna}")
 
     return spot_cna
 
 
 def get_join(first, second):
+    # NB left-join overlaps of second on first, e.g. estimated CNA intervals on
+    #    the known, truth intervals.  Sample_id refers to different simulated realizations/
+    #    true CNA configuration.
     result = first.join_overlaps(
         second,
         match_by=["barcode", "sample_id"],
@@ -225,9 +244,11 @@ def get_join(first, second):
     result.insert(3, "Start_b", start_b)
     result.insert(4, "End_b", end_b)
 
+    # NB we will live with NANs on join eventually, so float.
     for col in ["true_clone", "true_A", "true_B"]:
         result[col] = result[col].astype(float)
 
+    # NB was there a successful join?
     invalid = ~np.isfinite(result["A"])
 
     result.loc[invalid, "overlap_bp"] = 0.0
@@ -241,6 +262,7 @@ def get_join(first, second):
 def get_success_rate(spot_join_cna, include_flip=True):
     match = np.isfinite(spot_join_cna["A"])
 
+    # NB did we recover the true CNA (up to a phase flip)?
     correct_match = (spot_join_cna["A"] == spot_join_cna["true_A"]) & (
         spot_join_cna["B"] == spot_join_cna["true_B"]
     )
@@ -250,6 +272,7 @@ def get_success_rate(spot_join_cna, include_flip=True):
             spot_join_cna["B"] == spot_join_cna["true_A"]
         ) & (spot_join_cna["A"] == spot_join_cna["true_B"])
 
+    # NB was there an interval called on this truth segment?
     match_rate = match.mean()
     success_rate = correct_match.mean()
 
@@ -257,9 +280,11 @@ def get_success_rate(spot_join_cna, include_flip=True):
         f"Found match rate={match_rate:.3f} with success rate={success_rate:.3f} for include_flip={include_flip}."
     )
 
+    # NB limit to the matches only. 
     match_spot_join_cna = spot_join_cna[match]
     num_match = len(match_spot_join_cna)
-    
+
+    # NB distribution of true clone in matches, required for normalization.
     clone_marginals = Counter(match_spot_join_cna["true_clone"].astype(int))
     clone_transitions = Counter(
         zip(
@@ -268,10 +293,10 @@ def get_success_rate(spot_join_cna, include_flip=True):
         )
     )
 
-    print(clone_marginals)
-    
+    logger.info(f"Found clone_marginals:\n{clone_marginals}")
     logger.info(f"Found clone transition rates:")
 
+    # NB normalized to answer the question: what happened to a given true clone?
     for (true_clone, pred_clone), count in sorted(clone_transitions.items()):
         frac = (
             count / clone_marginals[int(true_clone)]
@@ -280,6 +305,7 @@ def get_success_rate(spot_join_cna, include_flip=True):
         )
         logger.info(f"\t{true_clone}->{pred_clone}\t{count / num_match:.4f}\t{frac:<10.4f}")
 
+    # NB normalized to answer the question: what happened to a given true CNA?
     cna_marginals = Counter(
         zip(
             match_spot_join_cna["true_A"].astype(int),
@@ -325,6 +351,9 @@ if __name__ == "__main__":
     sample_ids = [
         "numcnas1.2_cnasize1e7_ploidy2_random0",
     ]
+
+    logger.info(f"Analyzing with {method} the sample_ids={sample_ids} for simulations @\n{root}")
+    
     result = []
 
     for sample_id in sample_ids[:1]:
@@ -332,7 +361,7 @@ if __name__ == "__main__":
         spot_calicost_cna = get_sample_estimate(root, sample_id, method=method)
 
         spot_truth_cna_match = get_join(spot_truth_cna, spot_calicost_cna)
-        # spot_calicost_cna_match = get_join(spot_truth_cna, spot_calicost_cna)
+        # spot_calicost_cna_match = get_join(spot_calicost_cna, spot_truth_cna)
 
         result.append(spot_truth_cna_match)
 

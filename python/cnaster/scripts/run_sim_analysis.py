@@ -197,6 +197,7 @@ def get_sample_truth(root, sample_id, cna_only=False):
 
 
 def get_sample_loglike(root, sample_id, method, rectangle):
+    clone_rectangle = f"clone3_rectangle{rectangle}_w1.0"
     rdr_baf_paths = sorted(
         glob.glob(
             f"{root}/nomixing_{method}_related/{sample_id}/{clone_rectangle}/rdrbaf_final_nstates*_smp.npz"
@@ -281,7 +282,7 @@ def get_sample_estimate(root, sample_id, method, rectangle, cna_only=False):
     spot_cna.insert(3, "sample_id", sample_id)
     spot_cna = pr.PyRanges(spot_cna)
 
-    logger.info(f"Found {method} estimated CNAs with loglike={loglike}:\n{spot_cna}")
+    logger.info(f"Found {method} estimated CNAs:\n{spot_cna}")
 
     return spot_cna
 
@@ -301,6 +302,8 @@ def get_best_sample_estimate(root, sample_id, method, cna_only=False):
             best_rectangle = rectangle
             best_loglike = loglike
 
+    logger.info(f"Found best {method} initialization={best_rectangle} with loglike={best_loglike}")
+    
     best_spot_cna = get_sample_estimate(
         root,
         sample_id,
@@ -308,8 +311,6 @@ def get_best_sample_estimate(root, sample_id, method, cna_only=False):
         best_rectangle,
         cna_only=cna_only,
     )
-
-    logger.info(f"Found best {method} initialization={best_rectangle}")
 
     return best_spot_cna, best_loglike
 
@@ -465,12 +466,10 @@ def main():
         gene_spot_truth_cna = spot_truth_cna.overlap(gene_ranges)
 
         logger.info(
-            f"Found overlap rate of truth CNAs with genes={len(gene_spot_truth_cna) / len(spot_truth_cna)}:.3f"
+            f"Found overlap rate of truth CNAs with genes={len(gene_spot_truth_cna) / len(spot_truth_cna):.3f}"
         )
 
-        spot_truth_cna = gene_spot_truth_cna
-
-        spot_calicost_cna = get_best_sample_estimate(
+        spot_calicost_cna, best_loglike= get_best_sample_estimate(
             root,
             sample_id,
             method,

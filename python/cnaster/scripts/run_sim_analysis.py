@@ -190,6 +190,10 @@ def get_sample_truth(root, sample_id, cna_only=False):
     # clone	    chr	    start	    end	        A_copy	B_copy
     # clone_0	20	    51816053	61816053	0	    1
     fname = "truth_acn_profile.tsv"
+
+    # NB clone CNAs only.
+    # fname = "truth_cna.tsv"
+    
     truth = pd.read_csv(
         f"{root}/simulated_data_related/{sample_id}/{fname}",
         sep="\t",
@@ -358,8 +362,10 @@ def get_best_sample_estimate(root, sample_id, method, cna_only=False):
             best_rectangle = rectangle
             best_loglike = loglike
 
-    logger.info(f"Found best {method} initialization={best_rectangle} with loglike={best_loglike}")
-    
+    logger.info(
+        f"Found best {method} initialization={best_rectangle} with loglike={best_loglike}"
+    )
+
     best_spot_cna = get_sample_estimate(
         root,
         sample_id,
@@ -379,6 +385,7 @@ def get_join(first, second):
         second,
         match_by=["barcode", "sample_id"],
         join_type="left",
+        multiple="all",
         report_overlap_column="overlap_bp",
         slack=0,
     )
@@ -426,7 +433,8 @@ def get_success_rate(spot_join_cna, include_flip=True):
 
     # NB was there an interval called on this truth segment?
     match_rate = match.mean()
-
+    correct_rate = correct_match.mean()
+    
     ari = adjusted_rand_score(spot_join_cna["true_clone"], spot_join_cna["clone"])
 
     best_clone_mapping, clone_mapping_success_rate, _ = best_permutation_accuracy(
@@ -434,10 +442,10 @@ def get_success_rate(spot_join_cna, include_flip=True):
     )
 
     logger.info(
-        f"Found normal rate={is_normal.mean():.3f}, match rate={match_rate:.3f} with ari={ari:.6f}, normal recovery rate={normal_recovery.mean():.3f}, cna recovery rate={cna_recovery.mean():.3f} and cna false positive rate={cna_false_positive.mean():.3f} for include_flip={include_flip}."
+        f"Found normal rate={is_normal.mean():.3f}, match rate={match_rate:.3f}, correct_rate={correct_rate}, ari={ari:.6f}, mapped fraction={clone_mapping_success_rate:.4f}, normal recovery rate={normal_recovery.mean():.3f}, cna recovery rate={cna_recovery.mean():.3f} and cna false positive rate={cna_false_positive.mean():.3f} for include_flip={include_flip}."
     )
 
-    logger.info(f"Found best-permutation mapping: {best_clone_mapping}, with mapped fraction: {clone_mapping_success_rate:.4f}")
+    logger.info(f"Found best clone 1-1 mapping: {best_clone_mapping}")
 
     # NB limit to the matches only.
     match_spot_join_cna = spot_join_cna[match]
@@ -496,7 +504,7 @@ def get_success_rate(spot_join_cna, include_flip=True):
         pred_pair = f"({pred_a},{pred_b})"
 
         logger.info(
-            f"\t{true_pair}->{pred_pair}\t{count}\t{count / num_match:.4f}\t{frac:.6e}"
+            f"\t{true_pair}->{pred_pair}\t{count}\t{count / num_match:.6f}\t{frac:.6f}"
         )
 
     return
@@ -514,7 +522,7 @@ def main():
     # "numcnas3.3_cnasize5e7_ploidy2_random0",
 
     sample_ids = [
-        "numcnas1.2_cnasize1e7_ploidy2_random0",
+        "numcnas3.3_cnasize3e7_ploidy2_random0",
     ]
 
     logger.info(
@@ -531,7 +539,7 @@ def main():
             f"Found overlap rate of truth CNAs with genes={len(gene_spot_truth_cna) / len(spot_truth_cna):.3f}"
         )
 
-        spot_calicost_cna, best_loglike= get_best_sample_estimate(
+        spot_calicost_cna, best_loglike = get_best_sample_estimate(
             root,
             sample_id,
             method,

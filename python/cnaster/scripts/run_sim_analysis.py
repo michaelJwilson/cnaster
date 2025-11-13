@@ -112,23 +112,12 @@ def remap_clone_num(entries):
 
 def best_permutation_accuracy(true_labels, pred_labels):
     """
-    Assuming estimated clone labels are a permutation of the true labels,
-    find the best permutation that maximizes spot-wise matches and
-    return the mapping and fraction correct.
+    Assuming estimated clone labels are a permutation (or noisy permutation) of the true labels,
+    produce a mapping from each predicted label -> a true label (allowing multiple predicted
+    labels to map to the same true label). Return that mapping, the fraction correct under
+    this mapping, and the mapped prediction vector.
 
-    Parameters
-    ----------
-    true_labels, pred_labels : array-like
-        Label vectors (may be numeric or strings). NaNs are ignored pairwise.
-
-    Returns
-    -------
-    mapping : dict
-        Maps predicted_label -> matched_true_label
-    frac_correct : float
-        Fraction of entries that match after applying mapping
-    mapped_pred : np.ndarray
-        Predicted labels after applying the mapping (NaNs preserved)
+    NaNs in either vector are ignored pairwise.
     """
     import numpy as np
 
@@ -150,31 +139,29 @@ def best_permutation_accuracy(true_labels, pred_labels):
     n_pred = len(pred_uniques)
     n = max(n_true, n_pred)
 
-    # NB build contingency counts (true x pred)
-    counts = np.zeros((n, n), dtype=int)
+    # contingency counts (true x pred)
+    counts = np.zeros((n_true, n_pred), dtype=int)
     for ti, pi in zip(true_idx, pred_idx):
         counts[ti, pi] += 1
 
-    # maximize total matches -> minimize negative counts
-    row_ind, col_ind = linear_sum_assignment(-counts)
-    
-    # build mapping pred -> true using assigned pairs where there was a real label
-    mapping = {}
-    for r, c in zip(row_ind, col_ind):
-        if r < n_true and c < n_pred:
-            mapping[pred_uniques[c]] = true_uniques[r]
+    # Build a mapping for every predicted label: map each pred -> true with highest counts
+    many_to_one_mapping = {}
+    for j, pred_val in enumerate(pred_uniques):
+        # pick true row with max support for this predicted column
+        best_true_idx = int(np.argmax(counts[:, j])) if n_true > 0 else 0
+        many_to_one_mapping[pred_val] = true_uniques[best_true_idx]
 
-    # apply mapping to full pred array (preserve NaNs)
+    # Apply mapping to full pred array (preserve NaNs)
     mapped = p.copy()
     for i, val in enumerate(p):
         if not np.isfinite(val):
             continue
-        mapped[i] = mapping.get(val, val)
+        mapped[i] = many_to_one_mapping.get(val, val)
 
-    # compute fraction correct on finite pairs
+    # fraction correct on finite pairs
     frac_correct = (mapped[mask] == t_valid).mean()
 
-    return mapping, float(frac_correct), mapped
+    return many_to_one_mapping, float(frac_correct), mapped
 
 
 def get_sample_truth(root, sample_id, cna_only=False):

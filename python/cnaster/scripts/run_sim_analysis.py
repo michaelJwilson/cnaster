@@ -361,12 +361,12 @@ def get_success_rate(spot_join_cna, include_flip=True):
     return
 
 
-if __name__ == "__main__":
+def main():
     root = "~/scratch/calicost_sims/"
 
     # method = "cnaster"
     method = "calicost"
-    rectangle = 1
+    rectangle = 0
 
     # "numcnas1.2_cnasize1e7_ploidy2_random0",
     # "numcnas3.3_cnasize3e7_ploidy2_random0",
@@ -397,3 +397,7 @@ if __name__ == "__main__":
     success_rate = get_success_rate(result)
 
     logger.info("\n\nDone.\n")
+
+    
+if __name__ == "__main__":
+    main()

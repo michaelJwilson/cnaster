@@ -50,6 +50,7 @@ test = [
 [project.scripts]
 # run_cnaster_sim = "cnaster.sim.scripts.run_cnaster_sim:main"
 run_cnaster = "cnaster.scripts.run_cnaster:main"
+run_sim_analysis = "cnaster.scripts.run_sim_analysis:main"
 run_cnaster_tumor_prop = "cnaster.scripts.run_cnaster_tumor_prop:main"
 prep_snps = "cnaster.scripts.prep_snps:main"
 create_allele_matrices = "cnaster.scripts.create_allele_matrices:main"

@@ -295,7 +295,13 @@ def get_success_rate(spot_join_cna, include_flip=True):
     ari = adjusted_rand_score(spot_join_cna["true_clone"], spot_join_cna["clone"])
 
     logger.info(
-        f"Found normal rate={is_normal.mean():.3f}, match rate={match_rate:.3f} with ari={ari:.6f}, normal recovery rate={normal_recovery.mean():.3f}, cna recovery rate={cna_recovery.mean():.3f} and cna false positive rate={cna_false_positive.mean():.3f} for include_flip={include_flip}."
+        f"Found normal rate={is_normal.mean():.3f},
+        match rate={match_rate:.3f} with
+        ari={ari:.6f},
+        normal recovery rate={normal_recovery.mean():.3f},
+        cna recovery rate={cna_recovery.mean():.3f} and
+        cna false positive rate={cna_false_positive.mean():.3f} for
+        include_flip={include_flip}."
     )
 
     # NB limit to the matches only.
@@ -398,6 +404,6 @@ def main():
 
     logger.info("\n\nDone.\n")
 
-    
+
 if __name__ == "__main__":
     main()

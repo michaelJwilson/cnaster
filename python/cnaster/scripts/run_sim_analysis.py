@@ -41,8 +41,8 @@ logger.addHandler(console_handler)
 
 # TODO HACK
 def get_gene_ranges_path():
-    return "/u/mw9568/research/data/references/hgTables_hg38_gencode.txt"
-
+    # return "/u/mw9568/research/data/references/hgTables_hg38_gencode.txt"
+    return "/Users/mw9568/repos/calicost/GRCh38_resources/hgTables_hg38_gencode.txt"
 
 def read_gene_ranges():
     """
@@ -534,8 +534,12 @@ def get_validation_stats(
     match_rate = match.mean()
     correct_rate = correct_match.mean()
 
-    ari = adjusted_rand_score(spot_join_cna["true_clone"], spot_join_cna["clone"])
-
+    # TODO
+    try:
+        ari = adjusted_rand_score(spot_join_cna["true_clone"], spot_join_cna["clone"])
+    except:
+        ari = np.nan
+        
     best_clone_mapping, clone_mapping_success_rate, _ = best_permutation_accuracy(
         spot_join_cna["true_clone"].to_numpy(), spot_join_cna["clone"].to_numpy()
     )
@@ -663,7 +667,9 @@ def save_validation_stats_yaml(stats, output_path):
 
 
 def main():
-    root = "/u/mw9568/scratch/calicost_sims"
+    # root = "/u/mw9568/scratch/calicost_sims"
+    root = "/Users/mw9568/Work/ragr/sim"
+    
     gene_ranges = read_gene_ranges()
 
     # method = "cnaster"
@@ -676,35 +682,44 @@ def main():
     sample_ids = [
         "numcnas3.3_cnasize3e7_ploidy2_random0",
     ]
-
+    
+    sample_ids = [xx.split("/")[-1] for xx in sorted(glob.glob(f"{root}/nomixing_calicost_related/*"))]
+                  
     logger.info(
         f"Analyzing with {method} the sample_ids={sample_ids} simulations @\n{root}"
     )
+                  
+    for sample_id in sample_ids:
+        if Path(f"{root}/stats/{method}/validation_stats_{sample_id}.yaml").exists():
+            logger.warning(f"Utilizing existing validation stats for {sample_id}.")
+            continue
 
-    for sample_id in sample_ids[:1]:
-        spot_truth_cna = get_sample_truth(root, sample_id)
-        gene_spot_truth_cna = spot_truth_cna.overlap(gene_ranges)
+        try:
+            spot_truth_cna = get_sample_truth(root, sample_id)
+            gene_spot_truth_cna = spot_truth_cna.overlap(gene_ranges)
 
-        logger.info(
-            f"Found overlap rate of truth CNAs with genes={len(gene_spot_truth_cna) / len(spot_truth_cna):.3f}"
-        )
+            logger.info(
+                f"Found overlap rate of truth CNAs with genes={len(gene_spot_truth_cna) / len(spot_truth_cna):.3f}"
+            )
+            
+            best_rectangle, spot_calicost_cna, best_loglike = get_best_sample_estimate(
+                root,
+                sample_id,
+                method,
+            )
 
-        best_rectangle, spot_calicost_cna, best_loglike = get_best_sample_estimate(
-            root,
-            sample_id,
-            method,
-        )
+            spot_truth_cna_match = get_join(spot_truth_cna, spot_calicost_cna)
 
-        spot_truth_cna_match = get_join(spot_truth_cna, spot_calicost_cna)
-
-        validation_stats = get_validation_stats(
-            sample_id, best_rectangle, best_loglike, spot_truth_cna_match
-        )
-
-        save_validation_stats_yaml(
-            validation_stats, f"{root}/stats/{method}/validation_stats_{sample_id}.yaml"
-        )
-
+            validation_stats = get_validation_stats(
+                sample_id, best_rectangle, best_loglike, spot_truth_cna_match
+            )
+            
+            save_validation_stats_yaml(
+                validation_stats, f"{root}/stats/{method}/validation_stats_{sample_id}.yaml"
+            )
+        except Exception as E:
+            logger.warning(f"Failed on {sample_id} with error:\n{E}")
+                        
     logger.info("\n\nDone.\n")
 
 

@@ -191,7 +191,7 @@ def get_sample_truth(root, sample_id, cna_only=False):
 
     # NB clone CNAs only.
     # fname = "truth_cna.tsv"
-    
+
     truth = pd.read_csv(
         f"{root}/simulated_data_related/{sample_id}/{fname}",
         sep="\t",
@@ -432,7 +432,7 @@ def get_validation_stats(spot_join_cna, include_flip=True):
     # NB was there an interval called on this truth segment?
     match_rate = match.mean()
     correct_rate = correct_match.mean()
-    
+
     ari = adjusted_rand_score(spot_join_cna["true_clone"], spot_join_cna["clone"])
 
     best_clone_mapping, clone_mapping_success_rate, _ = best_permutation_accuracy(
@@ -517,18 +517,22 @@ def get_validation_stats(spot_join_cna, include_flip=True):
         "include_flip": include_flip,
         "best_clone_mapping": {int(k): int(v) for k, v in best_clone_mapping.items()},
         "clone_marginals": dict(clone_marginals),
-        "clone_transitions": dict({f"{k[0]},{k[1]}": v for k, v in clone_transitions.items()}),
+        "clone_transitions": dict(
+            {f"{k[0]},{k[1]}": v for k, v in clone_transitions.items()}
+        ),
     }
+
 
 def save_validation_stats_yaml(stats, output_path):
     output_path = Path(output_path)
     # output_path.parent.mkdir(parents=True, exist_ok=True)
-    
-    logger.info(f"Saving validation stats to {output_path} ...")
+
+    logger.info(f"Saving validation stats to {output_path}:\n{stats}")
     """
     with open(output_path, "w") as f:
         yaml.dump(stats, f, default_flow_style=False, sort_keys=False)
     """
+
 
 def main():
     root = "/u/mw9568//scratch/calicost_sims"

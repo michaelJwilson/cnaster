@@ -1,3 +1,4 @@
+import yaml
 import glob
 import time
 import logging
@@ -6,10 +7,7 @@ import pandas as pd
 import pyranges as pr
 from pathlib import Path
 from collections import Counter
-from itertools import permutations
-from scipy.optimize import linear_sum_assignment
 from sklearn.metrics import adjusted_rand_score
-from cnaster.config import YAMLConfig
 
 start_time = time.time()
 
@@ -411,7 +409,7 @@ def get_join(first, second):
     return result
 
 
-def get_success_rate(spot_join_cna, include_flip=True):
+def get_validation_stats(spot_join_cna, include_flip=True):
     match = np.isfinite(spot_join_cna["A"])
 
     # NB did we recover the true CNA (up to a phase flip)?
@@ -507,8 +505,30 @@ def get_success_rate(spot_join_cna, include_flip=True):
             f"\t{true_pair}->{pred_pair}\t{count}\t{count / num_match:.6f}\t{frac:.6f}"
         )
 
-    return
+    return {
+        "normal_rate": float(is_normal.mean()),
+        "match_rate": float(match_rate),
+        "correct_rate": float(correct_rate),
+        "ari": float(ari),
+        "clone_mapping_success_rate": float(clone_mapping_success_rate),
+        "normal_recovery_rate": float(normal_recovery.mean()),
+        "cna_recovery_rate": float(cna_recovery.mean()),
+        "cna_false_positive_rate": float(cna_false_positive.mean()),
+        "include_flip": include_flip,
+        "best_clone_mapping": {int(k): int(v) for k, v in best_clone_mapping.items()},
+        "clone_marginals": dict(clone_marginals),
+        "clone_transitions": dict({f"{k[0]},{k[1]}": v for k, v in clone_transitions.items()}),
+    }
 
+def save_validation_stats_yaml(stats, output_path):
+    output_path = Path(output_path)
+    # output_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    logger.info(f"Saving validation stats to {output_path} ...")
+    """
+    with open(output_path, "w") as f:
+        yaml.dump(stats, f, default_flow_style=False, sort_keys=False)
+    """
 
 def main():
     root = "/u/mw9568//scratch/calicost_sims"
@@ -550,7 +570,9 @@ def main():
         result.append(spot_truth_cna_match)
 
     result = pr.concat(result)
-    success_rate = get_success_rate(result)
+    validation_stats = get_validation_stats(result)
+
+    save_validation_stats_yaml(validation_stats, "validation_stats.yaml")
 
     logger.info("\n\nDone.\n")
 

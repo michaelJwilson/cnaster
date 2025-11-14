@@ -508,7 +508,9 @@ def get_join(first, second):
     return result
 
 
-def get_validation_stats(sample_id, best_rectangle, best_loglike, spot_join_cna, include_flip=True):
+def get_validation_stats(
+    sample_id, best_rectangle, best_loglike, spot_join_cna, include_flip=True
+):
     match = np.isfinite(spot_join_cna["A"])
 
     # NB did we recover the true CNA (up to a phase flip)?
@@ -549,11 +551,17 @@ def get_validation_stats(sample_id, best_rectangle, best_loglike, spot_join_cna,
     num_match = len(match_spot_join_cna)
 
     # NB distribution of true clone in matches, required for normalization.
-    clone_marginals = Counter(match_spot_join_cna["true_clone"].astype(int))
-    clone_transitions = Counter(
-        zip(
-            match_spot_join_cna["true_clone"].astype(int),
-            match_spot_join_cna["clone"].astype(int),
+    clone_marginals = dict(
+        sorted(Counter(match_spot_join_cna["true_clone"].astype(int)).items())
+    )
+    clone_transitions = dict(
+        sorted(
+            Counter(
+                zip(
+                    match_spot_join_cna["true_clone"].astype(int),
+                    match_spot_join_cna["clone"].astype(int),
+                )
+            ).items()
         )
     )
 
@@ -572,18 +580,26 @@ def get_validation_stats(sample_id, best_rectangle, best_loglike, spot_join_cna,
         )
 
     # NB normalized to answer the question: what happened to a given true CNA?
-    cna_marginals = Counter(
-        zip(
-            match_spot_join_cna["true_A"].astype(int),
-            match_spot_join_cna["true_B"].astype(int),
+    cna_marginals = dict(
+        sorted(
+            Counter(
+                zip(
+                    match_spot_join_cna["true_A"].astype(int),
+                    match_spot_join_cna["true_B"].astype(int),
+                )
+            ).items()
         )
     )
-    cna_transitions = Counter(
-        zip(
-            match_spot_join_cna["true_A"].astype(int),
-            match_spot_join_cna["true_B"].astype(int),
-            match_spot_join_cna["A"].astype(int),
-            match_spot_join_cna["B"].astype(int),
+    cna_transitions = dict(
+        sorted(
+            Counter(
+                zip(
+                    match_spot_join_cna["true_A"].astype(int),
+                    match_spot_join_cna["true_B"].astype(int),
+                    match_spot_join_cna["A"].astype(int),
+                    match_spot_join_cna["B"].astype(int),
+                )
+            ).items()
         )
     )
 
@@ -620,7 +636,13 @@ def get_validation_stats(sample_id, best_rectangle, best_loglike, spot_join_cna,
         "best_clone_mapping": {int(k): int(v) for k, v in best_clone_mapping.items()},
         "clone_marginals": dict(clone_marginals),
         "clone_transitions": dict(
-            {f"{k[0]},{k[1]}": v for k, v in clone_transitions.items()}
+            {f"{k[0]}->{k[1]}": v for k, v in clone_transitions.items()}
+        ),
+        "cna_marginals": dict(
+            {f"({k[0]},{k[1]})": v for k, v in clone_transitions.items()}
+        ),
+        "cna_transitions": dict(
+            {f"({k[0]},{k[1]})->({k[2]},{k[3]})": v for k, v in cna_transitions.items()}
         ),
     }
 
@@ -660,7 +682,7 @@ def main():
         logger.info(
             f"Found overlap rate of truth CNAs with genes={len(gene_spot_truth_cna) / len(spot_truth_cna):.3f}"
         )
-        
+
         best_rectangle, spot_calicost_cna, best_loglike = get_best_sample_estimate(
             root,
             sample_id,
@@ -669,7 +691,9 @@ def main():
 
         spot_truth_cna_match = get_join(spot_truth_cna, spot_calicost_cna)
 
-        validation_stats = get_validation_stats(sample_id, best_rectangle, best_loglike, spot_truth_cna_match)
+        validation_stats = get_validation_stats(
+            sample_id, best_rectangle, best_loglike, spot_truth_cna_match
+        )
 
         save_validation_stats_yaml(
             validation_stats, f"{root}/stats/{method}/validation_stats_{sample_id}.yaml"

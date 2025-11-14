@@ -353,20 +353,26 @@ def get_sample_estimate(root, sample_id, method, rectangle, cna_only=False):
         f"Solving for clone estimate: {root}/nomixing_{method}_related/{sample_id}/{clone_rectangle}/clone_labels.tsv"
     )
 
-    clones = pl.read_csv(
-        f"{root}/nomixing_{method}_related/{sample_id}/{clone_rectangle}/clone_labels.tsv",
-        separator="\t",
-    ).rename({"clone_label": "clone", "BARCODES": "barcode"}).select(["barcode", "clone"])
+    clones = (
+        pl.read_csv(
+            f"{root}/nomixing_{method}_related/{sample_id}/{clone_rectangle}/clone_labels.tsv",
+            separator="\t",
+        )
+        .rename({"clone_label": "clone", "BARCODES": "barcode"})
+        .select(["barcode", "clone"])
+    )
 
     calls = pl.read_csv(
         f"{root}/nomixing_{method}_related/{sample_id}/{clone_rectangle}/cnv_seglevel.tsv",
         separator="\t",
     ).rename({"CHR": "Chromosome", "START": "Start", "END": "End"})
 
-    copy_num_columns = [c for c in calls.columns if c not in ["Chromosome", "Start", "End"]]
+    copy_num_columns = [
+        c for c in calls.columns if c not in ["Chromosome", "Start", "End"]
+    ]
 
     logger.info(f"Found copy num. columns: {copy_num_columns}")
-    
+
     if cna_only:
         mask = pl.any_horizontal([pl.col(c) != 1 for c in copy_num_columns])
         calls = calls.filter(mask)
@@ -376,22 +382,24 @@ def get_sample_estimate(root, sample_id, method, rectangle, cna_only=False):
         if c.startswith("clone"):
             new_name = c.replace("clone", "clone_").replace(" ", "_")
             col_rename[c] = new_name
-    
+
     if col_rename:
         logger.info(f"Renaming columns: {col_rename}")
-        
+
         calls = calls.rename(col_rename)
 
     logger.info(f"Creating table of estimated CNAs for all spots and segments.")
 
     # NB cross join: all segments × all spots, i.e. replicates each segment for all spots.
     spot_cna = calls.join(clones, how="cross")
-    
-    cn_cols = [c for c in calls.columns if c.startswith("clone_") and ("_A" in c or "_B" in c)]
+
+    cn_cols = [
+        c for c in calls.columns if c.startswith("clone_") and ("_A" in c or "_B" in c)
+    ]
     unique_clones = sorted(set(int(c.split("_")[1]) for c in cn_cols))
 
     logger.info(f"Found unique clones={unique_clones}")
-    
+
     # NB build when-then expressions to select A/B based on clone, according to given spot, segment.
     if len(unique_clones) > 0:
         a_expr = pl.when(pl.col("clone") == unique_clones[0]).then(
@@ -400,7 +408,7 @@ def get_sample_estimate(root, sample_id, method, rectangle, cna_only=False):
         b_expr = pl.when(pl.col("clone") == unique_clones[0]).then(
             pl.col(f"clone_{unique_clones[0]}_B")
         )
-        
+
         for clone_id in unique_clones[1:]:
             a_expr = a_expr.when(pl.col("clone") == clone_id).then(
                 pl.col(f"clone_{clone_id}_A")
@@ -408,27 +416,26 @@ def get_sample_estimate(root, sample_id, method, rectangle, cna_only=False):
             b_expr = b_expr.when(pl.col("clone") == clone_id).then(
                 pl.col(f"clone_{clone_id}_B")
             )
-    
+
         a_expr = a_expr.otherwise(None).alias("A")
         b_expr = b_expr.otherwise(None).alias("B")
-        
+
         spot_cna = spot_cna.with_columns([a_expr, b_expr])
     else:
         # No clone columns found, add null A/B
-        spot_cna = spot_cna.with_columns([
-            pl.lit(None).alias("A"),
-            pl.lit(None).alias("B")
-        ])
-    
-    spot_cna = spot_cna.select([
-        "Chromosome", "Start", "End", "barcode", "clone", "A", "B"
-    ])
-    
+        spot_cna = spot_cna.with_columns(
+            [pl.lit(None).alias("A"), pl.lit(None).alias("B")]
+        )
+
+    spot_cna = spot_cna.select(
+        ["Chromosome", "Start", "End", "barcode", "clone", "A", "B"]
+    )
+
     spot_cna = spot_cna.with_columns(pl.lit(sample_id).alias("sample_id"))
-    spot_cna = spot_cna.select([
-        "Chromosome", "Start", "End", "sample_id", "barcode", "clone", "A", "B"
-    ])
-    
+    spot_cna = spot_cna.select(
+        ["Chromosome", "Start", "End", "sample_id", "barcode", "clone", "A", "B"]
+    )
+
     # TODO convert to pandas for PyRanges compatibility
     spot_cna = pr.PyRanges(spot_cna.to_pandas())
 

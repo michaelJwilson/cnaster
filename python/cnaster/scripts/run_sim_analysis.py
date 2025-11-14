@@ -4,10 +4,13 @@ import time
 import logging
 import numpy as np
 import pandas as pd
+import polars as pl
 import pyranges as pr
 from pathlib import Path
 from collections import Counter
 from sklearn.metrics import adjusted_rand_score
+
+pl.Config.set_tbl_cols(-1)
 
 start_time = time.time()
 
@@ -117,8 +120,6 @@ def best_permutation_accuracy(true_labels, pred_labels):
 
     NaNs in either vector are ignored pairwise.
     """
-    import numpy as np
-
     t = np.asarray(true_labels)
     p = np.asarray(pred_labels)
 
@@ -364,6 +365,8 @@ def get_sample_estimate(root, sample_id, method, rectangle, cna_only=False):
 
     copy_num_columns = [c for c in calls.columns if c not in ["Chromosome", "Start", "End"]]
 
+    logger.info(f"Found copy num. columns: {copy_num_columns}")
+    
     if cna_only:
         mask = pl.any_horizontal([pl.col(c) != 1 for c in copy_num_columns])
         calls = calls.filter(mask)
@@ -375,17 +378,21 @@ def get_sample_estimate(root, sample_id, method, rectangle, cna_only=False):
             col_rename[c] = new_name
     
     if col_rename:
+        logger.info(f"Renaming columns: {col_rename}")
+        
         calls = calls.rename(col_rename)
 
     logger.info(f"Creating table of estimated CNAs for all spots and segments.")
 
-    # NB cross join: all segments × all spots
+    # NB cross join: all segments × all spots, i.e. replicates each segment for all spots.
     spot_cna = calls.join(clones, how="cross")
     
     cn_cols = [c for c in calls.columns if c.startswith("clone_") and ("_A" in c or "_B" in c)]
     unique_clones = sorted(set(int(c.split("_")[1]) for c in cn_cols))
+
+    logger.info(f"Found unique clones={unique_clones}")
     
-    # NB build when-then expressions to select A/B based on clone
+    # NB build when-then expressions to select A/B based on clone, according to given spot, segment.
     if len(unique_clones) > 0:
         a_expr = pl.when(pl.col("clone") == unique_clones[0]).then(
             pl.col(f"clone_{unique_clones[0]}_A")
@@ -413,21 +420,17 @@ def get_sample_estimate(root, sample_id, method, rectangle, cna_only=False):
             pl.lit(None).alias("B")
         ])
     
-    # Select and reorder columns
     spot_cna = spot_cna.select([
         "Chromosome", "Start", "End", "barcode", "clone", "A", "B"
     ])
     
-    # Add sample_id column
-    spot_cna_pl = spot_cna.with_columns(pl.lit(sample_id).alias("sample_id"))
-    
-    # Reorder to put sample_id after End
-    spot_cna_pl = spot_cna_pl.select([
+    spot_cna = spot_cna.with_columns(pl.lit(sample_id).alias("sample_id"))
+    spot_cna = spot_cna.select([
         "Chromosome", "Start", "End", "sample_id", "barcode", "clone", "A", "B"
     ])
     
     # TODO convert to pandas for PyRanges compatibility
-    spot_cna = pr.PyRanges(spot_cna_pl.to_pandas())
+    spot_cna = pr.PyRanges(spot_cna.to_pandas())
 
     logger.info(f"Found {method} estimated CNAs:\n{spot_cna}")
 
@@ -453,7 +456,7 @@ def get_best_sample_estimate(root, sample_id, method, cna_only=False):
         f"Found best {method} initialization={best_rectangle} with loglike={best_loglike}"
     )
 
-    best_spot_cna = get_sample_estimate(
+    best_spot_cna = get_sample_estimate_pd(
         root,
         sample_id,
         method,

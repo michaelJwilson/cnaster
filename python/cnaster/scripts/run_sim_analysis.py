@@ -638,11 +638,17 @@ def get_validation_stats(
         "clone_transitions": dict(
             {f"{k[0]}->{k[1]}": v for k, v in clone_transitions.items()}
         ),
+        "clone_transition_rates": dict(
+            {f"{k[0]}->{k[1]}": v/clone_marginals[k[0]] for k, v in clone_transitions.items()}
+        ),
         "cna_marginals": dict(
-            {f"({k[0]},{k[1]})": v for k, v in clone_transitions.items()}
+            {f"({k[0]},{k[1]})": v for k, v in cna_marginals.items()}
         ),
         "cna_transitions": dict(
             {f"({k[0]},{k[1]})->({k[2]},{k[3]})": v for k, v in cna_transitions.items()}
+        ),
+        "cna_transition_rates": dict(
+            {f"({k[0]},{k[1]})->({k[2]},{k[3]})": v/cna_marginals[(k[0],k[1])] for k, v in cna_transitions.items()}
         ),
     }
 
@@ -668,7 +674,7 @@ def main():
     # "numcnas3.3_cnasize5e7_ploidy2_random0",
 
     sample_ids = [
-        "numcnas1.2_cnasize1e7_ploidy2_random0",
+        "numcnas3.3_cnasize3e7_ploidy2_random0",
     ]
 
     logger.info(

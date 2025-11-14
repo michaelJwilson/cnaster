@@ -45,7 +45,7 @@ def load_validation_stats(stats_dir):
     return df
 
 
-def plot_metrics(df):
+def plot_metrics(df, method):
     sns.set_context("paper", font_scale=0.9)  # smaller font
     sns.set_style("ticks")  # removed whitegrid to drop background grid
 
@@ -98,17 +98,17 @@ def plot_metrics(df):
     # Metrics (ordered for melting; layout controls display order)
     melt_cols = [
         "loglike",
-        "normal_recovery_rate",
+        "normal_rate",  # replaced cna_false_positive_rate
         "cna_recovery_rate",
-        "cna_false_positive_rate",
+        "normal_recovery_rate",  # swapped position with false positive
         "clone_mapping_success_rate",
         "ari",
     ]
     metric_labels = {
         "loglike": r"$\ln$ likelihood",
-        "normal_recovery_rate": "(1,1) recovery rate",  # relabeled
+        "normal_rate": "(1,1) rate",  # relabeled from "Normal rate"
         "cna_recovery_rate": "$\mathbb{N}$-CNA recovery rate",
-        "cna_false_positive_rate": "$\mathbb{N}$-CNA false positive rate",
+        "normal_recovery_rate": "(1,1) recovery rate",
         "clone_mapping_success_rate": "Clone recovery rate",
         "ari": "ARI",
     }
@@ -120,18 +120,19 @@ def plot_metrics(df):
         value_name="value",
     ).dropna(subset=["group"])  # keep NaN values to retain empty group slots
 
-    # Layout: row-major (top-left to bottom-right)
+    # Layout: swapped (0,1) and (1,1) positions
     layout = [
         ("loglike", (0, 0)),
-        ("normal_recovery_rate", (0, 1)),
+        ("normal_rate", (0, 1)),  # was cna_false_positive_rate
         ("cna_recovery_rate", (1, 0)),
-        ("cna_false_positive_rate", (1, 1)),
+        ("normal_recovery_rate", (1, 1)),  # was at (0,1)
         ("clone_mapping_success_rate", (2, 0)),
         ("ari", (2, 1)),
     ]
 
     nrows, ncols = 3, 2
     fig, axes = plt.subplots(nrows, ncols, figsize=(12, 9), squeeze=True)
+    fig.suptitle(rf"$\tt{{{method}}}$", fontsize=14, y=0.98)
 
     used_axes = set()
     for metric, (r, c) in layout:
@@ -146,11 +147,11 @@ def plot_metrics(df):
             y="value",
             order=present_groups,
             ax=ax,
-            color="#3778BF",
+            color="#2D5016",  # pine green
             showcaps=True,
             showfliers=False,  # hide white outlier circles
             boxprops={"alpha": 0.4},
-            whiskerprops={"color": "#25507D", "linewidth": 1},
+            whiskerprops={"color": "#1A3010", "linewidth": 1},
             medianprops={"color": "black", "linewidth": 1.2},
         )
         sns.stripplot(
@@ -174,6 +175,8 @@ def plot_metrics(df):
             ax.set_ylim(0.5, 1.0)
         elif metric == "cna_recovery_rate":
             ax.set_ylim(0.0, 0.1)
+        elif metric == "normal_rate":
+            ax.set_ylim(0.0, 1.0)
         # Bottom row: axis label + tick labels with group names; other rows: hide tick labels
         if r == nrows - 1:
             ax.set_xlabel(r"CNA realization type")
@@ -193,7 +196,7 @@ def plot_metrics(df):
                 axes[r, c].set_visible(False)
 
     plt.tight_layout()
-    fig.subplots_adjust(top=0.90)
+    fig.subplots_adjust(top=0.94)
     plt.show()
 
 
@@ -204,7 +207,7 @@ def main():
     
     print(df)
     
-    plot_metrics(df)
+    plot_metrics(df, method)
 
 
 if __name__ == "__main__":

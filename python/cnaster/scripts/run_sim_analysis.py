@@ -274,7 +274,7 @@ def get_sample_loglike(root, sample_id, method, rectangle):
         allow_pickle=True,
     )
 
-    return rdr_baf["total_llf"]
+    return float(rdr_baf["total_llf"])
 
 
 def get_sample_estimate_pd(root, sample_id, method, rectangle, cna_only=False):
@@ -460,10 +460,10 @@ def get_best_sample_estimate(root, sample_id, method, cna_only=False):
             best_loglike = loglike
 
     logger.info(
-        f"Found best {method} initialization={best_rectangle} with loglike={best_loglike}"
+        f"Found best {method} initialization={best_rectangle} with loglike={best_loglike:.6e}"
     )
 
-    best_spot_cna = get_sample_estimate_pd(
+    best_spot_cna = get_sample_estimate(
         root,
         sample_id,
         method,
@@ -471,7 +471,7 @@ def get_best_sample_estimate(root, sample_id, method, cna_only=False):
         cna_only=cna_only,
     )
 
-    return best_spot_cna, best_loglike
+    return best_rectangle, best_spot_cna, best_loglike
 
 
 def get_join(first, second):
@@ -508,7 +508,7 @@ def get_join(first, second):
     return result
 
 
-def get_validation_stats(spot_join_cna, include_flip=True):
+def get_validation_stats(sample_id, best_rectangle, best_loglike, spot_join_cna, include_flip=True):
     match = np.isfinite(spot_join_cna["A"])
 
     # NB did we recover the true CNA (up to a phase flip)?
@@ -605,6 +605,9 @@ def get_validation_stats(spot_join_cna, include_flip=True):
         )
 
     return {
+        "sample_id": sample_id,
+        "initialization": best_rectangle,
+        "loglike": best_loglike,
         "normal_rate": float(is_normal.mean()),
         "match_rate": float(match_rate),
         "correct_rate": float(correct_rate),
@@ -624,17 +627,15 @@ def get_validation_stats(spot_join_cna, include_flip=True):
 
 def save_validation_stats_yaml(stats, output_path):
     output_path = Path(output_path)
-    # output_path.parent.mkdir(parents=True, exist_ok=True)
 
     logger.info(f"Saving validation stats to {output_path}:\n{stats}")
-    """
+
     with open(output_path, "w") as f:
         yaml.dump(stats, f, default_flow_style=False, sort_keys=False)
-    """
 
 
 def main():
-    root = "/u/mw9568//scratch/calicost_sims"
+    root = "/u/mw9568/scratch/calicost_sims"
     gene_ranges = read_gene_ranges()
 
     # method = "cnaster"
@@ -652,8 +653,6 @@ def main():
         f"Analyzing with {method} the sample_ids={sample_ids} simulations @\n{root}"
     )
 
-    result = []
-
     for sample_id in sample_ids[:1]:
         spot_truth_cna = get_sample_truth(root, sample_id)
         gene_spot_truth_cna = spot_truth_cna.overlap(gene_ranges)
@@ -661,8 +660,8 @@ def main():
         logger.info(
             f"Found overlap rate of truth CNAs with genes={len(gene_spot_truth_cna) / len(spot_truth_cna):.3f}"
         )
-
-        spot_calicost_cna, best_loglike = get_best_sample_estimate(
+        
+        best_rectangle, spot_calicost_cna, best_loglike = get_best_sample_estimate(
             root,
             sample_id,
             method,
@@ -670,12 +669,11 @@ def main():
 
         spot_truth_cna_match = get_join(spot_truth_cna, spot_calicost_cna)
 
-        result.append(spot_truth_cna_match)
+        validation_stats = get_validation_stats(sample_id, best_rectangle, best_loglike, spot_truth_cna_match)
 
-    result = pr.concat(result)
-    validation_stats = get_validation_stats(result)
-
-    save_validation_stats_yaml(validation_stats, "validation_stats.yaml")
+        save_validation_stats_yaml(
+            validation_stats, f"{root}/stats/{method}/validation_stats_{sample_id}.yaml"
+        )
 
     logger.info("\n\nDone.\n")
 

@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 import polars as pl
 import pyranges as pr
+from pprint import pformat
 from pathlib import Path
 from collections import Counter
 from sklearn.metrics import adjusted_rand_score
@@ -278,10 +279,14 @@ def get_sample_loglike(root, sample_id, method, rectangle):
 
 
 def get_sample_estimate_pd(root, sample_id, method, rectangle, cna_only=False):
-    clone_rectangle = f"clone3_rectangle{rectangle}_w1.0"
-
+    if rectangle is None:
+        parent = f"{root}/nomixing_{method}_related/{sample_id}/"
+    else:
+        clone_rectangle = f"clone3_rectangle{rectangle}_w1.0"
+        parent = f"{root}/nomixing_{method}_related/{sample_id}/{clone_rectangle}/"
+        
     logger.info(
-        f"Solving for clone estimate: {root}/nomixing_{method}_related/{sample_id}/{clone_rectangle}/clone_labels.tsv"
+        f"Solving for clone estimate: {parent}/clone_labels.tsv"
     )
 
     # NB
@@ -290,7 +295,7 @@ def get_sample_estimate_pd(root, sample_id, method, rectangle, cna_only=False):
     usecols = ["BARCODES", "clone_label"]
 
     clones = pd.read_csv(
-        f"{root}/nomixing_{method}_related/{sample_id}/{clone_rectangle}/clone_labels.tsv",
+        f"{parent}/clone_labels.tsv",
         sep="\t",
     ).rename(columns={"clone_label": "clone", "BARCODES": "barcode"})
 
@@ -298,7 +303,7 @@ def get_sample_estimate_pd(root, sample_id, method, rectangle, cna_only=False):
     spot_to_clone = dict(zip(clones["barcode"], clones["clone"].astype(int)))
 
     calls = pd.read_csv(
-        f"{root}/nomixing_{method}_related/{sample_id}/{clone_rectangle}/cnv_seglevel.tsv",
+        f"{parent}/cnv_seglevel.tsv",
         sep="\t",
     ).rename(columns={"CHR": "Chromosome", "START": "Start", "END": "End"})
 
@@ -347,23 +352,31 @@ def get_sample_estimate_pd(root, sample_id, method, rectangle, cna_only=False):
 
 
 def get_sample_estimate(root, sample_id, method, rectangle, cna_only=False):
-    clone_rectangle = f"clone3_rectangle{rectangle}_w1.0"
+    if rectangle is None:
+        parent = f"{root}/nomixing_{method}_related/{sample_id}/"
+    else:
+        clone_rectangle = f"clone3_rectangle{rectangle}_w1.0"
+        parent = f"{root}/nomixing_{method}_related/{sample_id}/{clone_rectangle}/"
 
     logger.info(
-        f"Solving for clone estimate: {root}/nomixing_{method}_related/{sample_id}/{clone_rectangle}/clone_labels.tsv"
+        f"Solving for clone estimate: {parent}/clone_labels.tsv"
     )
 
     clones = (
         pl.read_csv(
-            f"{root}/nomixing_{method}_related/{sample_id}/{clone_rectangle}/clone_labels.tsv",
+            f"{parent}/clone_labels.tsv",
             separator="\t",
         )
-        .rename({"clone_label": "clone", "BARCODES": "barcode"})
+        .rename({"clone_label": "clone", "BARCODES": "barcode"}, strict=False)
         .select(["barcode", "clone"])
     )
 
+    logger.info(
+        f"Solving for calls: {parent}/cnv_seglevel.tsv"
+    )
+
     calls = pl.read_csv(
-        f"{root}/nomixing_{method}_related/{sample_id}/{clone_rectangle}/cnv_seglevel.tsv",
+        f"{parent}/cnv_seglevel.tsv",
         separator="\t",
     ).rename({"CHR": "Chromosome", "START": "Start", "END": "End"})
 
@@ -508,8 +521,56 @@ def get_join(first, second):
     return result
 
 
+def compute_state_oversampling_rate(tsv_path):
+    """
+    Compute state assignment counts: for each unique integer (A,B) state,
+    find the maximum number of times it's assigned across all clones.
+    
+    Args:
+        tsv_path: Path to cnv_diploid_perstate.tsv file
+        
+    Returns:
+        Tuple of (num_clones, state_max_counts) where:
+        - num_clones: number of clones in the data
+        - state_max_counts: Dict mapping state tuples like (1,1), (2,1), etc. 
+          to the maximum count of that state across all clones
+    """
+    df = pd.read_csv(tsv_path, sep="\t")
+    
+    # Identify clone columns
+    clone_cols = [c for c in df.columns if " A" in c or " B" in c]
+    
+    # Extract unique clone prefixes
+    clones = sorted(set(c.rsplit(" ", 1)[0] for c in clone_cols))
+    num_clones = len(clones)
+    
+    # Collect all unique states across all clones
+    all_states = set()
+    for clone in clones:
+        a_col = f"{clone} A"
+        b_col = f"{clone} B"
+        if a_col in df.columns and b_col in df.columns:
+            states = list(zip(df[a_col], df[b_col]))
+            all_states.update(states)
+    
+    # Calculate max count for each state across all clones
+    state_max_counts = {}
+    for state in sorted(all_states):
+        counts = []
+        for clone in clones:
+            a_col = f"{clone} A"
+            b_col = f"{clone} B"
+            if a_col in df.columns and b_col in df.columns:
+                is_state = (df[a_col] == state[0]) & (df[b_col] == state[1])
+                count = int(is_state.sum())
+                counts.append(count)
+        state_max_counts[state] = int(max(counts)) if counts else 0
+    
+    return num_clones, state_max_counts
+
+
 def get_validation_stats(
-    sample_id, best_rectangle, best_loglike, spot_join_cna, include_flip=True
+    sample_id, best_rectangle, best_loglike, spot_join_cna, include_flip=True, num_clones=None, state_oversampling_rates=None
 ):
     match = np.isfinite(spot_join_cna["A"])
 
@@ -536,7 +597,10 @@ def get_validation_stats(
 
     # TODO
     try:
-        ari = adjusted_rand_score(spot_join_cna["true_clone"], spot_join_cna["clone"])
+        ari = adjusted_rand_score(
+            spot_join_cna.loc[match, "true_clone"].astype(int), 
+            spot_join_cna.loc[match, "clone"].astype(int)
+        )
     except:
         ari = np.nan
         
@@ -624,10 +688,17 @@ def get_validation_stats(
             f"\t{true_pair}->{pred_pair}\t{count}\t{count / num_match:.6f}\t{frac:.6f}"
         )
 
+    # Convert state_oversampling_rates keys to strings for YAML serialization
+    state_oversampling_dict = {}
+    if state_oversampling_rates:
+        state_oversampling_dict = {f"({k[0]},{k[1]})": int(v) for k, v in state_oversampling_rates.items()}
+
     return {
         "sample_id": sample_id,
         "initialization": best_rectangle,
         "loglike": best_loglike,
+        "num_clones": int(num_clones) if num_clones is not None else None,
+        "state_max_counts": state_oversampling_dict,
         "normal_rate": float(is_normal.mean()),
         "match_rate": float(match_rate),
         "correct_rate": float(correct_rate),
@@ -660,7 +731,7 @@ def get_validation_stats(
 def save_validation_stats_yaml(stats, output_path):
     output_path = Path(output_path)
 
-    logger.info(f"Saving validation stats to {output_path}:\n{stats}")
+    logger.info("Saving validation stats to %s:\n%s", output_path, pformat(stats, width=100))
 
     with open(output_path, "w") as f:
         yaml.dump(stats, f, default_flow_style=False, sort_keys=False)
@@ -669,28 +740,29 @@ def save_validation_stats_yaml(stats, output_path):
 def main():
     # root = "/u/mw9568/scratch/calicost_sims"
     root = "/Users/mw9568/Work/ragr/sim"
-    
+    use_cache = False
+
     gene_ranges = read_gene_ranges()
 
-    # method = "cnaster"
-    method = "calicost"
+    method = "cnaster"
+    # method = "calicost"
 
     # "numcnas1.2_cnasize1e7_ploidy2_random0",
     # "numcnas3.3_cnasize3e7_ploidy2_random0",
     # "numcnas3.3_cnasize5e7_ploidy2_random0",
 
-    sample_ids = [
-        "numcnas3.3_cnasize3e7_ploidy2_random0",
-    ]
+    # sample_ids = [
+    #     "numcnas3.3_cnasize3e7_ploidy2_random0",
+    # ]
     
-    sample_ids = [xx.split("/")[-1] for xx in sorted(glob.glob(f"{root}/nomixing_calicost_related/*"))]
+    sample_ids = [xx.split("/")[-1] for xx in sorted(glob.glob(f"{root}/nomixing_{method}_related/*"))]
                   
     logger.info(
         f"Analyzing with {method} the sample_ids={sample_ids} simulations @\n{root}"
     )
                   
     for sample_id in sample_ids:
-        if Path(f"{root}/stats/{method}/validation_stats_{sample_id}.yaml").exists():
+        if use_cache and Path(f"{root}/stats/{method}/validation_stats_{sample_id}.yaml").exists():
             logger.warning(f"Utilizing existing validation stats for {sample_id}.")
             continue
 
@@ -707,11 +779,27 @@ def main():
                 sample_id,
                 method,
             )
+            
+            if best_rectangle is not None:
+                clone_rectangle = f"clone3_rectangle{best_rectangle}_w1.0"
+                tsv_path = Path(root) / f"nomixing_{method}_related" / sample_id / clone_rectangle / f"cnv_diploid_perstate.tsv"
+            else:
+                tsv_path = Path(root) / f"nomixing_{method}_related" / sample_id / f"cnv_diploid_perstate.tsv"
+                
+            if tsv_path.exists():
+                num_clones, state_max_counts = compute_state_oversampling_rate(tsv_path)
+                logger.info(f"Computed num_clones={num_clones}, state_max_counts={state_max_counts}")
+            else:
+                num_clones = None
+                state_max_counts = {}
+                logger.warning(f"Could not find cnv_diploid_perstate.tsv at {tsv_path}")
 
             spot_truth_cna_match = get_join(spot_truth_cna, spot_calicost_cna)
 
             validation_stats = get_validation_stats(
-                sample_id, best_rectangle, best_loglike, spot_truth_cna_match
+                sample_id, best_rectangle, best_loglike, spot_truth_cna_match, 
+                num_clones=num_clones,
+                state_oversampling_rates=state_max_counts
             )
             
             save_validation_stats_yaml(

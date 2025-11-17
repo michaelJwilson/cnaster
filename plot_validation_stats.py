@@ -9,14 +9,17 @@ from pathlib import Path
 
 
 def load_validation_stats(stats_dir):
+    stats_path = Path(stats_dir)
     rows = []
-    for ypath in glob.glob(os.path.join(stats_dir, "validation_stats_*.yaml")):
+    for ypath in stats_path.glob("validation_stats_*.yaml"):
         with open(ypath, "r") as f:
             data = yaml.safe_load(f)
+        
         row = {
             "sample_id": data.get("sample_id"),
             "initialization": data.get("initialization"),
             "loglike": data.get("loglike"),
+            "num_clones": data.get("num_clones"),
             "normal_rate": data.get("normal_rate"),
             "match_rate": data.get("match_rate"),
             "correct_rate": data.get("correct_rate"),
@@ -46,8 +49,8 @@ def load_validation_stats(stats_dir):
 
 
 def plot_metrics(df, method):
-    sns.set_context("paper", font_scale=0.9)  # smaller font
-    sns.set_style("ticks")  # removed whitegrid to drop background grid
+    sns.set_context("paper", font_scale=0.9)
+    sns.set_style("ticks")
 
     # Reorder groups: by cnasize (largest first) then sum of numcnas components (desc)
     def _numcnas_sum(x):
@@ -67,14 +70,7 @@ def plot_metrics(df, method):
     )
     group_order = order_df["group"].tolist()
 
-    # Build short, readable x tick labels like (n1.2,p2, s1e7)
-    def _fmt_num(x):
-        try:
-            s = f"{float(x):g}"
-        except Exception:
-            s = str(x)
-        return s
-
+    # Build short, readable x tick labels
     def _compact_size(x):
         if pd.isna(x):
             return "NA"
@@ -86,27 +82,26 @@ def plot_metrics(df, method):
             exp = int(np.round(np.log10(x)))
             if np.isclose(x, 10 ** exp, rtol=1e-8, atol=0):
                 return f"1e{exp}"
-        # fallback scientific, strip +0
         s = np.format_float_scientific(x, precision=0, exp_digits=1)
         return s.replace("+0", "").replace("+", "")
-    # Label without ploidy: (numcnas components, size), convert 1.2 -> 1,2
+    
     label_map = {
         r.group: f"({str(r.numcnas).replace('.',',')}, {_compact_size(r.cnasize)})"
         for r in order_df.itertuples(index=False)
     }
 
-    # Metrics (ordered for melting; layout controls display order)
+    # Metrics including loglike
     melt_cols = [
         "loglike",
-        "normal_rate",  # replaced cna_false_positive_rate
+        "normal_rate",
         "cna_recovery_rate",
-        "normal_recovery_rate",  # swapped position with false positive
+        "normal_recovery_rate",
         "clone_mapping_success_rate",
         "ari",
     ]
     metric_labels = {
-        "loglike": r"$\ln$ likelihood",
-        "normal_rate": "(1,1) rate",  # relabeled from "Normal rate"
+        "loglike": "Log-likelihood",
+        "normal_rate": "(1,1) rate",
         "cna_recovery_rate": "$\mathbb{N}$-CNA recovery rate",
         "normal_recovery_rate": "(1,1) recovery rate",
         "clone_mapping_success_rate": "Clone recovery rate",
@@ -118,14 +113,14 @@ def plot_metrics(df, method):
         value_vars=melt_cols,
         var_name="metric",
         value_name="value",
-    ).dropna(subset=["group"])  # keep NaN values to retain empty group slots
+    ).dropna(subset=["group"])
 
-    # Layout: swapped (0,1) and (1,1) positions
+    # Layout: 3x2 grid
     layout = [
         ("loglike", (0, 0)),
-        ("normal_rate", (0, 1)),  # was cna_false_positive_rate
+        ("normal_rate", (0, 1)),
         ("cna_recovery_rate", (1, 0)),
-        ("normal_recovery_rate", (1, 1)),  # was at (0,1)
+        ("normal_recovery_rate", (1, 1)),
         ("clone_mapping_success_rate", (2, 0)),
         ("ari", (2, 1)),
     ]
@@ -139,23 +134,31 @@ def plot_metrics(df, method):
         ax = axes[r, c]
         used_axes.add((r, c))
         data_m = df_melt[df_melt["metric"] == metric]
-        present_groups = group_order  # use all groups; gaps appear where data is NaN
-        # showcaps controls whisker end caps visibility
+        
+        # Filter to only groups that have at least one non-NaN value for this metric
+        data_m_valid = data_m.dropna(subset=["value"])
+        present_groups = [g for g in group_order if g in set(data_m_valid["group"])]
+        
+        # If no data at all, skip this panel
+        if not present_groups:
+            ax.set_visible(False)
+            continue
+        
         sns.boxplot(
-            data=data_m,
+            data=data_m_valid,
             x="group",
             y="value",
             order=present_groups,
             ax=ax,
-            color="#2D5016",  # pine green
+            color="#2D5016",
             showcaps=True,
-            showfliers=False,  # hide white outlier circles
+            showfliers=False,
             boxprops={"alpha": 0.4},
             whiskerprops={"color": "#1A3010", "linewidth": 1},
             medianprops={"color": "black", "linewidth": 1.2},
         )
         sns.stripplot(
-            data=data_m.dropna(subset=["value"]),  # only plot actual points
+            data=data_m_valid,
             x="group",
             y="value",
             order=present_groups,
@@ -170,6 +173,7 @@ def plot_metrics(df, method):
         )
         ax.grid(False)
         ax.set_ylabel(metric_labels.get(metric, metric))
+        
         # Standardize y-limits for selected metrics
         if metric in {"normal_recovery_rate", "clone_mapping_success_rate", "ari"}:
             ax.set_ylim(0.5, 1.0)
@@ -177,7 +181,9 @@ def plot_metrics(df, method):
             ax.set_ylim(0.0, 0.1)
         elif metric == "normal_rate":
             ax.set_ylim(0.0, 1.0)
-        # Bottom row: axis label + tick labels with group names; other rows: hide tick labels
+        # loglike uses auto-scaling
+        
+        # Bottom row: axis label + tick labels; other rows: hide tick labels
         if r == nrows - 1:
             ax.set_xlabel(r"CNA realization type")
             ax.set_xticklabels(
@@ -189,7 +195,7 @@ def plot_metrics(df, method):
             ax.set_xlabel("")
             ax.set_xticklabels([])
 
-    # Hide unused axes (none in this layout)
+    # Hide unused axes
     for r in range(nrows):
         for c in range(ncols):
             if (r, c) not in used_axes:

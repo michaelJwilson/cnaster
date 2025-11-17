@@ -274,7 +274,6 @@ def run_cnaster(config_path, over_rides=None):
 
     assert single_X.ndim == 3
 
-
     if config.phasing.run:
         # NB single_base_nb_mean initialized to zero - requires normal spot. determination.
         phase_indicator, refined_lengths = initial_phase_given_partition(
@@ -450,7 +449,7 @@ def run_cnaster(config_path, over_rides=None):
     opath = f"{config.paths.output_dir}/initial_clone_labels.tsv"
 
     logger.info(f"Writing initial clone labels to {opath},\n{df_clone_label.head()}")
-
+    
     write_tsv(opath, df_clone_label, header=True, index=True, index_label="barcode")
 
     # TODO HACK

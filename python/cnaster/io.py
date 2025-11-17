@@ -15,14 +15,14 @@ logger = logging.getLogger(__name__)
 
 
 def get_sample_sheet(sample_sheet_path):
-    df_meta = pd.read_csv(sample_sheet_path, sep="\t")
+    df_meta = pd.read_csv(sample_sheet_path, sep=r"\s+")
 
     required_columns = {"bam", "sample_id", "spaceranger_dir", "snp_dir"}
 
     # TODO
     assert required_columns.issubset(
         df_meta.columns
-    ), f"sample_sheet is missing required columns: {required_columns - set(df_meta.columns)}"
+    ), f"sample_sheet has columns {df_meta.columns} which missese the required: {required_columns - set(df_meta.columns)}:\n{df_meta}"
 
     logger.info(f"Input sample_sheet_path={sample_sheet_path} contains:\n{df_meta}")
 

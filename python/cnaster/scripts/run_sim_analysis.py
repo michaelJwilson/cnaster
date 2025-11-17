@@ -661,6 +661,11 @@ def get_validation_stats(
             ).items()
         )
     )
+    cna_marginal_rates = {
+        f"({k[0]},{k[1]})": v / num_match 
+        for k, v in cna_marginals.items()
+    }
+    
     cna_transitions = dict(
         sorted(
             Counter(
@@ -722,6 +727,7 @@ def get_validation_stats(
         "cna_marginals": dict(
             {f"({k[0]},{k[1]})": v for k, v in cna_marginals.items()}
         ),
+        "cna_marginal_rates": cna_marginal_rates,
         "cna_transitions": dict(
             {f"({k[0]},{k[1]})->({k[2]},{k[3]})": v for k, v in cna_transitions.items()}
         ),

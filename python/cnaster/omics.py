@@ -914,7 +914,7 @@ def greedy_binning_nobreak(
             if length >= max_binlength and all_criteria_met:
                 logger.warning(
                     f"Solved for bin with length={length/max_binlength:.2f} [max_binlength] "
-                    f"(UMI={total_umi}, SNP-UMI={snp_umi}, normal-UMI={normal_umi})"
+                    f"(umi={total_umi}, snp-umi={snp_umi}, normal-umi={normal_umi})"
                 )
                 t = max(t - 1, s + 1)
                 break

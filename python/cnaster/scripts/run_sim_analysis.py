@@ -572,34 +572,41 @@ def compute_state_oversampling_rate(tsv_path):
 def get_validation_stats(
     sample_id, best_rectangle, best_loglike, spot_join_cna, include_flip=True, num_clones=None, state_oversampling_rates=None
 ):
-    match = np.isfinite(spot_join_cna["A"])
-
+    # NB was there an interval called on this truth segment?
+    matched = np.isfinite(spot_join_cna["A"])
+    match_rate = matched.mean()
+    
+    # NB limit to the matches only.                                                                                                                                                                                                                    
+    match_spot_join_cna = spot_join_cna[matched]
+    num_match = len(match_spot_join_cna)
+    
     # NB did we recover the true CNA (up to a phase flip)?
-    correct_match = (spot_join_cna["A"] == spot_join_cna["true_A"]) & (
-        spot_join_cna["B"] == spot_join_cna["true_B"]
+    correct_match = (match_spot_join_cna["A"] == match_spot_join_cna["true_A"]) & (
+        match_spot_join_cna["B"] == match_spot_join_cna["true_B"]
     )
+    correct_rate = correct_match.mean()
 
     if include_flip:
         correct_match = correct_match | (
-            spot_join_cna["B"] == spot_join_cna["true_A"]
-        ) & (spot_join_cna["A"] == spot_join_cna["true_B"])
+            match_spot_join_cna["B"] == match_spot_join_cna["true_A"]
+        ) & (match_spot_join_cna["A"] == match_spot_join_cna["true_B"])
 
-    is_normal = (spot_join_cna["true_A"] == 1) & (spot_join_cna["true_B"] == 1)
+    is_normal = (match_spot_join_cna["true_A"] == 1) & (match_spot_join_cna["true_B"] == 1)
 
     normal_recovery = correct_match & is_normal
-
+    normal_recovery_rate = np.count_nonzero(normal_recovery) / np.count_nonzero(is_normal)
+    
     cna_recovery = correct_match & ~is_normal
+    cna_recovery_rate = np.count_nonzero(cna_recovery) / np.count_nonzero(~is_normal)
+        
     cna_false_positive = ~correct_match & is_normal
-
-    # NB was there an interval called on this truth segment?
-    match_rate = match.mean()
-    correct_rate = correct_match.mean()
-
+    cna_false_positive_rate = np.count_nonzero(cna_false_positive) / np.count_nonzero(is_normal)
+    
     # TODO
     try:
         ari = adjusted_rand_score(
-            spot_join_cna.loc[match, "true_clone"].astype(int), 
-            spot_join_cna.loc[match, "clone"].astype(int)
+            spot_join_cna["true_clone"].astype(int), 
+            spot_join_cna["clone"].astype(int)
         )
     except:
         ari = np.nan
@@ -609,14 +616,10 @@ def get_validation_stats(
     )
 
     logger.info(
-        f"Found normal rate={is_normal.mean():.3f}, match rate={match_rate:.3f}, correct_rate={correct_rate}, ari={ari:.6f}, mapped fraction={clone_mapping_success_rate:.4f}, normal recovery rate={normal_recovery.mean():.3f}, cna recovery rate={cna_recovery.mean():.3f} and cna false positive rate={cna_false_positive.mean():.3f} for include_flip={include_flip}."
+        f"Found normal rate={is_normal.mean():.3f}, match rate={match_rate:.3f}, correct_rate={correct_rate}, ari={ari:.6f}, mapped fraction={clone_mapping_success_rate:.4f}, normal recovery rate={normal_recovery_rate:.3f}, cna recovery rate={cna_recovery_rate:.3f} and cna false positive rate={cna_false_positive_rate:.3f} for include_flip={include_flip}."
     )
-
+    
     logger.info(f"Found best clone 1-1 mapping: {best_clone_mapping}")
-
-    # NB limit to the matches only.
-    match_spot_join_cna = spot_join_cna[match]
-    num_match = len(match_spot_join_cna)
 
     # NB distribution of true clone in matches, required for normalization.
     clone_marginals = dict(
@@ -704,9 +707,9 @@ def get_validation_stats(
         "correct_rate": float(correct_rate),
         "ari": float(ari),
         "clone_mapping_success_rate": float(clone_mapping_success_rate),
-        "normal_recovery_rate": float(normal_recovery.mean()),
-        "cna_recovery_rate": float(cna_recovery.mean()),
-        "cna_false_positive_rate": float(cna_false_positive.mean()),
+        "normal_recovery_rate": float(normal_recovery_rate),
+        "cna_recovery_rate": float(cna_recovery_rate),
+        "cna_false_positive_rate": float(cna_false_positive_rate),
         "include_flip": include_flip,
         "best_clone_mapping": {int(k): int(v) for k, v in best_clone_mapping.items()},
         "clone_marginals": dict(clone_marginals),
@@ -751,11 +754,11 @@ def main():
     # "numcnas3.3_cnasize3e7_ploidy2_random0",
     # "numcnas3.3_cnasize5e7_ploidy2_random0",
 
-    # sample_ids = [
-    #     "numcnas3.3_cnasize3e7_ploidy2_random0",
-    # ]
+    sample_ids = [
+         "numcnas3.3_cnasize3e7_ploidy2_random0",
+    ]
     
-    sample_ids = [xx.split("/")[-1] for xx in sorted(glob.glob(f"{root}/nomixing_{method}_related/*"))]
+    # sample_ids = [xx.split("/")[-1] for xx in sorted(glob.glob(f"{root}/nomixing_{method}_related/*"))]
                   
     logger.info(
         f"Analyzing with {method} the sample_ids={sample_ids} simulations @\n{root}"

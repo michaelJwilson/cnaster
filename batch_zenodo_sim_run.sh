@@ -1,7 +1,10 @@
 #!/bin/bash
 
-SAMPLE_IDS=("numcnas1.2_cnasize1e7_ploidy2_random0")
-# SAMPLE_IDS=("numcnas3.3_cnasize5e7_ploidy2_random0")
+ROOT="/u/mw9568/scratch/calicost_sims/"
+ROOT="/Users/mw9568/Work/ragr/sim/"
+
+# SAMPLE_IDS=("numcnas1.2_cnasize1e7_ploidy2_random0")
+SAMPLE_IDS=("numcnas3.3_cnasize3e7_ploidy2_random0")
 
 for SAMPLE_ID in "${SAMPLE_IDS[@]}"; do
     echo "Solving for ${SAMPLE_ID}"
@@ -11,6 +14,6 @@ for SAMPLE_ID in "${SAMPLE_IDS[@]}"; do
     
     run_cnaster zenodo_sim_config.yaml \
          -o "paths.sample_sheet=zenodo_sample_sheets/zenodo_${SAMPLE_ID}_sheet.tsv" \
-         -o "paths.output_dir=/u/mw9568/scratch/calicost_sims/nomixing_cnaster_related/${SAMPLE_ID}/" \
-         -o "annotation.clone_label=/u/mw9568/scratch/calicost_sims/simulated_data_related/${SAMPLE_ID}/truth_clone_labels.tsv"
+         -o "paths.output_dir=${ROOT}/nomixing_cnaster_related/${SAMPLE_ID}/" \
+         -o "annotation.clone_label=${ROOT}/simulated_data_related/${SAMPLE_ID}/truth_clone_labels.tsv"
 done

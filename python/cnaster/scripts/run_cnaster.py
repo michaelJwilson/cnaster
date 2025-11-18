@@ -244,17 +244,10 @@ def run_cnaster(config_path, over_rides=None):
     # NB (x,y) per spot.
     coords = adata.obsm["X_pos"]
 
-    # NB equivalent to parse_visium::perform_partition
-    # TODO (requires paste).
-    initial_clone_for_phasing = initialize_clones(
-        coords,
-        sample_ids,  # NB for all spots in all slices.
-        x_part=config.phasing.npart_phasing,
-        y_part=config.phasing.npart_phasing,
-    )
-
     # NB known annotation.
     if config.annotation.clone_label is not None:
+        logger.warning("Assuming known clone labels")
+
         clone_id = (
             pd.read_csv(config.annotation.clone_label, sep="\t", index_col=0)["labels"]
             .str.replace("clone_", "")
@@ -272,6 +265,15 @@ def run_cnaster(config_path, over_rides=None):
         initial_clone_for_phasing = initial_clone_index_baf
     else:
         initial_clone_index_baf = None
+
+        # NB equivalent to parse_visium::perform_partition
+        # TODO (requires paste).
+        initial_clone_for_phasing = initialize_clones(
+            coords,
+            sample_ids,  # NB for all spots in all slices.
+            x_part=config.phasing.npart_phasing,
+            y_part=config.phasing.npart_phasing,
+        )
 
     logger.warning("Assuming (magic) five BAF states for phasing.")
 
@@ -798,7 +800,7 @@ def run_cnaster(config_path, over_rides=None):
         normal_candidates=normal_candidate,
     )
 
-    # TODO HACK >>>>>>
+    # TODO HACK >>>>>>  do not filter, but merge segments, with insufficient normal umi counts.
     df_gene_snp = create_bin_ranges(
         df_gene_snp,
         adata,
@@ -1563,12 +1565,18 @@ def run_cnaster(config_path, over_rides=None):
         )
         df_seglevel_cnv = df_seglevel_cnv.join(allele_specific_copy.T)
 
-        logger.info(
-            f"Solved for integer copy numbers @ segments:\n{df_seglevel_cnv.head()}"
-        )
+        with pd.option_context(
+            "display.expand_frame_repr", False,
+            "display.max_columns", None,
+            "display.width", 100000,
+            "display.max_colwidth", None,
+        ):
+            logger.info(
+                "Solved for integer copy numbers @ segments:\n%s",
+                df_seglevel_cnv.head().to_string(index=False),
+            )
 
         opath = f"{config.paths.output_dir}/cnv{medfix[o]}_seglevel.tsv"
-
         write_tsv(opath, df_seglevel_cnv, header=True, index=False)
 
         logger.info(f"Solved for integer copy numbers @ states:\n{state_cnv}")

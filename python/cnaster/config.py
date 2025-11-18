@@ -104,7 +104,21 @@ class YAMLConfig:
                     logger.info(f"Config over ride: {key_path} = {value}")
                 else:
                     logger.warning(f"Cannot set config.{key_path}, skipping override.")
-        
+
+    def issue_warnings(self):
+        if self.annotation.clone_label is not None:
+            logger.warning(f"Assuming known clone labels")
+        if not self.phasing.run:
+            logger.warning(f"Assuming no baf-based phasing")
+        if int(self.hmrf.n_clones_rdr) == 1:
+            logger.warning(f"Assuming no rdr-based clone identification")
+        if not self.hmrf.np_merge:
+            logger.warning(f"Assuming no Neyman-Pearson model testing")
+        if self.hmrf.fixed_assignment:
+            logger.warning(f"Assuming fixed assignment")
+            
+
+            
 
 class JSONConfig:
     def __init__(self, d):

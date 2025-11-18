@@ -1233,7 +1233,7 @@ def update_emission_params_bb_sitewise_uniqvalues(
             features = scipy.linalg.block_diag(*features)
 
             logger.info(
-                "Updating (phasing) BAF emission parameters with shared dispersion."
+                "Updating BAF emission parameters with shared dispersion & phasing."
             )
 
             model = Weighted_BetaBinom(y, features, weights=weights, exposure=exposure)

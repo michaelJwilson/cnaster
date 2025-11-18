@@ -528,13 +528,21 @@ class hmm_nophasing:
                 new_taus = taus
 
             logger.info(
-                "Found max HMM parameter updates for tol=%.6e: \nstart prob.=%.6e\ntransfer matrix=%.6e\nmu=%.6e\np_binom=%.6e",
+                "Found max HMM parameter updates for tol=%.6e: \nstart prob.=%.6e\ntransfer matrix=%.6e\nmu=%.6e\np_binom=%.6e\nalpha=%.6e\ntau=%.6e",
                 tol,
                 np.max(np.abs(np.exp(new_log_startprob) - np.exp(log_startprob))),
                 np.max(np.abs(np.exp(new_log_transmat) - np.exp(log_transmat))),
                 np.max(np.abs(np.exp(new_log_mu) - np.exp(log_mu))),
                 np.max(np.abs(new_p_binom - p_binom)),
+                np.max(np.abs(new_alphas - alphas)),
+                np.max(np.abs(new_taus - taus)),
             )
+            
+            # Warn if dispersion parameters increased
+            if np.any(new_alphas > alphas):
+                logger.warning(f"NB dispersion (alpha) increased: max change = {np.max(new_alphas - alphas):.6e}")
+            if np.any(new_taus < taus):
+                logger.warning(f"BB dispersion (1/tau) increased (tau decreased): max change = {np.min(new_taus - taus):.6e}")
 
             # NB log mu -> mu convergence.
             # TODO BUG? no check on start prob.

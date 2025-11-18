@@ -389,8 +389,6 @@ def aggr_hmrfmix_reassignment_concatenate(
                     tmp_log_emission_rdr[this_pred, np.arange(n_obs), i]
                 ) + np.sum(tmp_log_emission_baf[this_pred, np.arange(n_obs), i])
 
-    logger.info(f"Solving for updated clone labels.")
-
     adj_list = cast_csr(adjacency_mat)
     adj_spots, adj_neighbors, adj_weights = unpack_adjacency(adj_list)
 
@@ -398,8 +396,10 @@ def aggr_hmrfmix_reassignment_concatenate(
     posterior = np.zeros((N, n_clones))
 
     if get_global_config().hmrf.fixed_assignment:
-        logger.warning(f"Assuming a fixed assignment")
-    else:        
+        logger.warning(f"Assuming a fixed clone assignment")
+    else:
+        logger.info(f"Solving for updated clone labels.")
+
         # NB updates new_assignment and posterior in place given log emission likelihood.
         niter, new_cost = icm_sweep(
             single_llf,
@@ -582,7 +582,7 @@ def hmrfmix_concatenate_pipeline(
     logger.info(f"Running hmrfmix_concatenate_pipeline ...")
 
     # NB num. of genomic bins, num. pseudobulk (clones, spots, ...)
-    n_obs, _, n_spots = single_X.shape
+    n_obs, _, _ = single_X.shape
 
     # NB num. of clones in initial assignment.
     n_clones = len(initial_clone_index)
@@ -1090,6 +1090,12 @@ def aggr_hmrf_reassignment(
             + spatial_weight * w_edge
             - scipy.special.logsumexp(w_node + spatial_weight * w_edge)
         )
+
+    if get_global_config().hmrf.fixed_assignment:
+        logger.warning(f"Assuming a fixed clone assignment")
+        new_assignment = prev_assignment.copy()
+    else:
+        logger.info(f"Solving for updated clone labels.")
 
     # NB compute total log likelihood: log P(X | Z) + log P(Z)
     total_llf = np.sum(single_llf[np.arange(N), new_assignment])

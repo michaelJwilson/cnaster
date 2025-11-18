@@ -215,7 +215,7 @@ def summarize_blocks(
     if sort_key is not None:
         block_summary = block_summary.sort_values(sort_key, ascending=False)    
     
-    logger.info(f"Breakdown of genes/SNPs/UMI per {block_key}:")
+    logger.info(f"Breakdown of genes/SNPs/UMI per {block_key} sorted by {sort_key}:")
     logger.info(
         f"{'Block ID':<10}\t{'Chr':>4}\t{'Start':>12}\t{'Length':>12} [Mbp]\t{'SNPs':>8}\t{'Genes':>8}\t{'Total UMI':>12}\t{'SNP UMI':>12}\t{'Normal UMI':>12}\t{'Normal SNP UMI':>12}"
     )
@@ -239,7 +239,10 @@ def summarize_blocks(
         f"total umis: {block_summary['total_umi'].sum()},\n"
         f"total snp-umis: {block_summary['snp_umi'].sum()},\n"
         f"total normal umis: {block_summary['normal_umi'].sum()},\n"
-        f"total normal snp-umis: {block_summary['normal_snp_umi'].sum()}\n"
+        f"total normal snp-umis: {block_summary['normal_snp_umi'].sum()},\n"
+        f"fraction blocks with 0 UMIs: {(block_summary['total_umi'] == 0).mean():.3f},\n"
+        f"fraction blocks with <100 UMIs: {(block_summary['total_umi'] < 100).mean():.3f},\n"
+        f"fraction blocks with BAF UMIs but no UMIs: {((block_summary['snp_umi'] > 0) & (block_summary['total_umi'] == 0)).mean():.3f}\n"
     )
 
     if block_summary.index.isna().any():
@@ -444,7 +447,7 @@ def assign_initial_blocks(
         # NB fast-forward lower block id to upper.
         s = t
 
-    # NB record the block id in df_gene_snps
+    # NB record the block id in df_gene_snp
     df_gene_snp["block_id"] = 0
 
     for i, x in enumerate(block_ranges_new):
@@ -849,7 +852,11 @@ def create_bin_ranges_legacy(
             bin_ids[b1:b2] = offset + this_bin_ids
             offset += np.max(this_bin_ids) + 1
 
-    # NB append bin_ids to df_gene_snp
+    if "bin_id" in df_gene_snp.columns:
+        logger.warning(f"Overwriting bin_id column, storing in block_id.")        
+        df_gene_snp["block_id"] = df_gene_snp["bin_id"]
+            
+    # Append bin_ids to df_gene_snp
     df_gene_snp["bin_id"] = df_gene_snp.block_id.map(
         {i: x for i, x in enumerate(bin_ids)}
     )
@@ -1055,7 +1062,8 @@ def create_bin_ranges(
         f"Creating bin ranges: max_length={max_binlength}, "
         f"min_umi={secondary_min_umi}, "
         f"min_snp_umi={secondary_min_snp_umi}, "
-        f"min_normal_umi={secondary_min_normal_umi}"
+        f"min_normal_umi={secondary_min_normal_umi}, "
+        f"fraction normal={normal_candidates.mean():.3f if normal_candidates is not None else 'None'}"
     )
 
     # Breakpoints from phase switches and oversized blocks
@@ -1143,17 +1151,17 @@ def summarize_counts_for_bins_legacy(
     lengths : array, (n_chromosomes,)
         Number of blocks per chromosome.
 
-    single_X : array, (n_blocks, 2, n_spots)
-        Transcript counts and B allele count per block per cell.
+    single_X : array, (n_bins, 2, n_spots)
+        Transcript counts and B allele count per bin per cell.
 
-    single_base_nb_mean : array, (n_blocks, n_spots)
-        Baseline transcript counts in normal diploid per block per cell.
+    single_base_nb_mean : array, (n_bins, n_spots)
+        Baseline transcript counts in normal diploid per bin per cell.
 
-    single_total_bb_RD : array, (n_blocks, n_spots)
-        Total allele count per block per cell.
+    single_total_bb_RD : array, (n_bins, n_spots)
+        Total allele count per bin per cell.
 
-    log_sitewise_transmat : array, (n_blocks,)
-        Log phase switch probability between each pair of adjacent blocks.
+    log_sitewise_transmat : array, (n_bins,)
+        Log phase switch probability between each pair of adjacent bins.
     """
     logger.info(f"Summarizing counts for bins.")
 
@@ -1180,45 +1188,48 @@ def summarize_counts_for_bins_legacy(
     
     # NB loop over bins (phased blocks meeting max. length and min. UMI requirements).
     for b in range(df_bin_contents.shape[0]):
-        # BAF (SNPs)
-        involved_blocks = [
-            x for x in df_bin_contents.block_id.to_numpy()[b] if x is not None
-        ]
+        logger.info(f"Solved for block {b}/{df_bin_contents.shape[0]}")
 
-        this_phased = np.where(
-            phase_indicator[involved_blocks].reshape(-1, 1),
-            single_X[involved_blocks, 1, :],
-            single_total_bb_RD[involved_blocks, :] - single_X[involved_blocks, 1, :],
-        )
+        # NB BAF (SNPs): gather involved blocks
+        involved_blocks = [x for x in df_bin_contents.block_id.to_numpy()[b] if x is not None]
+        if involved_blocks:
+            ib = np.fromiter(involved_blocks, dtype=int)
+            # phased B counts per block
+            phased = np.where(
+                phase_indicator[ib].reshape(-1, 1),
+                single_X[ib, 1, :],
+                single_total_bb_RD[ib, :] - single_X[ib, 1, :],
+            )
+            # NB H0 counts for each bin (summed over blocks).
+            bin_single_X[b, 1, :] = phased.sum(axis=0)
 
-        # NB H0 counts for each bin (summed over blocks).
-        bin_single_X[b, 1, :] = np.sum(this_phased, axis=0)
+            # NB H0+H1 counts for each bin (summed over blocks).
+            bin_single_total_bb_RD[b, :] = single_total_bb_RD[ib, :].sum(axis=0)
 
-        # NB H0+H1 counts for each bin (summed over blocks).
-        bin_single_total_bb_RD[b, :] = np.sum(
-            single_total_bb_RD[involved_blocks, :], axis=0
-        )
+        # RDR (genes): gather involved gene indices
+        involved_genes = [x for x in df_bin_contents.gene.to_numpy()[b] if x is not None]
+        if involved_genes:
+            gene_idx = [
+                gene_index_map[g] for g in involved_genes if g in gene_index_map
+            ]
+            if gene_idx:
+                block_sum = count_matrix[:, gene_idx].sum(axis=1)
+                # Handle scipy.sparse result
+                bin_single_X[b, 0, :] = np.asarray(block_sum).ravel()
+        else:
+            logger.debug(f"No genes found for bin row {b}.")
 
-        # RDR (genes)
-        involved_genes = [
-            x for x in df_bin_contents.gene.to_numpy()[b] if x is not None
-        ]
+    # Array of number of unique bins by chromosome (vectorized)
+    chr_order = df_gene_snp.CHR.unique()
+    lengths = (
+        df_gene_snp.loc[has_assigned_bin]
+        .groupby("CHR")["bin_id"]
+        .nunique()
+        .reindex(chr_order, fill_value=0)
+        .to_numpy()
+    )
 
-        # NB all transcripts for genes in this bin.
-        bin_single_X[b, 0, :] = np.sum(
-            adata.layers["count"][:, adata.var.index.isin(involved_genes)], axis=1
-        )
-
-    lengths = np.zeros(len(df_gene_snp.CHR.unique()), dtype=int)
-
-    for i, c in enumerate(df_gene_snp.CHR.unique()):
-        lengths[i] = len(
-            df_gene_snp[
-                (df_gene_snp.CHR == c) & (~df_gene_snp.bin_id.isnull())
-            ].bin_id.unique()
-        )
-
-    # NB phase switch probability from genetic distance
+    # Phase switch probability from genetic distance (UNCHANGED)
     sorted_chr_pos_first = df_gene_snp.groupby("bin_id").agg(
         {"CHR": "first", "START": "first"}
     )
@@ -1229,31 +1240,23 @@ def summarize_counts_for_bins_legacy(
     sorted_chr_pos_first = list(
         zip(sorted_chr_pos_first.CHR.to_numpy(), sorted_chr_pos_first.START.to_numpy())
     )
-
     sorted_chr_pos_last = df_gene_snp.groupby("bin_id").agg(
         {"CHR": "last", "END": "last"}
     )
-
     sorted_chr_pos_last = list(
         zip(sorted_chr_pos_last.CHR.to_numpy(), sorted_chr_pos_last.END.to_numpy())
     )
-
     tmp_sorted_chr_pos = [
         val for pair in zip(sorted_chr_pos_first, sorted_chr_pos_last) for val in pair
     ]
-
     ref_positions_cM = get_reference_recomb_rates(geneticmap_file)
-
     position_cM = assign_centiMorgans(tmp_sorted_chr_pos, ref_positions_cM)
-
     phase_switch_prob = compute_numbat_phase_switch_prob(
         position_cM, tmp_sorted_chr_pos, nu
     )
-
     log_sitewise_transmat = np.minimum(
         np.log(0.5), np.log(phase_switch_prob) - logphase_shift
     )
-
     log_sitewise_transmat = log_sitewise_transmat[
         np.arange(1, len(log_sitewise_transmat), 2)
     ]
@@ -1381,7 +1384,7 @@ def summarize_counts_for_bins(
     )
 
     if sorted_chr_pos_first.index.isna().any():
-        logger.warning
+        logger.warning(f"Found ill-defined group with None entries for group.")
     
     sorted_chr_pos_first = list(
         zip(sorted_chr_pos_first.CHR.to_numpy(), sorted_chr_pos_first.START.to_numpy())

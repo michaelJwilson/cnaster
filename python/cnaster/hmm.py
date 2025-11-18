@@ -49,17 +49,6 @@ def pipeline_baum_welch(
     if ((init_log_mu is None) and ("m" in params)) or (
         (init_p_binom is None) and ("p" in params)
     ):
-        """
-        tmp_log_mu, tmp_p_binom = cna_mixture_init(
-            n_states,
-            t,
-            X,
-            base_nb_mean,
-            total_bb_RD,
-            hmmclass,
-        )
-        """
-
         # NB emission parameters are initialized prior to HMM.
         tmp_log_mu, tmp_p_binom = gmm_init(
             n_states,

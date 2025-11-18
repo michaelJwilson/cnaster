@@ -254,23 +254,26 @@ def run_cnaster(config_path, over_rides=None):
     )
 
     # NB known annotation.
-    clone_id = (
-        pd.read_csv(config.annotation.clone_label, sep="\t", index_col=0)["labels"]
-        .str.replace("clone_", "")
-        .str.replace("normal", "-1")
-        .astype(int)
-        .to_numpy()
-    )
-    clone_id += 1
+    if config.annotation.clone_label is not None:
+        clone_id = (
+            pd.read_csv(config.annotation.clone_label, sep="\t", index_col=0)["labels"]
+            .str.replace("clone_", "")
+            .str.replace("normal", "-1")
+            .astype(int)
+            .to_numpy()
+        )
+        clone_id += 1
 
-    initial_clone_index_baf = [
-        np.where(clone_id == xx)[0] for xx in np.unique(clone_id)
-    ]
+        initial_clone_index_baf = [
+            np.where(clone_id == xx)[0] for xx in np.unique(clone_id)
+        ]
 
-    # TODO HACK!
-    initial_clone_for_phasing = initial_clone_index_baf
+        # TODO HACK!
+        initial_clone_for_phasing = initial_clone_index_baf
+    else:
+        initial_clone_index_baf = None
 
-    logger.warning("Assuming five BAF states for phasing.")
+    logger.warning("Assuming (magic) five BAF states for phasing.")
 
     assert single_X.ndim == 3
 
@@ -312,19 +315,6 @@ def run_cnaster(config_path, over_rides=None):
         df_gene_snp.block_id.map({i: x for i, x in enumerate(phase_indicator)}),
     )
 
-    """
-    df_gene_snp = create_bin_ranges(
-        df_gene_snp,
-        adata,
-        cell_snp_Aallele,
-        cell_snp_Ballele,
-        unique_snp_ids,
-        single_total_bb_RD,
-        refined_lengths,
-        config.quality.secondary_min_umi,
-    )
-    """
-    
     df_gene_snp = create_bin_ranges(
         df_gene_snp,
         adata,
@@ -399,8 +389,9 @@ def run_cnaster(config_path, over_rides=None):
     """
     """
     # TODO HACK
+    x_part = y_part = 4
     initial_clone_index_baf, clone_id = fixed_rectangle_partition(
-        coords, 4, 4, single_tumor_prop=None, threshold=0.5
+        coords, x_part, y_part, single_tumor_prop=None, threshold=0.5
     )
     """
     """
@@ -557,6 +548,7 @@ def run_cnaster(config_path, over_rides=None):
             hmmclass=hmm_nophasing,
         )
     else:
+        logger.warning(f"No Neyman-Pearson merging applied to baf-identified clones.")
         merged_res = res.copy()
 
     _, merged_res = merge_by_minspots(
@@ -771,7 +763,7 @@ def run_cnaster(config_path, over_rides=None):
         )
 
     # TODO HACK
-    elif True:
+    elif False:
         logger.warning(f"Assuming basic normal differential expression.")
 
         normal_gene_counts = np.sum(adata.layers["count"][normal_candidate, :], axis=0)
@@ -920,10 +912,12 @@ def run_cnaster(config_path, over_rides=None):
         """
 
         # TODO HACK?  splits each BAF clone along the x direction.
+        x_part, y_part = config.hmrf.n_clones_rdr, 1
+        
         initial_clone_index, _ = fixed_rectangle_partition(
             coords[idx_spots],
-            config.hmrf.n_clones_rdr,
-            1,
+            x_part,
+            y_part,
         )
 
         initial_assignment = np.zeros(len(idx_spots), dtype=int)
@@ -1054,6 +1048,7 @@ def run_cnaster(config_path, over_rides=None):
                     hmmclass=hmm_nophasing,
                 )
             else:
+                logger.warning("No Neyman-Pearson merging applied to RDR identified clones.")
                 merged_res = res.copy()
 
             merging_groups, merged_res = merge_by_minspots(

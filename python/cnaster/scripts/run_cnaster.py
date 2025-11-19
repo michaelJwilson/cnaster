@@ -1463,7 +1463,7 @@ def run_cnaster(config_path, over_rides=None):
             adjusted_log_mu = np.log(
                 np.exp(res_combine["new_log_mu"][:, s])
                 / np.sum(np.exp(res_combine["new_log_mu"][this_pred_cnv, s]) * lambd)
-            ) if False else res_combine["new_log_mu"][:, s] # TODO HACK BUG?
+            ) if True else res_combine["new_log_mu"][:, s] # TODO HACK BUG?
             
             logger.info(f"For clone {cid}, normalized log mu to sum_bin lambda * np.exp(log_mu) = 1.; yielding new mu=\n{np.exp(adjusted_log_mu)}\ngiven mu=\n{np.exp(res_combine["new_log_mu"][:, s])}.")
 
@@ -1629,9 +1629,6 @@ def run_cnaster(config_path, over_rides=None):
 
         opath = f"{config.paths.output_dir}/cnv{medfix[o]}_perstate.tsv"
         write_tsv(opath, state_cnv, header=True, index=False)
-
-        # TODO HACK
-        break
 
     # NB construct clone labels.
     df_clone_label = pd.DataFrame(

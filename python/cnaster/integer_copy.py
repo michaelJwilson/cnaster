@@ -194,19 +194,21 @@ def hill_climbing_integer_copynumber_fixdiploid(
     nonbalance_bafdist=None,
     nondiploid_rdrdist=None,
     enforce_states={}, # MUTABLE DEFAULT
-    max_samples=20,
+    max_samples=100,
 ):
     n_states = len(new_log_mu)
-    mu = np.exp(new_log_mu)
 
     EPS_POINTS = 0.1
     points_per_state = np.bincount(pred_cnv, minlength=n_states) + EPS_POINTS
     points_per_state_norm = np.sum(points_per_state, axis=0)
 
-    logger.info(f"Solving for mu=\n{mu},\np_binom=\n{new_p_binom}\nand points_per_state=\n{points_per_state}")
-
     mu_threshold = 0.3 # MAGIC
+
+    mu = np.exp(new_log_mu)
     valid_ordered_mu = (mu[:, None] - mu[None, :] > mu_threshold)
+    valid_ordered_mu_minus = (mu[:, None] - mu[None, :] < -mu_threshold)
+
+    logger.info(f"Solving for mu, p_binom and points per state=\n{np.vstack((mu, new_p_binom, points_per_state))}")
 
     def is_nondiploidnormal(k):
         """
@@ -225,10 +227,10 @@ def hill_climbing_integer_copynumber_fixdiploid(
     def f(params, ploidy, scalefactor):
         # NB - params of size (n_states, 2)
         #    - enforce zero copy states to have large cost
-        if np.any(np.sum(params, axis=1) == 0):
-            return len(pred_cnv) * 1e6
-        
         total_copies = np.sum(params, axis=1)
+
+        if np.any(total_copies == 0):
+            return len(pred_cnv) * 1e6
 
         frac_rdr = total_copies / scalefactor
         frac_baf = params[:, 0] / total_copies
@@ -238,7 +240,7 @@ def hill_climbing_integer_copynumber_fixdiploid(
         crucial_ordered_pairs_1 = valid_ordered_mu * (
             total_copies[:, None] - total_copies[None, :] < 0
         )
-        crucial_ordered_pairs_2 = (valid_ordered_mu < -mu_threshold) * (
+        crucial_ordered_pairs_2 = valid_ordered_mu_minus * (
             total_copies[:, None] - total_copies[None, :] > 0
         )
 
@@ -275,9 +277,9 @@ def hill_climbing_integer_copynumber_fixdiploid(
                 this_best_k = copy.copy(params[k, :])
 
                 # TODO HACK?
-                trial_candidates = candidates if is_nondiploidnormal(k) else [[1,1]]
+                # trial_candidates = candidates if is_nondiploidnormal(k) else [[1,1]]
 
-                for candi in trial_candidates:
+                for candi in candidates:
                     # NB (1,1) cannot be set to state k as real copy number is not normal.
                     if is_nondiploidnormal(k) and candi[0] == 1 and candi[1] == 1:
                         continue
@@ -331,14 +333,15 @@ def hill_climbing_integer_copynumber_fixdiploid(
 
         for _ in range(max_samples): # MAGIC
             # DEPRECATE
-            # initial_params = candidates[
-            #    np.random.randint(low=0, high=candidates.shape[0], size=n_states,), :
-            # ]
-            non_normal_candidates = list(range(candidates.shape[0]))
-            non_normal_candidates.remove(idx_diploid_normal)
+            initial_params = candidates[
+                np.random.randint(low=0, high=candidates.shape[0], size=n_states,), :
+            ]
+            # non_normal_candidates = list(range(candidates.shape[0]))
+            # non_normal_candidates.remove(idx_diploid_normal)
 
-            initial_params_idx = np.random.choice(a=non_normal_candidates, size=n_states, replace=False)
-            initial_params = candidates[initial_params_idx, :]
+            # initial_params_idx = np.random.choice(a=non_normal_candidates, size=n_states, replace=False)
+            # initial_params = candidates[initial_params_idx, :]
+
             initial_params[idx_diploid_normal] = np.array([1, 1])
 
             for k, v in enforce_states.items():

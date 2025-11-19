@@ -579,8 +579,6 @@ def hmrfmix_concatenate_pipeline(
     spatial_weight=1.0 / 6.0,
     tumorprop_threshold=0.5,
 ):
-    logger.info(f"Running hmrfmix_concatenate_pipeline ...")
-
     # NB num. of genomic bins, num. pseudobulk (clones, spots, ...)
     n_obs, _, _ = single_X.shape
 
@@ -591,7 +589,7 @@ def hmrfmix_concatenate_pipeline(
     unique_sample_ids = np.unique(sample_ids)
     n_samples = len(unique_sample_ids)
 
-    logger.info(f"Solving for {n_samples} samples/slices.")
+    logger.info(f"Running hmrfmix_concatenate_pipeline for {n_clones} clones and {n_samples} samples/slices.")
 
     tmp_map_index = {unique_sample_ids[i]: i for i in range(len(unique_sample_ids))}
     sample_ids = np.array([tmp_map_index[x] for x in sample_ids])

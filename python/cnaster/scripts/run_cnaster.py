@@ -1468,6 +1468,8 @@ def run_cnaster(config_path, over_rides=None):
                 np.exp(res_combine["new_log_mu"][:, s])
                 / np.sum(np.exp(res_combine["new_log_mu"][this_pred_cnv, s]) * lambd)
             )
+            
+            logger.info(f"Normalized log mu to sum_bin lambda * np.exp(log_mu) = 1.; yielding new mu={np.exp(adjusted_log_mu)} given mu={np.exp(res_combine["new_log_mu"][:, s])} for clone {s}.")
 
             if max_medploidy is not None:
                 best_integer_copies, loss = hill_climbing_integer_copynumber_oneclone(

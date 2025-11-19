@@ -124,7 +124,7 @@ def plot_clones_genomic(
     clone_index=None,
     sample_list=None,
     remove_xticks=True,
-    rdr_ylim=4,
+    rdr_ylim=6,
     chrtext_shift=-0.2,
     base_height=3.2,
     pointsize=5,

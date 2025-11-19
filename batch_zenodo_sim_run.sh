@@ -16,4 +16,5 @@ for SAMPLE_ID in "${SAMPLE_IDS[@]}"; do
          -o "paths.sample_sheet=zenodo_sample_sheets/zenodo_${SAMPLE_ID}_sheet.tsv" \
          -o "paths.output_dir=${ROOT}/nomixing_cnaster_related/${SAMPLE_ID}/" \
          -o "annotation.clone_label=${ROOT}/simulated_data_related/${SAMPLE_ID}/truth_clone_labels.tsv"
+         -o "annotation.true_cnv=${ROOT}/simulated_data_related/${SAMPLE_ID}/truth_acn_profile.tsv"
 done

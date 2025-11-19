@@ -899,6 +899,20 @@ def run_cnaster(config_path, over_rides=None):
         f"Found {100. * np.mean(rdr_normal >= config.quality.min_normal_count_perbin):.3f}% of segments with confident normal baseline for MIN_NORMAL_COUNT_PERBIN={config.quality.min_normal_count_perbin}"
     )
 
+    pct_list = [1, 5, 25, 50, 75] + list(range(90, 101, 1))
+    rdr_pcts = np.percentile(rdr_normal, pct_list)
+    per_segment_std = copy_single_X_rdr[:, (normal_candidate == True)].std(axis=1)
+    std_pcts = np.percentile(per_segment_std, pct_list)
+
+    logger.info(f"For percentiles={pct_list}, rdr_normal percentiles=\n{rdr_pcts}\nand per-segment std across normal candidates percentiles=\n{std_pcts}")
+
+    # TODO HACK
+    high_std_idx = np.where(per_segment_std > std_pcts[-2])[0]
+    high_rdr_idx = np.where(rdr_normal > rdr_pcts[-2])[0]
+    bidx_inconfident = np.unique(
+        np.concatenate([bidx_inconfident, high_std_idx, high_rdr_idx])
+    )
+
     # NB where normal transcript count < config.quality.min_normal_count_perbin, zero.
     rdr_normal[bidx_inconfident] = 0
 

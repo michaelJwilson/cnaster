@@ -920,7 +920,7 @@ def greedy_binning_nobreak(
             # Break if bin is too long but meets UMI requirements
             if length >= max_binlength and all_criteria_met:
                 logger.warning(
-                    f"Solved for bin with length={length/max_binlength:>6.2f} [max_binlength] "
+                    f"Solved for bin length={length/max_binlength:>6.2f} [max_binlength] "
                     f"(umi={total_umi:>8}, snp-umi={snp_umi:>8}, normal-umi={normal_umi:>8})"
                 )
                 t = max(t - 1, s + 1)

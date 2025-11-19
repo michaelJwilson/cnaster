@@ -573,10 +573,15 @@ def update_emission_params_nb_nophasing_uniqvalues(
                         new_log_mu[idx_state_posweight, s] = res2.params[l1:l2]
                     if res2.params[-1] > 0:
                         new_alphas[:, :] = res2.params[-1]
+                    else:
+                        logger.warning(f"Detected negative dispersion parameter={res2.params[-1]}.")
                 else:
                     logger.info(
                         f"Default initialization for ln mu {model.nloglikeobs(res.params):.6e} better than provided {model.nloglikeobs(res2.params):.6e}."
                     )
+
+    if np.any(new_log_mu > max_log_rdr) or np.any(new_log_mu < min_log_rdr):
+        logger.warning("Clipping updated log RDR to range=({min_log_rdr},{max_log_rdr})")
 
     new_log_mu[new_log_mu > max_log_rdr] = max_log_rdr
     new_log_mu[new_log_mu < min_log_rdr] = min_log_rdr
@@ -1508,6 +1513,15 @@ def update_emission_params_bb_nophasing_uniqvalues(
                         new_p_binom[idx_state_posweight, s] = res2.params[l1:l2]
                     if res2.params[-1] > 0:
                         new_taus[:, :] = res2.params[-1]
+                    else:
+                        logger.warning(f"Detected negative tau={res2.params[-1]}")
+
+    if np.any(new_p_binom < min_binom_prob) or np.any(
+        new_p_binom > max_binom_prob
+    ):
+        logger.warning(
+            f"Clipping inferred p binom to range=({min_binom_prob},{max_binom_prob})."
+        )
 
     new_p_binom[new_p_binom < min_binom_prob] = min_binom_prob
     new_p_binom[new_p_binom > max_binom_prob] = max_binom_prob

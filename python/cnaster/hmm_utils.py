@@ -149,10 +149,9 @@ def construct_unique_matrix(obs_count, total_count):
             counts = counts.round(decimals=decimals)
 
         pairs, pairs_counts = np.unique(counts, axis=0, return_counts=True)
-        pairs_str = "\n".join([f"{pair}\t{count}" for pair, count in zip(pairs, pairs_counts)])
         
         logger.info(
-            f"Found {len(pairs)} unique pairs with {100. * np.mean(valid):.3f}% non-zero:\n{pairs_str}"
+            f"Found {len(pairs)} unique pairs with {100. * np.mean(valid):.3f}% non-zero:\n{pairs}"
         )
 
         mean_compression += 1.0 - len(pairs) / n_obs

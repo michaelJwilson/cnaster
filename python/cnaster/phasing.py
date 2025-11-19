@@ -3,6 +3,7 @@ import logging
 import numpy as np
 from cnaster.hmm import hmm_sitewise, pipeline_baum_welch
 from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
+from cnaster.config import get_global_config
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +45,6 @@ def initial_phase_given_partition(
     # NB (initial clones, segments).
     n_clones = X.shape[2]
     baf_profiles = np.zeros((n_clones, X.shape[0]))
-    phase_flips = np.zeros((n_clones, X.shape[0]), dtype=int)
     
     # NB loop over initial clones.
     for i in range(n_clones):
@@ -85,7 +85,8 @@ def initial_phase_given_partition(
 
             # NB MAP estimate of state given log posterior; pred. > n_states indicates switch-error.
             pred = np.argmax(res["log_gamma"], axis=0)
-            phase_flip = pred >= n_states
+
+            # TODO calculate empirical switch error rate.
             
             # NB BAF by mirroring by inferred haplotype - assumed baf is not e.g. minor, but initialization
             #    dependent.
@@ -136,15 +137,16 @@ def initial_phase_given_partition(
             @ baf_profiles
         )
 
-    logger.info(f"Found non-normal population BAF to be:\n{population_baf[population_baf != 0.5]}")
+    logger.info(f"Found non-normal population BAF to be:\n{np.unique(population_baf[population_baf != 0.5])}")
 
     # NB makes sense: phasing determined with all clones; copy state BAF phased appropriately.
     phase_indicator = population_baf < 0.5
     refined_lengths = []
     cumlen = 0
 
-    MIN_SEGMENT_SIZE = 10  # MAGIC
-    BAF_CHANGE_THRESHOLD = 0.1  # MAGIC
+    config = get_global_config()
+    BAF_CHANGE_THRESHOLD = config.phasing.baf_change_threshold # MAGIC
+    MIN_SEGMENT_SIZE = config.phasing.min_new_segment_size
 
     # NB le is the number of blocks per contig.
     for le in lengths:
@@ -157,7 +159,7 @@ def initial_phase_given_partition(
                     minor_baf_profiles[:, i + cumlen]
                     - minor_baf_profiles[:, i + cumlen - 1]
                 )
-                > BAF_CHANGE_THRESHOLD
+                >= BAF_CHANGE_THRESHOLD
             ):
                 # NB new blocks are a min. size and set by change in BAF.
                 refined_lengths.append(i - s)
@@ -166,10 +168,11 @@ def initial_phase_given_partition(
         refined_lengths.append(le - s)
         cumlen += le
 
+    # NB expect to unpack 22 per-contig lengths of N segments per contig, to len(refined_lengths) = sum(lengths).
     refined_lengths = np.array(refined_lengths)
 
     logger.info(
-        f"Solved for {len(refined_lengths)} phase-refined lengths given {len(lengths)} input lengths."
+        f"Solved for {len(refined_lengths)} phase-refined lengths given {len(lengths)} input lengths with sum={sum(lengths)}."
     )
 
     return phase_indicator, refined_lengths

@@ -814,7 +814,7 @@ def create_bin_ranges_legacy(
 
     # TODO max_binlength.
     # NB get a list of points where existing block must be broken as too long.
-    #    refined_lengths derived (tangentially) from phasing - represents contig boundaries; forced break when minor BAF changes by e.g. 0.1
+    #    refined_lengths derived from phasing - represents contig boundaries and forced break when minor BAF changes=0.1 meeting min. segments.
     breakpoints = np.concatenate(
         [
             np.cumsum(refined_lengths),
@@ -920,8 +920,8 @@ def greedy_binning_nobreak(
             # Break if bin is too long but meets UMI requirements
             if length >= max_binlength and all_criteria_met:
                 logger.warning(
-                    f"Solved for bin with length={length/max_binlength:.2f} [max_binlength] "
-                    f"(umi={total_umi}, snp-umi={snp_umi}, normal-umi={normal_umi})"
+                    f"Solved for bin with length={length/max_binlength:>6.2f} [max_binlength] "
+                    f"(umi={total_umi:>8}, snp-umi={snp_umi:>8}, normal-umi={normal_umi:>8})"
                 )
                 t = max(t - 1, s + 1)
                 break
@@ -945,9 +945,9 @@ def greedy_binning_nobreak(
                 normal_umi < secondary_min_normal_umi):
                 logger.debug(
                     f"Last bin failed thresholds "
-                    f"(UMI={total_umi}/{secondary_min_umi}, "
-                    f"SNP-UMI={snp_umi}/{secondary_min_snp_umi}, "
-                    f"normal-UMI={normal_umi}/{secondary_min_normal_umi}), "
+                    f"(UMI={total_umi:>8}/{secondary_min_umi:<8}, "
+                    f"SNP-UMI={snp_umi:>8}/{secondary_min_snp_umi:<8}, "
+                    f"normal-UMI={normal_umi:>8}/{secondary_min_normal_umi:<8}), "
                     f"merging with previous."
                 )
                 bin_ranges[-1][1] = t
@@ -1057,13 +1057,15 @@ def create_bin_ranges(
         f"snp_umi={len(block_snp_umi)}, "
         f"normal_umi={len(block_normal_umi)}"
     )
+
+    frac_normal=normal_candidates.mean() if normal_candidates is not None else np.nan
     
     logger.info(
-        f"Creating bin ranges: max_length={max_binlength}, "
+        f"Creating bin ranges: max_length={max_binlength:_}, "
         f"min_umi={secondary_min_umi}, "
         f"min_snp_umi={secondary_min_snp_umi}, "
         f"min_normal_umi={secondary_min_normal_umi}, "
-        f"fraction normal={normal_candidates.mean():.3f if normal_candidates is not None else 'None'}"
+        f"fraction normal={frac_normal:.3f}"
     )
 
     # Breakpoints from phase switches and oversized blocks

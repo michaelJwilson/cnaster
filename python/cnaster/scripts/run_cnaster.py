@@ -3,6 +3,7 @@ import copy
 import time
 import logging
 
+from networkx import config
 import numpy as np
 import pandas as pd
 import scipy
@@ -99,7 +100,8 @@ def run_cnaster(config_path, over_rides=None):
 
     config = YAMLConfig.from_file(config_path)
     config.over_ride(over_rides)
-
+    config.issue_warnings()
+    
     logger.info(f"Read configuration:\n{config}")
 
     set_global_config(config)
@@ -216,7 +218,7 @@ def run_cnaster(config_path, over_rides=None):
         cell_snp_Aallele,
         cell_snp_Ballele,
         unique_snp_ids,
-        initial_min_umi=15,
+        initial_min_umi=15, # MAGIC
     )
 
     # NB num. of blocks per contig; SN-based H0 and H0+H1 counts block; total UMIs per block.
@@ -263,8 +265,21 @@ def run_cnaster(config_path, over_rides=None):
 
         # TODO HACK!
         initial_clone_for_phasing = initial_clone_index_baf
+
+        known_rdr_normal = np.sum(single_X[:, 0, (clone_id == 0)], axis=1)  
+
+        bidx_inconfident = np.where(known_rdr_normal < config.quality.min_normal_count_perbin)[0] 
+        known_rdr_normal[bidx_inconfident] = 0
+
+        # NB normalized.
+        known_rdr_normal = known_rdr_normal / np.sum(known_rdr_normal)
+
+        spots_coverage = np.sum(single_X[:, 0, :], axis=0)
+
+        known_single_base_nb_mean = known_rdr_normal.reshape(-1, 1) @ spots_coverage.reshape(1, -1)
     else:
         initial_clone_index_baf = None
+        known_single_base_nb_mean = None
 
         # NB equivalent to parse_visium::perform_partition
         # TODO (requires paste).
@@ -274,6 +289,30 @@ def run_cnaster(config_path, over_rides=None):
             x_part=config.phasing.npart_phasing,
             y_part=config.phasing.npart_phasing,
         )
+    """
+    # TODO HACK
+    prephase_X, prephase_base_nb_mean, prephase_total_bb_RD, _ = merge_pseudobulk_by_index_mix(
+        single_X,
+        known_single_base_nb_mean,
+        single_total_bb_RD,
+        initial_clone_index_baf,
+        single_tumor_prop,
+        threshold=config.hmrf.tumorprop_threshold,
+    )
+
+    # TODO HACK
+    plot_cna_mixture(
+        None,
+        None,
+        None,
+        None,
+        prephase_X,
+        prephase_base_nb_mean,
+        prephase_total_bb_RD,
+        prefix="pre_phasing",
+        max_rdr=10,
+    )
+    """
 
     logger.warning("Assuming (magic) five BAF states for phasing.")
 
@@ -380,6 +419,8 @@ def run_cnaster(config_path, over_rides=None):
 
     # TODO
     copy_single_X_rdr = copy.copy(single_X[:, 0, :])
+
+    # NB zeros
     copy_single_base_nb_mean = copy.copy(single_base_nb_mean)
 
     """
@@ -845,8 +886,6 @@ def run_cnaster(config_path, over_rides=None):
     # <<<<<<<<<<<<
     
     # NB >>>>>  determine normal baseline expression.
-    MIN_NORMAL_COUNT_PERBIN = config.quality.min_normal_count_perbin
-
     logger.info(
         f"Found sparsity of normal spot set={100. * np.mean(copy_single_X_rdr[:, (normal_candidate == True)]) == 0.:.3f}%"
     )
@@ -854,13 +893,13 @@ def run_cnaster(config_path, over_rides=None):
     # NB normal baseline transcript count; unnormalized.
     rdr_normal = np.sum(copy_single_X_rdr[:, (normal_candidate == True)], axis=1)
 
-    bidx_inconfident = np.where(rdr_normal < MIN_NORMAL_COUNT_PERBIN)[0]
+    bidx_inconfident = np.where(rdr_normal < config.quality.min_normal_count_perbin)[0]
 
     logger.info(
-        f"Found {100. * np.mean(rdr_normal >= MIN_NORMAL_COUNT_PERBIN):.3f}% of segments with confident normal baseline for MIN_NORMAL_COUNT_PERBIN={MIN_NORMAL_COUNT_PERBIN}"
+        f"Found {100. * np.mean(rdr_normal >= config.quality.min_normal_count_perbin):.3f}% of segments with confident normal baseline for MIN_NORMAL_COUNT_PERBIN={config.quality.min_normal_count_perbin}"
     )
 
-    # NB where normal transcript count < MIN_NORMAL_COUNT_PERBIN, zero.
+    # NB where normal transcript count < config.quality.min_normal_count_perbin, zero.
     rdr_normal[bidx_inconfident] = 0
 
     # NB normalized.
@@ -1591,6 +1630,9 @@ def run_cnaster(config_path, over_rides=None):
 
         opath = f"{config.paths.output_dir}/cnv{medfix[o]}_perstate.tsv"
         write_tsv(opath, state_cnv, header=True, index=False)
+
+        # TODO HACK
+        break
 
     # NB construct clone labels.
     df_clone_label = pd.DataFrame(

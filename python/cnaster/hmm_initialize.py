@@ -11,6 +11,8 @@ from cnaster.hmm_emission import (
     Weighted_BetaBinom_mix,
     Weighted_NegativeBinomial_mix,
     nloglikeobs_bb,
+    get_nbinom_start_params,
+    get_betabinom_start_params,
 )
 from cnaster.hmm_update import get_em_solver_params
 from cnaster.utils import top_hat_sum, cast_clone_label
@@ -194,6 +196,7 @@ def plot_cna_mixture(
     total_bb_RD,
     width=1,
     prefix="initial",
+    max_rdr=None,
 ):
     # NB base_nb_mean is zero until post-BAF normal identication; in which case,
     #    these will be NAN.
@@ -207,7 +210,7 @@ def plot_cna_mixture(
 
     if np.all(~valid):
         X_gmm_rdr[~valid] = np.random.normal(
-            loc=1.0, scale=0.25, size=np.count_nonzero(~valid)
+            loc=1.0, scale=0.01, size=np.count_nonzero(~valid)
         )
 
     # TODO clipping?
@@ -218,18 +221,26 @@ def plot_cna_mixture(
         ]
     ).T
 
-    if init_log_mu is not None:
-        init_mu = np.exp(init_log_mu)
-    else:
-        init_mu = np.ones_like(init_p_binom)
+    if init_p_binom is None:
+        init_p_binom, _ = get_betabinom_start_params() 
+        init_p_binom = np.tile(np.array(init_p_binom).reshape(-1, 1), (1, X.shape[2]))
 
+    if init_log_mu is None:
+        init_log_mu, _ = get_nbinom_start_params()
+        init_log_mu = np.array(init_log_mu).reshape(-1, 1)
+        init_log_mu = np.tile(init_log_mu, (1, X.shape[2]))
+        
     if init_alphas is None:
         config = get_global_config()
         init_alphas = config.nbinom.start_disp * np.ones_like(init_log_mu)
+        init_alphas = np.tile(init_alphas, (1, X.shape[2]))
 
     if init_taus is None:
         config = get_global_config()
         init_taus = config.betabinom.start_disp * np.ones_like(init_p_binom)
+        init_taus = np.tile(init_taus, (1, X.shape[2]))
+
+    init_mu = np.exp(init_log_mu)
 
     num_clones, num_segments = X.shape[2], X.shape[0]
 
@@ -280,6 +291,9 @@ def plot_cna_mixture(
     g.ax_joint.scatter(
         init_p_binom, init_mu, marker="*", facecolor="none", edgecolor="k", s=25
     )
+
+    if max_rdr is not None:
+        g.ax_joint.set_ylim(-1, max_rdr)
 
     xticks = np.arange(0.0, 1.05, 0.05)
     g.ax_joint.set_xticks(xticks)
@@ -363,8 +377,6 @@ def gmm_init(
     random_state=None,
     in_log_space=True,
     only_minor=True,
-    min_binom_prob=0.1,
-    max_binom_prob=0.9,
 ):
     logger.info(
         f"Initializing HMM emission with Gaussian Mixture Model assuming only_minor={only_minor}."
@@ -417,10 +429,13 @@ def gmm_init(
             [X[:, 1, s] / total_bb_RD[:, s] for s in range(X.shape[2])]
         ).T
 
+        min_binom_prob=float(get_global_config().hmm.gmm_min_binom_prob)
+        max_binom_prob=float(get_global_config().hmm.gmm_max_binom_prob)
+
         clipped = (X_gmm_baf < min_binom_prob) | (X_gmm_baf > max_binom_prob)
 
         logger.warning(
-            f"Clipping {np.mean(clipped):.4f} of BAF values to [{min_binom_prob}, {max_binom_prob}]."
+            f"Clipping {100. * np.mean(clipped):.4f} [%] of BAF values to [{min_binom_prob}, {max_binom_prob}]."
         )
 
         X_gmm_baf[X_gmm_baf < min_binom_prob] = min_binom_prob

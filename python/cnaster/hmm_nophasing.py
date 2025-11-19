@@ -352,6 +352,8 @@ class hmm_nophasing:
 
                     logmu_shift = np.vstack(logmu_shift)
 
+                    logger.info(f"Applying logmu_shift with median={np.median(logmu_shift)} and max={logmu_shift.max()}")
+                    
                     (
                         log_emission_rdr,
                         log_emission_baf,
@@ -420,6 +422,9 @@ class hmm_nophasing:
             if "s" in self.params:
                 new_log_startprob = update_startprob_nophasing(lengths, log_gamma)
                 new_log_startprob = new_log_startprob.flatten()
+
+                logger.info(f"Updated HMM start probability={new_log_startprob}")
+                
             else:
                 new_log_startprob = log_startprob
 

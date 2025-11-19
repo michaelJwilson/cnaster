@@ -1463,9 +1463,9 @@ def run_cnaster(config_path, over_rides=None):
             adjusted_log_mu = np.log(
                 np.exp(res_combine["new_log_mu"][:, s])
                 / np.sum(np.exp(res_combine["new_log_mu"][this_pred_cnv, s]) * lambd)
-            )
+            ) if False else res_combine["new_log_mu"][:, s] # TODO HACK BUG?
             
-            logger.info(f"Normalized log mu to sum_bin lambda * np.exp(log_mu) = 1.; yielding new mu={np.exp(adjusted_log_mu)} given mu={np.exp(res_combine["new_log_mu"][:, s])} for clone {s}.")
+            logger.info(f"For clone {cid}, normalized log mu to sum_bin lambda * np.exp(log_mu) = 1.; yielding new mu=\n{np.exp(adjusted_log_mu)}\ngiven mu=\n{np.exp(res_combine["new_log_mu"][:, s])}.")
 
             if max_medploidy is not None:
                 best_integer_copies, loss = hill_climbing_integer_copynumber_oneclone(
@@ -1476,35 +1476,22 @@ def run_cnaster(config_path, over_rides=None):
                     max_medploidy=max_medploidy,
                 )
             else:
-                try:
-                    (
-                        best_integer_copies,
-                        loss,
-                    ) = hill_climbing_integer_copynumber_fixdiploid(
-                        adjusted_log_mu,
-                        base_nb_mean[:, s],
-                        res_combine["new_p_binom"][:, s],
-                        this_pred_cnv,
-                        nonbalance_bafdist=config.int_copy_num.nonbalance_bafdist,
-                        nondiploid_rdrdist=config.int_copy_num.nondiploid_rdrdist,
-                    )
-                except:
-                    try:
-                        (
-                            best_integer_copies,
-                            loss,
-                        ) = hill_climbing_integer_copynumber_fixdiploid(
-                            adjusted_log_mu,
-                            base_nb_mean[:, s],
-                            res_combine["new_p_binom"][:, s],
-                            this_pred_cnv,
-                            nonbalance_bafdist=config.int_copy_num.nonbalance_bafdist,
-                            nondiploid_rdrdist=config.int_copy_num.nondiploid_rdrdist,
-                            min_prop_threshold=0.02,  # MAGIC
-                        )
-                    except:
-                        finding_distate_failed = True
-                        continue
+                (
+                    best_integer_copies,
+                    loss,
+                ) = hill_climbing_integer_copynumber_fixdiploid(
+                    adjusted_log_mu,
+                    base_nb_mean[:, s],
+                    res_combine["new_p_binom"][:, s],
+                    this_pred_cnv,
+                    nonbalance_bafdist=config.int_copy_num.nonbalance_bafdist,
+                    nondiploid_rdrdist=config.int_copy_num.nondiploid_rdrdist,
+                    # min_prop_threshold=0.02,  # MAGIC
+                )
+
+                # TODO HACK
+                # finding_distate_failed = True
+                # continue
 
             logger.info(
                 f"Solved for (max. med ploidy, clone) = ({max_medploidy}, {s}) with integer copy number loss = {loss:.4e}"

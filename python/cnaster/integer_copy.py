@@ -68,7 +68,7 @@ def hill_climbing_integer_copynumber_oneclone(
     max_allele_copy=5,
     max_total_copy=6,
     max_medploidy=4,
-    enforce_states={},
+    enforce_states={}, # MUTABLE DEFAULT
     EPS_BAF=0.05,
 ):
     n_states = len(new_log_mu)
@@ -110,7 +110,7 @@ def hill_climbing_integer_copynumber_oneclone(
             points_per_state, axis=0
         )
         return (
-            np.square(0.3 * (mu - frac_rdr)).dot(points_per_state)
+            np.square(0.3 * (mu - frac_rdr)).dot(points_per_state) # MAGIC
             + np.square(new_p_binom - frac_baf).dot(points_per_state)
             + np.sum(crucial_ordered_pairs_1) * len(pred_cnv)
             + np.sum(crucial_ordered_pairs_2) * len(pred_cnv)
@@ -125,6 +125,8 @@ def hill_climbing_integer_copynumber_oneclone(
         increased = True
         for counter in range(max_iter):
             increased = False
+
+            # NB loop over states
             for k in range(params.shape[0]):
                 if k in enforce_states:
                     continue
@@ -141,6 +143,9 @@ def hill_climbing_integer_copynumber_oneclone(
                 best_obj = this_best_obj
             if not increased:
                 break
+        else:
+            logger.warning(f"Reached max_iter={max_iter} of hill_climb")
+            
         return params, best_obj
 
     # candidate integer copy states
@@ -152,9 +157,13 @@ def hill_climbing_integer_copynumber_oneclone(
             if (not (i == 0 and j == 0)) and (i + j <= max_total_copy)
         ]
     )
+
+    logger.info(f"Solving for max ploidy={max_medploidy} and candidate states:\n{candidates}")
+    
     # find the best copy number states starting from various ploidy
     best_obj = np.inf
     best_integer_copies = np.zeros((n_states, 2), dtype=int)
+
     for ploidy in range(1, max_medploidy + 1):
         initial_params = np.ones((n_states, 2), dtype=int) * int(ploidy / 2)
         initial_params[:, 1] = ploidy - initial_params[:, 0]
@@ -179,7 +188,7 @@ def hill_climbing_integer_copynumber_fixdiploid(
     EPS_BAF=0.05,
     nonbalance_bafdist=None,
     nondiploid_rdrdist=None,
-    enforce_states={},
+    enforce_states={}, # MUTABLE DEFAULT
 ):
     EPS_POINTS = 0.1
 
@@ -249,6 +258,8 @@ def hill_climbing_integer_copynumber_fixdiploid(
                 best_obj = this_best_obj
             if not increased:
                 break
+        else:
+            logger.warning(f"Reached max_iter={max_iter} on hill_climb.")
         return params, best_obj
 
     # diploid normal state
@@ -268,6 +279,9 @@ def hill_climbing_integer_copynumber_fixdiploid(
             if (not (i == 0 and j == 0)) and (i + j <= max_total_copy)
         ]
     )
+
+    logger.info(f"Solving for max ploidy={max_medploidy} and candidate states:\n{candidates}")
+    
     # find the best copy number states starting from various ploidy
     best_obj = np.inf
     best_integer_copies = np.zeros((n_states, 2), dtype=int)

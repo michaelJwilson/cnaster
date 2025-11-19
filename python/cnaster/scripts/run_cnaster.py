@@ -1022,12 +1022,8 @@ def run_cnaster(config_path, over_rides=None):
             tol=config.hmm.tol,
             spatial_weight=config.hmrf.spatial_weight,
             tumorprop_threshold=config.hmrf.tumorprop_threshold,
-            init_p_binom=merged_res[
-                "new_p_binom"
-            ],  # HACK? BAF states known from BAF-only run.
-            init_log_mu=np.zeros_like(
-                merged_res["new_p_binom"]
-            ),  # HACK? BAF states known from BAF-only run.
+            init_p_binom=None, # merged_res["new_p_binom"],  # HACK? BAF states known from BAF-only run. # TODO init mus conditioned on known baf.
+            init_log_mu=None, # np.zeros_like(merged_res["new_p_binom"]),  # HACK? BAF states known from BAF-only run.  # TODO init mus conditioned on known baf.
         )
 
         clone_res[prefix] = merge_dicts(clone_res[prefix], new_clone_res)

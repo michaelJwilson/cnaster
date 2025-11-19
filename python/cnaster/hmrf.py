@@ -635,6 +635,7 @@ def hmrfmix_concatenate_pipeline(
     )
 
     if (init_log_mu is None) or (init_p_binom is None):
+        """
         new_init_log_mu, new_init_p_binom = gmm_init(
             n_states,
             clone_stack_X,
@@ -648,8 +649,8 @@ def hmrfmix_concatenate_pipeline(
 
         new_init_alphas = init_alphas
         new_init_taus = init_taus
-
         """
+
         new_init_log_mu, new_init_alphas, new_init_p_binom, new_init_taus = cna_mixture_init(
             n_states,
             clone_stack_X,
@@ -657,7 +658,7 @@ def hmrfmix_concatenate_pipeline(
             clone_stack_total_bb_RD,
             width=10,
         )
-        """
+
         if init_log_mu is None:
             init_log_mu = new_init_log_mu
             init_alphas = new_init_alphas
@@ -673,6 +674,22 @@ def hmrfmix_concatenate_pipeline(
             f"Plotting initial copy state mixture for instance {hmrfmix_concatenate_pipeline.call_count-1} with X.shape={X.shape}."
         )
 
+        X, base_nb_mean, total_bb_RD, tumor_prop
+
+        n_states = init_p_binom.shape[0]
+        
+        plot_cna_mixture(
+            np.tile(init_log_mu, n_clones).reshape(n_states, n_clones) if init_log_mu is not None else None,
+            np.tile(init_alphas, n_clones).reshape(n_states, n_clones) if init_alphas is not None else None,
+            np.tile(init_p_binom, n_clones).reshape(n_states, n_clones) if init_p_binom is not None else None,
+            np.tile(init_taus, n_clones).reshape(n_states, n_clones) if init_taus is not None else None,
+            X,
+            base_nb_mean,
+            total_bb_RD,
+            width=10,
+            prefix=f"instance{hmrfmix_concatenate_pipeline.call_count-1}",
+        )
+        
         plot_cna_mixture(
             init_log_mu,
             init_alphas,
@@ -684,7 +701,7 @@ def hmrfmix_concatenate_pipeline(
             width=10,
             prefix=f"instance{hmrfmix_concatenate_pipeline.call_count-1}_clone",
         )
-
+        
     last_log_mu = init_log_mu if "m" in params else None
     last_p_binom = init_p_binom if "p" in params else None
     last_alphas = init_alphas

@@ -159,7 +159,7 @@ def cna_mixture_init(
                     log_mu = np.vstack([log_mu, [[sample_ln_rdr]]])
                     p_binom = np.vstack([p_binom, [[sample_baf]]])
 
-                    if total_best_lnlike > solution_lnlike:
+                    if (len(log_mu) == n_states) and total_best_lnlike > solution_lnlike:
                         solution = [log_mu, alphas, p_binom, taus]
                         solution_lnlike = total_best_lnlike
 

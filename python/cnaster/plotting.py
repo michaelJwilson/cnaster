@@ -285,7 +285,7 @@ def plot_clones_genomic(
         # k = int(np.floor(np.log2(rdr_ylim)))
         # axes[2 * s].set_yticks(np.logspace(0, k, num=k + 1, base=2.0))
 
-        axes[2 * s].set_ylim([0, rdr_ylim])
+        axes[2 * s].set_ylim([-0.5, rdr_ylim])
         axes[2 * s].set_yticklabels([f"{y:.1f}" for y in axes[2 * s].get_yticks()])
         axes[2 * s].set_xlim([0, n_obs])
 
@@ -354,14 +354,25 @@ def plot_clones_genomic(
 
         if remove_xticks:
             axes[2 * s + 1].set_xticks([])
+            
         for i, seg in enumerate(segments):
+            for to_plot in np.arange(-0.5, rdr_ylim, .5):
+                axes[2 * s].plot(
+                    seg,
+                    [
+                        to_plot,
+                        to_plot,
+                    ],
+                    c="lightgray",
+                    linewidth=0.5,
+                )
             axes[2 * s].plot(
                 seg,
                 [
                     np.exp(res_combine["new_log_mu"][labs[i], c]),
                     np.exp(res_combine["new_log_mu"][labs[i], c]),
                 ],
-                c="black",
+                c="k",
                 linewidth=0.5,
             )
             axes[2 * s + 1].plot(
@@ -370,7 +381,7 @@ def plot_clones_genomic(
                     res_combine["new_p_binom"][labs[i], c],
                     res_combine["new_p_binom"][labs[i], c],
                 ],
-                c="black",
+                c="k",
                 linewidth=0.5,
             )
 
@@ -381,10 +392,21 @@ def plot_clones_genomic(
                     1.0 - res_combine["new_p_binom"][labs[i], c],
                     1.0 - res_combine["new_p_binom"][labs[i], c],
                 ],
-                c="black",
+                c="k",
                 linewidth=0.5,
                 linestyle="--",
             )
+
+            for to_plot in np.arange(0., 1.1, .1):
+                axes[2 * s + 1].plot(
+                    seg,
+                    [
+                        to_plot,
+			to_plot,
+                    ],
+                    c="lightgray",
+                    linewidth=0.5,
+                )
 
         # TODO filter based on clone aggregated hue.
         legend_elements = [

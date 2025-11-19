@@ -303,7 +303,7 @@ def get_sample_estimate_pd(root, sample_id, method, rectangle, cna_only=False):
     spot_to_clone = dict(zip(clones["barcode"], clones["clone"].astype(int)))
 
     calls = pd.read_csv(
-        f"{parent}/cnv_seglevel.tsv",
+        f"{parent}/cnv_diploid_seglevel.tsv",
         sep="\t",
     ).rename(columns={"CHR": "Chromosome", "START": "Start", "END": "End"})
 
@@ -372,11 +372,11 @@ def get_sample_estimate(root, sample_id, method, rectangle, cna_only=False):
     )
 
     logger.info(
-        f"Solving for calls: {parent}/cnv_seglevel.tsv"
+        f"Solving for calls: {parent}/cnv_diploid_seglevel.tsv"
     )
 
     calls = pl.read_csv(
-        f"{parent}/cnv_seglevel.tsv",
+        f"{parent}/cnv_diploid_seglevel.tsv",
         separator="\t",
     ).rename({"CHR": "Chromosome", "START": "Start", "END": "End"})
 
@@ -753,8 +753,8 @@ def main():
 
     gene_ranges = read_gene_ranges()
 
-    method = "cnaster"
-    # method = "calicost"
+    # method = "cnaster"
+    method = "calicost"
 
     # "numcnas1.2_cnasize1e7_ploidy2_random0",
     # "numcnas3.3_cnasize3e7_ploidy2_random0",

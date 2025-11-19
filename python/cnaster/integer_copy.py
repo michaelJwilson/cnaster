@@ -106,17 +106,21 @@ def hill_climbing_integer_copynumber_oneclone(
         crucial_ordered_pairs_2 = (mu[:, None] - mu[None, :] < -mu_threshold) * (
             total_copies[:, None] - total_copies[None, :] > 0
         )
+        
+        # DEPRECATE
         # NB penalty on setting unbalanced states when BAF is close to 0.5
-        if np.sum(params[:, 0] == params[:, 1]) > 0:
-            baf_threshold = max(
-                EPS_BAF,
-                np.max(np.abs(new_p_binom[(params[:, 0] == params[:, 1])] - 0.5)),
-            )
+        # if np.sum(params[:, 0] == params[:, 1]) > 0:
+        #    baf_threshold = max(
+        #        EPS_BAF,
+        #        np.max(np.abs(new_p_binom[(params[:, 0] == params[:, 1])] - 0.5)),
+        #    )
+        #
+        #    logger.warning(f"Assumed baf_threshold={baf_threshold} due to {np.sum(params[:, 0] == params[:, 1])} balanced param states")
 
-            logger.warning(f"Assumed baf_threshold={baf_threshold} due to {np.sum(params[:, 0] == params[:, 1])} balanced param states")
+        # else:
+        #     baf_threshold = EPS_BAF
 
-        else:
-            baf_threshold = EPS_BAF
+        baf_threshold = EPS_BAF
 
         unbalanced_penalty = (params[:, 0] != params[:, 1]).dot(
             np.abs(new_p_binom - 0.5) < baf_threshold

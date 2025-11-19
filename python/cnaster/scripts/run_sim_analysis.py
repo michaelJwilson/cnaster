@@ -753,8 +753,8 @@ def main():
 
     gene_ranges = read_gene_ranges()
 
-    # method = "cnaster"
-    method = "calicost"
+    method = "cnaster"
+    # method = "calicost"
 
     # "numcnas1.2_cnasize1e7_ploidy2_random0",
     # "numcnas3.3_cnasize3e7_ploidy2_random0",

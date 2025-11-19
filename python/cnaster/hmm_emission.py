@@ -227,7 +227,7 @@ def nloglikeobs_nb(
     if prior:
         # TODO tumor prop
         result -= rdr_prior_eval(exog @ np.exp(params[:-1]), sigma=None)
-
+        
     if reduce:
         result = result.dot(weights)
         assert not np.isnan(result), f"{params}: {result}"
@@ -323,7 +323,6 @@ class Weighted_NegativeBinomial_mix:
     exposure : array, (n_samples,)
         Multiplication constant outside the exponential term. In scRNA-seq or SRT data, this term is the total UMI count per cell/spot.
     """
-
     def __init__(
         self,
         endog,
@@ -333,6 +332,7 @@ class Weighted_NegativeBinomial_mix:
         tumor_prop=None,
         compress=True,
         seed=0,
+            max_rdr=6.,
         **kwargs,
     ):
         exog = exog.copy()
@@ -350,6 +350,20 @@ class Weighted_NegativeBinomial_mix:
         self.compress = False
         self.num_states = self.exog.shape[-1]
 
+        # TODO HACK
+        if np.mean(exposure == 0.0) > 0.:
+            logger.warning(f"Removing posterior weight of {100. * np.mean(exposure == 0.0):.3f} [%] data with zero exposure.")
+
+            # TODO HACK renormalize?
+            self.weights[exposure == 0.0] = 0.0
+        
+        # TODO HACK                                                                                                                                                                                                                                                                                                
+        if max_rdr is not None:
+            logger.warning(f"Assuming max_rdr={max_rdr}, which removes {100. * np.mean(endog > max_rdr * exposure):.3f} [%]")
+
+            # TODO HACK renormalize?
+            self.weights[endog > max_rdr * exposure] = 0.0
+        
         if tumor_prop is not None:
             logger.warning(
                 f"{self.__class__.__name__} compression is not supported for tumor_prop != None."

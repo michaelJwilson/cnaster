@@ -1,6 +1,7 @@
 import copy
 import numpy as np
 import logging
+from cnaster.config import get_global_config
 
 logger = logging.getLogger(__name__)
 
@@ -75,37 +76,55 @@ def hill_climbing_integer_copynumber_oneclone(
     max_medploidy=4,
     enforce_states={}, # MUTABLE DEFAULT
     EPS_BAF=0.05,
+    expression_weight=False,
 ):
     n_states = len(new_log_mu)
-    lambd = base_nb_mean / np.sum(base_nb_mean)
+
+    logger.info(f"Assuming expression weight={expression_weight}.")
+
+    if not expression_weight:
+        lambd = base_nb_mean / np.sum(base_nb_mean)
+    else:
+        lambd = np.ones_like(lambd) / len(lambd)
+    
     weight_per_state = np.array([np.sum(lambd[pred_cnv == s]) for s in range(n_states)])
+
+    logger.info(f"Found weight per state:\n{weight_per_state}")
+
     mu = np.exp(new_log_mu)
 
     EPS_POINTS = 0.1
     points_per_state = np.bincount(pred_cnv, minlength=n_states) + EPS_POINTS
     points_per_state_norm = np.sum(points_per_state, axis=0)
 
+    config = get_global_config()
+    rdr_weight = float(config.int_copy_num.rdr_weight)
     mu_threshold = 0.3
 
-    logger.info(f"Solving for mu, p_binom and points per state=\n{np.vstack((mu, new_p_binom, points_per_state))}")
+    idx_diploid_normal = find_diploid_balanced_state(
+        new_log_mu,
+        new_p_binom,
+        pred_cnv,
+        min_prop_threshold=0.25,
+        EPS_BAF=EPS_BAF,
+    )
 
-    def f(params, ploidy):
+    scalefactor = 2.0 / mu[idx_diploid_normal]
+
+    def f(params, ploidy, order_penalty=False, unbalanced_penalty=False,):
         total_copies = np.sum(params, axis=1)
 
         # params of size (n_states, 2)
         if np.any(total_copies == 0):
             return len(pred_cnv) * 1e6
+        
         denom = weight_per_state.dot(total_copies)
-        frac_rdr = total_copies / denom
-        frac_baf = params[:, 0] / total_copies
 
-        ### temp penalty ###
-        crucial_ordered_pairs_1 = (mu[:, None] - mu[None, :] > mu_threshold) * (
-            total_copies[:, None] - total_copies[None, :] < 0
-        )
-        crucial_ordered_pairs_2 = (mu[:, None] - mu[None, :] < -mu_threshold) * (
-            total_copies[:, None] - total_copies[None, :] > 0
-        )
+        # TODO HACK
+        # frac_rdr = total_copies / denom
+        frac_rdr = total_copies / 2.0
+
+        frac_baf = params[:, 0] / total_copies
         
         # DEPRECATE
         # NB penalty on setting unbalanced states when BAF is close to 0.5
@@ -120,23 +139,35 @@ def hill_climbing_integer_copynumber_oneclone(
         # else:
         #     baf_threshold = EPS_BAF
 
-        baf_threshold = EPS_BAF
-
-        unbalanced_penalty = (params[:, 0] != params[:, 1]).dot(
-            np.abs(new_p_binom - 0.5) < baf_threshold
-        )
-        # penalty on ploidy
         derived_ploidy = total_copies.dot(points_per_state) / points_per_state_norm
 
-        return (
-            np.square(0.3 * (mu - frac_rdr)).dot(points_per_state) # MAGIC
+        result =  (
+            np.square(rdr_weight * (mu - frac_rdr)).dot(points_per_state)
             + np.square(new_p_binom - frac_baf).dot(points_per_state)
-            + np.sum(crucial_ordered_pairs_1) * len(pred_cnv)
-            + np.sum(crucial_ordered_pairs_2) * len(pred_cnv)
             + np.sum(derived_ploidy > ploidy + 0.5) * len(pred_cnv)
-            + unbalanced_penalty * len(pred_cnv)
         )
-        ### end temp penalty ###
+
+        if order_penalty:
+            crucial_ordered_pairs_1 = (mu[:, None] - mu[None, :] > mu_threshold) * (
+                total_copies[:, None] - total_copies[None, :] < 0
+            )
+
+            crucial_ordered_pairs_2 = (mu[:, None] - mu[None, :] < -mu_threshold) * (
+                total_copies[:, None] - total_copies[None, :] > 0
+            )
+
+            result += np.sum(crucial_ordered_pairs_1) * len(pred_cnv)
+            result += np.sum(crucial_ordered_pairs_2) * len(pred_cnv)
+
+        if unbalanced_penalty:
+            baf_threshold = EPS_BAF
+
+            unbalanced_penalty = (params[:, 0] != params[:, 1]).dot(
+                np.abs(new_p_binom - 0.5) < baf_threshold
+            )
+            result += unbalanced_penalty * len(pred_cnv)
+
+        return result
 
     def hill_climb(initial_params, ploidy, max_iter=10):
         best_obj = f(initial_params, ploidy)
@@ -167,7 +198,7 @@ def hill_climbing_integer_copynumber_oneclone(
             
         return params, best_obj
 
-    # candidate integer copy states
+    # NB candidate integer copy states
     candidates = np.array(
         [
             [i, j]
@@ -194,6 +225,11 @@ def hill_climbing_integer_copynumber_oneclone(
             best_integer_copies = copy.copy(params)
 
             logger.info(f"Found best solution with cost={best_obj:.6f} and integer copies:\n{best_integer_copies}") 
+
+    logger.info(f"Solved for mu, p_binom, points per stat and integer copies= with best cost={best_obj:.6f}\n") 
+    
+    for m, p, pts, best_copy in zip(mu, new_p_binom, points_per_state, best_integer_copies):
+        logger.info(f"\t{m:7.4f}\t{p:7.4f}\t{pts:8.1f}\t{tuple(best_copy)}")
 
     return best_integer_copies, best_obj
 
@@ -225,7 +261,10 @@ def hill_climbing_integer_copynumber_fixdiploid(
     valid_ordered_mu = (mu[:, None] - mu[None, :] > mu_threshold)
     valid_ordered_mu_minus = (mu[:, None] - mu[None, :] < -mu_threshold)
 
-    logger.info(f"Solving for mu, p_binom and points per state=\n{np.vstack((mu, new_p_binom, points_per_state))}")
+    logger.info(f"Solving for mu, p_binom and points per state=\n") 
+    
+    for m, p, pts in zip(mu, new_p_binom, points_per_state):
+        logger.info(f"\t{m:.4f}\t{p:.4f}\t{pts:.1f}")
 
     def is_nondiploidnormal(k):
         """
@@ -377,6 +416,9 @@ def hill_climbing_integer_copynumber_fixdiploid(
                 
                 # logger.info(f"Found new best solution with ploidy={ploidy}, cost={best_obj:.6f} and integer copies:\n{best_integer_copies}")
 
-    logger.info(f"Found best solution with cost={best_obj:.6f} and integer copies:\n{best_integer_copies}")
+    logger.info(f"Solved for mu, p_binom, points per stat and integer copies with best cost={best_obj:.6f}=\n") 
+    
+    for m, p, pts, best_copy in zip(mu, new_p_binom, points_per_state, best_integer_copies):
+        logger.info(f"\t{m:7.4f}\t{p:7.4f}\t{pts:8.1f}\t{tuple(best_copy)}")
 
     return best_integer_copies, best_obj

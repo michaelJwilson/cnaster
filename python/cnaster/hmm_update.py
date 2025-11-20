@@ -541,7 +541,6 @@ def update_emission_params_nb_nophasing_uniqvalues(
                     l1 = int(np.sum([len(x) for x in state_posweights[:s]]))
                     l2 = int(np.sum([len(x) for x in state_posweights[: (s + 1)]]))
 
-                    # NB (n_states, n_spots)?  n_spots = n_clones? TBC
                     new_log_mu[idx_state_posweight, s] = res.params[l1:l2]
 
                 if res.params[-1] > 0:

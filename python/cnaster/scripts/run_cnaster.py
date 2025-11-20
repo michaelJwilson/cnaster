@@ -831,6 +831,7 @@ def run_cnaster(config_path, over_rides=None):
     else:
         logger.warning(f"Assuming no filter for normal differential expression.")
         
+    """    
     summarize_blocks(
         df_gene_snp,
         adata,
@@ -840,6 +841,7 @@ def run_cnaster(config_path, over_rides=None):
         block_key="bin_id",
         normal_candidates=normal_candidate,
     )
+    """
 
     # TODO HACK >>>>>>  do not filter, but merge segments, with insufficient normal umi counts.
     df_gene_snp = create_bin_ranges(
@@ -1292,7 +1294,7 @@ def run_cnaster(config_path, over_rides=None):
             ).T
 
             # TODO!!
-            new_assignment, single_llf, total_llf, posterior = aggr_hmrf_reassignment(
+            new_assignment, _, total_llf, posterior = aggr_hmrf_reassignment(
                 single_X,
                 single_base_nb_mean,
                 single_total_bb_RD,
@@ -1408,8 +1410,6 @@ def run_cnaster(config_path, over_rides=None):
     # NB infer integer allele-specific copy numbers
     final_clone_ids = np.sort(np.unique(res_combine["new_assignment"]))
 
-    nonempty_clone_ids = copy.copy(final_clone_ids)
-
     # NB add normal clone as 0 if not present
     if 0 not in final_clone_ids:
         final_clone_ids = np.append(0, final_clone_ids)
@@ -1456,8 +1456,16 @@ def run_cnaster(config_path, over_rides=None):
                 logger.warning("Final clone {cid} has no assigned transcripts!")
                 continue
 
-            lambd = base_nb_mean[:, s] / np.sum(base_nb_mean[:, s])
+            # lambd = base_nb_mean[:, s] / np.sum(base_nb_mean[:, s])
             this_pred_cnv = res_combine["pred_cnv"][:, s]
+
+            # NB log state usage
+            us, cnts = np.unique(this_pred_cnv, return_counts=True)
+
+            # TODO HACK
+            logger.info(
+                f"Found state usage for clone {cid}:\n{pd.DataFrame({'state': us, 'counts': cnts})}"
+            )
 
             # NB adjust log_mu such that sum_bin lambda * np.exp(log_mu) = 1.
             adjusted_log_mu = np.log(
@@ -1500,7 +1508,31 @@ def run_cnaster(config_path, over_rides=None):
             # NB best integer copies for each clone and each ploidy.
             allele_specific_copy.append(
                 pd.DataFrame(
-                    best_integer_copies[res_combine["pred_cnv"][:, s], 0].reshape(
+                    this_pred_cnv.reshape(1, -1),
+                    index=[f"clone{cid} Z"],
+                    columns=np.arange(n_obs),
+                )
+            )
+
+            allele_specific_copy.append(
+                pd.DataFrame(
+                    res_combine["new_log_mu"][this_pred_cnv, s].reshape(1, -1),
+                    index=[f"clone{cid} logmu"],
+                    columns=np.arange(n_obs),
+                )
+            )
+
+            allele_specific_copy.append(
+                pd.DataFrame(
+                    res_combine["new_p_binom"][this_pred_cnv, s].reshape(1, -1),
+                    index=[f"clone{cid} p"],
+                    columns=np.arange(n_obs),
+                )
+            )
+
+            allele_specific_copy.append(
+                pd.DataFrame(
+                    best_integer_copies[this_pred_cnv, 0].reshape(
                         1, -1
                     ),
                     index=[f"clone{cid} A"],
@@ -1509,7 +1541,7 @@ def run_cnaster(config_path, over_rides=None):
             )
             allele_specific_copy.append(
                 pd.DataFrame(
-                    best_integer_copies[res_combine["pred_cnv"][:, s], 1].reshape(
+                    best_integer_copies[this_pred_cnv, 1].reshape(
                         1, -1
                     ),
                     index=[f"clone{cid} B"],
@@ -1583,9 +1615,9 @@ def run_cnaster(config_path, over_rides=None):
             logger.warning(f"Found empty state integer copy numbers for clone{s}!")
             continue
 
-        logger.info(
-            f"Solved for integer copy numbers @ genes:\n{df_genelevel_cnv.head()}"
-        )
+        # logger.info(
+        #     f"Solved for integer copy numbers @ genes:\n{df_genelevel_cnv.head()}"
+        # )
 
         opath = f"{config.paths.output_dir}/cnv{medfix[o]}_genelevel.tsv"
 
@@ -1603,6 +1635,13 @@ def run_cnaster(config_path, over_rides=None):
         )
         df_seglevel_cnv = df_seglevel_cnv.join(allele_specific_copy.T)
 
+        a_cols = [c for c in df_seglevel_cnv.columns if c.endswith(" A")]
+        b_cols = [c.replace(" A", " B") for c in a_cols]
+        mask = (
+            df_seglevel_cnv[a_cols].ne(1) |
+            df_seglevel_cnv[b_cols].ne(1)
+        ).any(axis=1)
+
         with pd.option_context(
             "display.expand_frame_repr", False,
             "display.max_columns", None,
@@ -1611,13 +1650,11 @@ def run_cnaster(config_path, over_rides=None):
         ):
             logger.info(
                 "Solved for integer copy numbers @ segments:\n%s",
-                df_seglevel_cnv.head().to_string(index=False),
+                df_seglevel_cnv[mask].to_string(index=False),
             )
 
         opath = f"{config.paths.output_dir}/cnv{medfix[o]}_seglevel.tsv"
         write_tsv(opath, df_seglevel_cnv, header=True, index=False)
-
-        logger.info(f"Solved for integer copy numbers @ states:\n{state_cnv}")
 
         # NB output per-state copy number
         state_cnv = functools.reduce(
@@ -1626,6 +1663,17 @@ def run_cnaster(config_path, over_rides=None):
             ),
             state_cnv,
         )
+
+        with pd.option_context(
+            "display.expand_frame_repr", False,
+            "display.max_columns", None,
+            "display.width", None,
+            "display.max_colwidth", None,
+        ):
+            logger.info(
+                "Solved for integer copy numbers @ states:\n%s",
+                state_cnv.to_string(index=False),
+            )
 
         opath = f"{config.paths.output_dir}/cnv{medfix[o]}_perstate.tsv"
         write_tsv(opath, state_cnv, header=True, index=False)

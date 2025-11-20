@@ -65,7 +65,8 @@ def get_full_palette(palette="tab20b"):
     ]
 
     ordered_acn = get_ordered_acn()
-
+    ordered_acn_rev = [xx[::-1] for xx in ordered_acn]
+    
     # TODO HACK
     colors = sns.color_palette("tab20b", len(ordered_acn)).as_hex()
     # np.random.shuffle(colors)
@@ -207,16 +208,6 @@ def plot_clones_genomic(
         f"Found non-empty clones: {nonempty_clones} for final_clone_ids={final_clone_ids}"
     )
 
-    # TODO HACK
-    config = get_global_config()
-    secondary_min_umi = config.quality.secondary_min_umi
-    
-    valid = np.sum(total_bb_RD, axis=-1) > 0
-
-    logger.info(
-        f"Found valid fraction of {np.mean(valid):.3f} for secondary_min_umi filter."
-    )
-
     for s, c in enumerate(nonempty_clones):
         cid = final_clone_ids[c]
 
@@ -238,7 +229,7 @@ def plot_clones_genomic(
             )
             palette = sns.color_palette(colors)
             logger.info(
-                f"Assuming chisel, found unique copy number states: {set([(major[i], minor[i]) for i in range(len(major))])} and unique categories {hue.unique()}"
+                f"Assuming chisel, for clone {c} found unique copy number states: {set([(major[i], minor[i]) for i in range(len(major))])} and unique categories {hue.unique()}"
             )
         else:
             hue = pd.Categorical(
@@ -248,35 +239,30 @@ def plot_clones_genomic(
             )
             palette = palette
             logger.info(
-                f"Found unique copy number states: {np.unique(res_combine["pred_cnv"][:, c])} and unique categories {hue.unique()}"
+                f"For clone {c} found unique copy number states: {np.unique(res_combine["pred_cnv"][:, c])} and unique categories {hue.unique()}"
             )
-
-        rd = base_nb_mean[valid, c].astype(float)
-        rd = np.nan_to_num(rd, nan=0.0, posinf=0.0, neginf=0.0)
-
-        if rd.max() > 0:
-            alpha = rd / np.median(base_nb_mean[np.isfinite(base_nb_mean)])
-            alpha = np.clip(alpha, None, 1.0)
-            alpha[alpha < 0.2] = 0.3
-        else:
-            alpha = np.zeros_like(rd)
-
-        # map hue categories to base RGB colors, then inject per-point alpha
-        codes = hue.codes[valid]
-        base_colors = np.array(
-            [mcolors.to_rgba(palette[i]) if i >= 0 else (0, 0, 0, 1.0) for i in codes],
-            dtype=float,
-        )
-        base_colors[:, 3] = alpha
-
+        """
         axes[2 * s].scatter(
-            x=np.arange(X[:, 1, c].shape[0])[valid],  # NB integer per segment.
-            y=X[valid, 0, c]
-            / base_nb_mean[valid, c],  # NB UMIs relative to normal baseline.
-            c=base_colors,
+            x=np.arange(X[:, 1, c].shape[0]),  # NB integer per segment.
+            y=X[:, 0, c]
+            / base_nb_mean[:, c],  # NB UMIs relative to normal baseline.
+            hue=hue,
+            palette = palette,
             s=pointsize,
             edgecolor="none",
             linewidth=linewidth,
+        )
+        """
+
+        sns.scatterplot(
+            x=np.arange(X[:, 1, c].shape[0]),  # NB integer per segment.
+            y=X[:, 0, c] / base_nb_mean[:, c],  # NB UMIs relative to normal baseline.
+            hue=hue,
+            palette=palette,
+            s=pointsize,
+            edgecolor="none",
+            linewidth=linewidth,
+            ax=axes[2 * s],
         )
 
         # axes[2 * s].set_yscale("linlog", threshold=1.0, base=2.0)
@@ -320,6 +306,7 @@ def plot_clones_genomic(
             ax=axes[2 * s + 1],
         )
 
+        """
         sd = total_bb_RD[:, c]
         sd = np.nan_to_num(sd, nan=0.0, posinf=0.0, neginf=0.0)
 
@@ -337,14 +324,28 @@ def plot_clones_genomic(
             dtype=float,
         )
         base_colors[:, 3] = alpha
-
+        """
+        """
         axes[2 * s + 1].scatter(
             x=np.arange(X[:, 1, c].shape[0]),  # NB integer per segment.
             y=X[:, 1, c] / total_bb_RD[:, c],  # NB BAF.
-            c=base_colors,
+            hue=hue,
+            palette=palette,
             s=pointsize,
             edgecolor="none",
             linewidth=linewidth,
+        )
+        """
+        sns.scatterplot(
+            x=np.arange(X[:, 1, c].shape[0]),  # NB integer per segment.                                                                                                                                                                                                                            
+            y=X[:, 1, c] / total_bb_RD[:, c],  # NB BAF.                                                                                                                                                                                                                                            
+            hue=hue,
+            palette=palette,
+            s=pointsize,
+            edgecolor="none",
+            alpha=0.8,
+            legend=False,
+            ax=axes[2 * s + 1],
         )
 
         axes[2 * s + 1].set_ylabel(f"\nBAF")

@@ -107,6 +107,12 @@ def np_sum_ax_squeeze(arr, axis=0):
 
 def convert_params(mean, std):
     p = mean / std**2
+
+    # TODO HACK
+    if np.any(p >= 1.):
+        logger.warning(f"Found p >= 1, clipping to below one.")
+        p = np.clip(p, a_min=None, a_max=1. - np.finfo(np.float64).eps)
+        
     n = mean * p / (1.0 - p)
 
     return n, p

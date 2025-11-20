@@ -78,12 +78,12 @@ def cna_mixture_init(
     solution, solution_lnlike = None, -np.inf
 
     if known_normal_frac > 0.0:
-        grid_alphas = np.logspace(-3, -1, num=3, base=10.0)
+        grid_alphas = np.logspace(-2, -1, 3, base=10.0)
     else:
         # TODO HACK
         grid_alphas = np.array([1.0e-2])
 
-    grid_taus = np.logspace(1, 3, 3)
+    grid_taus = np.logspace(2, 3, 3, base=10.0)
 
     num_to_solve = len(grid_alphas) * len(grid_taus) * max_iter
     num_solved = 0

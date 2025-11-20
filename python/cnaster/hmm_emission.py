@@ -210,6 +210,7 @@ def nloglikeobs_nb(
     tumor_prop=None,
     prior=False,
     reduce=True,
+    most_populated_state=None,
 ):
     if tumor_prop is None:
         nb_mean = exog @ np.exp(params[:-1]) * exposure
@@ -218,7 +219,12 @@ def nloglikeobs_nb(
             tumor_prop * exog @ np.exp(params[:-1]) + (1.0 - tumor_prop)
         )
 
-    nb_std = np.sqrt(nb_mean + params[-1] * nb_mean**2)
+    # NB most populated state by weight.
+    if most_populated_state is not None:
+        nb_std = np.sqrt(nb_mean + params[-1] * (np.exp(params[most_populated_state]) * exposure)**2)
+    else:
+        nb_std = np.sqrt(nb_mean + params[-1] * nb_mean**2)
+
     n, p = convert_params(nb_mean, nb_std)
 
     result = -scipy.stats.nbinom.logpmf(endog, n, p)
@@ -332,7 +338,7 @@ class Weighted_NegativeBinomial_mix:
         tumor_prop=None,
         compress=True,
         seed=0,
-            max_rdr=6.,
+        max_rdr=5., # TODO HACK MAGIC
         **kwargs,
     ):
         exog = exog.copy()
@@ -357,13 +363,23 @@ class Weighted_NegativeBinomial_mix:
             # TODO HACK renormalize?
             self.weights[exposure == 0.0] = 0.0
         
-        # TODO HACK                                                                                                                                                                                                                                                                                                
+        # TODO HACK
         if max_rdr is not None:
             logger.warning(f"Assuming max_rdr={max_rdr}, which removes {100. * np.mean(endog > max_rdr * exposure):.3f} [%]")
 
             # TODO HACK renormalize?
             self.weights[endog > max_rdr * exposure] = 0.0
-        
+            
+        # TODO HACK
+        state_assignment = np.argmax(self.exog, axis=-1)
+        state_weights = []
+
+        for state_idx in range(self.num_states):
+            state_mask = (state_assignment == state_idx)
+            state_weights.append(np.sum(self.weights[state_mask]))
+
+        self.most_populated_state = np.argmax(state_weights)
+            
         if tumor_prop is not None:
             logger.warning(
                 f"{self.__class__.__name__} compression is not supported for tumor_prop != None."
@@ -413,6 +429,7 @@ class Weighted_NegativeBinomial_mix:
             params,
             tumor_prop=self.tumor_prop,
             reduce=reduce,
+            most_populated_state=self.most_populated_state,
         )
 
     def get_bounds(self, params):
@@ -434,7 +451,7 @@ class Weighted_NegativeBinomial_mix:
         return bounds
 
     def fit(
-        self, start_params=None, maxiter=10_000, maxfun=5_000, legacy=False, **kwargs
+        self, start_params=None, maxiter=10_000, maxfun=5_000, legacy=False, clip_percentile=None, **kwargs
     ):
         using_default_params = start_params is None
 
@@ -452,7 +469,7 @@ class Weighted_NegativeBinomial_mix:
         start_time = time.time()
 
         logger.info(
-            f"Weighted_NegativeBinomial_mix (compress={self.compress}, num_states={self.num_states}, endog_shape={self.endog.shape}) initial -ln likelihood={self.nloglikeobs(start_params):.6e} @ start_params:\n{start_params}"
+            f"Weighted_NegativeBinomial_mix (compress={self.compress}, num_states={self.num_states}, endog_shape={self.endog.shape}) initial -ln likelihood={self.nloglikeobs(start_params):.6e} @ start_params:\n{[xx for xx in start_params]}"
         )
 
         bounds = self.get_bounds(start_params)
@@ -462,6 +479,53 @@ class Weighted_NegativeBinomial_mix:
             "ftol": kwargs.get("ftol", None),
             "disp": kwargs.get("disp", False),
         }
+
+        if clip_percentile is not None and not using_default_params:
+            obs_nll = nloglikeobs_nb(
+                self.endog,
+                self.exog,
+                self.weights,
+                self.exposure,
+                start_params,
+                tumor_prop=self.tumor_prop,
+                reduce=False,
+            )
+
+            state_assignment = np.argmax(self.exog, axis=-1)
+            total_clipped = 0
+
+            for state_idx in range(self.num_states):
+                state_mask = (state_assignment == state_idx)
+                state_weight = np.sum(self.weights[state_mask])
+                
+                state_nlls = obs_nll[state_mask]
+                
+                threshold = np.percentile(state_nlls, clip_percentile)
+
+                clip_mask = state_mask & (obs_nll > threshold)
+                n_clipped = np.sum(clip_mask)
+                
+                # TODO HACK self.weights renormalization? self.clipped_weights ...                            
+                self.weights[clip_mask] = 0.0
+
+                clipped_state_weights = np.sum(self.weights[state_mask])
+                total_clipped += n_clipped
+
+                logger.info(f"Clipped state {state_idx} with weight {state_weight:.2f} to {100. * clipped_state_weights / state_weight:.2f} [%] of original.")
+                    
+            logger.warning(
+                f"Clipped @ {clip_percentile}[%] percentile with -ln likelihood={self.nloglikeobs(start_params):.6e} @ start_params:\n{[xx for xx in start_params]}"
+            )
+
+        # TODO HACK
+        state_assignment = np.argmax(self.exog, axis=-1)
+        state_weights = []
+
+        for state_idx in range(self.num_states):
+            state_mask = (state_assignment == state_idx)
+            state_weights.append(np.sum(self.weights[state_mask]))
+
+        self.most_populated_state = np.argmax(state_weights)
 
         result = scipy.optimize.minimize(
             self.nloglikeobs,

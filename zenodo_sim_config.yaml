@@ -1,7 +1,7 @@
 # NB mirrors original @ /n/fs/ragr-data/users/congma/Datasets/CalicoST_simulation/nomixing_calicost_related/numcnas1.2_cnasize1e7_ploidy2_random0/parsed_inputs/
 paths:
   sample_sheet : zenodo_sample_sheet.tsv
-  output_dir : /u/mw9568/scratch/calicost_sims/nomixing_calicost_related/numcnas1.2_cnasize1e7_ploidy2_random0/
+  output_dir : /Users/mw9568/Work/ragr/sim/nomixing_cnaster_related/numcnas1.2_cnasize1e7_ploidy2_random0/
 
 # tumorprop_file : /n/fs/scratch/mw9568/cnaster/loh_estimator_tumor_prop.tsv
 preprocessing:
@@ -9,39 +9,45 @@ preprocessing:
   tumorprop_file : None
 
 annotation:
-  clone_label : /u/mw9568/scratch/calicost_sims/simulated_data_related/numcnas1.2_cnasize1e7_ploidy2_random0/truth_clone_labels.tsv
+  clone_label : /Users/mw9568/Work/ragr/sim/simulated_data_related/numcnas1.2_cnasize1e7_ploidy2_random0/truth_clone_labels.tsv
+  true_cnv : /Users/mw9568/Work/ragr/sim/simulated_data_related/numcnas1.2_cnasize1e7_ploidy2_random0/truth_acn_profile.tsv
 
 run:
   bafonly : False
 
 references:
-  geneticmap_file : /u/mw9568/research/data/references/genetic_map_GRCh38_merged.tab.gz
-  hgtable_file : /u/mw9568/research/data/references/hgTables_hg38_gencode.txt
-  annotation_file: /u/mw9568/scratch/annotation/gencode.v49.basic.annotation.gtf.gz 
-  filtergenelist_file : /u/mw9568/research/data/references/ig_gene_list.txt
-  filterregion_file : /u/mw9568/research/data/references/HLA_regions.bed
+  geneticmap_file : /Users/mw9568/repos/CalicoST/GRCh38_resources/genetic_map_GRCh38_merged.tab.gz
+  hgtable_file : /Users/mw9568/repos/CalicoST/GRCh38_resources/hgTables_hg38_gencode.txt
+  annotation_file: None
+  filtergenelist_file : /Users/mw9568/repos/CalicoST/GRCh38_resources/ig_gene_list.txt
+  filterregion_file : /Users/mw9568/repos/CalicoST/GRCh38_resources/HLA_regions.bed
 
 # TODO HACK min_normal_count_perbin : 20 ->
 #           min_percent_expressed_spots : 0.005 ->
-#           normal_allele_specific_confidence : (0.05, 0.95) -> 
+#           normal_allele_specific_confidence : (0.05, 0.95) ->
+#           secondary_min_snp_umi : 300 -> 
 quality:
   min_percent_expressed_spots : 0.0
-  normalize_gene_outliers : True
-  secondary_min_umi : 500
-  secondary_min_snp_umi : 300
-  secondary_min_normal_umi : 500
+  secondary_min_umi : 0
+  secondary_min_snp_umi : 200
+  secondary_min_normal_umi : 100
   max_binlength : 5000000
-  local_outlier_filter : False
+  local_outlier_filter : True
   filter_normal_diffexp : False
+  normalize_gene_outliers : False
   normal_allele_specific_confidence : (0.01, 0.99)
   min_normal_count_perbin : 100
 
 # TODO HACK npart_phasing : 3 -> 1
+#           baf_change_threshold : 0.1 ->
+#           min_new_segment_size : 10 -> 
 phasing:
   run : False
   nu : 1.0
   logphase_shift : -2.0
   npart_phasing : 2
+  baf_change_threshold : 0.0
+  min_new_segment_size : 1
 
 # TODO HACK max_iter_outer : 20 ->
 #           spatial_weight : 1.0 ->
@@ -72,6 +78,8 @@ hmrf:
 #           tol: 0.0001 ->
 #           n_states: 7 ->
 #           np_eventminlen : 10 ->
+#           gmm_min_binom_prob : 0.1 ->
+#           gmm_max_binom_prob : 0.9 -> 
 hmm:
   solver: "L-BFGS-B"
   n_states : 7
@@ -87,6 +95,8 @@ hmm:
   tol : 0.001
   gmm_random_state : 0
   gmm_maxiter: 30
+  gmm_min_binom_prob: 0.0
+  gmm_max_binom_prob: 1.0
   np_threshold : 1.0
   np_eventminlen : 5
   em_maxiter: 1500
@@ -110,7 +120,11 @@ betabinom:
   start_disp:  20.0
 
 # TODO HACK ploidy : "diploid,triploid,tetraploid" ->
+#           rdr_weight : 0.3 ->
+#           fractional_error : False -> 
 int_copy_num:
+  rdr_weight : 0.5
   nonbalance_bafdist : 1.0
   nondiploid_rdrdist : 10.0
   ploidy : "diploid"
+  

@@ -219,17 +219,20 @@ def nloglikeobs_nb(
             tumor_prop * exog @ np.exp(params[:-1]) + (1.0 - tumor_prop)
         )
 
+    nb_std = np.sqrt(nb_mean + params[-1] * nb_mean**2)
+    n, p = convert_params(nb_mean, nb_std)
+    
     # NB most populated state by weight.
     if most_populated_state is not None:
-        nb_std = np.sqrt(nb_mean + params[-1] * (np.exp(params[most_populated_state]) * exposure)**2)
-    else:
-        nb_std = np.sqrt(nb_mean + params[-1] * nb_mean**2)
-
-    n, p = convert_params(nb_mean, nb_std)
+        nb_mean_pop = np.exp(params[most_populated_state]) * exposure        
+        nb_std = np.sqrt(nb_mean + params[-1] * nb_mean_pop**2)
+        
+        n = (nb_mean / nb_mean_pop)**2. / params[-1]
+        p = nb_mean / (nb_mean + params[-1] * nb_mean_pop **2.)
 
     result = -scipy.stats.nbinom.logpmf(endog, n, p)
     result[np.isnan(result)] = np.inf
-
+    
     if prior:
         # TODO tumor prop
         result -= rdr_prior_eval(exog @ np.exp(params[:-1]), sigma=None)
@@ -378,8 +381,11 @@ class Weighted_NegativeBinomial_mix:
             state_mask = (state_assignment == state_idx)
             state_weights.append(np.sum(self.weights[state_mask]))
 
-        self.most_populated_state = np.argmax(state_weights)
-            
+        # self.most_populated_state = np.argmax(state_weights)
+        # logger.info(f"Found most populated state={self.most_populated_state}")
+
+        self.most_populated_state = None
+        
         if tumor_prop is not None:
             logger.warning(
                 f"{self.__class__.__name__} compression is not supported for tumor_prop != None."
@@ -525,8 +531,11 @@ class Weighted_NegativeBinomial_mix:
             state_mask = (state_assignment == state_idx)
             state_weights.append(np.sum(self.weights[state_mask]))
 
-        self.most_populated_state = np.argmax(state_weights)
+        # self.most_populated_state = np.argmax(state_weights)
+        # logger.info(f"Found most populated state={self.most_populated_state} with mu={np.exp(start_params[self.most_populated_state])}")
 
+        self.most_populated_state = None
+        
         result = scipy.optimize.minimize(
             self.nloglikeobs,
             start_params,
@@ -572,7 +581,7 @@ class Weighted_NegativeBinomial_mix:
             f"llf: {result.llf:.6e}\n"
             f"params: {result.params}"
         )
-
+        
         return result
 
 

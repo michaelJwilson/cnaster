@@ -1311,28 +1311,6 @@ def run_cnaster(config_path, over_rides=None):
             )
         else:
             raise RuntimeError()
-        """
-        elif config.hmrf.nodepotential == "weighted_sum":
-            (
-                new_assignment,
-                single_llf,
-                total_llf,
-                posterior,
-            ) = hmrf_reassignment_posterior(
-                single_X,
-                single_base_nb_mean,
-                single_total_bb_RD,
-                res_combine,
-                smooth_mat,
-                adjacency_mat,
-                res_combine["prev_assignment"],
-                copy.copy(sample_ids),
-                log_persample_weights,
-                spatial_weight=config.hmrf.spatial_weight,
-                hmmclass=hmm_nophasing,
-                return_posterior=True,
-            )
-        """
     else:
         if config.hmrf.nodepotential == "max":
             pred = np.vstack(
@@ -1365,29 +1343,6 @@ def run_cnaster(config_path, over_rides=None):
             )
         else:
             raise RuntimeError()
-        """
-        elif config.hmrf.nodepotential == "weighted_sum":
-            (
-                new_assignment,
-                single_llf,
-                total_llf,
-                posterior,
-            ) = hmrfmix_reassignment_posterior(
-                single_X,
-                single_base_nb_mean,
-                single_total_bb_RD,
-                single_tumor_prop,
-                res_combine,
-                smooth_mat,
-                adjacency_mat,
-                res_combine["prev_assignment"],
-                copy.copy(sample_ids),
-                log_persample_weights,
-                spatial_weight=config.hmrf.spatial_weight,
-                hmmclass=hmm_nophasing,
-                return_posterior=True,
-            )
-        """
 
     # NB total Potts likelihood given final copy states and clone assignment.
     res_combine["total_llf"] = total_llf

@@ -141,11 +141,19 @@ def hill_climbing_integer_copynumber_oneclone(
 
         derived_ploidy = total_copies.dot(points_per_state) / points_per_state_norm
 
+        # result =  (
+        #     np.square(rdr_weight * (mu - frac_rdr)).dot(points_per_state)
+        #     + np.square(new_p_binom - frac_baf).dot(points_per_state)
+        #     + np.sum(derived_ploidy > ploidy + 0.5) * len(pred_cnv)
+        # )
+
         result =  (
-            np.square(rdr_weight * (mu - frac_rdr)).dot(points_per_state)
-            + np.square(new_p_binom - frac_baf).dot(points_per_state)
-            + np.sum(derived_ploidy > ploidy + 0.5) * len(pred_cnv)
+            np.abs(1. - frac_rdr / mu).dot(points_per_state)
+            + np.abs(1. - frac_baf / new_p_binom).dot(points_per_state)
         )
+
+        if derived_ploidy > ploidy:
+            result += np.abs(1. - derived_ploidy / ploidy) * len(pred_cnv)
 
         if order_penalty:
             crucial_ordered_pairs_1 = (mu[:, None] - mu[None, :] > mu_threshold) * (

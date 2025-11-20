@@ -107,17 +107,17 @@ def np_sum_ax_squeeze(arr, axis=0):
 
 def convert_params(mean, std):
     p = mean / std**2
-
-    # TODO HACK
-    if np.any(p >= 1.):
-        logger.warning(f"Found p >= 1, clipping to below one.")
-        p = np.clip(p, a_min=None, a_max=1. - np.finfo(np.float64).eps)
-        
     n = mean * p / (1.0 - p)
 
     return n, p
 
+"""
+def convert_params_new(mean, overdisp):
+    p = 1. / (1. + overdisp * mean)
+    n = 1. / overdisp
 
+    return n, p
+""" 
 def calc_sparsity(csr_matrix):
     total_elements = csr_matrix.shape[0] * csr_matrix.shape[1]
     non_zero_elements = csr_matrix.size

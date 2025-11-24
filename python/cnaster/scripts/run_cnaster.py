@@ -716,13 +716,14 @@ def run_cnaster(config_path, over_rides=None):
             normal_candidate = (vec_stds < stdthreshold) & (
                 merged_res["new_assignment"] == id_nearnormal_clone
             )
-            # HACK
-            # if (
-            #    np.sum(copy_single_X_rdr[:, (normal_candidate == True)])
-            #    > 200 * single_X.shape[0]  # MAGIC.
-            # ):
-            # NB 25% increase in std of RDR
-            if stdthreshold > 1.5 * prior_stdthreshold:  # MAGIC
+            
+            if config.run.legacy and ( np.sum(copy_single_X_rdr[:, (normal_candidate == True)]) > 200 * single_X.shape[0]):
+                logger.info(
+                    f"Assumed legacy normal spot allocation for {PERCENT_NORMAL}[%] normal spots"
+                )
+                break
+            
+            elif stdthreshold > 1.5 * prior_stdthreshold:  # MAGIC
                 logger.info(
                     f"Determined {PERCENT_NORMAL}% normal spots with sufficient UMIs, assigned to normal like clone."
                 )

@@ -753,18 +753,18 @@ def main():
 
     gene_ranges = read_gene_ranges()
 
-    method = "cnaster"
-    # method = "calicost"
+    # method = "cnaster"
+    method = "calicost"
 
     # "numcnas1.2_cnasize1e7_ploidy2_random0",
     # "numcnas3.3_cnasize3e7_ploidy2_random0",
     # "numcnas3.3_cnasize5e7_ploidy2_random0",
 
-    sample_ids = [
-         "numcnas3.3_cnasize3e7_ploidy2_random0",
-    ]
+    # sample_ids = [
+    #      "numcnas3.3_cnasize3e7_ploidy2_random0",
+    # ]
     
-    # sample_ids = [xx.split("/")[-1] for xx in sorted(glob.glob(f"{root}/nomixing_{method}_related/*"))]
+    sample_ids = [xx.split("/")[-1] for xx in sorted(glob.glob(f"{root}/nomixing_{method}_related/*"))]
                   
     logger.info(
         f"Analyzing with {method} the sample_ids={sample_ids} simulations @\n{root}"

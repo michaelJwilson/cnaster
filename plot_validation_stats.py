@@ -177,11 +177,8 @@ def plot_metrics(df, method):
         # Standardize y-limits for selected metrics
         if metric in {"normal_recovery_rate", "clone_mapping_success_rate", "ari"}:
             ax.set_ylim(0.5, 1.0)
-        elif metric == "cna_recovery_rate":
-            ax.set_ylim(0.0, 0.1)
         elif metric == "normal_rate":
             ax.set_ylim(0.0, 1.0)
-        # loglike uses auto-scaling
         
         # Bottom row: axis label + tick labels; other rows: hide tick labels
         if r == nrows - 1:

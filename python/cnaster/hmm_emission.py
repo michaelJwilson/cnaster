@@ -440,14 +440,12 @@ class Weighted_NegativeBinomial_mix:
                 empirical_rdr_mean[state_idx] = (
                     np.sum(state_rdr * state_weights) / total_weight
                 )
-
-                weighted_var = (
+                empirical_rdr_std[state_idx] = np.sqrt(
                     np.sum(
                         state_weights * (state_rdr - empirical_rdr_mean[state_idx]) ** 2
                     )
                     / total_weight
                 )
-                empirical_rdr_std[state_idx] = np.sqrt(weighted_var)
 
         start_time = time.time()
 
@@ -517,13 +515,6 @@ class Weighted_NegativeBinomial_mix:
         empirical_disp_state = (np.maximum(empirical_rdr_std**2., empirical_rdr_mean) - empirical_rdr_mean) / (empirical_rdr_mean**2.)
         empirical_disp = np.sum(empirical_disp_state * state_weights) / total_weight
 
-        if ~np.isfinite(empirical_disp) or empirical_disp <= 0.0:
-            # TODO HACK nb emission for disp=0.0
-            empirical_disp = 1.e-6
-            logger.warning(
-                f"Empirical dispersion is non-finite or non-positive: {empirical_disp_state}, assigning {empirical_disp}."
-            )
-
         if empirical:
             params = np.array(list(empirical_log_mu) + [empirical_disp])
             result = OptimizationResult(
@@ -534,6 +525,13 @@ class Weighted_NegativeBinomial_mix:
                 iterations=None,
                 fcalls=None,
             )
+
+            if ~np.isfinite(empirical_disp) or empirical_disp <= 0.0:
+                # TODO HACK nb emission for disp=0.0                                                                                                                                                                                                                            
+                empirical_disp = 1.e-6
+                logger.warning(
+                    f"Empirical dispersion is non-finite or non-positive: {empirical_disp_state}, assigning {empirical_disp}."
+                )
 
             logger.info(
                 "Empirical RDR per state:\n"

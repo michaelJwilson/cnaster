@@ -41,7 +41,7 @@ quality:
 
 # TODO HACK npart_phasing : 3 -> 1
 #           baf_change_threshold : 0.1 ->
-#           min_new_segment_size : 10 -> 
+#           min_new_segment_size : 10 ->
 phasing:
   run : False
   nu : 1.0
@@ -51,15 +51,18 @@ phasing:
   min_new_segment_size : 1
 
 # TODO HACK max_iter_outer : 20 ->
-#           spatial_weight : 1.0 ->
+#           spatial_weight : 0.1 ->
 #           n_clones : 3 ->
-#           n_clones_rdr : 2 -> 
+#           n_clones_rdr : 2 ->
+#           maxspots_pooling -> 1
+#           unit_xsquared 9 ->
+#           unit_ysquared 3 ->
 hmrf:
   n_clones : 3
   n_clones_rdr : 1
   min_spots_per_clone : 100
   min_avgumi_per_clone : 10
-  maxspots_pooling : 7
+  maxspots_pooling : 1
   tumorprop_threshold : 0.5
   max_iter_outer : 20
   nodepotential : max
@@ -71,7 +74,9 @@ hmrf:
   construct_adjacency_method : hexagon
   construct_adjacency_w : 1.0
   np_merge : False
-  fixed_assignment : True 
+  fixed_assignment : True
+  unit_xsquared : 1
+  unit_ysquared : 1
 
 # TODO HACK max_iter : 30 ->
 #           solver: nm ->

@@ -306,6 +306,10 @@ def rectangle_initialize_initial_clone(coords, n_clones, random_state=0):
 
 
 def compute_adjacency_mat_v2(coords, unit_xsquared=9, unit_ysquared=3, ratio=1):
+    """
+    Simple distance based adjacency assuming distance scaling factors, unit_xsquared,
+    unit_ysquared.
+    """
     # NB x,y separations for all spot pairs.
     x_dist = coords[:, 0][None, :] - coords[:, 0][:, None]
     y_dist = coords[:, 1][None, :] - coords[:, 1][:, None]
@@ -316,7 +320,9 @@ def compute_adjacency_mat_v2(coords, unit_xsquared=9, unit_ysquared=3, ratio=1):
     # NB (# spot, # spot) adjacency matrix.
     A = np.zeros((coords.shape[0], coords.shape[0]), dtype=np.int8)
 
-    # NB loop over spots.
+    logger.info(f"Solving for adjacency matrix with ratio={ratio} and unit_xsquared={unit_xsquared}, unit_ysquared={unit_ysquared}")
+    
+    # NB loop over spots (across slices).
     for i in range(coords.shape[0]):
         indexes = np.where(
             pairwise_squared_dist[i, :] <= ratio * (unit_xsquared + unit_ysquared)
@@ -328,7 +334,6 @@ def compute_adjacency_mat_v2(coords, unit_xsquared=9, unit_ysquared=3, ratio=1):
         if len(indexes) > 0:
             A[i, indexes] = 1
 
-    # NB return as sparse matrix.
     return scipy.sparse.csr_matrix(A)
 
 
@@ -381,7 +386,7 @@ def choose_adjacency_by_readcounts(
     # TODO np.inf
     np.fill_diagonal(tmp_pairwise_squared_dist, np.max(tmp_pairwise_squared_dist))
 
-    # NB given the minimum neighbor distance for all spots, find the median and normalize by the sum of scaling factors.
+    # NB given the minimum neighbor distance for all spots, find the median and normalize by the sum of scaling factors -
     #    used to set a baseline for neighborhood size.
     base_ratio = np.median(np.min(tmp_pairwise_squared_dist, axis=0)) / (
         unit_xsquared + unit_ysquared
@@ -394,7 +399,7 @@ def choose_adjacency_by_readcounts(
             coords, unit_xsquared, unit_ysquared, ratio * base_ratio
         )
 
-        # NB each spot pooled with itself.
+        # NB each spot pooled with itself?
         smooth_mat.setdiag(1)
 
         if np.median(np.sum(smooth_mat > 0, axis=0).A.flatten()) > maxspots_pooling:
@@ -423,6 +428,7 @@ def choose_adjacency_by_readcounts(
         15 * (unit_xsquared + unit_ysquared),  # MAGIC
         unit_xsquared + unit_ysquared,
     ):
+        # NB distance-based kernel adjacency.
         adjacency_mat = compute_weighted_adjacency(
             coords, unit_xsquared, unit_ysquared, bandwidth=bandwidth
         )
@@ -506,6 +512,8 @@ def multislice_adjacency(
     construct_adjacency_method,
     maxspots_pooling,
     construct_adjacency_w,
+    unit_xsquared=9,
+    unit_ysquared=3,
 ):
     logger.info("Solving for multi-slice adjacency (and smooth) matrix.")
 
@@ -524,6 +532,8 @@ def multislice_adjacency(
             this_coords,
             single_total_bb_RD[:, index],
             maxspots_pooling=maxspots_pooling,
+            unit_xsquared=unit_xsquared,
+            unit_ysquared=unit_ysquared,
         )
 
         adjacency_mat.append(tmpadjacency_mat.toarray())

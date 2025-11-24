@@ -20,6 +20,8 @@ from cnaster.hmrf import (
     hmrfmix_reassignment_posterior,
     reindex_clones,
 )
+from cnaster.icm import icm_sweep, unpack_adjacency
+from cnaster.hmrf_utils import cast_csr
 from cnaster.io import load_input_data
 from cnaster.omics import (
     assign_initial_blocks,
@@ -409,6 +411,8 @@ def run_cnaster(config_path, over_rides=None):
         construct_adjacency_method=config.hmrf.construct_adjacency_method,
         maxspots_pooling=config.hmrf.maxspots_pooling,
         construct_adjacency_w=config.hmrf.construct_adjacency_w,
+        unit_xsquared=config.hmrf.unit_xsquared,
+        unit_ysquared=config.hmrf.unit_ysquared,
     )
 
     # TODO table_bininfo? table_rdrbaf? table_meta?
@@ -448,21 +452,20 @@ def run_cnaster(config_path, over_rides=None):
     )
     """
 
-    """
     adj_list = cast_csr(adjacency_mat)
     adj_spots, adj_neighbors, adj_weights = unpack_adjacency(adj_list)
 
-    single_llf = posterior = np.zeros((single_X.shape[0], config.hmrf.n_clones))
+    single_llf = posterior = np.zeros((single_X.shape[-1], config.hmrf.n_clones))
     
     # NB high is exclusive.
-    new_assignment = np.random.randint(0, high=config.hmrf.n_clones, size=single_X.shape[0])
-    
+    clone_id = np.random.randint(0, high=config.hmrf.n_clones, size=single_X.shape[-1])
+
     icm_sweep(
         single_llf,
         adj_spots,
         adj_neighbors,
         adj_weights,
-        new_assignment,
+        clone_id,
         config.hmrf.spatial_weight,
         posterior,
         tol=0.01,
@@ -471,8 +474,9 @@ def run_cnaster(config_path, over_rides=None):
         cost_zeropoint=0.0,
         temp=1.0,
     )
-    """
 
+    initial_clone_index_baf = [np.where(clone_id == i)[0] for i in range(config.hmrf.n_clones)]
+        
     # NB trigger summary for initial clones, per single_X=1 etc.
     merge_pseudobulk_by_index_mix(
         single_X,
@@ -527,6 +531,8 @@ def run_cnaster(config_path, over_rides=None):
     fig_path = f"{config.paths.output_dir}/plots/initial_clones_spatial.pdf"
     write_fig(fig_path, initial_clones_fig, transparent=True, bbox_inches="tight")
 
+    exit(0)
+    
     logger.info(
         "Solving HMM & HMRF for copy states and clone assignment with BAF only."
     )

@@ -448,6 +448,31 @@ def run_cnaster(config_path, over_rides=None):
     )
     """
 
+    """
+    adj_list = cast_csr(adjacency_mat)
+    adj_spots, adj_neighbors, adj_weights = unpack_adjacency(adj_list)
+
+    single_llf = posterior = np.zeros((single_X.shape[0], config.hmrf.n_clones))
+    
+    # NB high is exclusive.
+    new_assignment = np.random.randint(0, high=config.hmrf.n_clones, size=single_X.shape[0])
+    
+    icm_sweep(
+        single_llf,
+        adj_spots,
+        adj_neighbors,
+        adj_weights,
+        new_assignment,
+        config.hmrf.spatial_weight,
+        posterior,
+        tol=0.01,
+        log_persample_weights=None,
+        sample_ids=None,
+        cost_zeropoint=0.0,
+        temp=1.0,
+    )
+    """
+
     # NB trigger summary for initial clones, per single_X=1 etc.
     merge_pseudobulk_by_index_mix(
         single_X,

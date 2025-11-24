@@ -548,8 +548,11 @@ def update_emission_params_nb_nophasing_uniqvalues(
 
                 default_nloglikeobs = model.nloglikeobs(res.params)
             else:
+                res = None
                 default_nloglikeobs = np.inf
 
+                logger.warning(f"Running without default parameters specified.")
+                
             if start_log_mu is not None:
                 res2 = model.fit(
                     **settings,
@@ -561,10 +564,11 @@ def update_emission_params_nb_nophasing_uniqvalues(
                         + [np.ones(1) * alphas[0, s]]
                     ),
                 )
-                if model.nloglikeobs(res2.params) < default_nloglikeobs:
-                    logger.info(
-                        f"Provided initialization for ln mu better than default."
-                    )
+                if (model.nloglikeobs(res2.params) < default_nloglikeobs) or res is None:
+                    if res is not None:
+                        logger.info(
+                            f"Provided initialization for ln mu better than default."
+                        )
 
                     for s, idx_state_posweight in enumerate(state_posweights):
                         l1 = int(np.sum([len(x) for x in state_posweights[:s]]))
@@ -577,7 +581,7 @@ def update_emission_params_nb_nophasing_uniqvalues(
                 else:
                     logger.info(
                         f"Default initialization for ln mu {model.nloglikeobs(res.params):.6e} better than provided {model.nloglikeobs(res2.params):.6e}."
-                    )
+                    )                    
 
     if np.any(new_log_mu > max_log_rdr) or np.any(new_log_mu < min_log_rdr):
         logger.warning("Clipping updated log RDR to range=({min_log_rdr},{max_log_rdr})")

@@ -105,7 +105,7 @@ def hill_climbing_integer_copynumber_oneclone(
         new_log_mu,
         new_p_binom,
         pred_cnv,
-        min_prop_threshold=0.25,
+        min_prop_threshold=0.1, # MAGIC 
         EPS_BAF=EPS_BAF,
     )
 

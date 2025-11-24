@@ -104,20 +104,22 @@ def np_sum_ax_squeeze(arr, axis=0):
 
     return result
 
-
+"""
 def convert_params(mean, std):
     p = mean / std**2
     n = mean * p / (1.0 - p)
 
     return n, p
-
 """
-def convert_params_new(mean, overdisp):
+
+def convert_params_disp(mean, overdisp):
     p = 1. / (1. + overdisp * mean)
-    n = 1. / overdisp
+
+    # NB guard on min. overdispersion, such that (overdisp * mean) << 1.
+    n = 1. / np.maximum(overdisp, 1.e-10)
 
     return n, p
-""" 
+
 def calc_sparsity(csr_matrix):
     total_elements = csr_matrix.shape[0] * csr_matrix.shape[1]
     non_zero_elements = csr_matrix.size

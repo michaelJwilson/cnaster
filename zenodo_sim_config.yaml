@@ -85,7 +85,7 @@ hmm:
   solver: "L-BFGS-B"
   n_states : 7
   params : smp
-  t : 0.99999
+  t : 0.9999999
   t_phaseing : 0.99999
   fix_NB_dispersion : False
   shared_NB_dispersion : True

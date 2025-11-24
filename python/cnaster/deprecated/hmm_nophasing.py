@@ -1,6 +1,10 @@
 import scipy
 import numpy as np
-from cnaster.hmm_utils import convert_params
+
+def convert_params(mean, std):                                                                                                                                                                                                                                                 
+    p = mean / std**2                                                                                                                                                                                                                                                          
+    n = mean * p / (1.0 - p)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
+    return n, p  
 
 def compute_emission_probability_nb_betabinom(
     X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus

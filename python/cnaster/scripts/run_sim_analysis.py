@@ -45,6 +45,7 @@ def get_gene_ranges_path():
     # return "/u/mw9568/research/data/references/hgTables_hg38_gencode.txt"
     return "/Users/mw9568/repos/calicost/GRCh38_resources/hgTables_hg38_gencode.txt"
 
+
 def read_gene_ranges():
     """
     Read in (contig, start, end) table for (coding) gene definition.
@@ -284,10 +285,8 @@ def get_sample_estimate_pd(root, sample_id, method, rectangle, cna_only=False):
     else:
         clone_rectangle = f"clone3_rectangle{rectangle}_w1.0"
         parent = f"{root}/nomixing_{method}_related/{sample_id}/{clone_rectangle}/"
-        
-    logger.info(
-        f"Solving for clone estimate: {parent}/clone_labels.tsv"
-    )
+
+    logger.info(f"Solving for clone estimate: {parent}/clone_labels.tsv")
 
     # NB
     # barcode sample_id       x       y       clone_label
@@ -358,9 +357,7 @@ def get_sample_estimate(root, sample_id, method, rectangle, cna_only=False):
         clone_rectangle = f"clone3_rectangle{rectangle}_w1.0"
         parent = f"{root}/nomixing_{method}_related/{sample_id}/{clone_rectangle}/"
 
-    logger.info(
-        f"Solving for clone estimate: {parent}/clone_labels.tsv"
-    )
+    logger.info(f"Solving for clone estimate: {parent}/clone_labels.tsv")
 
     clones = (
         pl.read_csv(
@@ -371,9 +368,7 @@ def get_sample_estimate(root, sample_id, method, rectangle, cna_only=False):
         .select(["barcode", "clone"])
     )
 
-    logger.info(
-        f"Solving for calls: {parent}/cnv_diploid_seglevel.tsv"
-    )
+    logger.info(f"Solving for calls: {parent}/cnv_diploid_seglevel.tsv")
 
     calls = pl.read_csv(
         f"{parent}/cnv_diploid_seglevel.tsv",
@@ -525,25 +520,25 @@ def compute_state_oversampling_rate(tsv_path):
     """
     Compute state assignment counts: for each unique integer (A,B) state,
     find the maximum number of times it's assigned across all clones.
-    
+
     Args:
         tsv_path: Path to cnv_diploid_perstate.tsv file
-        
+
     Returns:
         Tuple of (num_clones, state_max_counts) where:
         - num_clones: number of clones in the data
-        - state_max_counts: Dict mapping state tuples like (1,1), (2,1), etc. 
+        - state_max_counts: Dict mapping state tuples like (1,1), (2,1), etc.
           to the maximum count of that state across all clones
     """
     df = pd.read_csv(tsv_path, sep="\t")
-    
+
     # Identify clone columns
     clone_cols = [c for c in df.columns if " A" in c or " B" in c]
-    
+
     # Extract unique clone prefixes
     clones = sorted(set(c.rsplit(" ", 1)[0] for c in clone_cols))
     num_clones = len(clones)
-    
+
     # Collect all unique states across all clones
     all_states = set()
     for clone in clones:
@@ -552,7 +547,7 @@ def compute_state_oversampling_rate(tsv_path):
         if a_col in df.columns and b_col in df.columns:
             states = list(zip(df[a_col], df[b_col]))
             all_states.update(states)
-    
+
     # Calculate max count for each state across all clones
     state_max_counts = {}
     for state in sorted(all_states):
@@ -565,21 +560,27 @@ def compute_state_oversampling_rate(tsv_path):
                 count = int(is_state.sum())
                 counts.append(count)
         state_max_counts[state] = int(max(counts)) if counts else 0
-    
+
     return num_clones, state_max_counts
 
 
 def get_validation_stats(
-    sample_id, best_rectangle, best_loglike, spot_join_cna, include_flip=True, num_clones=None, state_oversampling_rates=None
+    sample_id,
+    best_rectangle,
+    best_loglike,
+    spot_join_cna,
+    include_flip=True,
+    num_clones=None,
+    state_oversampling_rates=None,
 ):
     # NB was there an interval called on this truth segment?
     matched = np.isfinite(spot_join_cna["A"])
     match_rate = matched.mean()
-    
-    # NB limit to the matches only.                                                                                                                                                                                                                    
+
+    # NB limit to the matches only.
     match_spot_join_cna = spot_join_cna[matched]
     num_match = len(match_spot_join_cna)
-    
+
     # NB did we recover the true CNA (up to a phase flip)?
     correct_match = (match_spot_join_cna["A"] == match_spot_join_cna["true_A"]) & (
         match_spot_join_cna["B"] == match_spot_join_cna["true_B"]
@@ -591,26 +592,31 @@ def get_validation_stats(
             match_spot_join_cna["B"] == match_spot_join_cna["true_A"]
         ) & (match_spot_join_cna["A"] == match_spot_join_cna["true_B"])
 
-    is_normal = (match_spot_join_cna["true_A"] == 1) & (match_spot_join_cna["true_B"] == 1)
+    is_normal = (match_spot_join_cna["true_A"] == 1) & (
+        match_spot_join_cna["true_B"] == 1
+    )
 
     normal_recovery = correct_match & is_normal
-    normal_recovery_rate = np.count_nonzero(normal_recovery) / np.count_nonzero(is_normal)
-    
+    normal_recovery_rate = np.count_nonzero(normal_recovery) / np.count_nonzero(
+        is_normal
+    )
+
     cna_recovery = correct_match & ~is_normal
     cna_recovery_rate = np.count_nonzero(cna_recovery) / np.count_nonzero(~is_normal)
-        
+
     cna_false_positive = ~correct_match & is_normal
-    cna_false_positive_rate = np.count_nonzero(cna_false_positive) / np.count_nonzero(is_normal)
-    
+    cna_false_positive_rate = np.count_nonzero(cna_false_positive) / np.count_nonzero(
+        is_normal
+    )
+
     # TODO
     try:
         ari = adjusted_rand_score(
-            spot_join_cna["true_clone"].astype(int), 
-            spot_join_cna["clone"].astype(int)
+            spot_join_cna["true_clone"].astype(int), spot_join_cna["clone"].astype(int)
         )
     except:
         ari = np.nan
-        
+
     best_clone_mapping, clone_mapping_success_rate, _ = best_permutation_accuracy(
         spot_join_cna["true_clone"].to_numpy(), spot_join_cna["clone"].to_numpy()
     )
@@ -618,7 +624,7 @@ def get_validation_stats(
     logger.info(
         f"Found normal rate={is_normal.mean():.3f}, match rate={match_rate:.3f}, correct_rate={correct_rate}, ari={ari:.6f}, mapped fraction={clone_mapping_success_rate:.4f}, normal recovery rate={normal_recovery_rate:.3f}, cna recovery rate={cna_recovery_rate:.3f} and cna false positive rate={cna_false_positive_rate:.3f} for include_flip={include_flip}."
     )
-    
+
     logger.info(f"Found best clone 1-1 mapping: {best_clone_mapping}")
 
     # NB distribution of true clone in matches, required for normalization.
@@ -662,10 +668,9 @@ def get_validation_stats(
         )
     )
     cna_marginal_rates = {
-        f"({k[0]},{k[1]})": v / num_match 
-        for k, v in cna_marginals.items()
+        f"({k[0]},{k[1]})": v / num_match for k, v in cna_marginals.items()
     }
-    
+
     cna_transitions = dict(
         sorted(
             Counter(
@@ -699,7 +704,9 @@ def get_validation_stats(
     # Convert state_oversampling_rates keys to strings for YAML serialization
     state_oversampling_dict = {}
     if state_oversampling_rates:
-        state_oversampling_dict = {f"({k[0]},{k[1]})": int(v) for k, v in state_oversampling_rates.items()}
+        state_oversampling_dict = {
+            f"({k[0]},{k[1]})": int(v) for k, v in state_oversampling_rates.items()
+        }
 
     return {
         "sample_id": sample_id,
@@ -722,7 +729,10 @@ def get_validation_stats(
             {f"{k[0]}->{k[1]}": v for k, v in clone_transitions.items()}
         ),
         "clone_transition_rates": dict(
-            {f"{k[0]}->{k[1]}": v/clone_marginals[k[0]] for k, v in clone_transitions.items()}
+            {
+                f"{k[0]}->{k[1]}": v / clone_marginals[k[0]]
+                for k, v in clone_transitions.items()
+            }
         ),
         "cna_marginals": dict(
             {f"({k[0]},{k[1]})": v for k, v in cna_marginals.items()}
@@ -732,7 +742,10 @@ def get_validation_stats(
             {f"({k[0]},{k[1]})->({k[2]},{k[3]})": v for k, v in cna_transitions.items()}
         ),
         "cna_transition_rates": dict(
-            {f"({k[0]},{k[1]})->({k[2]},{k[3]})": v/cna_marginals[(k[0],k[1])] for k, v in cna_transitions.items()}
+            {
+                f"({k[0]},{k[1]})->({k[2]},{k[3]})": v / cna_marginals[(k[0], k[1])]
+                for k, v in cna_transitions.items()
+            }
         ),
     }
 
@@ -740,7 +753,9 @@ def get_validation_stats(
 def save_validation_stats_yaml(stats, output_path):
     output_path = Path(output_path)
 
-    logger.info("Saving validation stats to %s:\n%s", output_path, pformat(stats, width=100))
+    logger.info(
+        "Saving validation stats to %s:\n%s", output_path, pformat(stats, width=100)
+    )
 
     with open(output_path, "w") as f:
         yaml.dump(stats, f, default_flow_style=False, sort_keys=False)
@@ -753,25 +768,30 @@ def main():
 
     gene_ranges = read_gene_ranges()
 
-    # method = "cnaster"
-    method = "calicost"
+    method = "cnaster"
+    # method = "calicost"
 
     # "numcnas1.2_cnasize1e7_ploidy2_random0",
     # "numcnas3.3_cnasize3e7_ploidy2_random0",
     # "numcnas3.3_cnasize5e7_ploidy2_random0",
 
-    # sample_ids = [
-    #      "numcnas3.3_cnasize3e7_ploidy2_random0",
-    # ]
-    
-    sample_ids = [xx.split("/")[-1] for xx in sorted(glob.glob(f"{root}/nomixing_{method}_related/*"))]
-                  
+    sample_ids = [
+        "numcnas3.3_cnasize3e7_ploidy2_random0",
+    ]
+
+    # sample_ids = [xx.split("/")[-1] for xx in sorted(glob.glob(f"{root}/nomixing_{method}_related/*"))]
+
     logger.info(
         f"Analyzing with {method} the sample_ids={sample_ids} simulations @\n{root}"
     )
-                  
+
     for sample_id in sample_ids:
-        if use_cache and Path(f"{root}/stats/{method}/validation_stats_{sample_id}.yaml").exists():
+        if (
+            use_cache
+            and Path(
+                f"{root}/stats/{method}/validation_stats_{sample_id}.yaml"
+            ).exists()
+        ):
             logger.warning(f"Utilizing existing validation stats for {sample_id}.")
             continue
 
@@ -782,22 +802,35 @@ def main():
             logger.info(
                 f"Found overlap rate of truth CNAs with genes={len(gene_spot_truth_cna) / len(spot_truth_cna):.3f}"
             )
-            
+
             best_rectangle, spot_calicost_cna, best_loglike = get_best_sample_estimate(
                 root,
                 sample_id,
                 method,
             )
-            
+
             if best_rectangle is not None:
                 clone_rectangle = f"clone3_rectangle{best_rectangle}_w1.0"
-                tsv_path = Path(root) / f"nomixing_{method}_related" / sample_id / clone_rectangle / f"cnv_diploid_perstate.tsv"
+                tsv_path = (
+                    Path(root)
+                    / f"nomixing_{method}_related"
+                    / sample_id
+                    / clone_rectangle
+                    / f"cnv_diploid_perstate.tsv"
+                )
             else:
-                tsv_path = Path(root) / f"nomixing_{method}_related" / sample_id / f"cnv_diploid_perstate.tsv"
-                
+                tsv_path = (
+                    Path(root)
+                    / f"nomixing_{method}_related"
+                    / sample_id
+                    / f"cnv_diploid_perstate.tsv"
+                )
+
             if tsv_path.exists():
                 num_clones, state_max_counts = compute_state_oversampling_rate(tsv_path)
-                logger.info(f"Computed num_clones={num_clones}, state_max_counts={state_max_counts}")
+                logger.info(
+                    f"Computed num_clones={num_clones}, state_max_counts={state_max_counts}"
+                )
             else:
                 num_clones = None
                 state_max_counts = {}
@@ -806,17 +839,21 @@ def main():
             spot_truth_cna_match = get_join(spot_truth_cna, spot_calicost_cna)
 
             validation_stats = get_validation_stats(
-                sample_id, best_rectangle, best_loglike, spot_truth_cna_match, 
+                sample_id,
+                best_rectangle,
+                best_loglike,
+                spot_truth_cna_match,
                 num_clones=num_clones,
-                state_oversampling_rates=state_max_counts
+                state_oversampling_rates=state_max_counts,
             )
-            
+
             save_validation_stats_yaml(
-                validation_stats, f"{root}/stats/{method}/validation_stats_{sample_id}.yaml"
+                validation_stats,
+                f"{root}/stats/{method}/validation_stats_{sample_id}.yaml",
             )
         except Exception as E:
             logger.warning(f"Failed on {sample_id} with error:\n{E}")
-                        
+
     logger.info("\n\nDone.\n")
 
 

@@ -366,6 +366,51 @@ def anisotropic_exponential_decay_adjacency(
     return scipy.sparse.csr_matrix(A)
 
 
+def choose_lattice_adjacency(
+    coords, single_total_bb_RD, maxspots_pooling=7, unit_xsquared=9, unit_ysquared=3, coordination_num=6
+):
+    logger.info(
+        f"Assigning lattice adjacency matrix with coordination_num={coordination_num}, "
+        f"assuming unit_xsquared,unit_ysquared={unit_xsquared},{unit_ysquared}."
+    )
+    
+    n_spots = coords.shape[0]
+    
+    x_dist = coords[:, 0][None, :] - coords[:, 0][:, None]
+    y_dist = coords[:, 1][None, :] - coords[:, 1][:, None]
+
+    pairwise_squared_dist = x_dist**2 * unit_xsquared + y_dist**2 * unit_ysquared
+    
+    # Set diagonal to infinity to exclude self from nearest neighbors
+    np.fill_diagonal(pairwise_squared_dist, np.max(pairwise_squared_dist))
+    
+    # Smooth matrix: identity (each spot pools only itself)
+    smooth_mat = scipy.sparse.identity(n_spots, dtype=np.int8, format='csr')
+    
+    # Adjacency matrix: connect each spot to coordination_num nearest neighbors
+    A = np.zeros((n_spots, n_spots), dtype=np.float64)
+    
+    for i in range(n_spots):
+        nearest_indices = np.partition(pairwise_squared_dist[i, :].copy(), coordination_num)[:coordination_num]
+        
+        if len(nearest_indices) > 0:
+            A[i, nearest_indices] = 1.0
+    
+    adjacency_mat = scipy.sparse.csr_matrix(A)
+    
+    num_neighbors = np.sum(adjacency_mat > 0, axis=1).A.flatten()
+
+    # NB lattice adjacency: min=2, median=2.0, max=4 neighbors per spot.
+    logger.info(
+        f"Lattice adjacency: min={np.min(num_neighbors)}, "
+        f"median={np.median(num_neighbors):.1f}, "
+        f"max={np.max(num_neighbors)} neighbors per spot"
+    )
+    
+    return smooth_mat, adjacency_mat
+    
+
+
 def choose_adjacency_by_readcounts(
     coords, single_total_bb_RD, maxspots_pooling=7, unit_xsquared=9, unit_ysquared=3
 ):
@@ -383,7 +428,7 @@ def choose_adjacency_by_readcounts(
     tmp_pairwise_squared_dist = x_dist**2 * unit_xsquared + y_dist**2 * unit_ysquared
 
     # NB sets the diagonal (self-distances) to the maximum so they are not considered as nearest neighbors.
-    # TODO np.inf
+    # TODO np.inf, but integer.
     np.fill_diagonal(tmp_pairwise_squared_dist, np.max(tmp_pairwise_squared_dist))
 
     # NB given the minimum neighbor distance for all spots, find the median and normalize by the sum of scaling factors -
@@ -532,7 +577,18 @@ def multislice_adjacency(
         # NB (x,y) for these spots.
         this_coords = np.array(coords[index, :])
 
+        """
+        # HACK
         tmpsmooth_mat, tmpadjacency_mat = choose_adjacency_by_readcounts(
+            this_coords,
+            single_total_bb_RD[:, index],
+            maxspots_pooling=maxspots_pooling,
+            unit_xsquared=unit_xsquared,
+            unit_ysquared=unit_ysquared,
+        )
+        """
+
+        tmpsmooth_mat, tmpadjacency_mat = choose_lattice_adjacency(
             this_coords,
             single_total_bb_RD[:, index],
             maxspots_pooling=maxspots_pooling,

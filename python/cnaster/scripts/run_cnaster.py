@@ -39,7 +39,7 @@ from cnaster.spatial import (
     multislice_adjacency,
     rectangle_initialize_initial_clone,
     sufficient_umis_initial_clone,
-    compute_weighted_adjacency,
+    anisotropic_exponential_decay_adjacency,
     choose_adjacency_by_readcounts,
     renormalize_adjacency_mat,
 )

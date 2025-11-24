@@ -304,8 +304,8 @@ def rectangle_initialize_initial_clone(coords, n_clones, random_state=0):
 
     return initial_clone_index, clone_id
 
-
-def compute_adjacency_mat_v2(coords, unit_xsquared=9, unit_ysquared=3, ratio=1):
+# NB previously compute_adjacency_mat_v2
+def anisotropic_distance_adjacency(coords, unit_xsquared=9, unit_ysquared=3, ratio=1):
     """
     Simple distance based adjacency assuming distance scaling factors, unit_xsquared,
     unit_ysquared.
@@ -320,7 +320,7 @@ def compute_adjacency_mat_v2(coords, unit_xsquared=9, unit_ysquared=3, ratio=1):
     # NB (# spot, # spot) adjacency matrix.
     A = np.zeros((coords.shape[0], coords.shape[0]), dtype=np.int8)
 
-    logger.info(f"Solving for adjacency matrix with ratio={ratio} and unit_xsquared={unit_xsquared}, unit_ysquared={unit_ysquared}")
+    logger.info(f"Solving for distance-based adjacency matrix with ratio={ratio} and unit_xsquared={unit_xsquared}, unit_ysquared={unit_ysquared}")
     
     # NB loop over spots (across slices).
     for i in range(coords.shape[0]):
@@ -337,7 +337,7 @@ def compute_adjacency_mat_v2(coords, unit_xsquared=9, unit_ysquared=3, ratio=1):
     return scipy.sparse.csr_matrix(A)
 
 
-def compute_weighted_adjacency(
+def anisotropic_exponential_decay_adjacency(
     coords, unit_xsquared=9, unit_ysquared=3, bandwidth=12, decay=5
 ):
     # NB x,y separations for all spot pairs.
@@ -348,7 +348,7 @@ def compute_weighted_adjacency(
     pairwise_squared_dist = x_dist**2 * unit_xsquared + y_dist**2 * unit_ysquared
 
     logger.info(
-        f"Solving for inter-slice? Potts adjacency with exponential kernel based on squared distance with bandwidth,decay={bandwidth},{decay}."
+        f"Solving for slice Potts adjacency with exponential kernel based on squared distance with bandwidth,decay={bandwidth},{decay}."
     )
 
     kern = np.exp(-((pairwise_squared_dist / bandwidth) ** decay))
@@ -357,12 +357,12 @@ def compute_weighted_adjacency(
     A = np.zeros((coords.shape[0], coords.shape[0]))
 
     for i in range(coords.shape[0]):
-        indexes = np.where(kern[i, :] > 1e-4)[0]
+        indexes = np.where(kern[i, :] > 1e-4)[0] # MAGIC
         indexes = np.array([j for j in indexes if j != i])
 
         if len(indexes) > 0:
             A[i, indexes] = kern[i, indexes]
-
+    
     return scipy.sparse.csr_matrix(A)
 
 
@@ -388,14 +388,15 @@ def choose_adjacency_by_readcounts(
 
     # NB given the minimum neighbor distance for all spots, find the median and normalize by the sum of scaling factors -
     #    used to set a baseline for neighborhood size.
-    base_ratio = np.median(np.min(tmp_pairwise_squared_dist, axis=0)) / (
-        unit_xsquared + unit_ysquared
-    )
-
+    spot_min_distances = np.min(tmp_pairwise_squared_dist, axis=0)
+    
+    base_ratio = np.median(spot_min_distances) / (unit_xsquared + unit_ysquared)
     s_ratio = 0
 
     for ratio in range(10):
-        smooth_mat = compute_adjacency_mat_v2(
+        # NB simple distance based adjacency: progressively greater separated spots are including as neighbors until
+        #    the median neighbor count is > maxspots_pooling
+        smooth_mat = anisotropic_distance_adjacency(
             coords, unit_xsquared, unit_ysquared, ratio * base_ratio
         )
 
@@ -412,7 +413,8 @@ def choose_adjacency_by_readcounts(
 
         s_ratio = ratio
 
-    smooth_mat = compute_adjacency_mat_v2(
+    # NB backtrack given we surpassed maxspots_pooling.
+    smooth_mat = anisotropic_distance_adjacency(
         coords, unit_xsquared, unit_ysquared, s_ratio * base_ratio
     )
 
@@ -428,18 +430,20 @@ def choose_adjacency_by_readcounts(
         15 * (unit_xsquared + unit_ysquared),  # MAGIC
         unit_xsquared + unit_ysquared,
     ):
-        # NB distance-based kernel adjacency.
-        adjacency_mat = compute_weighted_adjacency(
+        # NB distance-based kernel adjacency with assumed decay.
+        adjacency_mat = anisotropic_exponential_decay_adjacency(
             coords, unit_xsquared, unit_ysquared, bandwidth=bandwidth
         )
 
         adjacency_mat.setdiag(1)
 
         # NB where smooth connection is stronger than exponential, we rely on smooth.
+        #    runtime better with increased pooling.
         adjacency_mat = adjacency_mat - smooth_mat
-        adjacency_mat[adjacency_mat < 0] = 0
+        adjacency_mat[adjacency_mat < 0.] = 0.
 
-        if np.median(np.sum(adjacency_mat, axis=0).A.flatten()) >= 6:  # MAGIC
+        # NB we expect a coordination number of 6 on a hexagonal lattice.  MAGIC?
+        if np.median(np.sum(adjacency_mat, axis=0).A.flatten()) >= 6:
             logger.info(
                 f"Solved for adjacency matrix with length scale {bandwidth} and median of total edge > 6 (MAGIC)."
             )

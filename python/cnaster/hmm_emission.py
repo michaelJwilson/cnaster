@@ -401,7 +401,7 @@ class Weighted_NegativeBinomial_mix:
         maxfun=5_000,
         legacy=False,
         clip_percentile=None,
-        empirical=True,
+        empirical=False,
         **kwargs,
     ):
         using_default_params = start_params is None
@@ -502,31 +502,30 @@ class Weighted_NegativeBinomial_mix:
                 f"Clipped @ {clip_percentile}[%] percentile with -ln likelihood={self.nloglikeobs(start_params):.6e} @ start_params:\n{[xx for xx in start_params]}"
             )
 
+        state_weights = []
+
+        for state_idx in range(self.num_states):
+            state_mask = state_assignment == state_idx
+            state_weight = np.sum(self.weights[state_mask])
+
+            state_weights.append(state_weight)
+            
+        state_weights = np.array(state_weights)
+            
+        empirical_log_mu = np.log(empirical_rdr_mean)
+        
+        empirical_disp_state = (np.maximum(empirical_rdr_std**2., empirical_rdr_mean) - empirical_rdr_mean) / (empirical_rdr_mean**2.)
+        empirical_disp = np.sum(empirical_disp_state * state_weights) / total_weight
+
+        if ~np.isfinite(empirical_disp) or empirical_disp <= 0.0:
+            # TODO HACK nb emission for disp=0.0
+            empirical_disp = 1.e-6
+            logger.warning(
+                f"Empirical dispersion is non-finite or non-positive: {empirical_disp_state}, assigning {empirical_disp}."
+            )
+
         if empirical:
-            state_weights = []
-
-            for state_idx in range(self.num_states):
-                state_mask = state_assignment == state_idx
-                state_weight = np.sum(self.weights[state_mask])
-
-                state_weights.append(state_weight)
-            
-            state_weights = np.array(state_weights)
-            
-            empirical_log_mu = np.log(empirical_rdr_mean)
-
-            empirical_disp_state = (np.maximum(empirical_rdr_std**2., empirical_rdr_mean) - empirical_rdr_mean) / (empirical_rdr_mean**2.)
-            empirical_disp = np.sum(empirical_disp_state * state_weights) / total_weight
-
-            if ~np.isfinite(empirical_disp) or empirical_disp <= 0.0:
-                # TODO HACK nb emission for disp=0.0
-                empirical_disp = 1.e-6
-                logger.warning(
-                    f"Empirical dispersion is non-finite or non-positive: {empirical_disp_state}, assigning {empirical_disp}."
-                )
-
             params = np.array(list(empirical_log_mu) + [empirical_disp])
-
             result = OptimizationResult(
                 optimizer="empirical",
                 params=params,

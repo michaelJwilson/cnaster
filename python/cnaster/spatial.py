@@ -202,17 +202,17 @@ def sufficient_umis_initial_clone(
     min_clone_umis=1_000_000,  # 1_000_000
     max_growth_rounds=50,
     random_state=0,
+    prior_clone_assignment=None,
 ):
     logger.info(
         f"Assigning initial clones based on total spot UMIs, min_clone_umis={min_clone_umis:_} and max_growth_rounds={max_growth_rounds}"
     )
 
-    coordination_num = summarize_lattice_structure(
+    summarize_lattice_structure(
         coords, sample_ids=sample_ids, sample_list=sample_list
     )
 
-    # TODO HACK
-    np.random.seed(random_state)
+    rand_rng = np.random.default_rng(random_state)
 
     # NB across multiple slices.
     n_spots = coords.shape[0]
@@ -221,7 +221,6 @@ def sufficient_umis_initial_clone(
     clone_assignment = np.full(n_spots, -1)
     clone_id = 0
 
-    # TODO HACK axis?
     spot_counts = np.sum(spot_gene_umis, axis=0)
 
     for i, sname in enumerate(sample_list):
@@ -241,7 +240,7 @@ def sufficient_umis_initial_clone(
         while not np.all(assigned):
             # NB pick the unassigned spot with the largest UMI count
             unassigned_idx = np.where(~assigned)[0]
-            seed_idx = np.random.choice(unassigned_idx)
+            seed_idx = rand_rng.choice(unassigned_idx)
 
             group, group_umis = {seed_idx}, this_spot_counts[seed_idx]
             num_rounds = 0
@@ -255,6 +254,7 @@ def sufficient_umis_initial_clone(
                 if len(unassigned_idx) == 0:
                     break
 
+                """
                 # TODO computational efficiency
                 # NB compute distance from each unassigned spot to all spots in current clone.
                 min_dists_to_group = np.full(len(unassigned_idx), np.inf)
@@ -269,18 +269,36 @@ def sufficient_umis_initial_clone(
                 sorted_indices = np.argsort(min_dists_to_group)
                 sorted_dists = min_dists_to_group[sorted_indices]
                 sorted_neighbors = unassigned_idx[sorted_indices]
+                """
+                # NB compute distance from each unassigned spot to seed
+                seed_dists = np.linalg.norm(
+                    this_coords[unassigned_idx] - this_coords[seed_idx], axis=1
+                )
+                
+                # NB sort by distance from seed
+                sorted_indices = np.argsort(seed_dists)
+                sorted_dists = seed_dists[sorted_indices]
+                sorted_neighbors = unassigned_idx[sorted_indices]
 
                 for dist, neighbor in zip(sorted_dists, sorted_neighbors):
+                    # NB compute distance from this neighbor to nearest spot in clone
+                    min_dist_to_group = np.inf
+                    for group_member in group:
+                        dist_to_member = np.linalg.norm(
+                            this_coords[neighbor] - this_coords[group_member]
+                        )
+                        min_dist_to_group = min(min_dist_to_group, dist_to_member)
+
                     # NB guard against disjoint groups.
                     # TODO tailor to Visim (HD).
-                    if dist > 1.2 * last_dist:
+                    if min_dist_to_group > 1.2 * last_dist:
                         break
 
                     if neighbor not in group:
                         group.add(neighbor)
                         group_umis += this_spot_counts[neighbor]
 
-                        last_dist = dist
+                        last_dist = min_dist_to_group
 
                     if group_umis >= min_clone_umis:
                         break
@@ -319,6 +337,7 @@ def sufficient_umis_initial_clone(
     sufficient = np.array(
         [cid for cid in clone_ids if clone_total_umis[cid] >= min_clone_umis]
     )
+
     insufficient = np.array(
         [cid for cid in clone_ids if clone_total_umis[cid] < min_clone_umis]
     )

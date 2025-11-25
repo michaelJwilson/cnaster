@@ -12,13 +12,14 @@ SAMPLE_IDS=("numcnas3.3_cnasize3e7_ploidy2_random0")
 rm -f cnaster.log
 rm -f cnaster.perf
 
-# SAMPLE_IDS=()
+SAMPLE_IDS=()
 
-# for d in "$ROOT"/"simulated_data_related"/*/; do
-#   SAMPLE_IDS+=("$(basename "$d")")
-# done
+for d in "$ROOT"/"simulated_data_related"/*/; do
+   SAMPLE_IDS+=("$(basename "$d")")
+done
 
 # echo "${SAMPLE_IDS[@]}"
+echo "Found ${#SAMPLE_IDS[@]} sample ids @ ${ROOT}"
 
 for SAMPLE_ID in "${SAMPLE_IDS[@]}"; do
     # NB replace numcnas1.2_cnasize1e7_ploidy2_random0 in ./zenodo_sample_sheet.tsv with {SAMPLE_ID} and write to zenodo_sample_sheets/zenodo_{SAMPLE_ID}_sheet.tsv                                                                                                          

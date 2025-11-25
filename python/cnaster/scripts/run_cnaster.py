@@ -441,17 +441,16 @@ def run_cnaster(config_path, over_rides=None):
         coords, x_part, y_part, single_tumor_prop=None, threshold=0.5
     )
     """
-    """
+    
     # TODO HACK? adata.layers["count"]
     initial_clone_index_baf, clone_id, spot_umi_counts = sufficient_umis_initial_clone(
         coords,
         single_X[:,0,:],
         sample_list,
         sample_ids,
-        500_000,
+        1_000_000,
     )
     """
-
     adj_list = cast_csr(adjacency_mat)
     adj_spots, adj_neighbors, adj_weights = unpack_adjacency(adj_list)
 
@@ -474,9 +473,9 @@ def run_cnaster(config_path, over_rides=None):
         cost_zeropoint=0.0,
         temp=1.0,
     )
-
+    
     initial_clone_index_baf = [np.where(clone_id == i)[0] for i in range(config.hmrf.n_clones)]
-        
+    """
     # NB trigger summary for initial clones, per single_X=1 etc.
     merge_pseudobulk_by_index_mix(
         single_X,

@@ -8,6 +8,8 @@ python/cnaster/sim/scripts/__pycache__/
 
 results/
 sandbox/
+logs/
+target/
 zenodo_sample_sheets/
 NOTES.md
 .nextflow*

@@ -448,7 +448,7 @@ def run_cnaster(config_path, over_rides=None):
         single_X[:,0,:],
         sample_list,
         sample_ids,
-        1_000_000,
+        500_000,
     )
     """
     adj_list = cast_csr(adjacency_mat)

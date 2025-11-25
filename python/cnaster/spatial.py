@@ -82,15 +82,17 @@ def fixed_rectangle_partition(
 
 def initialize_clones(
     coords, sample_ids, x_part, y_part, single_tumor_prop=None, threshold=None
-): 
-    logger.info(f"Initializing clones given fixed grid partitions and max. sample_id={np.max(sample_ids)}")
+):
+    logger.info(
+        f"Initializing clones given fixed grid partitions and max. sample_id={np.max(sample_ids)}"
+    )
 
     initial_clone_index = []
 
     # NB for all slices.
     for s in range(1 + np.max(sample_ids)):
         logger.debug(f"Solving for sample_id={s}")
-        
+
         # NB sample_ids idx for all spots in this slice.
         index = np.where(sample_ids == s)[0]
 
@@ -117,8 +119,9 @@ def initialize_clones(
     logger.info(
         f"Initialized {len(initial_clone_index)} clones given x_part,y_part={x_part},{y_part}."
     )
-    
+
     return initial_clone_index
+
 
 def summarize_lattice_structure(coords, sample_ids=None, sample_list=None):
     """
@@ -131,23 +134,26 @@ def summarize_lattice_structure(coords, sample_ids=None, sample_list=None):
 
         this_coords = np.array(coords[index, :]).copy()
 
-        nx = len(np.unique(this_coords[:,0]))
-        ny = len(np.unique(this_coords[:,1]))
+        nx = len(np.unique(this_coords[:, 0]))
+        ny = len(np.unique(this_coords[:, 1]))
 
-        center_x = np.median(this_coords[:,0])
-        center_y = np.median(this_coords[:,1])
+        center_x = np.median(this_coords[:, 0])
+        center_y = np.median(this_coords[:, 1])
 
         # NB median may not be a realized coordinate - find closest.
-        center_x_idx = np.argmin(np.abs(this_coords[:,0] - center_x))
-        center_y_idx = np.argmin(np.abs(this_coords[:,1] - center_y))
+        center_x_idx = np.argmin(np.abs(this_coords[:, 0] - center_x))
+        center_y_idx = np.argmin(np.abs(this_coords[:, 1] - center_y))
 
-        center_x = this_coords[center_x_idx,0]
-        center_y = this_coords[center_y_idx,1]
+        center_x = this_coords[center_x_idx, 0]
+        center_y = this_coords[center_y_idx, 1]
 
-        center_xy_idx = np.argmin((this_coords[:,0] - center_x)**2. + (this_coords[:,1] - center_y)**2.)
+        center_xy_idx = np.argmin(
+            (this_coords[:, 0] - center_x) ** 2.0
+            + (this_coords[:, 1] - center_y) ** 2.0
+        )
 
-        center_x = this_coords[center_xy_idx,0]
-        center_y = this_coords[center_xy_idx,1]
+        center_x = this_coords[center_xy_idx, 0]
+        center_y = this_coords[center_xy_idx, 1]
 
         center_x_dist = this_coords[center_xy_idx, 0] - this_coords[:, 0]
         center_y_dist = this_coords[center_xy_idx, 1] - this_coords[:, 1]
@@ -173,13 +179,17 @@ def summarize_lattice_structure(coords, sample_ids=None, sample_list=None):
         if coordination_number is None:
             coordination_number = sum(unique_cnts)
         else:
-            assert coordination_number == sum(unique_cnts), "Found inconsistent coordination number across samples @ {sname.}"
+            assert coordination_number == sum(
+                unique_cnts
+            ), "Found inconsistent coordination number across samples @ {sname.}"
 
         sorted_neighbors = sorted_neighbors[:coordination_number]
         sorted_displacements = sorted_neighbors - np.array([[center_x, center_y]])
 
         logger.info(f"Sample {sname}: estimated lattice spacing nx, ny = {nx}, {ny}")
-        logger.info(f"Lattice coordination number={coordination_number} with displacements from center spot at ({center_x:.1f}, {center_y:.1f})=\n{sorted_displacements}")
+        logger.info(
+            f"Lattice coordination number={coordination_number} with displacements from center spot at ({center_x:.1f}, {center_y:.1f})=\n{sorted_displacements}"
+        )
 
     return coordination_number
 
@@ -190,17 +200,16 @@ def sufficient_umis_initial_clone(
     sample_list,
     sample_ids,
     min_clone_umis=1_000_000,  # 1_000_000
-    acceptance=1.0,
     max_growth_rounds=50,
     random_state=0,
 ):
     logger.info(
-        f"Assigning initial clones based on total spot UMIs, min_clone_umis={min_clone_umis}, acceptance={acceptance} and max_growth_rounds={max_growth_rounds}"
+        f"Assigning initial clones based on total spot UMIs, min_clone_umis={min_clone_umis:_} and max_growth_rounds={max_growth_rounds}"
     )
 
-    summarize_lattice_structure(coords, sample_ids=sample_ids, sample_list=sample_list)
-
-    exit(0)
+    coordination_num = summarize_lattice_structure(
+        coords, sample_ids=sample_ids, sample_list=sample_list
+    )
 
     # TODO HACK
     np.random.seed(random_state)
@@ -242,20 +251,20 @@ def sufficient_umis_initial_clone(
             # NB grow group by adding nearest unassigned neighbors until MIN_CLONE_UMIS is reached
             while group_umis < min_clone_umis and len(group) < num_spots_slice:
                 unassigned_idx = np.where(~assigned)[0]
-                
+
                 if len(unassigned_idx) == 0:
                     break
-                
+
                 # TODO computational efficiency
                 # NB compute distance from each unassigned spot to all spots in current clone.
                 min_dists_to_group = np.full(len(unassigned_idx), np.inf)
-                
+
                 for group_member in group:
                     dists = np.linalg.norm(
                         this_coords[unassigned_idx] - this_coords[group_member], axis=1
                     )
                     min_dists_to_group = np.minimum(min_dists_to_group, dists)
-                
+
                 # NB sort by minimum distance to any group member
                 sorted_indices = np.argsort(min_dists_to_group)
                 sorted_dists = min_dists_to_group[sorted_indices]
@@ -264,7 +273,7 @@ def sufficient_umis_initial_clone(
                 for dist, neighbor in zip(sorted_dists, sorted_neighbors):
                     # NB guard against disjoint groups.
                     # TODO tailor to Visim (HD).
-                    if dist > 1.2* last_dist:
+                    if dist > 1.2 * last_dist:
                         break
 
                     if neighbor not in group:
@@ -294,49 +303,59 @@ def sufficient_umis_initial_clone(
             clone_id += 1
 
     logger.info(f"Solved for initial clones.")
-    
+
     clone_ids = np.unique(clone_assignment[clone_assignment >= 0])
-    
+
     if len(clone_ids) == 0:
         logger.error("No clones were initialized.")
         initial_clone_index = []
         return initial_clone_index, clone_assignment, spot_counts
-    
+
     clone_total_umis = {}
     for cid in clone_ids:
         idxs = np.where(clone_assignment == cid)[0]
         clone_total_umis[cid] = np.sum(spot_counts[idxs])
-    
-    sufficient = np.array([cid for cid in clone_ids if clone_total_umis[cid] >= min_clone_umis])
-    insufficient = np.array([cid for cid in clone_ids if clone_total_umis[cid] < min_clone_umis])
-    
+
+    sufficient = np.array(
+        [cid for cid in clone_ids if clone_total_umis[cid] >= min_clone_umis]
+    )
+    insufficient = np.array(
+        [cid for cid in clone_ids if clone_total_umis[cid] < min_clone_umis]
+    )
+
     if len(insufficient) > 0:
-        logger.info(f"Found {len(insufficient)} clones with insufficient UMIs (< {min_clone_umis}).")
-        
+        logger.info(
+            f"Found {len(insufficient)} clones with insufficient UMIs (< {min_clone_umis})."
+        )
+
         if len(sufficient) == 0:
             fallback = max(clone_ids, key=lambda c: clone_total_umis[c])
-            logger.warning("No clone meets threshold; reassigning all insufficient spots to max-UMI clone.")
+            logger.warning(
+                "No clone meets threshold; reassigning all insufficient spots to max-UMI clone."
+            )
             for cid in insufficient:
                 clone_assignment[clone_assignment == cid] = fallback
         else:
             suff_spot_mask = np.isin(clone_assignment, sufficient)
             suff_coords = coords[suff_spot_mask]
             suff_clone_ids = clone_assignment[suff_spot_mask]
-            
+
             for cid in insufficient:
                 insuff_spot_idxs = np.where(clone_assignment == cid)[0]
                 for si in insuff_spot_idxs:
                     dists = np.linalg.norm(suff_coords - coords[si], axis=1)
                     target_clone = suff_clone_ids[np.argmin(dists)]
                     clone_assignment[si] = target_clone
-        
+
         new_ids = sorted(np.unique(clone_assignment[clone_assignment >= 0]))
         id_map = {old: new for new, old in enumerate(new_ids)}
         for old, new in id_map.items():
             clone_assignment[clone_assignment == old] = new
         logger.info(f"After reassignment, total clones={len(id_map)}.")
-    
-    initial_clone_index = [np.where(clone_assignment == i)[0] for i in range(np.max(clone_assignment)+1)]
+
+    initial_clone_index = [
+        np.where(clone_assignment == i)[0] for i in range(np.max(clone_assignment) + 1)
+    ]
     return initial_clone_index, clone_assignment, spot_counts
 
 
@@ -429,6 +448,7 @@ def rectangle_initialize_initial_clone(coords, n_clones, random_state=0):
 
     return initial_clone_index, clone_id
 
+
 # NB previously compute_adjacency_mat_v2
 def anisotropic_distance_adjacency(coords, unit_xsquared=9, unit_ysquared=3, ratio=1):
     """
@@ -445,8 +465,10 @@ def anisotropic_distance_adjacency(coords, unit_xsquared=9, unit_ysquared=3, rat
     # NB (# spot, # spot) adjacency matrix.
     A = np.zeros((coords.shape[0], coords.shape[0]), dtype=np.int8)
 
-    logger.info(f"Solving for distance-based adjacency matrix with ratio={ratio} and unit_xsquared={unit_xsquared}, unit_ysquared={unit_ysquared}")
-    
+    logger.info(
+        f"Solving for distance-based adjacency matrix with ratio={ratio} and unit_xsquared={unit_xsquared}, unit_ysquared={unit_ysquared}"
+    )
+
     # NB loop over spots (across slices).
     for i in range(coords.shape[0]):
         indexes = np.where(
@@ -482,50 +504,58 @@ def anisotropic_exponential_decay_adjacency(
     A = np.zeros((coords.shape[0], coords.shape[0]))
 
     for i in range(coords.shape[0]):
-        indexes = np.where(kern[i, :] > 1e-4)[0] # MAGIC
+        indexes = np.where(kern[i, :] > 1e-4)[0]  # MAGIC
         indexes = np.array([j for j in indexes if j != i])
 
         if len(indexes) > 0:
             A[i, indexes] = kern[i, indexes]
-    
+
     return scipy.sparse.csr_matrix(A)
 
 
 def choose_lattice_adjacency(
-    coords, single_total_bb_RD, maxspots_pooling=7, unit_xsquared=9, unit_ysquared=3,
+    coords,
+    single_total_bb_RD,
+    maxspots_pooling=7,
+    unit_xsquared=9,
+    unit_ysquared=3,
 ):
     # NB called per slice.
-    coordination_num = summarize_lattice_structure(coords, sample_ids=np.zeros(len(coords)), sample_list=np.zeros(len(coords)))
+    coordination_num = summarize_lattice_structure(
+        coords, sample_ids=np.zeros(len(coords)), sample_list=[None]
+    )
 
     logger.info(
         f"Assigning lattice adjacency matrix with coordination_num={coordination_num}, "
         f"assuming unit_xsquared,unit_ysquared={unit_xsquared},{unit_ysquared}."
     )
-    
+
     n_spots = coords.shape[0]
-    
+
     x_dist = coords[:, 0][None, :] - coords[:, 0][:, None]
     y_dist = coords[:, 1][None, :] - coords[:, 1][:, None]
 
     pairwise_squared_dist = x_dist**2 * unit_xsquared + y_dist**2 * unit_ysquared
-    
+
     # NB set diagonal to infinity to exclude self from nearest neighbors
     np.fill_diagonal(pairwise_squared_dist, np.max(pairwise_squared_dist))
-    
+
     # NB smooth matrix: identity (each spot pools only itself)
-    smooth_mat = scipy.sparse.identity(n_spots, dtype=np.int8, format='csr')
-    
+    smooth_mat = scipy.sparse.identity(n_spots, dtype=np.int8, format="csr")
+
     # NB adjacency matrix: connect each spot to coordination_num nearest neighbors
     A = np.zeros((n_spots, n_spots), dtype=np.float64)
-    
+
     for i in range(n_spots):
-        nearest_indices = np.argpartition(pairwise_squared_dist[i, :], coordination_num)[:coordination_num]        
-        
+        nearest_indices = np.argpartition(
+            pairwise_squared_dist[i, :], coordination_num
+        )[:coordination_num]
+
         if len(nearest_indices) > 0:
             A[i, nearest_indices] = 1.0
-    
+
     adjacency_mat = scipy.sparse.csr_matrix(A)
-    
+
     num_neighbors = np.sum(adjacency_mat > 0, axis=1).A.flatten()
 
     # NB lattice adjacency: min=2, median=2.0, max=4 neighbors per spot.
@@ -536,7 +566,6 @@ def choose_lattice_adjacency(
     )
 
     return smooth_mat, adjacency_mat
-    
 
 
 def choose_adjacency_by_readcounts(
@@ -562,7 +591,7 @@ def choose_adjacency_by_readcounts(
     # NB given the minimum neighbor distance for all spots, find the median and normalize by the sum of scaling factors -
     #    used to set a baseline for neighborhood size.
     spot_min_distances = np.min(tmp_pairwise_squared_dist, axis=0)
-    
+
     base_ratio = np.median(spot_min_distances) / (unit_xsquared + unit_ysquared)
     s_ratio = 0
 
@@ -613,7 +642,7 @@ def choose_adjacency_by_readcounts(
         # NB where smooth connection is stronger than exponential, we rely on smooth.
         #    runtime better with increased pooling.
         adjacency_mat = adjacency_mat - smooth_mat
-        adjacency_mat[adjacency_mat < 0.] = 0.
+        adjacency_mat[adjacency_mat < 0.0] = 0.0
 
         # NB we expect a coordination number of 6 on a hexagonal lattice.  MAGIC?
         if np.median(np.sum(adjacency_mat, axis=0).A.flatten()) >= 6:
@@ -698,7 +727,7 @@ def multislice_adjacency(
     adjacency_mat, smooth_mat = [], []
 
     # NB loop over slices.
-    for i, sname in enumerate(sample_list):
+    for i, _ in enumerate(sample_list):
         # NB spots per slice.
         index = np.where(sample_ids == i)[0]
 

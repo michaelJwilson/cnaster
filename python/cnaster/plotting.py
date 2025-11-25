@@ -577,7 +577,7 @@ def plot_clones_spatial(
         frameon=False,
     )
     # axes.axis("off")
-    axes.set_title(",".join(sample_list), loc="left")
+    axes.set_title(",".join(sample_list), loc="left", fontsize=10)
 
     fig.tight_layout()
 

@@ -129,7 +129,7 @@ def summarize_lattice_structure(coords, sample_ids=None, sample_list=None):
     """
     coordination_number = None
 
-    for i, sname in enumerate(sample_list):
+    for i, _ in enumerate(sample_list):
         index = np.where(sample_ids == i)[0]
 
         this_coords = np.array(coords[index, :]).copy()
@@ -181,12 +181,12 @@ def summarize_lattice_structure(coords, sample_ids=None, sample_list=None):
         else:
             assert coordination_number == sum(
                 unique_cnts
-            ), "Found inconsistent coordination number across samples @ {sname.}"
+            ), "Found inconsistent coordination number across samples @ {i}."
 
         sorted_neighbors = sorted_neighbors[:coordination_number]
         sorted_displacements = sorted_neighbors - np.array([[center_x, center_y]])
 
-        logger.info(f"Sample {sname}: estimated lattice spacing nx, ny = {nx}, {ny}")
+        logger.info(f"Sample {i}: estimated lattice spacing nx, ny = {nx}, {ny}")
         logger.info(
             f"Lattice coordination number={coordination_number} with displacements from center spot at ({center_x:.1f}, {center_y:.1f})=\n{sorted_displacements}"
         )
@@ -208,6 +208,9 @@ def sufficient_umis_initial_clone(
         f"Assigning initial clones based on total spot UMIs, min_clone_umis={min_clone_umis:_} and max_growth_rounds={max_growth_rounds}"
     )
 
+    if prior_clone_assignment is not None:
+        raise NotImplementedError()
+
     summarize_lattice_structure(
         coords, sample_ids=sample_ids, sample_list=sample_list
     )
@@ -223,7 +226,7 @@ def sufficient_umis_initial_clone(
 
     spot_counts = np.sum(spot_gene_umis, axis=0)
 
-    for i, sname in enumerate(sample_list):
+    for i, _ in enumerate(sample_list):
         index = np.where(sample_ids == i)[0]
         num_spots_slice = len(index)
 
@@ -231,7 +234,7 @@ def sufficient_umis_initial_clone(
         this_spot_counts = spot_counts[index]
 
         logger.info(
-            f"Solving initial assignment of sample/slice {sname} with {len(this_coords)} spots median spot UMIs {np.median(this_spot_counts)}"
+            f"Solving initial assignment of sample/slice {i} with {len(this_coords)} spots median spot UMIs {np.median(this_spot_counts)}"
         )
 
         # NB assignments for this sample/slice.
@@ -254,22 +257,6 @@ def sufficient_umis_initial_clone(
                 if len(unassigned_idx) == 0:
                     break
 
-                """
-                # TODO computational efficiency
-                # NB compute distance from each unassigned spot to all spots in current clone.
-                min_dists_to_group = np.full(len(unassigned_idx), np.inf)
-
-                for group_member in group:
-                    dists = np.linalg.norm(
-                        this_coords[unassigned_idx] - this_coords[group_member], axis=1
-                    )
-                    min_dists_to_group = np.minimum(min_dists_to_group, dists)
-
-                # NB sort by minimum distance to any group member
-                sorted_indices = np.argsort(min_dists_to_group)
-                sorted_dists = min_dists_to_group[sorted_indices]
-                sorted_neighbors = unassigned_idx[sorted_indices]
-                """
                 # NB compute distance from each unassigned spot to seed
                 seed_dists = np.linalg.norm(
                     this_coords[unassigned_idx] - this_coords[seed_idx], axis=1
@@ -280,7 +267,7 @@ def sufficient_umis_initial_clone(
                 sorted_dists = seed_dists[sorted_indices]
                 sorted_neighbors = unassigned_idx[sorted_indices]
 
-                for dist, neighbor in zip(sorted_dists, sorted_neighbors):
+                for _, neighbor in zip(sorted_dists, sorted_neighbors):
                     # NB compute distance from this neighbor to nearest spot in clone
                     min_dist_to_group = np.inf
                     for group_member in group:
@@ -305,7 +292,7 @@ def sufficient_umis_initial_clone(
 
                 if num_rounds == max_growth_rounds:
                     logger.warning(
-                        f"Max growth rounds reached for clone {clone_id} in sample {sname}."
+                        f"Max growth rounds reached for clone {clone_id} in sample {i}."
                     )
                     break
 

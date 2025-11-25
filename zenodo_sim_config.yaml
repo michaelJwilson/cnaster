@@ -74,7 +74,7 @@ hmrf:
   construct_adjacency_method : hexagon
   construct_adjacency_w : 1.0
   np_merge : False
-  fixed_assignment : True
+  fixed_assignment : False
   unit_xsquared : 1
   unit_ysquared : 1
   random_state : 0

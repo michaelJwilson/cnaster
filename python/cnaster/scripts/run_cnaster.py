@@ -443,14 +443,15 @@ def run_cnaster(config_path, over_rides=None):
     """
     
     # TODO HACK? adata.layers["count"]
-    initial_clone_index_baf, clone_id, spot_umi_counts = sufficient_umis_initial_clone(
-        coords,
-        single_X[:,0,:],
-        sample_list,
-        sample_ids,
-        500_000,
-        random_state=int(config.hmrf.random_state),
-    )
+    if initial_clone_index_baf is None:
+        initial_clone_index_baf, clone_id, spot_umi_counts = sufficient_umis_initial_clone(
+            coords,
+            single_X[:,0,:],
+            sample_list,
+            sample_ids,
+            500_000,
+            random_state=int(config.hmrf.random_state),
+        )
     """
     adj_list = cast_csr(adjacency_mat)
     adj_spots, adj_neighbors, adj_weights = unpack_adjacency(adj_list)

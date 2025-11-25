@@ -5,9 +5,10 @@ set -o pipefail
 ROOT="/Users/mw9568/Work/ragr/sim/"
 
 NUM_STARTS=5
+USE_EXISTING=true
 
 # SAMPLE_IDS=("numcnas1.2_cnasize1e7_ploidy2_random0")
-SAMPLE_IDS=("numcnas3.3_cnasize3e7_ploidy2_random0")
+# SAMPLE_IDS=("numcnas3.3_cnasize3e7_ploidy2_random0")
 
 rm -f cnaster.log
 rm -f cnaster.perf
@@ -22,11 +23,22 @@ done
 echo "Found ${#SAMPLE_IDS[@]} sample ids @ ${ROOT}"
 
 for SAMPLE_ID in "${SAMPLE_IDS[@]}"; do
+    OUT_BASE="${ROOT}/nomixing_cnaster_related/${SAMPLE_ID}"
+
     # NB replace numcnas1.2_cnasize1e7_ploidy2_random0 in ./zenodo_sample_sheet.tsv with {SAMPLE_ID} and write to zenodo_sample_sheets/zenodo_{SAMPLE_ID}_sheet.tsv                                                                                                          
     sed "s|numcnas1.2_cnasize1e7_ploidy2_random0|${SAMPLE_ID}|g; s|Z001-U1|${SAMPLE_ID}|g" ./zenodo_sample_sheet.tsv > "zenodo_sample_sheets/zenodo_${SAMPLE_ID}_sheet.tsv"
     
     for ((RANDOM_STATE=0; RANDOM_STATE<NUM_STARTS; RANDOM_STATE++)); do
         echo "Solving for SAMPLE_ID=${SAMPLE_ID}, RANDOM_STATE=${RANDOM_STATE}"
+
+        OUT_PATTERN="${OUT_BASE}/clone?_rectangle${RANDOM_STATE}_w1.0/rdrbaf_final_nstates?_smp.npz"
+
+        if [[ "$USE_EXISTING" == "true" ]]; then
+            if compgen -G "$OUT_PATTERN" > /dev/null; then
+                echo "Utilizing existing results for SAMPLE_ID=${SAMPLE_ID}, RANDOM_STATE=${RANDOM_STATE}."
+                continue
+            fi
+        fi
 
         if ! run_cnaster zenodo_sim_config.yaml \
             -o "hmrf.random_state=${RANDOM_STATE}" \

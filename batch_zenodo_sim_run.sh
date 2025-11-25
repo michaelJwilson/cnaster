@@ -12,6 +12,14 @@ SAMPLE_IDS=("numcnas3.3_cnasize3e7_ploidy2_random0")
 rm -f cnaster.log
 rm -f cnaster.perf
 
+# SAMPLE_IDS=()
+
+# for d in "$ROOT"/"simulated_data_related"/*/; do
+#   SAMPLE_IDS+=("$(basename "$d")")
+# done
+
+# echo "${SAMPLE_IDS[@]}"
+
 for SAMPLE_ID in "${SAMPLE_IDS[@]}"; do
     # NB replace numcnas1.2_cnasize1e7_ploidy2_random0 in ./zenodo_sample_sheet.tsv with {SAMPLE_ID} and write to zenodo_sample_sheets/zenodo_{SAMPLE_ID}_sheet.tsv                                                                                                          
     sed "s|numcnas1.2_cnasize1e7_ploidy2_random0|${SAMPLE_ID}|g; s|Z001-U1|${SAMPLE_ID}|g" ./zenodo_sample_sheet.tsv > "zenodo_sample_sheets/zenodo_${SAMPLE_ID}_sheet.tsv"
@@ -30,5 +38,8 @@ for SAMPLE_ID in "${SAMPLE_IDS[@]}"; do
             echo "run_cnaster failed for SAMPLE_ID=${SAMPLE_ID}, RANDOM_STATE=${RANDOM_STATE} (rc=${rc})" >&2
             exit 1  # exits inner RANDOM_STATE loop; use 'break 2' to exit both loops, or 'exit 1' to stop script
         fi
-    done
+
+        mv cnaster.log "logs/cnaster_${SAMPLE_ID}_${RANDOM_STATE}.log"
+        rm -f cnaster.perf
+    done    
 done

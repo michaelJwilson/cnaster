@@ -23,10 +23,11 @@ references:
   filtergenelist_file : /Users/mw9568/repos/CalicoST/GRCh38_resources/ig_gene_list.txt
   filterregion_file : /Users/mw9568/repos/CalicoST/GRCh38_resources/HLA_regions.bed
 
-# TODO HACK min_normal_count_perbin : 20 ->
+# TODO HACK 
 #           min_percent_expressed_spots : 0.005 ->
+#           secondary_min_snp_umi : 300 ->
 #           normal_allele_specific_confidence : (0.05, 0.95) ->
-#           secondary_min_snp_umi : 300 -> 
+#           min_normal_count_perbin : 20 ->
 quality:
   min_percent_expressed_spots : 0.0
   secondary_min_umi : 0

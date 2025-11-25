@@ -39,22 +39,22 @@ quality:
   normal_allele_specific_confidence : (0.01, 0.99)
   min_normal_count_perbin : 100
 
-# TODO HACK npart_phasing : 3 -> 1
+# TODO HACK npart_phasing : 3 ->
 #           baf_change_threshold : 0.1 ->
 #           min_new_segment_size : 10 ->
 phasing:
-  run : False
+  run : True
   nu : 1.0
   logphase_shift : -2.0
   npart_phasing : 2
-  baf_change_threshold : 0.0
+  baf_change_threshold : 0.1
   min_new_segment_size : 1
 
 # TODO HACK max_iter_outer : 20 ->
 #           spatial_weight : 0.1 ->
 #           n_clones : 3 ->
 #           n_clones_rdr : 2 ->
-#           maxspots_pooling -> 1
+#           maxspots_pooling 7 ->
 #           unit_xsquared 9 ->
 #           unit_ysquared 3 ->
 hmrf:

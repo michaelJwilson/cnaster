@@ -1,7 +1,7 @@
 #!/bin/bash
 set -o pipefail
 
-ROOT="/u/mw9568/scratch/calicost_sims/"
+# ROOT="/u/mw9568/scratch/calicost_sims/"
 ROOT="/Users/mw9568/Work/ragr/sim/"
 
 NUM_STARTS=5

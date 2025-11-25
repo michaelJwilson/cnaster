@@ -9,8 +9,8 @@ preprocessing:
   tumorprop_file : None
 
 annotation:
-  clone_label : /Users/mw9568/Work/ragr/sim/simulated_data_related/numcnas1.2_cnasize1e7_ploidy2_random0/truth_clone_labels.tsv
-  true_cnv : /Users/mw9568/Work/ragr/sim/simulated_data_related/numcnas1.2_cnasize1e7_ploidy2_random0/truth_acn_profile.tsv
+  clone_label : None # /Users/mw9568/Work/ragr/sim/simulated_data_related/numcnas1.2_cnasize1e7_ploidy2_random0/truth_clone_labels.tsv
+  true_cnv : None # /Users/mw9568/Work/ragr/sim/simulated_data_related/numcnas1.2_cnasize1e7_ploidy2_random0/truth_acn_profile.tsv
 
 run:
   legacy : False
@@ -59,7 +59,7 @@ phasing:
 #           unit_ysquared 3 ->
 hmrf:
   n_clones : 3
-  n_clones_rdr : 1
+  n_clones_rdr : 2
   min_spots_per_clone : 100
   min_avgumi_per_clone : 10
   maxspots_pooling : 1
@@ -69,11 +69,11 @@ hmrf:
   initialization_method : rectangle
   num_hmrf_initialization_start : 0
   num_hmrf_initialization_end : 1
-  spatial_weight : 0.1
+  spatial_weight : 1.0
   inertia : 0
   construct_adjacency_method : hexagon
   construct_adjacency_w : 1.0
-  np_merge : False
+  np_merge : True
   fixed_assignment : False
   unit_xsquared : 1
   unit_ysquared : 1

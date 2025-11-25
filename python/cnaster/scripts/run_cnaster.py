@@ -510,7 +510,8 @@ def run_cnaster(config_path, over_rides=None):
         lambda g: g.sort_values(["x", "y"])
     )
 
-    output_dir = f"{config.paths.output_dir}/clone{config.hmrf.n_clones}.{config.hmrf.n_clones_rdr}_rectangle{config.hmrf.random_state}_w{config.hmrf.spatial_weight:.1f}/"
+    # {config.hmrf.n_clones_rdr}
+    output_dir = f"{config.paths.output_dir}/clone{config.hmrf.n_clones}_rectangle{config.hmrf.random_state}_w{config.hmrf.spatial_weight:.1f}/"
 
     if not (poutput_dir := Path(output_dir)).exists():
         poutput_dir.mkdir(exist_ok=True)
@@ -1402,6 +1403,9 @@ def run_cnaster(config_path, over_rides=None):
     ]:
         logger.info(f"Solved for {key}:\n{res_combine[key]}")
 
+    # TODO SIC BUG
+    np.savez(f"{output_dir}/rdrbaf_final_nstates{config.hmm.n_states}_smp.npz", **res_combine)
+
     # NB infer integer allele-specific copy numbers
     final_clone_ids = np.sort(np.unique(res_combine["new_assignment"]))
 
@@ -1710,7 +1714,7 @@ def run_cnaster(config_path, over_rides=None):
     # TODO
     fig_path = f"{output_dir}/plots/clones_genomic.pdf"
     write_fig(fig_path, rdr_baf_fig, transparent=True, bbox_inches="tight")
-
+    """
     # TODO issue when indexing of initial clones incompatiable/bigger than final clones.
     initial_rdr_baf_fig = plot_clones_genomic(
         df_seglevel_cnv,
@@ -1731,7 +1735,7 @@ def run_cnaster(config_path, over_rides=None):
     # TODO
     fig_path = f"{output_dir}/plots/initial_clones_genomic.pdf"
     write_fig(fig_path, initial_rdr_baf_fig, transparent=True, bbox_inches="tight")
-
+    """
     clone_index = [
         np.where(res_combine["new_assignment"] == c)[0]
         for c, _ in enumerate(final_clone_ids)

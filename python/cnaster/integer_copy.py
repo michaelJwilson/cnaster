@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 # TODO immutable?
 def get_ordered_acn():
-    return [
+    return (
         (0, 0),
         (1, 0),
         (1, 1),
@@ -37,7 +37,18 @@ def get_ordered_acn():
         (4, 2),
         (5, 1),
         (6, 0),
-    ]
+    )
+
+def get_acn_baf_rdr(acn):
+    acn = np.array(acn)
+    total_copy = acn[:, 0] + acn[:, 1]
+
+    with np.errstate(divide='ignore', invalid='ignore'):
+        baf = np.where(total_copy > 0, acn[:, 0] / total_copy, np.nan)
+
+    rdr = total_copy / 2.
+
+    return baf, rdr
 
 
 def find_diploid_balanced_state(
@@ -98,7 +109,7 @@ def hill_climbing_integer_copynumber_oneclone(
     points_per_state_norm = np.sum(points_per_state, axis=0)
 
     config = get_global_config()
-    rdr_weight = float(config.int_copy_num.rdr_weight)
+    # rdr_weight = float(config.int_copy_num.rdr_weight)
     mu_threshold = 0.3
 
     idx_diploid_normal = find_diploid_balanced_state(
@@ -109,7 +120,7 @@ def hill_climbing_integer_copynumber_oneclone(
         EPS_BAF=EPS_BAF,
     )
 
-    scalefactor = 2.0 / mu[idx_diploid_normal]
+    # scalefactor = 2.0 / mu[idx_diploid_normal]
 
     def f(params, ploidy, order_penalty=False, unbalanced_penalty=False,):
         total_copies = np.sum(params, axis=1)
@@ -118,7 +129,7 @@ def hill_climbing_integer_copynumber_oneclone(
         if np.any(total_copies == 0):
             return len(pred_cnv) * 1e6
         
-        denom = weight_per_state.dot(total_copies)
+        # denom = weight_per_state.dot(total_copies)
 
         # TODO HACK
         # frac_rdr = total_copies / denom

@@ -4,7 +4,7 @@ set -o pipefail
 ROOT="/u/mw9568/scratch/calicost_sims/"
 ROOT="/Users/mw9568/Work/ragr/sim/"
 
-NUM_STARTS=1
+NUM_STARTS=5
 
 # SAMPLE_IDS=("numcnas1.2_cnasize1e7_ploidy2_random0")
 SAMPLE_IDS=("numcnas3.3_cnasize3e7_ploidy2_random0")

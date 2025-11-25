@@ -199,7 +199,7 @@ def sufficient_umis_initial_clone(
     spot_gene_umis,
     sample_list,
     sample_ids,
-    min_clone_umis=1_000_000,  # 1_000_000
+    min_clone_umis=500_000,
     max_growth_rounds=50,
     random_state=0,
     prior_clone_assignment=None,

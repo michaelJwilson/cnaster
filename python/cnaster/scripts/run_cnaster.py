@@ -449,6 +449,7 @@ def run_cnaster(config_path, over_rides=None):
         sample_list,
         sample_ids,
         500_000,
+        random_state=int(config.hmrf.random_state),
     )
     """
     adj_list = cast_csr(adjacency_mat)
@@ -508,8 +509,17 @@ def run_cnaster(config_path, over_rides=None):
         lambda g: g.sort_values(["x", "y"])
     )
 
-    opath = f"{config.paths.output_dir}/initial_clone_labels.tsv"
+    output_dir = f"{config.paths.output_dir}/clone{config.hmrf.n_clones}.{config.hmrf.n_clones_rdr}_rectangle{config.hmrf.random_state}_w{config.hmrf.spatial_weight:.1f}/"
 
+    if not (poutput_dir := Path(output_dir)).exists():
+        poutput_dir.mkdir(exist_ok=True)
+
+    plots_dir = f"{output_dir}/plots/"
+
+    if not (pplots_dir := Path(plots_dir)).exists():
+        pplots_dir.mkdir(exist_ok=True)
+
+    opath = f"{output_dir}/initial_clone_labels.tsv"
     logger.info(f"Writing initial clone labels to {opath},\n{df_clone_label.head()}")
     
     write_tsv(opath, df_clone_label, header=True, index=True, index_label="barcode")
@@ -527,10 +537,8 @@ def run_cnaster(config_path, over_rides=None):
         base_height=3,
     )
 
-    fig_path = f"{config.paths.output_dir}/plots/initial_clones_spatial.pdf"
+    fig_path = f"{output_dir}/plots/initial_clones_spatial.pdf"
     write_fig(fig_path, initial_clones_fig, transparent=True, bbox_inches="tight")
-
-    exit(0)
     
     logger.info(
         "Solving HMM & HMRF for copy states and clone assignment with BAF only."
@@ -604,7 +612,7 @@ def run_cnaster(config_path, over_rides=None):
         base_height=3,
     )
 
-    fig_path = f"{config.paths.output_dir}/plots/bafonly_clones_spatial.pdf"
+    fig_path = f"{output_dir}/plots/bafonly_clones_spatial.pdf"
     write_fig(fig_path, bafonly_clones_fig, transparent=True, bbox_inches="tight")
 
     if config.hmrf.np_merge:
@@ -646,7 +654,7 @@ def run_cnaster(config_path, over_rides=None):
         base_height=3,
     )
 
-    fig_path = f"{config.paths.output_dir}/plots/merged_bafonly_clones_spatial.pdf"
+    fig_path = f"{output_dir}/plots/merged_bafonly_clones_spatial.pdf"
     write_fig(
         fig_path, merged_bafonly_clones_fig, transparent=True, bbox_inches="tight"
     )
@@ -670,7 +678,7 @@ def run_cnaster(config_path, over_rides=None):
         lambda g: g.sort_values(["x", "y"])
     )
 
-    opath = f"{config.paths.output_dir}/baf_clone_labels.tsv"
+    opath = f"{output_dir}/baf_clone_labels.tsv"
 
     logger.info(
         f"Writing baf inferred clone labels to {opath},\n{df_clone_label.head()}"
@@ -1400,15 +1408,6 @@ def run_cnaster(config_path, over_rides=None):
     if 0 not in final_clone_ids:
         final_clone_ids = np.append(0, final_clone_ids)
 
-    # NB create /plots/ directory
-    output_dir = Path(config.paths.output_dir)
-    plots_dir = output_dir / "plots"
-
-    if output_dir.is_dir():
-        plots_dir.mkdir(exist_ok=True)
-    else:
-        raise RuntimeError(f"{output_dir} does not exist!")
-
     # NB assumed ploidy for integer copy number problem
     medfix = [""] + [f"_{pp}" for pp in config.int_copy_num.ploidy.split(",")]
 
@@ -1605,7 +1604,7 @@ def run_cnaster(config_path, over_rides=None):
         #     f"Solved for integer copy numbers @ genes:\n{df_genelevel_cnv.head()}"
         # )
 
-        opath = f"{config.paths.output_dir}/cnv{medfix[o]}_genelevel.tsv"
+        opath = f"{output_dir}/cnv{medfix[o]}_genelevel.tsv"
 
         # NB output gene-level copy number
         write_tsv(opath, df_genelevel_cnv, header=True, index=True)
@@ -1639,7 +1638,7 @@ def run_cnaster(config_path, over_rides=None):
                 df_seglevel_cnv[mask].to_string(index=False),
             )
 
-        opath = f"{config.paths.output_dir}/cnv{medfix[o]}_seglevel.tsv"
+        opath = f"{output_dir}/cnv{medfix[o]}_seglevel.tsv"
         write_tsv(opath, df_seglevel_cnv, header=True, index=False)
 
         # NB output per-state copy number
@@ -1661,7 +1660,7 @@ def run_cnaster(config_path, over_rides=None):
                 state_cnv.to_string(index=False),
             )
 
-        opath = f"{config.paths.output_dir}/cnv{medfix[o]}_perstate.tsv"
+        opath = f"{output_dir}/cnv{medfix[o]}_perstate.tsv"
         write_tsv(opath, state_cnv, header=True, index=False)
 
     # NB construct clone labels.
@@ -1683,7 +1682,7 @@ def run_cnaster(config_path, over_rides=None):
         lambda g: g.sort_values(["x", "y"])
     )
 
-    opath = f"{config.paths.output_dir}/clone_labels.tsv"
+    opath = f"{output_dir}/clone_labels.tsv"
 
     logger.info(f"Writing inferred clone labels to {opath},\n{df_clone_label.head()}")
 
@@ -1708,7 +1707,7 @@ def run_cnaster(config_path, over_rides=None):
     )
 
     # TODO
-    fig_path = f"{config.paths.output_dir}/plots/clones_genomic.pdf"
+    fig_path = f"{output_dir}/plots/clones_genomic.pdf"
     write_fig(fig_path, rdr_baf_fig, transparent=True, bbox_inches="tight")
 
     # TODO issue when indexing of initial clones incompatiable/bigger than final clones.
@@ -1729,7 +1728,7 @@ def run_cnaster(config_path, over_rides=None):
     )
 
     # TODO
-    fig_path = f"{config.paths.output_dir}/plots/initial_clones_genomic.pdf"
+    fig_path = f"{output_dir}/plots/initial_clones_genomic.pdf"
     write_fig(fig_path, initial_rdr_baf_fig, transparent=True, bbox_inches="tight")
 
     clone_index = [
@@ -1758,7 +1757,7 @@ def run_cnaster(config_path, over_rides=None):
         base_height=3,
     )
 
-    fig_path = f"{config.paths.output_dir}/plots/clones_spatial.pdf"
+    fig_path = f"{output_dir}/plots/clones_spatial.pdf"
     write_fig(fig_path, clones_fig, transparent=True, bbox_inches="tight")
 
     clone_index = [

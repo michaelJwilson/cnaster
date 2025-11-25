@@ -258,6 +258,7 @@ def get_sample_truth(root, sample_id, cna_only=False):
 
 
 def get_sample_loglike(root, sample_id, method, rectangle):
+    # TODO HARDCODE MAGIC 
     clone_rectangle = f"clone3_rectangle{rectangle}_w1.0"
     rdr_baf_paths = sorted(
         glob.glob(

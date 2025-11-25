@@ -361,8 +361,10 @@ def plot_cna_mixture(
     fig = g.fig
 
     config = get_global_config()
-    fig_path = f"{config.paths.output_dir}/plots/{prefix}_rdr_baf.pdf"
 
+    output_dir = f"{config.paths.output_dir}/clone{config.hmrf.n_clones}.{config.hmrf.n_clones_rdr}_rectangle{config.hmrf.random_state}_w{config.hmrf.spatial_weight:.1f}/"
+    fig_path = f"{output_dir}/plots/{prefix}_rdr_baf.pdf"
+    
     logger.info(f"Writing initial copy state mixture plot to {fig_path}")
 
     write_fig(fig_path, fig, transparent=True, bbox_inches="tight")

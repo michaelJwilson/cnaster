@@ -954,15 +954,49 @@ def merge_by_minspots(
         merged_groups = [[assignment[0]]]
         return merged_groups, res
 
+    # NB genomic axis is concatenated across clones.
     n_obs = int(len(res["pred_cnv"]) / n_clones)
     new_assignment = copy.copy(assignment)
     if single_tumor_prop is None:
         tmp_single_tumor_prop = np.array([1] * len(assignment))
     else:
         tmp_single_tumor_prop = single_tumor_prop
+
     unique_assignment = np.unique(new_assignment)
 
-    # NB find entries in unique_assignment such that either: i) min_spots_thresholds ii) (SNP) min_umicount_thresholds are not satisfied
+    # NB find entries in unique_assignment such that either:
+    #    i) min_spots_thresholds
+    #    ii) (SNP) min_umicount_thresholds are not satisfied
+        # NB find clones failing min_spots_thresholds
+    insufficient_spots_clones = [
+        c
+        for c in unique_assignment
+        if np.sum(new_assignment[tmp_single_tumor_prop > threshold] == c)
+        < min_spots_thresholds
+    ]
+    
+    # NB find clones failing min_umicount_thresholds
+    insufficient_umi_clones = [
+        c
+        for c in unique_assignment
+        if np.sum(
+            single_total_bb_RD[
+                :, (new_assignment == c) & (tmp_single_tumor_prop > threshold)
+            ]
+        )
+        < min_umicount_thresholds
+    ]
+    
+    # NB log each condition separately
+    logger.info(
+        f"Found {len(insufficient_spots_clones)} clones with < {min_spots_thresholds} spots: {insufficient_spots_clones}"
+    )
+    logger.info(
+        f"Found {len(insufficient_umi_clones)} clones with < {min_umicount_thresholds:_} SNP UMIs: {insufficient_umi_clones}"
+    )
+    
+    # TODO
+    # failed_clones = list(set(insufficient_spots_clones) | set(insufficient_umi_clones))
     failed_clones = [
         c
         for c in unique_assignment
@@ -985,12 +1019,19 @@ def merge_by_minspots(
 
     # NB find the remaining unique_assigment that satisfies both thresholds
     successful_clones = [c for c in unique_assignment if not c in failed_clones]
+
+    if len(successful_clones) == 0:
+        logger.error(
+            f"All clones failed min. spots or min. SNP UMIs thresholds; cannot proceed with merging."
+        )
+        raise RuntimeError()
+
     # NB initial merging groups: each successful clone is its own group
     merging_groups = [[i] for i in successful_clones]
 
     if len(failed_clones) > 0:
         for c in failed_clones:
-            # NB assigns failed clone to the clone with large SNP UMIs.
+            # NB assigns failed clone to that with large SNP UMIs.
             idx_max = np.argmax(
                 [
                     np.sum(
@@ -1008,6 +1049,7 @@ def merge_by_minspots(
             )
 
             merging_groups[idx_max].append(c)
+
     map_clone_id = {}
     for i, x in enumerate(merging_groups):
         for z in x:

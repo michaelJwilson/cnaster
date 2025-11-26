@@ -1289,6 +1289,8 @@ def run_cnaster(config_path, over_rides=None):
 
         offset_clone += n_merged_clones
 
+    exit(0)
+
     logger.info(
         f"Assuming max. alpha dispersion between clones given current:\n{res_combine['new_alphas']}"
     )

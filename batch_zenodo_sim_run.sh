@@ -5,11 +5,8 @@ set -o pipefail
 ROOT="/Users/mw9568/Work/ragr/sim/"
 
 SEED=12345
-NUM_STARTS=5
+RANDOM_STATES=(0 1 2 3 4) 
 USE_EXISTING=true
-
-# SAMPLE_IDS=("numcnas1.2_cnasize1e7_ploidy2_random0")
-# SAMPLE_IDS=("numcnas3.3_cnasize3e7_ploidy2_random0")
 
 rm -f cnaster.log
 rm -f cnaster.perf
@@ -22,8 +19,18 @@ done
 
 SAMPLE_IDS=($(printf "%s\n" "${SAMPLE_IDS[@]}" | gshuf --random-source=<(yes $SEED)))
 
+# DEBUGGING
+# SAMPLE_IDS=("numcnas1.2_cnasize1e7_ploidy2_random0")
+# SAMPLE_IDS=("numcnas3.3_cnasize3e7_ploidy2_random0")
+
+USE_EXISTING=false
+RANDOM_STATES=(4) 
+SAMPLE_IDS=("numcnas3.3_cnasize5e7_ploidy2_random1") # MIN SPOTS per clone=100
+
+
 # echo "${SAMPLE_IDS[@]}"
 echo "Found ${#SAMPLE_IDS[@]} sample ids @ ${ROOT}"
+echo "Running with ${#RANDOM_STATES[@]} random states: ${RANDOM_STATES[@]}"
 
 # mkdir -p logs errors zenodo_sample_sheets
 
@@ -33,7 +40,7 @@ for SAMPLE_ID in "${SAMPLE_IDS[@]}"; do
     # NB replace numcnas1.2_cnasize1e7_ploidy2_random0 in ./zenodo_sample_sheet.tsv with {SAMPLE_ID} and write to zenodo_sample_sheets/zenodo_{SAMPLE_ID}_sheet.tsv                                                                                                          
     sed "s|numcnas1.2_cnasize1e7_ploidy2_random0|${SAMPLE_ID}|g; s|Z001-U1|${SAMPLE_ID}|g" ./zenodo_sample_sheet.tsv > "zenodo_sample_sheets/zenodo_${SAMPLE_ID}_sheet.tsv"
     
-    for ((RANDOM_STATE=0; RANDOM_STATE<NUM_STARTS; RANDOM_STATE++)); do
+    for RANDOM_STATE in "${RANDOM_STATES[@]}"; do
         echo "Solving for SAMPLE_ID=${SAMPLE_ID}, RANDOM_STATE=${RANDOM_STATE}"
 
         OUT_PATTERN="${OUT_BASE}/clone?_rectangle${RANDOM_STATE}_w1.0/rdrbaf_final_nstates?_smp.npz"

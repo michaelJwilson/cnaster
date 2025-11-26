@@ -100,7 +100,7 @@ def flush_perf(
     mle_settings = getattr(result, "mle_settings", {})
 
     # Read existing file to get next row index
-    perf_file = Path(config.paths.perf_name)
+    perf_file = Path(config.paths.perf_path)
     row_index = 1
     if perf_file.exists():
         try:

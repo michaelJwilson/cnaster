@@ -8,9 +8,6 @@ SEED=12345
 RANDOM_STATES=(0 1 2 3 4) 
 USE_EXISTING=true
 
-rm -f cnaster.log
-rm -f cnaster.perf
-
 SAMPLE_IDS=()
 
 for d in "$ROOT"/"simulated_data_related"/*/; do
@@ -41,8 +38,6 @@ for SAMPLE_ID in "${SAMPLE_IDS[@]}"; do
     sed "s|numcnas1.2_cnasize1e7_ploidy2_random0|${SAMPLE_ID}|g; s|Z001-U1|${SAMPLE_ID}|g" ./zenodo_sample_sheet.tsv > "zenodo_sample_sheets/zenodo_${SAMPLE_ID}_sheet.tsv"
     
     for RANDOM_STATE in "${RANDOM_STATES[@]}"; do
-        echo "Solving for SAMPLE_ID=${SAMPLE_ID}, RANDOM_STATE=${RANDOM_STATE}"
-
         OUT_PATTERN="${OUT_BASE}/clone?_rectangle${RANDOM_STATE}_w1.0/rdrbaf_final_nstates?_smp.npz"
 
         if [[ "$USE_EXISTING" == "true" ]]; then
@@ -52,11 +47,20 @@ for SAMPLE_ID in "${SAMPLE_IDS[@]}"; do
             fi
         fi
 
+        LOG_PATH="logs/cnaster_${SAMPLE_ID}_${RANDOM_STATE}.log"
+        PERF_PATH="logs/cnaster_${SAMPLE_ID}_${RANDOM_STATE}.perf"
+        
+        rm -f "${LOG_PATH}"
+        rm -f "${PERF_FILE}"
+        
+        echo "Solving for SAMPLE_ID=${SAMPLE_ID}, RANDOM_STATE=${RANDOM_STATE} to ${LOG_PATH} and ${PERF_PATH}"
+        
         run_cnaster zenodo_sim_config.yaml \
             -o "hmrf.random_state=${RANDOM_STATE}" \
             -o "paths.sample_sheet=zenodo_sample_sheets/zenodo_${SAMPLE_ID}_sheet.tsv" \
             -o "paths.output_dir=${ROOT}/nomixing_cnaster_related/${SAMPLE_ID}/" \
-            2>&1 | tee "logs/cnaster_${SAMPLE_ID}_${RANDOM_STATE}.log"
+            -o "paths.perf_name=${PERF_PATH}" \
+            2>&1 | tee "${LOG_PATH}"
         
         rc=${PIPESTATUS[0]}
         

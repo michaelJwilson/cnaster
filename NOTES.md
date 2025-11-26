@@ -10,6 +10,9 @@ RECOMB/ISMB
 - abstract submission deadline: Nov 7 2025; 34 days.
 - full paper submission deadline: Nov 14 2025; 41 days.
 
+TODAY
+- merge_by_minspots spatial.
+
 RUNTIME
 - omics.py:581 summarize_counts_for_blocks
 - spatial.py:306 sufficient_umis_clone_assignment
@@ -38,9 +41,6 @@ QUESTIONS
   spatial_weight is too low!  Coherence implied by intertia (last clone proportion); clone initialization &
   aggregated pseudobulk; ICM as greedy max.
 
-
-TODAY
-- edge dependent p_add.
 
 TODO major
 - vanilla CalicoST run & results.

@@ -20,6 +20,8 @@ from cnaster.hmm_utils import (
     np_sum_ax_squeeze,
 )
 from numba import njit
+from cnaster.hmm_emission_eval import compute_emissions
+from cnaster.config import get_global_config
 
 logger = logging.getLogger(__name__)
 
@@ -83,6 +85,11 @@ class hmm_sitewise:
         # NB twice as with/out phase switch.
         log_emission_rdr = np.zeros((2 * n_states, n_obs, n_spots))
         log_emission_baf = np.zeros((2 * n_states, n_obs, n_spots))
+
+        # TODO
+        # log_emission_rdr_nophase, log_emission_baf_nophase = compute_emissions(
+        #     X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus
+        # )
 
         for i in np.arange(n_states):
             for s in np.arange(n_spots):

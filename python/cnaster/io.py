@@ -417,7 +417,7 @@ def load_input_data(
         logger.info(f"Removing genes based on input ranges ({filter_gene_file}):")
 
         for to_print in genes_to_filter[np.isin(genes_to_filter, adata.var.index)]:
-            print(to_print)
+            logger.info(to_print)
 
         adata = adata[:, indicator_filter]
 

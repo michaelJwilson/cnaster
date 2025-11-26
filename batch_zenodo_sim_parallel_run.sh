@@ -45,13 +45,16 @@ run_single_job() {
     echo "Solving for SAMPLE_ID=${SAMPLE_ID}, RANDOM_STATE=${RANDOM_STATE}"
     
     local LOG_PATH="logs/cnaster_${SAMPLE_ID}_${RANDOM_STATE}.log"
-    local PERF_FILE="cnaster_${SAMPLE_ID}_${RANDOM_STATE}.perf"
+    local PERF_PATH="logs/cnaster_${SAMPLE_ID}_${RANDOM_STATE}.perf"
 
+    rm -f "${LOG_PATH}"
+    rm -f "${PERF_PATH}"
+    
     run_cnaster zenodo_sim_config.yaml \
         -o "hmrf.random_state=${RANDOM_STATE}" \
         -o "paths.sample_sheet=zenodo_sample_sheets/zenodo_${SAMPLE_ID}_sheet.tsv" \
         -o "paths.output_dir=${ROOT}/nomixing_cnaster_related/${SAMPLE_ID}/" \
-        -o "paths.perf_name=${PERF_FILE}" \
+        -o "paths.perf_path=${PERF_PATH}" \
         2>&1 | tee "$LOG_PATH"
     
     rc=${PIPESTATUS[0]}

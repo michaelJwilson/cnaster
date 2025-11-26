@@ -1211,7 +1211,7 @@ def run_cnaster(config_path, over_rides=None):
 
             merged_res["new_assignment"] = copy.copy(tmp)
 
-            # NB combined only between similar states in the RDR split clones.
+            # NB combined only between similar states in the RDR split clones by updating res["pred_cnv"]
             merged_res = combine_similar_states_across_clones(
                 X,
                 base_nb_mean,
@@ -1289,8 +1289,6 @@ def run_cnaster(config_path, over_rides=None):
 
         offset_clone += n_merged_clones
 
-    exit(0)
-
     logger.info(
         f"Assuming max. alpha dispersion between clones given current:\n{res_combine['new_alphas']}"
     )
@@ -1323,71 +1321,68 @@ def run_cnaster(config_path, over_rides=None):
             :, sidx
         ] - scipy.special.logsumexp(log_persample_weights[:, sidx])
 
+    pred = np.vstack(
+        [
+            np.argmax(res_combine["log_gamma"][:, :, c], axis=0)
+            for c in range(res_combine["log_gamma"].shape[2])
+        ]
+    ).T
+
     # NB final re-assignment across all spots using estimated copy number states.
     if config.preprocessing.tumorprop_file is None:
-        if config.hmrf.nodepotential == "max":
-            pred = np.vstack(
-                [
-                    np.argmax(res_combine["log_gamma"][:, :, c], axis=0)
-                    for c in range(res_combine["log_gamma"].shape[2])
-                ]
-            ).T
-
-            # TODO!!
-            new_assignment, _, total_llf, posterior = aggr_hmrf_reassignment(
-                single_X,
-                single_base_nb_mean,
-                single_total_bb_RD,
-                res_combine,
-                pred,
-                smooth_mat,
-                adjacency_mat,
-                res_combine["prev_assignment"],
-                copy.copy(sample_ids),
-                log_persample_weights,
-                spatial_weight=config.hmrf.spatial_weight,
-                hmmclass=hmm_nophasing,
-                return_posterior=True,
-            )
-        else:
-            raise RuntimeError()
+        new_assignment, _, total_llf, posterior = aggr_hmrf_reassignment(
+            single_X,
+            single_base_nb_mean,
+            single_total_bb_RD,
+            res_combine,
+            pred,
+            smooth_mat,
+            adjacency_mat,
+            res_combine["prev_assignment"],
+            copy.copy(sample_ids),
+            log_persample_weights,
+            spatial_weight=config.hmrf.spatial_weight,
+            hmmclass=hmm_nophasing,
+            return_posterior=True,
+        )
     else:
-        if config.hmrf.nodepotential == "max":
-            pred = np.vstack(
-                [
-                    np.argmax(res_combine["log_gamma"][:, :, c], axis=0)
-                    for c in range(res_combine["log_gamma"].shape[2])
-                ]
-            ).T
-
-            (
-                new_assignment,
-                single_llf,
-                total_llf,
-                posterior,
-            ) = aggr_hmrfmix_reassignment(
-                single_X,
-                single_base_nb_mean,
-                single_total_bb_RD,
-                single_tumor_prop,
-                res_combine,
-                pred,
-                smooth_mat,
-                adjacency_mat,
-                res_combine["prev_assignment"],
-                copy.copy(sample_ids),
-                log_persample_weights,
-                spatial_weight=config.hmrf.spatial_weight,
-                hmmclass=hmm_nophasing,
-                return_posterior=True,
-            )
-        else:
-            raise RuntimeError()
+        (
+            new_assignment,
+            _,
+            total_llf,
+            posterior,
+        ) = aggr_hmrfmix_reassignment(
+            single_X,
+            single_base_nb_mean,
+            single_total_bb_RD,
+            single_tumor_prop,
+            res_combine,
+            pred,
+            smooth_mat,
+            adjacency_mat,
+            res_combine["prev_assignment"],
+            copy.copy(sample_ids),
+            log_persample_weights,
+            spatial_weight=config.hmrf.spatial_weight,
+            hmmclass=hmm_nophasing,
+            return_posterior=True,
+        )
 
     # NB total Potts likelihood given final copy states and clone assignment.
     res_combine["total_llf"] = total_llf
     res_combine["new_assignment"] = new_assignment
-
+    """
+    # UGH HACK? merge small clones again.
+    _, res_combine = merge_by_minspots(
+        res_combine["new_assignment"],
+        res_combine,
+        single_total_bb_RD,
+        min_spots_thresholds=config.hmrf.min_spots_per_clone,
+        min_umicount_thresholds=n_obs * config.hmrf.min_avgumi_per_clone,
+        single_tumor_prop=single_tumor_prop,
+        threshold=config.hmrf.tumorprop_threshold,
+    )
+    """
     # NB re-order clones such that the normal clone is always 0.
     res_combine, posterior = reindex_clones(res_combine, posterior, single_tumor_prop)
 

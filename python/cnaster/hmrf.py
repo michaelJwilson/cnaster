@@ -948,7 +948,13 @@ def merge_by_minspots(
     min_umicount_thresholds=0,
     single_tumor_prop=None,
     threshold=0.5,
+    adjacency_mat=None,
 ):
+    if adjacency_mat is not None:
+        raise NotImplementedError()
+    else:
+        logger.warning("TODO: adjacency_mat not queried by merge_by_minspots.")
+
     n_clones = len(np.unique(assignment))
     if n_clones == 1:
         merged_groups = [[assignment[0]]]
@@ -1050,6 +1056,7 @@ def merge_by_minspots(
 
             merging_groups[idx_max].append(c)
 
+    # NB re-map new_assignment according to merging_groups.
     map_clone_id = {}
     for i, x in enumerate(merging_groups):
         for z in x:
@@ -1091,10 +1098,12 @@ def aggr_hmrf_reassignment(
     hmmclass=hmm_sitewise,
     return_posterior=False,
 ):
+    # NB assumes matrix format with clones as columns vs concatenated (genome × clone) of
+    #    aggr_hmrfmix_reassignment_concatenate:
     N = single_X.shape[2]
     n_obs = single_X.shape[0]
     n_clones = res["new_log_mu"].shape[1]
-    n_states = res["new_p_binom"].shape[0]
+    # n_states = res["new_p_binom"].shape[0]
     single_llf = np.zeros((N, n_clones))
     new_assignment = copy.copy(prev_assignment)
 

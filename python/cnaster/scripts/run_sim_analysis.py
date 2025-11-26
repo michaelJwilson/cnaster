@@ -345,7 +345,7 @@ def plot_truth_acn_profile(root, sample_id):
             continue
 
         label = f"({state[0]},{state[1]})"
-        legend_elements.append(mpatches.Patch(facecolor=color, label=label))
+        legend_elements.append(mpatches.Patch(facecolor=color, label=label, alpha=0.5))
 
     leg = axes[0].legend(
         handles=legend_elements,

@@ -4,6 +4,7 @@ set -o pipefail
 # ROOT="/u/mw9568/scratch/calicost_sims/"
 ROOT="/Users/mw9568/Work/ragr/sim/"
 
+SEED=12345
 NUM_STARTS=5
 USE_EXISTING=true
 
@@ -19,8 +20,12 @@ for d in "$ROOT"/"simulated_data_related"/*/; do
    SAMPLE_IDS+=("$(basename "$d")")
 done
 
+SAMPLE_IDS=($(printf "%s\n" "${SAMPLE_IDS[@]}" | gshuf --random-source=<(yes $SEED)))
+
 # echo "${SAMPLE_IDS[@]}"
 echo "Found ${#SAMPLE_IDS[@]} sample ids @ ${ROOT}"
+
+# mkdir -p logs errors zenodo_sample_sheets
 
 for SAMPLE_ID in "${SAMPLE_IDS[@]}"; do
     OUT_BASE="${ROOT}/nomixing_cnaster_related/${SAMPLE_ID}"
@@ -35,24 +40,22 @@ for SAMPLE_ID in "${SAMPLE_IDS[@]}"; do
 
         if [[ "$USE_EXISTING" == "true" ]]; then
             if compgen -G "$OUT_PATTERN" > /dev/null; then
-                echo "Utilizing existing results for SAMPLE_ID=${SAMPLE_ID}, RANDOM_STATE=${RANDOM_STATE}."
+                echo "Utilizing existing results for SAMPLE_ID=${SAMPLE_ID}; RANDOM_STATE=${RANDOM_STATE}."
                 continue
             fi
         fi
 
-        if ! run_cnaster zenodo_sim_config.yaml \
+        run_cnaster zenodo_sim_config.yaml \
             -o "hmrf.random_state=${RANDOM_STATE}" \
             -o "paths.sample_sheet=zenodo_sample_sheets/zenodo_${SAMPLE_ID}_sheet.tsv" \
             -o "paths.output_dir=${ROOT}/nomixing_cnaster_related/${SAMPLE_ID}/" \
-            # -o "annotation.clone_label=${ROOT}/simulated_data_related/${SAMPLE_ID}/truth_clone_labels.tsv" \
-            # -o "annotation.true_cnv=${ROOT}/simulated_data_related/${SAMPLE_ID}/truth_acn_profile.tsv"
-        then
-            rc=$?
+            2>&1 | tee "logs/cnaster_${SAMPLE_ID}_${RANDOM_STATE}.log"
+        
+        rc=${PIPESTATUS[0]}
+        
+        if [[ $rc -ne 0 ]]; then
             echo "run_cnaster failed for SAMPLE_ID=${SAMPLE_ID}, RANDOM_STATE=${RANDOM_STATE} (rc=${rc})" >&2
-            exit 1  # exits inner RANDOM_STATE loop; use 'break 2' to exit both loops, or 'exit 1' to stop script
+            mv "logs/cnaster_${SAMPLE_ID}_${RANDOM_STATE}.log" "errors/cnaster_${SAMPLE_ID}_${RANDOM_STATE}.err"
         fi
-
-        mv cnaster.log "logs/cnaster_${SAMPLE_ID}_${RANDOM_STATE}.log"
-        rm -f cnaster.perf
     done    
 done

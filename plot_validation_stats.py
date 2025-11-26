@@ -52,6 +52,8 @@ def plot_metrics(df, method):
     sns.set_context("paper", font_scale=0.9)
     sns.set_style("ticks")
 
+    n_samples = df["sample_id"].nunique()
+
     # Reorder groups: by cnasize (largest first) then sum of numcnas components (desc)
     def _numcnas_sum(x):
         parts = str(x).split(".")
@@ -127,7 +129,7 @@ def plot_metrics(df, method):
 
     nrows, ncols = 3, 2
     fig, axes = plt.subplots(nrows, ncols, figsize=(12, 9), squeeze=True)
-    fig.suptitle(rf"$\tt{{{method}}}$", fontsize=14, y=0.98)
+    fig.suptitle(rf"$\tt{{{method}}}$ — {n_samples} samples", fontsize=14, y=0.98)
 
     used_axes = set()
     for metric, (r, c) in layout:
@@ -204,7 +206,9 @@ def plot_metrics(df, method):
 
 
 def main():
-    method = "calicost"
+    # method = "calicost"
+    method = "cnaster"
+    
     stats_dir = f"/Users/mw9568/Work/ragr/sim/stats/{method}"
     df = load_validation_stats(stats_dir)
     

@@ -85,13 +85,10 @@ logger.setLevel(logging.INFO)
 for handler in logger.handlers[:]:
     logger.removeHandler(handler)
 
-file_handler = logging.FileHandler("cnaster.log")
-stream_handler = logging.StreamHandler()
 
-file_handler.setFormatter(formatter)
+stream_handler = logging.StreamHandler()
 stream_handler.setFormatter(formatter)
 
-logger.addHandler(file_handler)
 logger.addHandler(stream_handler)
 
 logger = logging.getLogger(__name__)
@@ -509,11 +506,12 @@ def run_cnaster(config_path, over_rides=None):
     df_clone_label = df_clone_label.groupby("sample_id", group_keys=False).apply(
         lambda g: g.sort_values(["x", "y"])
     )
-
+    
     # {config.hmrf.n_clones_rdr}
     output_dir = f"{config.paths.output_dir}/clone{config.hmrf.n_clones}_rectangle{config.hmrf.random_state}_w{config.hmrf.spatial_weight:.1f}/"
 
     if not (poutput_dir := Path(output_dir)).exists():
+        poutput_dir.parent.mkdir(exist_ok=True)        
         poutput_dir.mkdir(exist_ok=True)
 
     plots_dir = f"{output_dir}/plots/"

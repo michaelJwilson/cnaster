@@ -93,13 +93,14 @@ def flush_perf(
     end_time: float,
     result: Any,
 ):
+    config = get_global_config()
     runtime = end_time - start_time
 
     mle_retvals = getattr(result, "mle_retvals", {})
     mle_settings = getattr(result, "mle_settings", {})
 
     # Read existing file to get next row index
-    perf_file = Path("cnaster.perf")
+    perf_file = Path(config.paths.perf_name)
     row_index = 1
     if perf_file.exists():
         try:

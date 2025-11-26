@@ -2,6 +2,7 @@
 paths:
   sample_sheet : zenodo_sample_sheet.tsv
   output_dir : /Users/mw9568/Work/ragr/sim/nomixing_cnaster_related/numcnas1.2_cnasize1e7_ploidy2_random0/
+  perf_name : cnaster.perf
 
 # tumorprop_file : /n/fs/scratch/mw9568/cnaster/loh_estimator_tumor_prop.tsv
 preprocessing:

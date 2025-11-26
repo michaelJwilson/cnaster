@@ -765,12 +765,12 @@ def save_validation_stats_yaml(stats, output_path):
 def main():
     # root = "/u/mw9568/scratch/calicost_sims"
     root = "/Users/mw9568/Work/ragr/sim"
-    use_cache = False
+    use_cache = True
 
     gene_ranges = read_gene_ranges()
 
-    # method = "cnaster"
-    method = "calicost"
+    method = "cnaster"
+    # method = "calicost"
 
     # "numcnas1.2_cnasize1e7_ploidy2_random0",
     # "numcnas3.3_cnasize3e7_ploidy2_random0",
@@ -780,10 +780,10 @@ def main():
         "numcnas3.3_cnasize3e7_ploidy2_random0",
     ]
 
-    # sample_ids = [xx.split("/")[-1] for xx in sorted(glob.glob(f"{root}/nomixing_{method}_related/*"))]
+    sample_ids = [xx.split("/")[-1] for xx in sorted(glob.glob(f"{root}/nomixing_{method}_related/*"))]
 
     logger.info(
-        f"Analyzing with {method} the sample_ids={sample_ids} simulations @\n{root}"
+        f"Analyzing with {method} the {len(sample_ids)} sample_ids @\n{root}"
     )
 
     for sample_id in sample_ids:

@@ -12,6 +12,7 @@ RECOMB/ISMB
 
 
 KEY
+- Clone assignment swaps that re-calculates new parameters.
 - propagate BAF values from baf only run to RDR refinement.
 - transcript definition based on visium gene selection vs gencode coding regions!
 - +522 omics.py enforce secondary_min_umi for last block.

@@ -7,7 +7,7 @@ ROOT="/Users/mw9568/Work/ragr/sim/"
 SEED=12345
 NUM_STARTS=5
 USE_EXISTING=true
-MAX_JOBS=2
+MAX_JOBS=1
 
 # SAMPLE_IDS=("numcnas1.2_cnasize1e7_ploidy2_random0")
 # SAMPLE_IDS=("numcnas3.3_cnasize3e7_ploidy2_random0")
@@ -44,7 +44,7 @@ run_single_job() {
     
     echo "Solving for SAMPLE_ID=${SAMPLE_ID}, RANDOM_STATE=${RANDOM_STATE}"
     
-    local LOG_FILE="cnaster_${SAMPLE_ID}_${RANDOM_STATE}.log"
+    local LOG_PATH="logs/cnaster_${SAMPLE_ID}_${RANDOM_STATE}.log"
     local PERF_FILE="cnaster_${SAMPLE_ID}_${RANDOM_STATE}.perf"
 
     run_cnaster zenodo_sim_config.yaml \

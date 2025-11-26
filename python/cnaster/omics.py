@@ -608,6 +608,7 @@ def summarize_counts_for_blocks(
     gene_counts = adata.layers["count"]  # (n_spots, n_genes)
     gene_names = adata.var.index.to_numpy()
 
+    # TODO numba
     for block_id in blocks:
         # NB BAF/SNPs
         if block_id in snp_groups.index:

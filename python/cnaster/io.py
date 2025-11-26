@@ -143,10 +143,10 @@ def get_spaceranger_counts(spaceranger_dir):
     )
 
     logger.info(
-        f"Example names for {len(adatatmp.obs_names)} barcodes: {adatatmp.obs_names[:5]}"
+        f"Example names for {len(adatatmp.obs_names):_} barcodes: {adatatmp.obs_names[:5]}"
     )
     logger.info(
-        f"Example names for {len(adatatmp.var_names)} genes: {adatatmp.var_names[:5]}"
+        f"Example names for {len(adatatmp.var_names):_} genes: {adatatmp.var_names[:5]}"
     )
 
     # NB data matrix X (ndarray/csr matrix, dask ...): observations/cells are named by their barcode and variables/genes by gene name.

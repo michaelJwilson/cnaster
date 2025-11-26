@@ -10,6 +10,10 @@ RECOMB/ISMB
 - abstract submission deadline: Nov 7 2025; 34 days.
 - full paper submission deadline: Nov 14 2025; 41 days.
 
+RUNTIME
+- omics.py:581 summarize_counts_for_blocks
+- spatial.py:306 sufficient_umis_clone_assignment
+- hmm_initialize.py:181
 
 KEY
 - Clone assignment swaps that re-calculates new parameters.

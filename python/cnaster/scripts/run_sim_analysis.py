@@ -12,7 +12,13 @@ from pathlib import Path
 from collections import Counter
 from sklearn.metrics import adjusted_rand_score
 from cnaster.plotting import plot_clones_spatial
-from cnaster.utils import write_fig
+from cnaster.utils import write_fig, cast_clone_label
+
+import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
+from matplotlib.colors import ListedColormap
+import seaborn as sns
+
 
 pl.Config.set_tbl_cols(-1)
 
@@ -168,6 +174,197 @@ def best_permutation_accuracy(true_labels, pred_labels):
     return many_to_one_mapping, float(frac_correct), mapped
 
 
+def plot_truth_acn_profile(root, sample_id):
+    truth = pd.read_csv(
+        f"{root}/simulated_data_related/{sample_id}/truth_acn_profile.tsv",
+        sep="\t",
+    ).rename(
+        columns={
+            "chr": "Chromosome",
+            "start": "Start",
+            "end": "End",
+            "clone": "true_clone",
+        }
+    )
+    clone_cols_a = [c for c in truth.columns if c.endswith("_A_copy")]
+    clone_cols_b = [c for c in truth.columns if c.endswith("_B_copy")]
+    
+    clones = sorted(set(c.replace("_A_copy", "").replace("_B_copy", "") for c in clone_cols_a + clone_cols_b))
+    # Map and cast clone labels for display; order with normal first
+    clone_map = remap_clone_num(clones)  # dict: original -> remapped (e.g., normal->clone_0, clone_0->clone_1)
+    display_names = {
+        c: cast_clone_label(clone_map.get(c, c).replace("_", " "))
+        for c in clones
+    }
+    clones_ordered = sorted(
+        clones,
+        key=lambda c: (
+            0 if c.startswith("normal") else 1,
+            int(c.split("_")[1]) if (c.startswith("clone_") and c.split("_")[1].isdigit()) else 999
+        ),
+    )
+    
+    all_copy_cols = clone_cols_a + clone_cols_b
+    has_cna_mask = ~(truth[all_copy_cols].eq(1).all(axis=1))
+    truth_with_cna = truth[has_cna_mask]
+    
+    logger.info(
+        f"Found {len(truth_with_cna)}/{len(truth)} segments with CNA "
+        f"(any clone copy != 1):\n{truth_with_cna[['Chromosome', 'Start', 'End'] + all_copy_cols]}"
+    )
+
+    chromosomes = sorted(truth["Chromosome"].unique())
+
+    n_clones = len(clones)
+    fig, axes = plt.subplots(
+        n_clones, 1, figsize=(16, 3 * n_clones), sharex=True, squeeze=False
+    )
+    axes = axes.flatten()
+
+    chr_offsets = {}
+    chr_mids = {}
+    current_pos = 0
+
+    for chrom in chromosomes:
+        chr_data = truth[truth["Chromosome"] == chrom]
+        chr_start = current_pos
+        chr_end = current_pos + chr_data["End"].max()
+        chr_offsets[chrom] = current_pos
+        chr_mids[chrom] = (chr_start + chr_end) / 2
+        current_pos = chr_end
+
+    genome_length = current_pos
+
+    # Precompute contig ends for drawing start/end boundaries
+    chr_ends = {
+        chrom: chr_offsets[chrom]
+        + truth[truth["Chromosome"] == chrom]["End"].max()
+        for chrom in chromosomes
+    }
+
+    all_states = set()
+    for clone in clones:
+        a_col = f"{clone}_A_copy"
+        b_col = f"{clone}_B_copy"
+        if a_col in truth.columns and b_col in truth.columns:
+            states = list(zip(truth[a_col], truth[b_col]))
+            all_states.update(states)
+
+    logger.info(f"Found all (A,B) states: {all_states}")
+
+    all_states.discard((1, 1))
+    all_states = sorted(all_states)
+
+    palette = sns.color_palette("husl", len(all_states))
+    state_colors = {state: palette[i] for i, state in enumerate(all_states)}
+    state_colors[(1, 1)] = "white"
+
+    for idx, clone in enumerate(clones_ordered):
+        ax = axes[idx]
+
+        a_col = f"{clone}_A_copy"
+        b_col = f"{clone}_B_copy"
+
+        if a_col not in truth.columns or b_col not in truth.columns:
+            logger.warning(f"Skipping clone {clone} - columns not found")
+            continue
+
+        for _, row in truth.iterrows():
+            chrom = row["Chromosome"]
+            start = chr_offsets[chrom] + row["Start"]
+            end = chr_offsets[chrom] + row["End"]
+
+            a_copy = row[a_col]
+            b_copy = row[b_col]
+            state = (a_copy, b_copy)
+
+            color = state_colors.get(state, "gray")
+
+            ax.add_patch(
+                mpatches.Rectangle(
+                    (start, 0),
+                    end - start,
+                    1,
+                    facecolor=color,
+                    edgecolor="none",
+                    linewidth=0,
+                    alpha=0.5,
+                )
+            )
+
+        ax.set_ylim(0, 1)
+        ax.set_xlim(0, genome_length)
+        ax.set_ylabel(
+            display_names[clone],
+            rotation=90,          # rotate y clone labels by 90
+            ha="center",
+            va="center",
+            fontsize=14,
+            labelpad=20,          # add padding so it clears the frame
+        )
+        ax.set_yticks([])
+
+        # Add bounding box around each clone axis
+        for side in ["top", "right", "left", "bottom"]:
+            ax.spines[side].set_visible(True)
+            ax.spines[side].set_linewidth(0.8)
+
+        # Remove all x ticks for every axis
+        ax.set_xticks([])
+        ax.tick_params(axis="x", which="both", length=0)
+
+        # Draw unique chromosome boundary lines: one at very first start, then every end
+        if idx == 0:
+            first_start = chr_offsets[chromosomes[0]]
+        for chrom in chromosomes:
+            if chrom == chromosomes[0]:
+                ax.axvline(first_start, color="k", linestyle="-", linewidth=0.5)
+
+            ax.axvline(chr_ends[chrom], color="k", linestyle="-", linewidth=0.5)
+
+
+    axes[-1].set_xticks([])
+    axes[-1].tick_params(axis="x", which="both", length=0)
+
+    for chrom in chromosomes:
+        axes[-1].text(
+            chr_offsets[chrom],
+            -0.16,             
+            f"chr{chrom}",
+            transform=axes[-1].get_xaxis_transform(),
+            ha="left",
+            va="top",
+            rotation=45,
+            rotation_mode="anchor",
+            fontsize=12,
+        )
+
+    legend_elements = []
+    for state, color in sorted(state_colors.items()):
+        if state[0] == state[1] == 1:
+            continue
+
+        label = f"({state[0]},{state[1]})"
+        legend_elements.append(mpatches.Patch(facecolor=color, label=label))
+
+    leg = axes[0].legend(
+        handles=legend_elements,
+        loc="upper left",
+        bbox_to_anchor=(1.02, 1.0), 
+        frameon=False,
+        title="Copy State",
+        fontsize=12,
+        borderaxespad=0.0,
+    )
+    if leg.get_title() is not None:
+        leg.get_title().set_fontsize(14)
+
+    plt.suptitle(f"{sample_id}", fontsize=20, y=0.99)  
+    plt.tight_layout(rect=[0, 0, 0.9, 0.99])
+
+    return fig
+
+
 def get_sample_truth(root, sample_id, cna_only=False, method=None):
     logger.info(
         f"Solving for {root}/simulated_data_related/{sample_id}/truth_clone_labels.tsv"
@@ -191,9 +388,11 @@ def get_sample_truth(root, sample_id, cna_only=False, method=None):
     spot_to_clone = dict(zip(truth_clones["barcode"], truth_clones["true_clone"]))
 
     if method == "cnaster":
-        assignment = pd.Series([f"{x.replace('_', ' ')}" for x in truth_clones["true_clone"]])
+        assignment = pd.Series(
+            [f"{x.replace('_', ' ')}" for x in truth_clones["true_clone"]]
+        )
         clones_fig = plot_clones_spatial(
-            truth_clones[["x", "y"]].to_numpy(),        
+            truth_clones[["x", "y"]].to_numpy(),
             assignment,
             single_tumor_prop=None,
             sample_list=[sample_id],
@@ -203,9 +402,19 @@ def get_sample_truth(root, sample_id, cna_only=False, method=None):
             palette="viridis",
         )
 
-        # NB write to cnaster output dir.
-        fig_path = f"{root}/nomixing_{method}_related/{sample_id}/true_clones_spatial.pdf"
+        fig_path = (
+            f"{root}/nomixing_{method}_related/{sample_id}/true_clones_spatial.pdf"
+        )
         write_fig(fig_path, clones_fig, transparent=True, bbox_inches="tight")
+
+        acn_fig = plot_truth_acn_profile(
+            root,
+            sample_id,
+        )
+
+        fig_path = f"{root}/nomixing_{method}_related/{sample_id}/true_acn_profile.pdf"
+        write_fig(fig_path, acn_fig, transparent=True, bbox_inches="tight")
+
     else:
         logger.warning(f"Skipping true clones figure for method={method}.")
 
@@ -280,7 +489,7 @@ def get_sample_truth(root, sample_id, cna_only=False, method=None):
 
 
 def get_sample_loglike(root, sample_id, method, rectangle):
-    # TODO HARDCODE MAGIC 
+    # TODO HARDCODE MAGIC
     clone_rectangle = f"clone3_rectangle{rectangle}_w1.0"
     rdr_baf_paths = sorted(
         glob.glob(
@@ -588,7 +797,7 @@ def get_validation_stats(
             Counter(
                 zip(
                     match_spot_join_cna["true_clone"].astype(int),
-                    match_spot_join_cna["clone"].astype(int),
+                    match_spot_join_cna["clone"].to_numpy().astype(int),
                 )
             ).items()
         )
@@ -731,11 +940,12 @@ def main():
         "numcnas3.3_cnasize3e7_ploidy2_random0",
     ]
 
-    sample_ids = [xx.split("/")[-1] for xx in sorted(glob.glob(f"{root}/nomixing_{method}_related/*"))]
+    sample_ids = [
+        xx.split("/")[-1]
+        for xx in sorted(glob.glob(f"{root}/nomixing_{method}_related/*"))
+    ]
 
-    logger.info(
-        f"Analyzing with {method} the {len(sample_ids)} sample_ids @\n{root}"
-    )
+    logger.info(f"Analyzing with {method} the {len(sample_ids)} sample_ids @\n{root}")
 
     for sample_id in sample_ids:
         if (

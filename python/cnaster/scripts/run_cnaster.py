@@ -695,7 +695,7 @@ def run_cnaster(config_path, over_rides=None):
     # NB MAP copy state.
     pred = np.argmax(merged_res["log_gamma"], axis=0)
 
-    # NB split into per-contig list, vs single concatenated array.
+    # NB split into per-contig list vs single concatenated array.
     pred = np.array(
         [pred[(c * n_obs) : (c * n_obs + n_obs)] for c in range(n_baf_clones)]
     )
@@ -1327,7 +1327,7 @@ def run_cnaster(config_path, over_rides=None):
             for c in range(res_combine["log_gamma"].shape[2])
         ]
     ).T
-
+    
     # NB final re-assignment across all spots using estimated copy number states.
     if config.preprocessing.tumorprop_file is None:
         new_assignment, _, total_llf, posterior = aggr_hmrf_reassignment(
@@ -1371,8 +1371,9 @@ def run_cnaster(config_path, over_rides=None):
     # NB total Potts likelihood given final copy states and clone assignment.
     res_combine["total_llf"] = total_llf
     res_combine["new_assignment"] = new_assignment
+    
     """
-    # UGH HACK? merge small clones again.
+    # UGH HACK? merge small clones ... again
     _, res_combine = merge_by_minspots(
         res_combine["new_assignment"],
         res_combine,

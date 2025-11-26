@@ -85,7 +85,6 @@ logger.setLevel(logging.INFO)
 for handler in logger.handlers[:]:
     logger.removeHandler(handler)
 
-
 stream_handler = logging.StreamHandler()
 stream_handler.setFormatter(formatter)
 

@@ -925,7 +925,7 @@ def save_validation_stats_yaml(stats, output_path):
 def main():
     # root = "/u/mw9568/scratch/calicost_sims"
     root = "/Users/mw9568/Work/ragr/sim"
-    use_cache = True
+    use_cache = False
 
     gene_ranges = read_gene_ranges()
 
@@ -956,9 +956,6 @@ def main():
         ):
             logger.warning(f"Utilizing existing validation stats for {sample_id}.")
             continue
-
-        spot_truth_cna = get_sample_truth(root, sample_id, method=method)
-        exit(0)
 
         try:
             spot_truth_cna = get_sample_truth(root, sample_id, method=method)
@@ -1017,7 +1014,7 @@ def main():
                 f"{root}/stats/{method}/validation_stats_{sample_id}.yaml",
             )
         except Exception as E:
-            logger.warning(f"Failed on {sample_id} with error:\n{E}")
+            logger.error(f"Failed on {sample_id} with error:\n{E}")
 
     logger.info("\n\nDone.\n")
 

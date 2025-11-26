@@ -162,6 +162,7 @@ def cna_mixture_init(
     max_iter=500,
     only_minor=False,
     max_rdr=5.0,
+    n_jobs=3,
 ):
     # TODO X is a clone stack along axis 0.
     if width is not None:
@@ -186,7 +187,7 @@ def cna_mixture_init(
         f"Initializing HMM emission with CNA Mixture++ for max_iter={max_iter}, num_grid_points={len(param_grid)}, num_jobs=2, known normal={known_normal}, max_rdr={max_rdr}, with X.shape={X.shape}, base_nb_mean.shape={base_nb_mean.shape}."
     )
 
-    results = Parallel(n_jobs=2)(
+    results = Parallel(n_jobs=n_jobs)(
         delayed(cna_mixture_init_search)(
             alpha,
             tau,

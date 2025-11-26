@@ -1,3 +1,4 @@
+from cnaster.utils import write_fig
 import yaml
 import glob
 import time
@@ -10,6 +11,8 @@ from pprint import pformat
 from pathlib import Path
 from collections import Counter
 from sklearn.metrics import adjusted_rand_score
+from cnaster.plotting import plot_clones_spatial
+from cnaster.utils import write_fig
 
 pl.Config.set_tbl_cols(-1)
 
@@ -165,7 +168,7 @@ def best_permutation_accuracy(true_labels, pred_labels):
     return many_to_one_mapping, float(frac_correct), mapped
 
 
-def get_sample_truth(root, sample_id, cna_only=False):
+def get_sample_truth(root, sample_id, cna_only=False, method=None):
     logger.info(
         f"Solving for {root}/simulated_data_related/{sample_id}/truth_clone_labels.tsv"
     )
@@ -186,6 +189,25 @@ def get_sample_truth(root, sample_id, cna_only=False):
 
     spots = truth_clones["barcode"].unique()
     spot_to_clone = dict(zip(truth_clones["barcode"], truth_clones["true_clone"]))
+
+    if method == "cnaster":
+        assignment = pd.Series([f"{x.replace('_', ' ')}" for x in truth_clones["true_clone"]])
+        clones_fig = plot_clones_spatial(
+            truth_clones[["x", "y"]].to_numpy(),        
+            assignment,
+            single_tumor_prop=None,
+            sample_list=[sample_id],
+            sample_ids=None,
+            base_width=4,
+            base_height=3,
+            palette="viridis",
+        )
+
+        # NB write to cnaster output dir.
+        fig_path = f"{root}/nomixing_{method}_related/{sample_id}/true_clones_spatial.pdf"
+        write_fig(fig_path, clones_fig, transparent=True, bbox_inches="tight")
+    else:
+        logger.warning(f"Skipping true clones figure for method={method}.")
 
     # NB
     # clone	    chr	    start	    end	        A_copy	B_copy
@@ -278,77 +300,6 @@ def get_sample_loglike(root, sample_id, method, rectangle):
     )
 
     return float(rdr_baf["total_llf"])
-
-
-def get_sample_estimate_pd(root, sample_id, method, rectangle, cna_only=False):
-    if rectangle is None:
-        parent = f"{root}/nomixing_{method}_related/{sample_id}/"
-    else:
-        clone_rectangle = f"clone3_rectangle{rectangle}_w1.0"
-        parent = f"{root}/nomixing_{method}_related/{sample_id}/{clone_rectangle}/"
-
-    logger.info(f"Solving for clone estimate: {parent}/clone_labels.tsv")
-
-    # NB
-    # barcode sample_id       x       y       clone_label
-    # spot_0  0       0       0       3
-    usecols = ["BARCODES", "clone_label"]
-
-    clones = pd.read_csv(
-        f"{parent}/clone_labels.tsv",
-        sep="\t",
-    ).rename(columns={"clone_label": "clone", "BARCODES": "barcode"})
-
-    spots = clones["barcode"].unique()
-    spot_to_clone = dict(zip(clones["barcode"], clones["clone"].astype(int)))
-
-    calls = pd.read_csv(
-        f"{parent}/cnv_diploid_seglevel.tsv",
-        sep="\t",
-    ).rename(columns={"CHR": "Chromosome", "START": "Start", "END": "End"})
-
-    copy_num_columns = calls.columns[3:]
-
-    # NB only CalicoST segments that show CNA for at least one clone.
-    if cna_only:
-        calls = calls[~(calls[copy_num_columns].eq(1).all(axis=1))]
-
-    # NB clone 0 -> clone_0 etc.
-    calls.columns = calls.columns.str.replace(
-        r"clone(\d+)\s+([AB])", r"clone_\1_\2", regex=True
-    )
-
-    # NB truth per spot, per segment ...
-    logger.info(f"Creating table of estimated CNAs for all spots and segments.")
-
-    calls_expanded_rows = []
-
-    for _, seg in calls.iterrows():
-        interim = {
-            "Chromosome": seg["Chromosome"],
-            "Start": seg["Start"],
-            "End": seg["End"],
-        }
-
-        for spot in spots:
-            clone_label = spot_to_clone[spot]
-            calls_expanded_rows.append(
-                interim
-                | {
-                    "barcode": spot,
-                    "clone": spot_to_clone[spot],
-                    "A": seg.get(f"clone_{clone_label}_A"),
-                    "B": seg.get(f"clone_{clone_label}_B"),
-                }
-            )
-
-    spot_cna = pd.DataFrame(calls_expanded_rows)
-    spot_cna.insert(3, "sample_id", sample_id)
-    spot_cna = pr.PyRanges(spot_cna)
-
-    logger.info(f"Found {method} estimated CNAs:\n{spot_cna}")
-
-    return spot_cna
 
 
 def get_sample_estimate(root, sample_id, method, rectangle, cna_only=False):
@@ -796,8 +747,11 @@ def main():
             logger.warning(f"Utilizing existing validation stats for {sample_id}.")
             continue
 
+        spot_truth_cna = get_sample_truth(root, sample_id, method=method)
+        exit(0)
+
         try:
-            spot_truth_cna = get_sample_truth(root, sample_id)
+            spot_truth_cna = get_sample_truth(root, sample_id, method=method)
             gene_spot_truth_cna = spot_truth_cna.overlap(gene_ranges)
 
             logger.info(

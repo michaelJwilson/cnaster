@@ -445,7 +445,7 @@ def run_cnaster(config_path, over_rides=None):
             single_X[:,0,:],
             sample_list,
             sample_ids,
-            750_000, # MAGIC determine by baf.
+            500_000, # MAGIC determine by baf.
             random_state=int(config.hmrf.random_state),
         )
     """

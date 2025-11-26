@@ -20,6 +20,7 @@ from cnaster.config import get_global_config
 from cnaster.utils import write_fig
 from cnaster.hmm_sitewise import hmm_sitewise
 from cnaster.hmm_nophasing import hmm_nophasing
+from joblib import Parallel, delayed
 import matplotlib.patches as mpatches
 
 logger = logging.getLogger(__name__)
@@ -50,6 +51,107 @@ def interval_mean(arr, N):
     return result
 
 
+def cna_mixture_init_search(
+    alpha,
+    tau,
+    max_iter,
+    anneal,
+    n_states,
+    X,
+    base_nb_mean,
+    total_bb_RD,
+    max_rdr,
+    known_normal,
+):
+    alphas = alpha * np.ones((n_states, 1))
+    taus = tau * np.ones((n_states, 1))
+
+    num_segments, _, num_spots = X.shape
+
+    # NB pre-compute flat sampling probabilities (uniform initially)
+    flat_idx = np.arange(num_segments * num_spots)
+    solution, solution_lnlike = None, -np.inf
+
+    inital_log_mu, initial_p_binom = np.array([0.0 if known_normal else np.nan]).reshape(
+        (1, 1)
+    ), np.array([0.5]).reshape((1, 1))
+
+    initial_lnlike_rdr, initial_lnlike_baf = (
+        hmm_sitewise.compute_emission_probability_nb_betabinom(
+            X, base_nb_mean, inital_log_mu, alphas, total_bb_RD, initial_p_binom, taus
+        )
+    )
+
+    for _ in range(max_iter):
+        log_mu, p_binom = inital_log_mu.copy(), initial_p_binom.copy()
+
+        while len(log_mu) < n_states:
+            # NB (n_states, n_obs, n_spots) where n_states includes phase flip complement.
+            if len(log_mu) == 1:
+                lnlike_rdr, lnlike_baf = initial_lnlike_rdr, initial_lnlike_baf
+            else:
+                lnlike_rdr, lnlike_baf = (
+                    hmm_sitewise.compute_emission_probability_nb_betabinom(
+                        X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus
+                    )
+                )
+
+            # NB lnlike_rdr is zero (null op. for additiona) until normal spots are defined.
+            lnlike = lnlike_rdr + lnlike_baf
+
+            # TODO track finite.
+            lnlike[~np.isfinite(lnlike)] = -np.inf
+
+            # NB emission prob. under best state (includes phase flip complement).
+            best_lnlike = np.max(lnlike, axis=0)
+            total_best_lnlike = best_lnlike.sum()
+
+            # NB >>1 where current emission states are not a good fit.
+            ps = -best_lnlike
+
+            # NB known normal baseline, zero prob. where it is not defined.
+            if known_normal:
+                ps[base_nb_mean == 0.0] = 0.0
+
+            if anneal:
+                thres = np.percentile(ps, 100.0 * 1.0 - (len(log_mu) / (n_states - 1)))
+                ps[ps < thres] = 0.0
+
+            ps /= ps.sum()
+            ps = ps.ravel()
+
+            sample_ln_rdr, sample_baf = np.inf, np.inf
+
+            while (
+                ((~np.isfinite(sample_ln_rdr) and known_normal))
+                or ~np.isfinite(sample_baf)
+                or sample_ln_rdr > np.log(max_rdr)
+            ):
+                sample_idx = np.random.choice(flat_idx, p=ps)
+
+                sample_segment, sample_spot = (
+                    sample_idx // num_spots,
+                    sample_idx % num_spots,
+                )
+
+                # TODO base_nb_mean is (N,1)?
+                sample_ln_rdr = np.log(
+                    X[sample_segment, 0, sample_spot] / base_nb_mean[sample_segment, 0]
+                )
+                sample_baf = (
+                    X[sample_segment, 1, sample_spot] / total_bb_RD[sample_segment, 0]
+                )
+
+            log_mu = np.vstack([log_mu, [[sample_ln_rdr]]])
+            p_binom = np.vstack([p_binom, [[sample_baf]]])
+
+            if (len(log_mu) == n_states) and total_best_lnlike > solution_lnlike:
+                solution = [log_mu, alphas, p_binom, taus]
+                solution_lnlike = total_best_lnlike
+
+    return solution, solution_lnlike
+
+
 def cna_mixture_init(
     n_states,
     X,
@@ -59,9 +161,8 @@ def cna_mixture_init(
     width=1,
     max_iter=500,
     only_minor=False,
+    max_rdr=5.0,
 ):
-    logger.info(f"Initializing HMM emission with CNA Mixture++ for X.shape={X.shape}.")
-
     # TODO X is a clone stack along axis 0.
     if width is not None:
         X = top_hat_sum(X, width)[::width]
@@ -69,113 +170,46 @@ def cna_mixture_init(
         total_bb_RD = top_hat_sum(total_bb_RD, width)[::width]
 
     known_normal_frac = np.mean(base_nb_mean > 0.0)
-    num_segments, _, num_spots = X.shape
+    known_normal = known_normal_frac > 0.0
 
-    logger.info(
-        f"Initializing HMM emission with CNA Mixture++ for X.shape={X.shape}, base_nb_mean.shape={base_nb_mean.shape} and known normal frac.={known_normal_frac}"
-    )
-
-    solution, solution_lnlike = None, -np.inf
-
-    if known_normal_frac > 0.0:
+    # NB reduce grid search space
+    if known_normal:
         grid_alphas = np.logspace(-2, -1, 3, base=10.0)
     else:
-        # TODO HACK
         grid_alphas = np.array([1.0e-2])
 
     grid_taus = np.logspace(2, 3, 3, base=10.0)
 
-    num_to_solve = len(grid_alphas) * len(grid_taus) * max_iter
-    num_solved = 0
+    param_grid = [(alpha, tau) for alpha in grid_alphas for tau in grid_taus]
 
-    # TODO HACK?
-    for alpha in grid_alphas:
-        for tau in grid_taus:
-            alphas = alpha * np.ones((n_states, 1))
-            taus = tau * np.ones((n_states, 1))
+    logger.info(
+        f"Initializing HMM emission with CNA Mixture++ for max_iter={max_iter}, num_grid_points={len(param_grid)}, num_jobs=2, known normal={known_normal}, max_rdr={max_rdr}, with X.shape={X.shape}, base_nb_mean.shape={base_nb_mean.shape}."
+    )
 
-            for ii in range(max_iter):
-                log_mu, p_binom = np.array([0.0]).reshape((1, 1)), np.array(
-                    [0.5]
-                ).reshape((1, 1))
+    results = Parallel(n_jobs=2)(
+        delayed(cna_mixture_init_search)(
+            alpha,
+            tau,
+            max_iter,
+            anneal,
+            n_states,
+            X,
+            base_nb_mean,
+            total_bb_RD,
+            max_rdr,
+            known_normal,
+        )
+        for alpha, tau in param_grid
+    )
 
-                while len(log_mu) < n_states:
-                    # NB (n_states, n_obs, n_spots) where n_states includes phase flip complement.
-                    lnlike_rdr, lnlike_baf = (
-                        hmm_sitewise.compute_emission_probability_nb_betabinom(
-                            X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus
-                        )
-                    )
-
-                    # NB lnlike_rdr is zero (null op. for additiona) until normal spots are defined.
-                    lnlike = lnlike_rdr + lnlike_baf
-
-                    # TODO track finite.
-                    lnlike[~np.isfinite(lnlike)] = -np.inf
-
-                    # NB emission prob. under best state (includes phase flip complement).
-                    best_lnlike = np.max(lnlike, axis=0)
-                    total_best_lnlike = best_lnlike.sum()
-
-                    # NB >>1 where current emission states are not a good fit.
-                    ps = -best_lnlike
-
-                    if known_normal_frac > 0.0:
-                        ps[base_nb_mean == 0.0] = 0.0
-
-                    if anneal:
-                        thres = np.percentile(
-                            ps, 100.0 * 1.0 - (len(log_mu) / (n_states - 1))
-                        )
-                        ps[ps < thres] = 0.0
-
-                    ps /= ps.sum()
-                    ps = ps.ravel()
-
-                    sample_ln_rdr, sample_baf = np.inf, np.inf
-
-                    while (
-                        ~np.isfinite(sample_ln_rdr) and known_normal_frac > 0.0
-                    ) or ~np.isfinite(sample_baf):
-                        sample_idx = np.random.choice(
-                            np.arange(num_segments * num_spots), p=ps
-                        )
-
-                        sample_segment, sample_spot = (
-                            sample_idx // num_spots,
-                            sample_idx % num_spots,
-                        )
-
-                        # TODO base_nb_mean is (N,1)?
-                        sample_ln_rdr = np.log(
-                            X[sample_segment, 0, sample_spot]
-                            / base_nb_mean[sample_segment, 0]
-                        )
-                        sample_baf = (
-                            X[sample_segment, 1, sample_spot]
-                            / total_bb_RD[sample_segment, 0]
-                        )
-
-                    log_mu = np.vstack([log_mu, [[sample_ln_rdr]]])
-                    p_binom = np.vstack([p_binom, [[sample_baf]]])
-
-                    if (len(log_mu) == n_states) and total_best_lnlike > solution_lnlike:
-                        solution = [log_mu, alphas, p_binom, taus]
-                        solution_lnlike = total_best_lnlike
-
-                        logger.info(
-                            f"Found new best initialization ({num_solved}/{num_to_solve}) with copy mixture++ and lnlike={solution_lnlike:.6e}:\nlog_mu={log_mu},\nalphas={alphas},\np_binom={p_binom},\ntaus={taus}."
-                        )
-
-                logger.debug(alpha, tau, ii, total_best_lnlike, p_binom.tolist())
-                num_solved += 1
-
-    log_mu, alphas, p_binom, taus = solution
+    (log_mu, alphas, p_binom, taus), solution_lnlike = max(
+        results, key=lambda row: row[-1]
+    )
 
     if only_minor:
         p_binom = np.where(p_binom > 0.5, 1.0 - p_binom, p_binom)
 
-    if not (known_normal_frac > 0.0):
+    if not (known_normal):
         log_mu, alphas = None, None
 
     logger.info(
@@ -222,14 +256,14 @@ def plot_cna_mixture(
     ).T
 
     if init_p_binom is None:
-        init_p_binom, _ = get_betabinom_start_params() 
+        init_p_binom, _ = get_betabinom_start_params()
         init_p_binom = np.tile(np.array(init_p_binom).reshape(-1, 1), (1, X.shape[2]))
 
     if init_log_mu is None:
         init_log_mu, _ = get_nbinom_start_params()
         init_log_mu = np.array(init_log_mu).reshape(-1, 1)
         init_log_mu = np.tile(init_log_mu, (1, X.shape[2]))
-        
+
     if init_alphas is None:
         config = get_global_config()
         init_alphas = config.nbinom.start_disp * np.ones_like(init_log_mu)
@@ -365,7 +399,7 @@ def plot_cna_mixture(
     # {config.hmrf.n_clones_rdr}
     output_dir = f"{config.paths.output_dir}/clone{config.hmrf.n_clones}_rectangle{config.hmrf.random_state}_w{config.hmrf.spatial_weight:.1f}/"
     fig_path = f"{output_dir}/plots/{prefix}_rdr_baf.pdf"
-    
+
     logger.info(f"Writing initial copy state mixture plot to {fig_path}")
 
     write_fig(fig_path, fig, transparent=True, bbox_inches="tight")
@@ -432,8 +466,8 @@ def gmm_init(
             [X[:, 1, s] / total_bb_RD[:, s] for s in range(X.shape[2])]
         ).T
 
-        min_binom_prob=float(get_global_config().hmm.gmm_min_binom_prob)
-        max_binom_prob=float(get_global_config().hmm.gmm_max_binom_prob)
+        min_binom_prob = float(get_global_config().hmm.gmm_min_binom_prob)
+        max_binom_prob = float(get_global_config().hmm.gmm_max_binom_prob)
 
         clipped = (X_gmm_baf < min_binom_prob) | (X_gmm_baf > max_binom_prob)
 

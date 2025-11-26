@@ -98,7 +98,7 @@ class hmm_sitewise:
                 # NB this is relied on to shut off RDR evalutation when base_nb_mean == 0.
                 if len(idx_nonzero_rdr) > 0:
                     nb_mean = base_nb_mean[idx_nonzero_rdr, s] * np.exp(log_mu[i, s])
-                    nb_std = np.sqrt(nb_mean + alphas[i, s] * nb_mean**2)
+                    # nb_std = np.sqrt(nb_mean + alphas[i, s] * nb_mean**2)
 
                     n, p = convert_params_disp(nb_mean, alphas[i, s])
 

@@ -5,7 +5,7 @@ set -o pipefail
 ROOT="/Users/mw9568/Work/ragr/sim/"
 
 SEED=12345
-NUM_STARTS=5
+RANDOM_STATES=(0 1 2 3 4)
 USE_EXISTING=true
 MAX_JOBS=1
 
@@ -25,6 +25,7 @@ SAMPLE_IDS=($(printf "%s\n" "${SAMPLE_IDS[@]}" | gshuf --random-source=<(yes $SE
 
 # echo "${SAMPLE_IDS[@]}"
 echo "Found ${#SAMPLE_IDS[@]} sample ids @ ${ROOT}"
+echo "Running with ${#RANDOM_STATES[@]} random states: ${RANDOM_STATES[@]}"
 
 run_single_job() {
     local SAMPLE_ID=$1
@@ -42,14 +43,14 @@ run_single_job() {
         fi
     fi
     
-    echo "Solving for SAMPLE_ID=${SAMPLE_ID}, RANDOM_STATE=${RANDOM_STATE}"
-    
     local LOG_PATH="logs/cnaster_${SAMPLE_ID}_${RANDOM_STATE}.log"
     local PERF_PATH="logs/cnaster_${SAMPLE_ID}_${RANDOM_STATE}.perf"
 
     rm -f "${LOG_PATH}"
     rm -f "${PERF_PATH}"
-    
+
+    echo "Solving for SAMPLE_ID=${SAMPLE_ID}, RANDOM_STATE=${RANDOM_STATE} to ${LOG_PATH} and ${PERF_PATH}"
+
     run_cnaster zenodo_sim_config.yaml \
         -o "hmrf.random_state=${RANDOM_STATE}" \
         -o "paths.sample_sheet=zenodo_sample_sheets/zenodo_${SAMPLE_ID}_sheet.tsv" \
@@ -81,7 +82,7 @@ done
 
 JOBS=()
 for SAMPLE_ID in "${SAMPLE_IDS[@]}"; do
-    for ((RANDOM_STATE=0; RANDOM_STATE<NUM_STARTS; RANDOM_STATE++)); do
+    for RANDOM_STATE in "${RANDOM_STATES[@]}"; do
         JOBS+=("$SAMPLE_ID $RANDOM_STATE")
     done
 done

@@ -440,12 +440,12 @@ def run_cnaster(config_path, over_rides=None):
     
     # TODO HACK? adata.layers["count"]
     if initial_clone_index_baf is None:
-        initial_clone_index_baf, clone_id, spot_umi_counts = sufficient_umis_initial_clone(
+        initial_clone_index_baf, clone_id, _ = sufficient_umis_initial_clone(
             coords,
             single_X[:,0,:],
             sample_list,
             sample_ids,
-            500_000,
+            750_000, # MAGIC determine by baf.
             random_state=int(config.hmrf.random_state),
         )
     """

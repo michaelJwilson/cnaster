@@ -59,7 +59,7 @@ for SAMPLE_ID in "${SAMPLE_IDS[@]}"; do
             -o "hmrf.random_state=${RANDOM_STATE}" \
             -o "paths.sample_sheet=zenodo_sample_sheets/zenodo_${SAMPLE_ID}_sheet.tsv" \
             -o "paths.output_dir=${ROOT}/nomixing_cnaster_related/${SAMPLE_ID}/" \
-            -o "paths.perf_name=${PERF_PATH}" \
+            -o "paths.perf_path=${PERF_PATH}" \
             2>&1 | tee "${LOG_PATH}"
         
         rc=${PIPESTATUS[0]}

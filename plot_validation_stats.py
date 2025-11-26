@@ -48,7 +48,7 @@ def load_validation_stats(stats_dir):
     return df
 
 
-def plot_metrics(df, method):
+def plot_metrics(df, method, output_dir=None):
     sns.set_context("paper", font_scale=0.9)
     sns.set_style("ticks")
 
@@ -202,8 +202,9 @@ def plot_metrics(df, method):
 
     plt.tight_layout()
     fig.subplots_adjust(top=0.94)
-    plt.show()
 
+    out_path = Path(".") / f"{method}_validation.pdf"
+    fig.savefig(out_path, bbox_inches="tight", dpi=300)
 
 def main():
     # method = "calicost"
@@ -212,10 +213,15 @@ def main():
     stats_dir = f"/Users/mw9568/Work/ragr/sim/stats/{method}"
     df = load_validation_stats(stats_dir)
     
-    print(df)
-    
-    plot_metrics(df, method)
+    plot_metrics(df, method, output_dir=stats_dir)
 
+    df_rank = df.copy()
+    df_rank["__loglike__"] = pd.to_numeric(df_rank["loglike"], errors="coerce").fillna(-np.inf)
+    idx = df_rank.groupby("sample_id")["__loglike__"].idxmax()
+    df_best = df_rank.loc[idx].drop(columns=["__loglike__"]).reset_index(drop=True)
+    
+    df_best = df_best.sort_values(["cna_recovery_rate"], ascending=[True])
+    print(df_best)
 
 if __name__ == "__main__":
     main()

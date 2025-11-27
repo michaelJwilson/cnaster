@@ -8,6 +8,7 @@ python/cnaster/sim/scripts/__pycache__/
 
 results/
 sandbox/
+errors/
 logs/
 target/
 zenodo_sample_sheets/

@@ -21,5 +21,6 @@ new_sample_sheet.tsv
 cnaster.log*
 
 *.pyc
+*.pdf
 cnaster.perf*
 cnaster_hmrf.perf*

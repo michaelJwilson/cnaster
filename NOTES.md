@@ -13,6 +13,10 @@ RECOMB/ISMB
 TODAY
 - merge_by_minspots spatial.
 
+COMMANDS
+- ps aux | grep batch_zenodo_sim_parallel_run.sh
+- caffeinate -d -w <PID>
+
 RUNTIME
 - omics.py:581 summarize_counts_for_blocks
 - spatial.py:306 sufficient_umis_clone_assignment

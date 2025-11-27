@@ -7,6 +7,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from pathlib import Path
 
+pd.set_option('display.max_rows', None)
 
 def load_validation_stats(stats_dir):
     stats_path = Path(stats_dir)
@@ -152,11 +153,11 @@ def plot_metrics(df, method, output_dir=None):
             y="value",
             order=present_groups,
             ax=ax,
-            color="#2D5016",
+            color="#4A90E2",  # blue color
             showcaps=True,
             showfliers=False,
             boxprops={"alpha": 0.4},
-            whiskerprops={"color": "#1A3010", "linewidth": 1},
+            whiskerprops={"color": "#2E5A8F", "linewidth": 1},
             medianprops={"color": "black", "linewidth": 1.2},
         )
         sns.stripplot(
@@ -221,7 +222,12 @@ def main():
     df_best = df_rank.loc[idx].drop(columns=["__loglike__"]).reset_index(drop=True)
     
     df_best = df_best.sort_values(["cna_recovery_rate"], ascending=[True])
-    print(df_best)
+    
+    # Drop columns before printing
+    cols_to_drop = ["numcnas", "cnasize", "ploidy", "random", "group"]
+    df_print = df_best.drop(columns=cols_to_drop, errors='ignore')
+    
+    print(df_print)
 
 if __name__ == "__main__":
     main()

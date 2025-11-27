@@ -162,7 +162,7 @@ def cna_mixture_init(
     max_iter=500,
     only_minor=False,
     max_rdr=np.inf,
-    num_jobs=3,
+    num_jobs=1,
 ):
     # TODO X is a clone stack along axis 0.
     if width is not None:

@@ -217,7 +217,7 @@ def plot_truth_acn_profile(root, sample_id):
 
     n_clones = len(clones)
     fig, axes = plt.subplots(
-        n_clones, 1, figsize=(16, 3 * n_clones), sharex=True, squeeze=False
+        n_clones, 1, figsize=(16, 2.0 * n_clones), sharex=True, squeeze=False
     )
     axes = axes.flatten()
 
@@ -299,7 +299,7 @@ def plot_truth_acn_profile(root, sample_id):
             rotation=90,          # rotate y clone labels by 90
             ha="center",
             va="center",
-            fontsize=14,
+            fontsize=12,
             labelpad=20,          # add padding so it clears the frame
         )
         ax.set_yticks([])
@@ -329,14 +329,14 @@ def plot_truth_acn_profile(root, sample_id):
     for chrom in chromosomes:
         axes[-1].text(
             chr_offsets[chrom],
-            -0.16,             
+            -0.3,             
             f"chr{chrom}",
             transform=axes[-1].get_xaxis_transform(),
             ha="left",
             va="top",
             rotation=45,
             rotation_mode="anchor",
-            fontsize=12,
+            fontsize=9,
         )
 
     legend_elements = []
@@ -352,15 +352,15 @@ def plot_truth_acn_profile(root, sample_id):
         loc="upper left",
         bbox_to_anchor=(1.02, 1.0), 
         frameon=False,
-        title="Copy State",
-        fontsize=12,
+        fontsize=9,
         borderaxespad=0.0,
     )
     if leg.get_title() is not None:
         leg.get_title().set_fontsize(14)
 
-    plt.suptitle(f"{sample_id}", fontsize=20, y=0.99)  
-    plt.tight_layout(rect=[0, 0, 0.9, 0.99])
+    # Align suptitle x with left y-axis of the topmost axis
+    left_x = axes[0].get_position().x0  # figure fraction
+    plt.suptitle(f"{sample_id}", fontsize=12, y=0.925, x=left_x, ha="left")  
 
     return fig
 
@@ -773,7 +773,7 @@ def get_validation_stats(
     # TODO
     try:
         ari = adjusted_rand_score(
-            spot_join_cna["true_clone"].astype(int), spot_join_cna["clone"].astype(int)
+            spot_join_cna["true_clone"].astype(int), spot_join_cna["clone"].to_numpy().astype(int)
         )
     except:
         ari = np.nan
@@ -925,7 +925,7 @@ def save_validation_stats_yaml(stats, output_path):
 def main():
     # root = "/u/mw9568/scratch/calicost_sims"
     root = "/Users/mw9568/Work/ragr/sim"
-    use_cache = False
+    use_cache = True
 
     gene_ranges = read_gene_ranges()
 

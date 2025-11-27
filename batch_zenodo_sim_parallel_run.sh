@@ -7,7 +7,7 @@ ROOT="/Users/mw9568/Work/ragr/sim/"
 SEED=12345
 RANDOM_STATES=(0 1 2 3 4)
 USE_EXISTING=true
-MAX_JOBS=2
+MAX_JOBS=4
 
 # SAMPLE_IDS=("numcnas1.2_cnasize1e7_ploidy2_random0")
 # SAMPLE_IDS=("numcnas3.3_cnasize3e7_ploidy2_random0")

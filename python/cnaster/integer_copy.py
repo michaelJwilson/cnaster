@@ -445,62 +445,17 @@ def hill_climbing_integer_copynumber_fixdiploid(
 
 def filter_consistent_acn_states(
     new_log_mu,
-    base_nb_mean,
-    base_nb_disp,
     new_p_binom,
-    base_bb_disp,
     pred_cnv,
     max_allele_copy=5,
     max_total_copy=6,
-    n_sigma_baf=2.0,
-    n_sigma_rdr=2.0,
-    min_prop_threshold=0.1,
-    EPS_BAF=0.05,
+    n_sigma=1.0,
+    min_prop_threshold=0.1, # TODO
+    EPS_BAF=0.05, # TODO
 ):
-    """
-    Filter integer ACN states based on statistical consistency with BAF and RDR measurements.
-    
-    Returns ACN states that are within n_sigma standard deviations of the observed
-    BAF and RDR values, accounting for measurement variance.
-    
-    Parameters
-    ----------
-    new_log_mu : array-like
-        Log of RDR means per state
-    base_nb_mean : array-like
-        Mean read depth per bin (for variance calculation)
-    base_nb_disp : array-like
-        Negative binomial dispersion per bin
-    new_p_binom : array-like
-        BAF values per state
-    base_bb_disp : array-like
-        Beta-binomial dispersion per bin
-    pred_cnv : array-like
-        Predicted CNV state assignment per bin
-    max_allele_copy : int
-        Maximum allele copy number
-    max_total_copy : int
-        Maximum total copy number
-    n_sigma_baf : float
-        Number of standard deviations for BAF consistency
-    n_sigma_rdr : float
-        Number of standard deviations for RDR consistency
-    min_prop_threshold : float
-        Minimum proportion of bins for diploid state detection
-    EPS_BAF : float
-        Tolerance for BAF=0.5 detection
-        
-    Returns
-    -------
-    consistent_states_baf : dict
-        Mapping from state index -> list of (A, B) tuples consistent with BAF
-    consistent_states_both : dict
-        Mapping from state index -> list of (A, B) tuples consistent with both BAF and RDR
-    """
     n_states = len(new_log_mu)
     mu = np.exp(new_log_mu)
     
-    # Find diploid normal state for RDR scaling
     idx_diploid_normal = find_diploid_balanced_state(
         new_log_mu,
         new_p_binom,
@@ -509,28 +464,11 @@ def filter_consistent_acn_states(
         EPS_BAF=EPS_BAF,
     )
     scalefactor = 2.0 / mu[idx_diploid_normal]
+        
+    # NB 50% fractional errors on RDR, 5% on BAF as initial estimates
+    rdr_var_per_state = (1.5 * mu.copy())**2
+    baf_var_per_state = (0.05 * new_p_binom * (1. - new_p_binom)).copy() 
     
-    # Calculate variance per state
-    # For RDR: Var(RDR) ≈ var from negative binomial
-    # For BAF: Var(BAF) ≈ var from beta-binomial
-    
-    # Compute average variance per state weighted by bin assignments
-    rdr_var_per_state = np.zeros(n_states)
-    baf_var_per_state = np.zeros(n_states)
-    
-    for s in range(n_states):
-        mask = pred_cnv == s
-        if np.sum(mask) > 0:
-            # Negative binomial variance: mean + mean^2 * dispersion
-            nb_var = base_nb_mean[mask] + base_nb_mean[mask]**2 * base_nb_disp[mask]
-            rdr_var_per_state[s] = np.mean(nb_var) / np.mean(base_nb_mean[mask])**2
-            
-            # Beta-binomial variance approximation: p*(1-p) * (1 + phi)
-            # where phi is related to dispersion
-            p = new_p_binom[s]
-            baf_var_per_state[s] = np.mean(p * (1-p) * (1 + base_bb_disp[mask]))
-    
-    # Generate candidate states
     candidates = np.array(
         [
             [i, j]
@@ -542,15 +480,11 @@ def filter_consistent_acn_states(
     
     logger.info(f"Filtering {len(candidates)} candidate ACN states for consistency with measurements")
     
-    consistent_states_baf = {}
-    consistent_states_both = {}
+    consistent_states_baf, consistent_states_both = {}, {}
     
     for s in range(n_states):
-        consistent_baf = []
-        consistent_both = []
-        
-        obs_baf = new_p_binom[s]
-        obs_rdr = mu[s]
+        consistent_baf, consistent_both = [], []
+        obs_baf, obs_rdr = new_p_binom[s], mu[s]
         
         baf_std = np.sqrt(baf_var_per_state[s])
         rdr_std = np.sqrt(rdr_var_per_state[s])
@@ -561,8 +495,8 @@ def filter_consistent_acn_states(
             exp_baf = A / total if total > 0 else np.nan
             exp_rdr = total / scalefactor
             
-            baf_consistent = np.abs(obs_baf - exp_baf) <= n_sigma_baf * baf_std
-            rdr_consistent = np.abs(obs_rdr - exp_rdr) <= n_sigma_rdr * rdr_std
+            baf_consistent = np.abs(obs_baf - exp_baf) <= n_sigma * baf_std
+            rdr_consistent = np.abs(obs_rdr - exp_rdr) <= n_sigma * rdr_std
             
             if baf_consistent:
                 consistent_baf.append((A, B))
@@ -575,7 +509,7 @@ def filter_consistent_acn_states(
         
         logger.info(
             f"State {s}: obs_baf={obs_baf:.3f}±{baf_std:.3f}, obs_rdr={obs_rdr:.3f}±{rdr_std:.3f} "
-            f"-> {len(consistent_baf)} BAF-consistent, {len(consistent_both)} both-consistent"
+            f"-> BAF consistent={consistent_baf}, RDR-BAF consistent={consistent_both}"
         )
     
     return consistent_states_baf, consistent_states_both

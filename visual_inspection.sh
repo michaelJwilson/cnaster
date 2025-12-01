@@ -33,6 +33,8 @@ for SAMPLE_ID in "${SAMPLE_IDS[@]}"; do
         open "${EST_PLOTS_DIR}/clones_spatial.pdf"
         open "${EST_PLOTS_DIR}/${SAMPLE_ID}_rectangle${RANDOM_STATE}_copy_states.pdf"
         open "${EST_PLOTS_DIR}/initial_clones_spatial.pdf"
+        open "${EST_PLOTS_DIR}/bafonly_clones_spatial.pdf"
+        open "${EST_PLOTS_DIR}/merged_bafonly_clones_spatial.pdf"
         
     done
 done

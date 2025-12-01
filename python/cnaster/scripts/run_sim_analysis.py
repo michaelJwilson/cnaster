@@ -17,6 +17,7 @@ from cnaster.utils import write_fig, cast_clone_label
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from matplotlib.colors import ListedColormap
+import matplotlib.colors as mcolors
 import seaborn as sns
 
 
@@ -543,75 +544,80 @@ def get_sample_loglike(root, sample_id, method, rectangle):
 def render_copy_states_table(tsv_path, output_pdf_path):
     """
     Render cnv_diploid_perstate.tsv as a formatted PDF table:
-    - States ordered by total copies then BAF
+    - Column per HMM state (as originally indexed)
+    - Cells colored by unique (A,B) integer copy state globally
     - Each clone expanded into 3 rows: μ, BAF, (A,B)
-    - Clone label shown vertically at left (outside the table)
-    - Integer copy (A,B) row cells colored by state
     """
     if not tsv_path.exists():
         logger.warning(f"Copy states file not found: {tsv_path}")
         return
 
     df = pd.read_csv(tsv_path, sep="\t")
-
-    # Determine clone prefixes
     clone_cols = [c for c in df.columns if "logmu" in c or " p" in c or " A" in c or " B" in c]
     clone_names = sorted(set(c.split()[0] for c in clone_cols))
     if len(clone_names) == 0:
         logger.warning("No clone columns detected in per-state table.")
         return
-
     n_states = len(df)
 
-    # Order states (use first clone A,B as canonical for ordering)
+    # Collect unique (A,B) states across ALL clones for global color palette
+    global_states = set()
+    for clone in clone_names:
+        a_vals = df[f"{clone} A"].astype(int).to_list()
+        b_vals = df[f"{clone} B"].astype(int).to_list()
+        for a, b in zip(a_vals, b_vals):
+            global_states.add((a, b))
+
+    # Build global color palette
+    ordered_global_states = sorted(
+        global_states,
+        key=lambda ab: (ab[0] + ab[1], ab[0] / (ab[0] + ab[1]) if (ab[0] + ab[1]) > 0 else 0),
+    )
+    palette = sns.color_palette("husl", len(ordered_global_states))
+    state_colors = {st: palette[i] for i, st in enumerate(ordered_global_states)}
+    state_colors[(1, 1)] = "#FFFFFF"
+
+    # Order HMM states by total copies then BAF (use first clone as reference)
     first_clone = clone_names[0]
     order_info = []
     for s in range(n_states):
         a = int(df.iloc[s][f"{first_clone} A"])
         b = int(df.iloc[s][f"{first_clone} B"])
         total = a + b
-        baf = df.iloc[s][f"{first_clone} p"]
+        baf = a / (a + b) if (a + b) > 0 else 0.0
         order_info.append((s, total, baf, (a, b)))
-    order_info.sort(key=lambda x: (x[1], x[2]))  # total copies, then BAF
+    order_info.sort(key=lambda x: (x[1], x[2]))
     sorted_state_indices = [x[0] for x in order_info]
 
-    # Build color mapping for unique (A,B) states
-    unique_states = sorted({x[3] for x in order_info})
-    palette = sns.color_palette("husl", len(unique_states))
-    state_colors = {state: palette[i] for i, state in enumerate(unique_states)}
-    state_colors[(1, 1)] = "#FFFFFF"  # diploid normal white
-
-    # Column labels: one per ordered state (no clone header)
+    # Column labels: one per HMM state
     col_labels = [f"$\\mathbb{{R}}_{{{i}}}$" for i in range(len(sorted_state_indices))]
 
-    # Build table rows: 3 per clone (μ row, BAF row, integer copy row)
+    # Build table rows: 3 per clone (μ, BAF, (A,B))
     table_rows = []
-    row_types = []  # 0=mu, 1=baf, 2=copy
+    row_types = []
     for clone in clone_names:
-        for row_type in (0, 1, 2):
-            entries = []
+        for rtype in (0, 1, 2):
+            row = []
             for s_idx in sorted_state_indices:
-                logmu = df.iloc[s_idx][f"{clone} logmu"]
-                mu = np.exp(logmu)
-                baf = df.iloc[s_idx][f"{clone} p"]
-                a = int(df.iloc[s_idx][f"{clone} A"])
-                b = int(df.iloc[s_idx][f"{clone} B"])
-                if row_type == 0:
-                    entries.append(f"{mu:.2f}")
-                elif row_type == 1:
-                    entries.append(f"{baf:.2f}")
-                else:
-                    entries.append(f"({a},{b})")
-            table_rows.append(entries)
-            row_types.append(row_type)
+                if rtype == 0:  # μ
+                    logmu = df.iloc[s_idx][f"{clone} logmu"]
+                    mu = np.exp(logmu)
+                    row.append(f"{mu:.2f}")
+                elif rtype == 1:  # BAF
+                    baf = df.iloc[s_idx][f"{clone} p"]
+                    row.append(f"{baf:.2f}")
+                else:  # (A,B)
+                    a = int(df.iloc[s_idx][f"{clone} A"])
+                    b = int(df.iloc[s_idx][f"{clone} B"])
+                    row.append(f"({a},{b})")
+            table_rows.append(row)
+            row_types.append(rtype)
 
-    # Figure sizing
+    # Figure setup
     fig_height = max(6, len(clone_names) * 3 * 0.35 + 2)
     fig_width = max(10, len(col_labels) * 1.2)
     fig, ax = plt.subplots(figsize=(fig_width, fig_height))
     ax.axis("off")
-
-    # Create table
     tbl = ax.table(
         cellText=table_rows,
         colLabels=col_labels,
@@ -622,17 +628,16 @@ def render_copy_states_table(tsv_path, output_pdf_path):
     tbl.auto_set_font_size(False)
     tbl.set_fontsize(8)
     tbl.scale(1, 1.6)
-    fig.canvas.draw()  # ensure cell positions valid
+    fig.canvas.draw()
 
-    # Header styling
+    # Style header
     for c in range(len(col_labels)):
         cell = tbl[(0, c)]
         cell.set_facecolor("#E0E0E0")
         cell.set_text_props(weight="bold", fontsize=9)
 
     def blend(color, alpha=0.5):
-        import matplotlib.colors as mcolors
-        r, g, b, a = mcolors.to_rgba(color)
+        r, g, b, _ = mcolors.to_rgba(color)
         r = 1 - alpha * (1 - r)
         g = 1 - alpha * (1 - g)
         b = 1 - alpha * (1 - b)
@@ -640,7 +645,7 @@ def render_copy_states_table(tsv_path, output_pdf_path):
 
     data_row_offset = 1
 
-    # Color ALL sub-rows by (A,B) state (lighter for μ/BAF)
+    # Color all sub-rows by (A,B) state from global palette
     for r, rtype in enumerate(row_types):
         table_r = r + data_row_offset
         clone_idx = r // 3
@@ -652,25 +657,15 @@ def render_copy_states_table(tsv_path, output_pdf_path):
             alpha = 0.30 if rtype in (0, 1) else 0.50
             tbl[(table_r, c)].set_facecolor(blend(base_col, alpha=alpha))
 
-    # Light alternating clone blocks (only further tint pure white cells)
-    for clone_idx in range(len(clone_names)):
-        if clone_idx % 2 == 1:
-            group_start = data_row_offset + clone_idx * 3
-            for rr in range(group_start, group_start + 3):
-                for cc in range(len(col_labels)):
-                    cell = tbl[(rr, cc)]
-                    if cell.get_facecolor() == (1.0, 1.0, 1.0, 1.0):
-                        cell.set_facecolor(blend("#F0F0F0", alpha=0.4))
-
-    # Vertical clone labels (left)
+    # Vertical clone labels
     for clone_idx, clone in enumerate(clone_names):
         display_clone = cast_clone_label(clone)
-        group_start = data_row_offset + clone_idx * 3
-        top_cell = tbl[(group_start, 0)]
-        bottom_cell = tbl[(group_start + 2, 0)]
+        start_r = data_row_offset + clone_idx * 3
+        top_cell = tbl[(start_r, 0)]
+        bottom_cell = tbl[(start_r + 2, 0)]
         y_center = (top_cell.get_y() + bottom_cell.get_y() + bottom_cell.get_height()) / 2
         ax.text(
-            -0.050,  # moved slightly further left
+            -0.050,
             y_center,
             display_clone,
             rotation=90,
@@ -680,15 +675,16 @@ def render_copy_states_table(tsv_path, output_pdf_path):
             transform=ax.transAxes,
         )
 
-    # Vertical sub-row labels (μ, BAF, ℕ)
+    # Vertical sub-row labels
+    label_map = {0: r"$\mu$", 1: "BAF", 2: r"$\mathbb{N}$"}
     for r, rtype in enumerate(row_types):
         table_r = r + data_row_offset
         first_cell = tbl[(table_r, 0)]
         y_center = first_cell.get_y() + first_cell.get_height() / 2
         ax.text(
-            -0.030,  # between clone label and table
+            -0.030,
             y_center,
-            {0: r"$\mu$", 1: "BAF", 2: r"$\mathbb{N}$"}[rtype],
+            label_map[rtype],
             rotation=90,
             va="center",
             ha="center",
@@ -861,6 +857,10 @@ def get_join(first, second):
 
     result.insert(3, "Start_b", start_b)
     result.insert(4, "End_b", end_b)
+
+    # NB we will live with NANs on join eventually, so float.
+    for col in ["true_clone", "true_A", "true_B"]:
+        result[col] = result[col].astype(float)
 
     # NB we will live with NANs on join eventually, so float.
     for col in ["true_clone", "true_A", "true_B"]:

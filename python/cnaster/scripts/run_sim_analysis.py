@@ -17,7 +17,6 @@ from functools import cmp_to_key
 
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
-from matplotlib.colors import ListedColormap
 import matplotlib.colors as mcolors
 import seaborn as sns
 

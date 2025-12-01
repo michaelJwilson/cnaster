@@ -13,6 +13,7 @@ from collections import Counter
 from sklearn.metrics import adjusted_rand_score
 from cnaster.plotting import plot_clones_spatial
 from cnaster.utils import write_fig, cast_clone_label
+from functools import cmp_to_key
 
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
@@ -576,6 +577,11 @@ def render_copy_states_table(tsv_path, output_pdf_path):
     # Order HMM states independently per clone by BAF then μ
     # Build a dict: clone -> sorted list of state indices
     clone_state_orders = {}
+    def _state_cmp(a, b):
+        # a, b: (state_index, baf, mu, (A,B))
+        if abs(a[1] - b[1]) < 0.05:
+            return -1 if a[2] < b[2] else (1 if a[2] > b[2] else 0)
+        return -1 if a[1] < b[1] else (1 if a[1] > b[1] else 0)
     for clone in clone_names:
         order_info = []
         for s in range(n_states):
@@ -585,7 +591,7 @@ def render_copy_states_table(tsv_path, output_pdf_path):
             a = int(df.iloc[s][f"{clone} A"])
             b = int(df.iloc[s][f"{clone} B"])
             order_info.append((s, baf, mu, (a, b)))
-        order_info.sort(key=lambda x: (x[1], x[2]))  # BAF first, then μ
+        order_info = sorted(order_info, key=cmp_to_key(_state_cmp))
         clone_state_orders[clone] = [x[0] for x in order_info]
 
     col_labels = [f"$\\mathbb{{R}}_{{{i}}}$" for i in range(n_states)]

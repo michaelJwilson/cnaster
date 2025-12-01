@@ -1153,7 +1153,7 @@ def main():
     # "numcnas3.3_cnasize5e7_ploidy2_random0",
 
     sample_ids = [
-        "numcnas3.3_cnasize3e7_ploidy2_random0"
+        "numcnas6.3_cnasize5e7_ploidy2_random6"
     ]
     """
     sample_ids = [

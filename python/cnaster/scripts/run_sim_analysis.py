@@ -218,7 +218,7 @@ def plot_truth_acn_profile(root, sample_id):
 
     n_clones = len(clones)
     fig, axes = plt.subplots(
-        n_clones, 1, figsize=(16, 2.0 * n_clones), sharex=True, squeeze=False
+        n_clones, 1, figsize=(16, 1.25 * n_clones), sharex=True, squeeze=False
     )
     axes = axes.flatten()
 
@@ -283,6 +283,9 @@ def plot_truth_acn_profile(root, sample_id):
             state = (a_copy, b_copy)
 
             color = state_colors.get(state, "gray")
+            
+            # Add hatching when A == B
+            hatch = '///' if a_copy == b_copy and state != (1, 1) else None
 
             ax.add_patch(
                 mpatches.Rectangle(
@@ -290,9 +293,10 @@ def plot_truth_acn_profile(root, sample_id):
                     end - start,
                     1,
                     facecolor=color,
-                    edgecolor="none",
+                    edgecolor='none',
                     linewidth=0,
                     alpha=0.5,
+                    hatch=hatch,
                 )
             )
             
@@ -375,7 +379,17 @@ def plot_truth_acn_profile(root, sample_id):
             continue
 
         label = f"({state[0]},{state[1]})"
-        legend_elements.append(mpatches.Patch(facecolor=color, label=label, alpha=0.5))
+        # Add hatching to legend if A == B
+        hatch = '///' if state[0] == state[1] else None
+        legend_elements.append(
+            mpatches.Patch(
+                facecolor=color, 
+                label=label, 
+                alpha=0.5,
+                hatch=hatch,
+                edgecolor='black' if hatch else None,
+            )
+        )
 
     leg = axes[0].legend(
         handles=legend_elements,
@@ -1139,7 +1153,7 @@ def main():
     # "numcnas3.3_cnasize5e7_ploidy2_random0",
 
     sample_ids = [
-        "numcnas3.3_cnasize5e7_ploidy2_random6",
+        "numcnas1.2_cnasize3e7_ploidy2_random7"
     ]
     """
     sample_ids = [

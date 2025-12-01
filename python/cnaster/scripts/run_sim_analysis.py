@@ -542,23 +542,19 @@ def get_sample_loglike(root, sample_id, method, rectangle):
 
 
 def render_copy_states_table(tsv_path, output_pdf_path):
-    """
-    Render cnv_diploid_perstate.tsv as a formatted PDF table:
-    - Column per HMM state (as originally indexed)
-    - Cells colored by unique (A,B) integer copy state globally
-    - Each clone expanded into 3 rows: μ, BAF, (A,B)
-    """
     if not tsv_path.exists():
         logger.warning(f"Copy states file not found: {tsv_path}")
         return
 
     df = pd.read_csv(tsv_path, sep="\t")
-    clone_cols = [c for c in df.columns if "logmu" in c or " p" in c or " A" in c or " B" in c]
+    clone_cols = [c for c in df.columns if "logmu" in c]
     clone_names = sorted(set(c.split()[0] for c in clone_cols))
     if len(clone_names) == 0:
         logger.warning("No clone columns detected in per-state table.")
         return
     n_states = len(df)
+
+    print(df)
 
     # Collect unique (A,B) states across ALL clones for global color palette
     global_states = set()
@@ -592,12 +588,9 @@ def render_copy_states_table(tsv_path, output_pdf_path):
         order_info.sort(key=lambda x: (x[1], x[2]))  # BAF first, then μ
         clone_state_orders[clone] = [x[0] for x in order_info]
 
-    # Use first clone's ordering for column labels (for display consistency)
-    first_clone = clone_names[0]
-    sorted_state_indices = clone_state_orders[first_clone]
-    col_labels = [f"$\\mathbb{{R}}_{{{i}}}$" for i in range(len(sorted_state_indices))]
+    col_labels = [f"$\\mathbb{{R}}_{{{i}}}$" for i in range(n_states)]
 
-    # Build table rows: 3 per clone (μ, BAF, (A,B)), using each clone's own ordering
+    # Build table rows: 3 per clone (μ, BAF, (A,B)), using each clone's own state ordering.
     table_rows = []
     row_types = []
     for clone in clone_names:
@@ -608,10 +601,10 @@ def render_copy_states_table(tsv_path, output_pdf_path):
                 if rtype == 0:  # μ
                     logmu = df.iloc[s_idx][f"{clone} logmu"]
                     mu = np.exp(logmu)
-                    row.append(f"{mu:.2f}")
+                    row.append(f"{mu:.3f}")
                 elif rtype == 1:  # BAF
                     baf = df.iloc[s_idx][f"{clone} p"]
-                    row.append(f"{baf:.2f}")
+                    row.append(f"{baf:.3f}")
                 else:  # (A,B)
                     a = int(df.iloc[s_idx][f"{clone} A"])
                     b = int(df.iloc[s_idx][f"{clone} B"])
@@ -619,7 +612,6 @@ def render_copy_states_table(tsv_path, output_pdf_path):
             table_rows.append(row)
             row_types.append(rtype)
 
-    # Figure setup
     fig_height = max(6, len(clone_names) * 3 * 0.35 + 2)
     fig_width = max(10, len(col_labels) * 1.2)
     fig, ax = plt.subplots(figsize=(fig_width, fig_height))
@@ -639,8 +631,8 @@ def render_copy_states_table(tsv_path, output_pdf_path):
     # Style header
     for c in range(len(col_labels)):
         cell = tbl[(0, c)]
-        cell.set_facecolor("#E0E0E0")
-        cell.set_text_props(weight="bold", fontsize=9)
+        cell.set_facecolor("#FFFFFF")
+        cell.set_text_props(fontsize=9)
 
     def blend(color, alpha=0.5):
         r, g, b, _ = mcolors.to_rgba(color)
@@ -654,17 +646,15 @@ def render_copy_states_table(tsv_path, output_pdf_path):
     # Color all sub-rows by (A,B) state from global palette (using each clone's ordering)
     for r, rtype in enumerate(row_types):
         table_r = r + data_row_offset
-        clone_idx = r // 3
+        clone_idx = r // 3 # NB assumes three row sub-types i.e. (μ, BAF, (A,B)) per clone.
         clone = clone_names[clone_idx]
         sorted_indices = clone_state_orders[clone]
         for c, s_idx in enumerate(sorted_indices):
             a = int(df.iloc[s_idx][f"{clone} A"])
             b = int(df.iloc[s_idx][f"{clone} B"])
             base_col = state_colors.get((a, b), "#FFFFFF")
-            alpha = 0.30 if rtype in (0, 1) else 0.50
-            tbl[(table_r, c)].set_facecolor(blend(base_col, alpha=alpha))
+            tbl[(table_r, c)].set_facecolor(blend(base_col, alpha=0.5))
 
-    # Vertical clone labels
     for clone_idx, clone in enumerate(clone_names):
         display_clone = cast_clone_label(clone)
         start_r = data_row_offset + clone_idx * 3
@@ -678,7 +668,7 @@ def render_copy_states_table(tsv_path, output_pdf_path):
             rotation=90,
             va="center",
             ha="center",
-            fontsize=9,
+            fontsize=11,
             transform=ax.transAxes,
         )
 

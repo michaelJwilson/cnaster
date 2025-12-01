@@ -904,6 +904,9 @@ def reindex_clones(res_combine, posterior, single_tumor_prop):
         cid_rest = np.array([c for c in range(n_clones) if c != cid_normal]).astype(int)
         reidx = np.append(cid_normal, cid_rest)
         map_reidx = {cid: i for i, cid in enumerate(reidx)}
+
+        logger.info(f"Remapping clone index according to {map_reidx}, with {cid_normal} assumed normal.")
+
         # NB re-order entries in res_combine
         new_res_combine["new_assignment"] = np.array(
             [map_reidx[c] for c in res_combine["new_assignment"]]
@@ -916,6 +919,9 @@ def reindex_clones(res_combine, posterior, single_tumor_prop):
         new_res_combine["pred_cnv"] = res_combine["pred_cnv"][:, reidx]
         new_posterior = new_posterior[:, reidx]
     else:
+        # LEGACY BUG?
+        raise RuntimeError()
+
         # NB add normal clone as clone 0
         new_res_combine["new_assignment"] = new_res_combine["new_assignment"] + 1
         new_res_combine["new_log_mu"] = np.hstack(
@@ -1161,8 +1167,8 @@ def aggr_hmrf_reassignment(
         logger.warning(f"Assuming a fixed clone assignment")
         new_assignment = prev_assignment.copy()
     else:
-        logger.info(f"Solving for updated clone labels.")
-
+        logger.info(f"Solved for updated clone labels.")
+    
     # NB compute total log likelihood: log P(X | Z) + log P(Z)
     total_llf = np.sum(single_llf[np.arange(N), new_assignment])
     for i in range(N):

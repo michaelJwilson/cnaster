@@ -1303,9 +1303,10 @@ def run_cnaster(config_path, over_rides=None):
     #      min. is least significant.
     res_combine["new_taus"][:, :] = np.min(res_combine["new_taus"])
 
+    # TODO BUG?? prev_assignment or new_assignment?
     n_final_clones = len(np.unique(res_combine["prev_assignment"]))
 
-    logger.info(f"Inferred {n_final_clones} clones given BAF+RDR data.")
+    logger.info(f"Inferred {n_final_clones} clones given RDR & BAF data.")
 
     log_persample_weights = np.zeros((n_final_clones, len(sample_list)))
 
@@ -1371,7 +1372,9 @@ def run_cnaster(config_path, over_rides=None):
     # NB total Potts likelihood given final copy states and clone assignment.
     res_combine["total_llf"] = total_llf
     res_combine["new_assignment"] = new_assignment
-    
+
+    logger.info(f"Inferred final {len(np.unique(res_combine["new_assignment"]))} clones.")
+
     """
     # UGH HACK? merge small clones ... again
     _, res_combine = merge_by_minspots(
@@ -1398,7 +1401,7 @@ def run_cnaster(config_path, over_rides=None):
     ]:
         logger.info(f"Solved for {key}:\n{res_combine[key]}")
 
-    # TODO SIC BUG
+    # TODO SIC BUG params?
     np.savez(f"{output_dir}/rdrbaf_final_nstates{config.hmm.n_states}_smp.npz", **res_combine)
 
     # NB infer integer allele-specific copy numbers
@@ -1407,6 +1410,7 @@ def run_cnaster(config_path, over_rides=None):
     # NB add normal clone as 0 if not present
     if 0 not in final_clone_ids:
         final_clone_ids = np.append(0, final_clone_ids)
+        logger.warning(f"Missing normal clones - prepended as 0 to final clone ids.")
 
     # NB assumed ploidy for integer copy number problem
     medfix = [""] + [f"_{pp}" for pp in config.int_copy_num.ploidy.split(",")]

@@ -316,7 +316,7 @@ def plot_truth_acn_profile(root, sample_id):
                 f"({a_copy},{b_copy})",
                 ha="center",
                 va="center",
-                fontsize=7,
+                fontsize=8,
                 color="black",
                 rotation=90,
             )
@@ -966,7 +966,7 @@ def main():
     # "numcnas3.3_cnasize5e7_ploidy2_random0",
 
     sample_ids = [
-        "numcnas3.3_cnasize3e7_ploidy2_random0",
+        "numcnas3.3_cnasize5e7_ploidy2_random6",
     ]
     """
     sample_ids = [

@@ -363,7 +363,7 @@ def plot_truth_acn_profile(root, sample_id):
     for chrom in chromosomes:
         axes[-1].text(
             chr_offsets[chrom],
-            -0.3,             
+            -0.4,             
             f"chr{chrom}",
             transform=axes[-1].get_xaxis_transform(),
             ha="left",

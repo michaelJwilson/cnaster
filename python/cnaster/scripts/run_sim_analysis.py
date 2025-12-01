@@ -269,6 +269,9 @@ def plot_truth_acn_profile(root, sample_id):
             logger.warning(f"Skipping clone {clone} - columns not found")
             continue
 
+        # Track segments by (chromosome, state) to place one label per combination
+        state_positions = {}  # key: (chrom, state), value: list of (start, end)
+        
         for _, row in truth.iterrows():
             chrom = row["Chromosome"]
             start = chr_offsets[chrom] + row["Start"]
@@ -290,6 +293,32 @@ def plot_truth_acn_profile(root, sample_id):
                     linewidth=0,
                     alpha=0.5,
                 )
+            )
+            
+            # Collect positions for labeling
+            if state != (1, 1):
+                key = (chrom, state)
+                if key not in state_positions:
+                    state_positions[key] = []
+                state_positions[key].append((start, end))
+        
+        # Add one label per (chromosome, state) combination at the centroid
+        for (chrom, state), positions in state_positions.items():
+            # Calculate centroid of all segments with this state on this chromosome
+            total_length = sum(end - start for start, end in positions)
+
+            centroid = sum((start + end) / 2 * (end - start) for start, end in positions) / total_length
+            
+            a_copy, b_copy = state
+            ax.text(
+                centroid,
+                0.5,
+                f"({a_copy},{b_copy})",
+                ha="center",
+                va="center",
+                fontsize=7,
+                color="black",
+                rotation=90,
             )
 
         ax.set_ylim(0, 1)
@@ -925,7 +954,7 @@ def save_validation_stats_yaml(stats, output_path):
 def main():
     # root = "/u/mw9568/scratch/calicost_sims"
     root = "/Users/mw9568/Work/ragr/sim"
-    use_cache = True
+    use_cache = False
 
     gene_ranges = read_gene_ranges()
 
@@ -939,12 +968,12 @@ def main():
     sample_ids = [
         "numcnas3.3_cnasize3e7_ploidy2_random0",
     ]
-
+    """
     sample_ids = [
         xx.split("/")[-1]
         for xx in sorted(glob.glob(f"{root}/nomixing_{method}_related/*"))
     ]
-
+    """
     logger.info(f"Analyzing with {method} the {len(sample_ids)} sample_ids @\n{root}")
 
     for sample_id in sample_ids:

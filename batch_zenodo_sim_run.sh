@@ -24,8 +24,11 @@ USE_EXISTING=false
 # RANDOM_STATES=(4) 
 # SAMPLE_IDS=("numcnas3.3_cnasize5e7_ploidy2_random1") # MIN SPOTS per clone=100
 
+# RANDOM_STATES=(3)
+# SAMPLE_IDS=("numcnas3.3_cnasize5e7_ploidy2_random6")
+
 RANDOM_STATES=(3)
-SAMPLE_IDS=("numcnas3.3_cnasize5e7_ploidy2_random6")
+SAMPLE_IDS=("numcnas6.3_cnasize3e7_ploidy2_random4")
 
 # echo "${SAMPLE_IDS[@]}"
 echo "Found ${#SAMPLE_IDS[@]} sample ids @ ${ROOT}"

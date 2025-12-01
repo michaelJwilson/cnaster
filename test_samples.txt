@@ -1,7 +1,7 @@
 SAMPLE_ID                               BEST_INIT       NOTE
 numcnas1.2_cnasize1e7_ploidy2_random3   1   
 numcnas6.3_cnasize5e7_ploidy2_random6   0
-numcnas1.2_cnasize3e7_ploidy2_random7   1               CANDIDATE FOR WOLFF CLONE SELECTION?  UNDER MERGED.
-numcnas6.3_cnasize3e7_ploidy2_random4   3
+numcnas1.2_cnasize3e7_ploidy2_random7   1               CANDIDATE FOR WOLFF CLONE SELECTION?  UNDER MERGED; insufficient merging of BAF clones; insufficient RDR merging.
+numcnas6.3_cnasize3e7_ploidy2_random4   3               INSUFFICIENT MERGING OF CLONES;  true clones perfectly sub-divided?  nice copy state recovery.
 numcnas3.3_cnasize3e7_ploidy2_random0   1
 numcnas1.2_cnasize1e7_ploidy2_random6   1

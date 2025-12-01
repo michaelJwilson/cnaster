@@ -12,7 +12,7 @@ ROOT="/Users/mw9568/Work/ragr/sim"
 # numcnas1.2_cnasize1e7_ploidy2_random6   1
 
 RANDOM_STATES=(1)
-SAMPLE_IDS=("numcnas1.2_cnasize3e7_ploidy2_random7")
+SAMPLE_IDS=("numcnas3.3_cnasize3e7_ploidy2_random0")
 
 NUM_CLONES=3
 

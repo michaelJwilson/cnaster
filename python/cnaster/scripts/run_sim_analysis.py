@@ -540,6 +540,170 @@ def get_sample_loglike(root, sample_id, method, rectangle):
     return float(rdr_baf["total_llf"])
 
 
+def render_copy_states_table(tsv_path, output_pdf_path):
+    """
+    Render cnv_diploid_perstate.tsv as a formatted PDF table:
+    - States ordered by total copies then BAF
+    - Each clone expanded into 3 rows: μ, BAF, (A,B)
+    - Clone label shown vertically at left (outside the table)
+    - Integer copy (A,B) row cells colored by state
+    """
+    if not tsv_path.exists():
+        logger.warning(f"Copy states file not found: {tsv_path}")
+        return
+
+    df = pd.read_csv(tsv_path, sep="\t")
+
+    # Determine clone prefixes
+    clone_cols = [c for c in df.columns if "logmu" in c or " p" in c or " A" in c or " B" in c]
+    clone_names = sorted(set(c.split()[0] for c in clone_cols))
+    if len(clone_names) == 0:
+        logger.warning("No clone columns detected in per-state table.")
+        return
+
+    n_states = len(df)
+
+    # Order states (use first clone A,B as canonical for ordering)
+    first_clone = clone_names[0]
+    order_info = []
+    for s in range(n_states):
+        a = int(df.iloc[s][f"{first_clone} A"])
+        b = int(df.iloc[s][f"{first_clone} B"])
+        total = a + b
+        baf = df.iloc[s][f"{first_clone} p"]
+        order_info.append((s, total, baf, (a, b)))
+    order_info.sort(key=lambda x: (x[1], x[2]))  # total copies, then BAF
+    sorted_state_indices = [x[0] for x in order_info]
+
+    # Build color mapping for unique (A,B) states
+    unique_states = sorted({x[3] for x in order_info})
+    palette = sns.color_palette("husl", len(unique_states))
+    state_colors = {state: palette[i] for i, state in enumerate(unique_states)}
+    state_colors[(1, 1)] = "#FFFFFF"  # diploid normal white
+
+    # Column labels: one per ordered state (no clone header)
+    col_labels = [f"$\\mathbb{{R}}_{{{i}}}$" for i in range(len(sorted_state_indices))]
+
+    # Build table rows: 3 per clone (μ row, BAF row, integer copy row)
+    table_rows = []
+    row_types = []  # 0=mu, 1=baf, 2=copy
+    for clone in clone_names:
+        for row_type in (0, 1, 2):
+            entries = []
+            for s_idx in sorted_state_indices:
+                logmu = df.iloc[s_idx][f"{clone} logmu"]
+                mu = np.exp(logmu)
+                baf = df.iloc[s_idx][f"{clone} p"]
+                a = int(df.iloc[s_idx][f"{clone} A"])
+                b = int(df.iloc[s_idx][f"{clone} B"])
+                if row_type == 0:
+                    entries.append(f"{mu:.2f}")
+                elif row_type == 1:
+                    entries.append(f"{baf:.2f}")
+                else:
+                    entries.append(f"({a},{b})")
+            table_rows.append(entries)
+            row_types.append(row_type)
+
+    # Figure sizing
+    fig_height = max(6, len(clone_names) * 3 * 0.35 + 2)
+    fig_width = max(10, len(col_labels) * 1.2)
+    fig, ax = plt.subplots(figsize=(fig_width, fig_height))
+    ax.axis("off")
+
+    # Create table
+    tbl = ax.table(
+        cellText=table_rows,
+        colLabels=col_labels,
+        cellLoc="center",
+        loc="center",
+        bbox=[0, 0, 1, 1],
+    )
+    tbl.auto_set_font_size(False)
+    tbl.set_fontsize(8)
+    tbl.scale(1, 1.6)
+    fig.canvas.draw()  # ensure cell positions valid
+
+    # Header styling
+    for c in range(len(col_labels)):
+        cell = tbl[(0, c)]
+        cell.set_facecolor("#E0E0E0")
+        cell.set_text_props(weight="bold", fontsize=9)
+
+    def blend(color, alpha=0.5):
+        import matplotlib.colors as mcolors
+        r, g, b, a = mcolors.to_rgba(color)
+        r = 1 - alpha * (1 - r)
+        g = 1 - alpha * (1 - g)
+        b = 1 - alpha * (1 - b)
+        return (r, g, b, 1.0)
+
+    data_row_offset = 1
+
+    # Color ALL sub-rows by (A,B) state (lighter for μ/BAF)
+    for r, rtype in enumerate(row_types):
+        table_r = r + data_row_offset
+        clone_idx = r // 3
+        clone = clone_names[clone_idx]
+        for c, s_idx in enumerate(sorted_state_indices):
+            a = int(df.iloc[s_idx][f"{clone} A"])
+            b = int(df.iloc[s_idx][f"{clone} B"])
+            base_col = state_colors.get((a, b), "#FFFFFF")
+            alpha = 0.30 if rtype in (0, 1) else 0.50
+            tbl[(table_r, c)].set_facecolor(blend(base_col, alpha=alpha))
+
+    # Light alternating clone blocks (only further tint pure white cells)
+    for clone_idx in range(len(clone_names)):
+        if clone_idx % 2 == 1:
+            group_start = data_row_offset + clone_idx * 3
+            for rr in range(group_start, group_start + 3):
+                for cc in range(len(col_labels)):
+                    cell = tbl[(rr, cc)]
+                    if cell.get_facecolor() == (1.0, 1.0, 1.0, 1.0):
+                        cell.set_facecolor(blend("#F0F0F0", alpha=0.4))
+
+    # Vertical clone labels (left)
+    for clone_idx, clone in enumerate(clone_names):
+        display_clone = cast_clone_label(clone)
+        group_start = data_row_offset + clone_idx * 3
+        top_cell = tbl[(group_start, 0)]
+        bottom_cell = tbl[(group_start + 2, 0)]
+        y_center = (top_cell.get_y() + bottom_cell.get_y() + bottom_cell.get_height()) / 2
+        ax.text(
+            -0.050,  # moved slightly further left
+            y_center,
+            display_clone,
+            rotation=90,
+            va="center",
+            ha="center",
+            fontsize=9,
+            transform=ax.transAxes,
+        )
+
+    # Vertical sub-row labels (μ, BAF, ℕ)
+    for r, rtype in enumerate(row_types):
+        table_r = r + data_row_offset
+        first_cell = tbl[(table_r, 0)]
+        y_center = first_cell.get_y() + first_cell.get_height() / 2
+        ax.text(
+            -0.030,  # between clone label and table
+            y_center,
+            {0: r"$\mu$", 1: "BAF", 2: r"$\mathbb{N}$"}[rtype],
+            rotation=90,
+            va="center",
+            ha="center",
+            fontsize=7,
+            transform=ax.transAxes,
+        )
+
+    plt.title(r"$\mathbb{R}$ copy states", fontsize=14, pad=20)
+    plt.tight_layout()
+    fig.savefig(output_pdf_path, bbox_inches="tight", dpi=150)
+    plt.close(fig)
+
+    logger.info(f"Saved copy states table to: {output_pdf_path}")
+
+
 def get_sample_estimate(root, sample_id, method, rectangle, cna_only=False):
     if rectangle is None:
         parent = f"{root}/nomixing_{method}_related/{sample_id}/"
@@ -548,6 +712,13 @@ def get_sample_estimate(root, sample_id, method, rectangle, cna_only=False):
         parent = f"{root}/nomixing_{method}_related/{sample_id}/{clone_rectangle}/"
 
     logger.info(f"Solving for clone estimate: {parent}/clone_labels.tsv")
+
+    # Render copy states table as PDF
+    perstate_tsv_path = Path(parent) / "cnv_diploid_perstate.tsv"
+    plots_dir = Path(parent) / "plots"
+    output_pdf = plots_dir / "copy_states.pdf"
+    
+    render_copy_states_table(perstate_tsv_path, output_pdf)
 
     clones = (
         pl.read_csv(

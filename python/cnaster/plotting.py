@@ -457,7 +457,6 @@ def plot_clones_genomic(
             fontsize=12,
             rotation="vertical",
             transform=ax.transAxes,
-            # bbox=dict(facecolor="white", alpha=0.7),
         )
 
     fig.tight_layout()

@@ -1248,10 +1248,11 @@ def update_emission_params_bb_sitewise_uniqvalues(
 
             _start_time = time.time()
 
+            # TODO deprecate thread pool and use config.betabinom.run_default
             logger.info(f"Starting futures thread pool.")
 
             # TODO config max_workers.
-            with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
                 future_res = executor.submit(model.fit, **settings)
 
                 if start_p_binom is not None:

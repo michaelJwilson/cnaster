@@ -759,6 +759,12 @@ class Weighted_BetaBinom_mix:
             options=options,
         )
 
+        # TODO
+        # if "hess_inv" in result:
+        #     hess_inv = result.hess_inv.todense()
+        #     sigmas = np.sqrt(np.maximum(np.diag(hess_inv), 0.0))
+        #     print(f"sigmas=\n{sigmas}")
+
         result = OptimizationResult(
             optimizer=get_solver(),
             params=result.x,

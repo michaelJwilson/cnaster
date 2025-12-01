@@ -11,8 +11,8 @@ ROOT="/Users/mw9568/Work/ragr/sim"
 # numcnas3.3_cnasize3e7_ploidy2_random0   1
 # numcnas1.2_cnasize1e7_ploidy2_random6   1
 
-RANDOM_STATES=(3)
-SAMPLE_IDS=("numcnas6.3_cnasize3e7_ploidy2_random4")
+RANDOM_STATES=(1)
+SAMPLE_IDS=("numcnas1.2_cnasize3e7_ploidy2_random7")
 
 NUM_CLONES=3
 
@@ -32,5 +32,7 @@ for SAMPLE_ID in "${SAMPLE_IDS[@]}"; do
         open "${EST_PLOTS_DIR}/clones_genomic.pdf"
         open "${EST_PLOTS_DIR}/clones_spatial.pdf"
         open "${EST_PLOTS_DIR}/${SAMPLE_ID}_rectangle${RANDOM_STATE}_copy_states.pdf"
+        open "${EST_PLOTS_DIR}/initial_clones_spatial.pdf"
+        
     done
 done

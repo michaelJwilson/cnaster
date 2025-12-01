@@ -714,7 +714,7 @@ def get_sample_estimate(root, sample_id, method, rectangle, cna_only=False):
     # Render copy states table as PDF
     perstate_tsv_path = Path(parent) / "cnv_diploid_perstate.tsv"
     plots_dir = Path(parent) / "plots"
-    output_pdf = plots_dir / "copy_states.pdf"
+    output_pdf = plots_dir / f"{sample_id}_rectangle{rectangle}_copy_states.pdf"
     
     render_copy_states_table(perstate_tsv_path, output_pdf)
 

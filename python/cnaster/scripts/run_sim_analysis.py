@@ -577,28 +577,34 @@ def render_copy_states_table(tsv_path, output_pdf_path):
     state_colors = {st: palette[i] for i, st in enumerate(ordered_global_states)}
     state_colors[(1, 1)] = "#FFFFFF"
 
-    # Order HMM states by total copies then BAF (use first clone as reference)
-    first_clone = clone_names[0]
-    order_info = []
-    for s in range(n_states):
-        a = int(df.iloc[s][f"{first_clone} A"])
-        b = int(df.iloc[s][f"{first_clone} B"])
-        total = a + b
-        baf = a / (a + b) if (a + b) > 0 else 0.0
-        order_info.append((s, total, baf, (a, b)))
-    order_info.sort(key=lambda x: (x[1], x[2]))
-    sorted_state_indices = [x[0] for x in order_info]
+    # Order HMM states independently per clone by BAF then μ
+    # Build a dict: clone -> sorted list of state indices
+    clone_state_orders = {}
+    for clone in clone_names:
+        order_info = []
+        for s in range(n_states):
+            baf = df.iloc[s][f"{clone} p"]
+            logmu = df.iloc[s][f"{clone} logmu"]
+            mu = np.exp(logmu)
+            a = int(df.iloc[s][f"{clone} A"])
+            b = int(df.iloc[s][f"{clone} B"])
+            order_info.append((s, baf, mu, (a, b)))
+        order_info.sort(key=lambda x: (x[1], x[2]))  # BAF first, then μ
+        clone_state_orders[clone] = [x[0] for x in order_info]
 
-    # Column labels: one per HMM state
+    # Use first clone's ordering for column labels (for display consistency)
+    first_clone = clone_names[0]
+    sorted_state_indices = clone_state_orders[first_clone]
     col_labels = [f"$\\mathbb{{R}}_{{{i}}}$" for i in range(len(sorted_state_indices))]
 
-    # Build table rows: 3 per clone (μ, BAF, (A,B))
+    # Build table rows: 3 per clone (μ, BAF, (A,B)), using each clone's own ordering
     table_rows = []
     row_types = []
     for clone in clone_names:
+        sorted_indices = clone_state_orders[clone]
         for rtype in (0, 1, 2):
             row = []
-            for s_idx in sorted_state_indices:
+            for s_idx in sorted_indices:
                 if rtype == 0:  # μ
                     logmu = df.iloc[s_idx][f"{clone} logmu"]
                     mu = np.exp(logmu)
@@ -645,12 +651,13 @@ def render_copy_states_table(tsv_path, output_pdf_path):
 
     data_row_offset = 1
 
-    # Color all sub-rows by (A,B) state from global palette
+    # Color all sub-rows by (A,B) state from global palette (using each clone's ordering)
     for r, rtype in enumerate(row_types):
         table_r = r + data_row_offset
         clone_idx = r // 3
         clone = clone_names[clone_idx]
-        for c, s_idx in enumerate(sorted_state_indices):
+        sorted_indices = clone_state_orders[clone]
+        for c, s_idx in enumerate(sorted_indices):
             a = int(df.iloc[s_idx][f"{clone} A"])
             b = int(df.iloc[s_idx][f"{clone} B"])
             base_col = state_colors.get((a, b), "#FFFFFF")
@@ -676,19 +683,19 @@ def render_copy_states_table(tsv_path, output_pdf_path):
         )
 
     # Vertical sub-row labels
-    label_map = {0: r"$\mu$", 1: "BAF", 2: r"$\mathbb{N}$"}
+    label_map = {0: r"$\mu$", 1: r"$\beta$", 2: r"$\mathbb{N}$"}
     for r, rtype in enumerate(row_types):
         table_r = r + data_row_offset
         first_cell = tbl[(table_r, 0)]
         y_center = first_cell.get_y() + first_cell.get_height() / 2
         ax.text(
-            -0.030,
+            -0.020,
             y_center,
             label_map[rtype],
             rotation=90,
             va="center",
             ha="center",
-            fontsize=7,
+            fontsize=9,
             transform=ax.transAxes,
         )
 

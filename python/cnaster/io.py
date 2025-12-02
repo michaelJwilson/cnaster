@@ -91,6 +91,21 @@ def get_spatial_positions(spaceranger_dir, filter_in_tissue=True):
 
         logger.info(f"Reading {spaceranger_dir}/spatial/tissue_positions_list.csv")
 
+    elif Path(f"{spaceranger_dir}/spatial/tissue_positions.parquet").exists():
+        # NB 11,222,500 rows vs 4,992 rows for visium.
+        #    see https://www.10xgenomics.com/support/software/space-ranger/latest/analysis/outputs/spatial-outputs
+        #
+        #    native columns:  barcode, in_tissue, array_row, array_col, pxl_row_in_fullres, pxl_col_in_fullres.
+        df_this_pos = (
+            pl.scan_parquet("tissue_positions.parquet")
+            .rename({"pxl_row_in_fullres": "y", "pxl_col_in_fullres": "x"})
+            .select(["barcode", "in_tissue", "x", "y"])
+            .filter(pl.col("in_tissue") == True)
+            .collect()
+        )
+
+        logger.info(f"Reading {spaceranger_dir}/spatial/tissue_positions.parquet")
+
     else:
         logger.error(f"No spatial coordinate file @ {spaceranger_dir}.")
         raise RuntimeError()

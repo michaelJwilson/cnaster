@@ -1,33 +1,64 @@
 paths:
   sample_sheet: /u/mw9568/research/repos/cnaster/sample_sheet.tsv
-  output_dir : /n/fs/scratch/mw9568/cnaster
-  cache_dir : /n/fs/scratch/mw9568/cnaster/.cache
+  output_dir : /n/fs/scratch/mw9568/cnaster/htan 
+  perf_path : logs/cnaster.perf
+  # cache_dir : /n/fs/scratch/mw9568/cnaster/.cache
 
 # tumorprop_file : /n/fs/scratch/mw9568/cnaster/loh_estimator_tumor_prop.tsv
 preprocessing:
   normalidx_file : None
   tumorprop_file : None
 
+annotation:
+  clone_label : None
+  true_cnv : None
+
 run:
+  legacy : False
   bafonly : False
 
 references:
   geneticmap_file : /u/mw9568/research/data/references/genetic_map_GRCh38_merged.tab.gz
   hgtable_file : /u/mw9568/research/data/references/hgTables_hg38_gencode.txt
+  annotation_file : None
   filtergenelist_file : /u/mw9568/research/data/references/ig_gene_list.txt
   filterregion_file : /u/mw9568/research/data/references/HLA_regions.bed
 
+# TODO HACK 
+#           min_percent_expressed_spots : 0.005 ->
+#           secondary_min_snp_umi : 300 ->
+#           normal_allele_specific_confidence : (0.05, 0.95) ->
+#           min_normal_count_perbin : 20 ->
 quality:
-  secondary_min_umi : 300
+  min_percent_expressed_spots : 0.0
+  secondary_min_umi : 0
+  secondary_min_snp_umi : 300
+  secondary_min_normal_umi : 100
+  max_binlength : 5000000
+  local_outlier_filter : True
+  filter_normal_diffexp : False
+  normalize_gene_outliers : False
+  normal_allele_specific_confidence : (0.01, 0.99)
+  min_normal_count_perbin : 100
 
 # TODO HACK npart_phasing : 3 -> 1
+#           baf_change_threshold : 0.1 ->
+#           min_new_segment_size : 10 ->
 phasing:
+  run : True
   nu : 1.0
   logphase_shift : -2.0
   npart_phasing : 1
+  baf_change_threshold : 0.1
+  min_new_segment_size : 1
 
 # TODO HACK max_iter_outer : 20 ->
 #           spatial_weight : 1.0 ->
+#           n_clones : 3 ->
+#           n_clones_rdr : 2 ->
+#           maxspots_pooling 7 ->
+#           unit_xsquared 9 ->
+#           unit_ysquared 3 ->
 hmrf:
   n_clones : 3
   n_clones_rdr : 2
@@ -44,11 +75,20 @@ hmrf:
   inertia : 0
   construct_adjacency_method : hexagon
   construct_adjacency_w : 1.0
+  np_merge : True
+  fixed_assignment : False
+  unit_xsquared : 9
+  unit_ysquared : 3
+  random_state : 0
 
 # TODO HACK max_iter : 30 ->
 #           solver: nm ->
 #           t: 0.99999 ->
 #           tol: 0.0001 ->
+#           n_states: 7 ->
+#           np_eventminlen : 10 ->
+#           gmm_min_binom_prob : 0.1 ->
+#           gmm_max_binom_prob : 0.9 -> 
 hmm:
   solver: "L-BFGS-B"
   n_states : 7
@@ -64,26 +104,35 @@ hmm:
   tol : 0.001
   gmm_random_state : 0
   gmm_maxiter: 30
+  gmm_min_binom_prob: 0.0
+  gmm_max_binom_prob: 1.0
   np_threshold : 1.0
-  np_eventminlen : 10
+  np_eventminlen : 5
   em_maxiter: 1500
   em_xtol: 1e-4
   em_ftol: 1e-4
   em_xrtol: 1e-4
   em_disp: 0
+  np_merge_threshold: 0.1
 
 # NB N sub-set of states will use the first N
+# TODO HACK start_disp : 1.0e-2 ->
 nbinom:
-  start_params: 0.1,0.1,0.1,0.1,0.1,0.1,0.1
-  start_disp: 1.0e-2
+  run_default : False 
+  start_params : 0.1,0.1,0.1,0.1,0.1,0.1,0.1
+  start_disp : 1.0e-2
 
 # TODO HACK start_disp: 1 ->
 betabinom:
-  start_params: 0.5,0.5,0.5,0.5,0.5,0.5,0.5
-  start_disp:  20.0
+  un_default : False
+  start_params : 0.5,0.5,0.5,0.5,0.5,0.5,0.5
+  start_disp :  20.0
 
 # TODO HACK ploidy : "diploid,triploid,tetraploid" ->
+#           rdr_weight : 0.3 ->
+#           fractional_error : False -> 
 int_copy_num:
+  rdr_weight : 0.5
   nonbalance_bafdist : 1.0
   nondiploid_rdrdist : 10.0
   ploidy : "diploid"

@@ -1,9 +1,9 @@
 paths:
-  # sample_sheet : /u/mw9568/research/repos/cnaster/htan_annotated_sample_sheet.tsv
-  # output_dir : /n/fs/scratch/mw9568/cnaster/htan
+  sample_sheet : /u/mw9568/research/repos/cnaster/htan_annotated_sample_sheet.tsv
+  output_dir : /n/fs/scratch/mw9568/cnaster/htan
 
-  sample_sheet : /u/mw9568/research/repos/cnaster/vishd_sample_sheet.tsv
-  output_dir : /n/fs/scratch/mw9568/cnaster/vishd
+  # sample_sheet : /u/mw9568/research/repos/cnaster/vishd_sample_sheet.tsv
+  # output_dir : /n/fs/scratch/mw9568/cnaster/vishd
 
   perf_path : logs/cnaster.perf
   # cache_dir : /n/fs/scratch/mw9568/cnaster/.cache
@@ -12,6 +12,9 @@ paths:
 preprocessing:
   normalidx_file : None
   tumorprop_file : None
+
+visium:
+  filtered_feature_name : "filtered_feature_bc_matrix"
 
 annotation:
   clone_label : None

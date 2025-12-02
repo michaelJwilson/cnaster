@@ -545,8 +545,6 @@ def run_cnaster(config_path, over_rides=None):
 
     fig_path = f"{plots_dir}/initial_clones_spatial.pdf"
     write_fig(fig_path, initial_clones_fig, transparent=True, bbox_inches="tight")
-
-    exit(0)
     
     logger.info(
         "Solving HMM & HMRF for copy states and clone assignment with BAF only."
@@ -725,6 +723,8 @@ def run_cnaster(config_path, over_rides=None):
         ]
     )
 
+    exit(0)
+    
     logger.info(f"Determining normal spots based on BAF-only clones.")
 
     # NB no input files for barcodes of normal spots, or tumor proportion per spot.

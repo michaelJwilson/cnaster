@@ -6,6 +6,7 @@ import anndata
 import numpy as np
 import pandas as pd
 import scanpy as sc
+import polars as pl
 import scipy.sparse
 from cnaster.filter import get_filter_genes, get_filter_ranges
 from cnaster.reference import exp_cancer_gene
@@ -56,9 +57,13 @@ def get_aggregated_barcodes(barcode_file, known_sample_id=None):
             known_sample_id if known_sample_id is not None else "UNKNOWN"
         )
 
+    # TODO HACK
+    df_barcode["barcode"] = df_barcode.combined_barcode
+    df_barcode["sample_id"] = known_sample_id
+    
     # TODO sample ids currently slice, e.g. U1;
     logger.info(
-        f"Input aggregated barcode file {barcode_file} with {df_barcode.shape[0]} barcodes for all samples/bams, e.g.\n{df_barcode.head()}\n"
+        f"Input aggregated barcode file {barcode_file} with {df_barcode.shape[0]:_} barcodes for all samples/bams, e.g.\n{df_barcode.head()}\n"
     )
 
     return df_barcode
@@ -97,13 +102,14 @@ def get_spatial_positions(spaceranger_dir, filter_in_tissue=True):
         #
         #    native columns:  barcode, in_tissue, array_row, array_col, pxl_row_in_fullres, pxl_col_in_fullres.
         df_this_pos = (
-            pl.scan_parquet("tissue_positions.parquet")
+            pl.scan_parquet(f"{spaceranger_dir}/spatial/tissue_positions.parquet")
             .rename({"pxl_row_in_fullres": "y", "pxl_col_in_fullres": "x"})
             .select(["barcode", "in_tissue", "x", "y"])
             .filter(pl.col("in_tissue") == True)
             .collect()
+            .to_pandas()
         )
-
+        
         logger.info(f"Reading {spaceranger_dir}/spatial/tissue_positions.parquet")
 
     else:
@@ -272,7 +278,7 @@ def load_input_data(
     #      aggregated across slices/bams.
     known_sample_id = df_meta.sample_id[0] if len(df_meta) == 1 else None
     df_agg_barcode = get_aggregated_barcodes(f"{snp_dir}/barcodes.txt", known_sample_id)
-
+    
     # TODO duplicate of df_agg_barcode
     # NB dataframe of combined barcodes, i.e. Visium barcode + slice 'sample_id'.
     snp_barcodes = pd.read_csv(
@@ -369,6 +375,8 @@ def load_input_data(
             else anndata.concat([adata, adatatmp], join="outer")
         )
 
+    exit(0)
+        
     # NB filter by spots:  shared barcodes between adata and SNPs; e.g. drop spots with SNP counts but no transcripts.
     shared_barcodes = set(list(snp_barcodes.barcodes)) & set(list(adata.obs.index))
 

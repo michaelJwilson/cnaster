@@ -432,7 +432,7 @@ def load_input_data(
         genes_to_filter = get_filter_genes(filter_gene_file).iloc[:, 0].to_numpy()
         indicator_filter = ~np.isin(adata.var.index, genes_to_filter)
 
-        logger.info(f"Removing {len(filter_gene_file)} genes based on input file.")
+        logger.info(f"Removing {len(filter_gene_file)} genes based on input file={filter_gene_file}.")
         
         # for to_print in genes_to_filter[np.isin(genes_to_filter, adata.var.index)]:
         #   logger.info(to_print)

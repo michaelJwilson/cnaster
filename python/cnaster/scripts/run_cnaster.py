@@ -350,8 +350,6 @@ def run_cnaster(config_path, over_rides=None):
     else:
         phase_indicator = np.zeros(single_X.shape[0])
         refined_lengths = lengths
-
-    exit(0)
         
     # NB phase is None for genes and otherwise True/False for the phase of each block.
     df_gene_snp["phase"] = np.where(
@@ -514,14 +512,17 @@ def run_cnaster(config_path, over_rides=None):
     
     # {config.hmrf.n_clones_rdr}
     output_dir = f"{config.paths.output_dir}/clone{config.hmrf.n_clones}_rectangle{config.hmrf.random_state}_w{config.hmrf.spatial_weight:.1f}/"
-
+    
     if not (poutput_dir := Path(output_dir)).exists():
+        logger.info(f"Creating {output_dir}")
+        
         poutput_dir.parent.mkdir(exist_ok=True)        
         poutput_dir.mkdir(exist_ok=True)
-
+        
     plots_dir = f"{output_dir}/plots/"
 
     if not (pplots_dir := Path(plots_dir)).exists():
+        logger.info(f"Creating {plots_dir}")        
         pplots_dir.mkdir(exist_ok=True)
 
     opath = f"{output_dir}/initial_clone_labels.tsv"
@@ -542,8 +543,10 @@ def run_cnaster(config_path, over_rides=None):
         base_height=3,
     )
 
-    fig_path = f"{output_dir}/plots/initial_clones_spatial.pdf"
+    fig_path = f"{plots_dir}/initial_clones_spatial.pdf"
     write_fig(fig_path, initial_clones_fig, transparent=True, bbox_inches="tight")
+
+    exit(0)
     
     logger.info(
         "Solving HMM & HMRF for copy states and clone assignment with BAF only."

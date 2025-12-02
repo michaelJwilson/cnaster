@@ -15,6 +15,7 @@ from sklearn.neighbors import LocalOutlierFactor
 
 logger = logging.getLogger(__name__)
 
+pl.Config.set_tbl_cols(-1)
 
 def get_sample_sheet(sample_sheet_path):
     df_meta = pd.read_csv(sample_sheet_path, sep=r"\s+")
@@ -60,7 +61,7 @@ def get_aggregated_barcodes(barcode_file, known_sample_id=None):
     # TODO HACK
     df_barcode["barcode"] = df_barcode.combined_barcode
     df_barcode["sample_id"] = known_sample_id
-    
+
     # TODO sample ids currently slice, e.g. U1;
     logger.info(
         f"Input aggregated barcode file {barcode_file} with {df_barcode.shape[0]:_} barcodes for all samples/bams, e.g.\n{df_barcode.head()}\n"
@@ -105,10 +106,32 @@ def get_spatial_positions(spaceranger_dir, filter_in_tissue=True):
             pl.scan_parquet(f"{spaceranger_dir}/spatial/tissue_positions.parquet")
             .rename({"pxl_row_in_fullres": "y", "pxl_col_in_fullres": "x"})
             .select(["barcode", "in_tissue", "x", "y"])
-            .filter(pl.col("in_tissue") == True)
+            # .filter(pl.col("in_tissue") == True)
             .collect()
-            .to_pandas()
+            .with_columns(pl.col("barcode").alias("square_002um"))
         )
+
+        # NB native columns: square_002um, square_008um, square_016um, cell_id, in_nucleus, in_cell
+        # TODO CHECK in_cell
+        df_this_pos = (
+            pl.scan_parquet(f"{spaceranger_dir}/spatial/barcode_mappings.parquet")
+            .filter(pl.col("in_cell") == True)
+            .collect()
+            .join(
+                df_this_pos.select(["square_002um", "x", "y", "in_tissue"]),
+                on="square_002um",
+                how="left",
+            )
+            .select(["square_002um", "cell_id", "x", "y", "in_tissue"])
+            .group_by("cell_id")
+            .agg([
+                pl.col("x").mean().alias("x"),
+                pl.col("y").mean().alias("y"),
+                pl.col("square_002um").n_unique().alias("num_square_002um"),
+                pl.col("in_tissue").cast(pl.Boolean).any().alias("in_tissue")
+            ])
+            .with_columns(pl.col("cell_id").alias("barcode"))
+        ).to_pandas() # .set_index("barcode")
         
         logger.info(f"Reading {spaceranger_dir}/spatial/tissue_positions.parquet")
 
@@ -144,11 +167,15 @@ def get_spaceranger_counts(spaceranger_dir):
 
     # NB see https://scanpy.readthedocs.io/en/stable/generated/scanpy.read_10x_h5.html
     if Path(f"{spaceranger_dir}/{filtered_feature_name}.h5").exists():
-        adatatmp = sc.read_10x_h5(f"{spaceranger_dir}/{filtered_feature_name}.h5", gex_only=True)
+        adatatmp = sc.read_10x_h5(
+            f"{spaceranger_dir}/{filtered_feature_name}.h5", gex_only=True
+        )
         logger.info(f"Reading {spaceranger_dir}/{filtered_feature_name}.h5")
 
     elif Path(f"{spaceranger_dir}/{filtered_feature_name}.h5ad").exists():
-        adatatmp = sc.read_h5ad(f"{spaceranger_dir}/{filtered_feature_name}.h5ad", gex_only=True)
+        adatatmp = sc.read_h5ad(
+            f"{spaceranger_dir}/{filtered_feature_name}.h5ad", gex_only=True
+        )
         logger.info(f"Reading {spaceranger_dir}/{filtered_feature_name}.h5ad")
 
     else:
@@ -162,9 +189,7 @@ def get_spaceranger_counts(spaceranger_dir):
 
     is_nan = np.isnan(adatatmp.layers["count"])
 
-    logger.info(
-        f"Found {100.0 * np.mean(is_nan):.3f}% NaN counts in anndata."
-    )
+    logger.info(f"Found {100.0 * np.mean(is_nan):.3f}% NaN counts in anndata.")
 
     # NB replace nan with 0 and cast to int.
     if np.any(is_nan):
@@ -172,7 +197,7 @@ def get_spaceranger_counts(spaceranger_dir):
 
     # TODO CHECK
     adatatmp.layers["count"] = adatatmp.layers["count"].astype(int)
-        
+
     # e.g. duplicated:  TBCE  2, LINC01238  2.3; why?
     # duplicated_mask = adatatmp.var_names.duplicated(keep=False)
     # non_unique_vars = adatatmp.var_names[duplicated_mask]
@@ -190,10 +215,10 @@ def get_spaceranger_counts(spaceranger_dir):
         f"Example names for {len(adatatmp.var_names):_} genes:\n{adatatmp.var_names[:5]}"
     )
 
-    # NB var names made unique by appending an index string,                                                                                                                                                      
-    #    see https://anndata.readthedocs.io/en/latest/generated/anndata.AnnData.var_names_make_unique.html                                                                                                        
+    # NB var names made unique by appending an index string,
+    #    see https://anndata.readthedocs.io/en/latest/generated/anndata.AnnData.var_names_make_unique.html
     adatatmp.var_names_make_unique()
-    
+
     # NB data matrix X (ndarray/csr matrix, dask ...): observations/cells are named by their barcode and variables/genes by gene name.
     return adatatmp
 
@@ -281,7 +306,7 @@ def load_input_data(
     #      aggregated across slices/bams.
     known_sample_id = df_meta.sample_id[0] if len(df_meta) == 1 else None
     df_agg_barcode = get_aggregated_barcodes(f"{snp_dir}/barcodes.txt", known_sample_id)
-    
+
     # TODO duplicate of df_agg_barcode
     # NB dataframe of combined barcodes, i.e. Visium barcode + slice 'sample_id'.
     snp_barcodes = pd.read_csv(
@@ -345,11 +370,6 @@ def load_input_data(
         pos_barcodes = set(list(df_this_pos.barcode))
         count_barcodes = set(list(adatatmp.obs.index))
 
-        print(list(pos_barcodes)[:10])
-        print(list(count_barcodes)[:10])
-
-        exit(0)
-        
         shared_barcodes = pos_barcodes & count_barcodes
 
         isin = adatatmp.obs.index.isin(shared_barcodes)
@@ -358,9 +378,10 @@ def load_input_data(
             f"Retaining {100.0 * np.mean(isin):.3f}% of spots based on (in-tissue) position and UMIs."
         )
 
+        # TODO visium hd.
         if not isin.all():
             adatatmp = adatatmp[isin, :].copy()
-
+            
         df_this_pos = df_this_pos[df_this_pos.barcode.isin(shared_barcodes)]
 
         # NB re-order positions to have order of df_this_barcode barcodes.
@@ -387,7 +408,7 @@ def load_input_data(
         )
 
     exit(0)
-        
+
     # NB filter by spots:  shared barcodes between adata and SNPs; e.g. drop spots with SNP counts but no transcripts.
     shared_barcodes = set(list(snp_barcodes.barcodes)) & set(list(adata.obs.index))
 

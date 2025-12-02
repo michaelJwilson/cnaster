@@ -615,8 +615,6 @@ def load_input_data(
     assert len(unique_snp_ids) == cell_snp_Aallele.shape[1]
     assert cell_snp_Aallele.shape[1] == cell_snp_Ballele.shape[1]
 
-    exit(0)
-
     # TODO dense arrays.
     return (
         adata,

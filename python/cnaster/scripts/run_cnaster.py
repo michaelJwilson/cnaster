@@ -157,21 +157,20 @@ def run_cnaster(config_path, over_rides=None):
         min_percent_expressed_spots=config.quality.min_percent_expressed_spots,
     )
 
-    exit(0)
-
     # NB e.g. 'AAACAAGTATCTCCCA-1_HT112C1-U1' currently.
     barcodes = adata.obs.index
     sample_list = [adata.obs["sample"].iloc[0]]
-
+    
     # NB loop through rows (barcodes x samples) and collect sample names;
     #    assumes sorted by sample and is unique in this case.
     for i in range(1, adata.shape[0]):
         if adata.obs["sample"].iloc[i] != sample_list[-1]:
+            logger.warning(f"Appending sample_id={adata.obs['sample'].iloc[i]} to sample list.")
             sample_list.append(adata.obs["sample"].iloc[i])
-
+            
     # NB e.g. HT112C1-U1.
-    logger.info(f"Found {len(sample_list)} unique samples, e.g. {sample_list[:3]}")
-
+    logger.info(f"Found {len(sample_list)} unique samples:\n{sample_list}")
+    
     # NB array: assigns to each transcript row (barcode x sample) unique index according to sample names.
     sample_ids = -np.ones(adata.shape[0], dtype=int)
 
@@ -183,6 +182,8 @@ def run_cnaster(config_path, over_rides=None):
         sample_ids >= 0
     ), f"Failed to assign unique integer to all samples in list. Bug?"
 
+    
+    # TODO park somehere else.
     if config.preprocessing.tumorprop_file is not None:
         logger.info(
             f"Reading pre-processed tumorprop file={config.preprocessing.tumorprop_file}"
@@ -246,10 +247,10 @@ def run_cnaster(config_path, over_rides=None):
 
     # NB (x,y) per spot.
     coords = adata.obsm["X_pos"]
-
+    
     # NB known annotation.
     if config.annotation.clone_label is not None:
-        logger.warning("Assuming known clone labels")
+        logger.warning(f"Assuming known clone labels={config.annotation.clone_label}")
 
         clone_id = (
             pd.read_csv(config.annotation.clone_label, sep="\t", index_col=0)["labels"]
@@ -350,6 +351,8 @@ def run_cnaster(config_path, over_rides=None):
         phase_indicator = np.zeros(single_X.shape[0])
         refined_lengths = lengths
 
+    exit(0)
+        
     # NB phase is None for genes and otherwise True/False for the phase of each block.
     df_gene_snp["phase"] = np.where(
         df_gene_snp.snp_id.isnull(),

@@ -27,11 +27,10 @@ def form_gene_snp_table(
         f"Found {100. * len(common_genes) / len(adata.var.index):.2f}% of visium genes to be in reference."
     )
 
-    # TODO
-    logger.info(f"Visium genes not in reference:")
+    logger.info(f"Found {len(genes_not_in_reference):_} genes to be in visium but not in reference:")
 
-    for gene in sorted(genes_not_in_reference):
-        logger.info(gene)
+    # for gene in sorted(genes_not_in_reference):
+    #   logger.info(gene)
 
     # NB limits reference genes to those present in (filtered) AnnData UMIs.
     df_hgtable = df_hgtable[df_hgtable.name2.isin(adata.var.index)]
@@ -221,13 +220,18 @@ def summarize_blocks(
     )
     logger.info("-" * 136)
 
-    for block_id, row in block_summary.iterrows():
+    max_rows = 50
+    
+    for ii, (block_id, row) in enumerate(block_summary.iterrows()):
         logger.info(
             f"{block_id:<10}\t{row['chr']:>4}\t{row['start']:>12}\t{row['length'] / 1.e6:>12}\t{row['num_snps']:>8}\t{row['num_genes']:>8}\t"
             f"{row['total_umi']:>12}\t{row['snp_umi']:>12}\t{row['normal_umi']:>12}\t{row['normal_snp_umi']:>12}"
         )
 
-    # Summary statistics
+        if ii > max_rows:
+            logger.warning(f"Suppressed breakdown to {max_rows} rows.")
+            break
+        
     logger.info(
         f"\n"
         f"median block length: {block_summary['length'].median() / 1.e6:.1f} [Mbp],\n"

@@ -45,7 +45,7 @@ def compute_numbat_phase_switch_prob(
     under_flowed = phase_switch_prob < min_prob
 
     logger.info(
-        f"Reassigning under flowed phase_switch_prob. for {100. * np.mean(under_flowed)}% given {min_prob} threshold."
+        f"Reassigning under flowed phase_switch_prob. for {100. * np.mean(under_flowed):.6e}% given {min_prob} threshold."
     )
 
     phase_switch_prob[phase_switch_prob < min_prob] = min_prob

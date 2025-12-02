@@ -137,7 +137,7 @@ def initial_phase_given_partition(
             @ baf_profiles
         )
 
-    logger.info(f"Found non-normal population BAF to be:\n{np.unique(population_baf[population_baf != 0.5])}")
+    logger.info(f"Found non-normal population BAF to be:\n{[xx for xx in np.unique(population_baf[population_baf != 0.5])]}")
 
     # NB makes sense: phasing determined with all clones; copy state BAF phased appropriately.
     phase_indicator = population_baf < 0.5

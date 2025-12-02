@@ -103,6 +103,7 @@ def run_cnaster(config_path, over_rides=None):
     logger.info(f"Read configuration:\n{config}")
 
     set_global_config(config)
+    
     """
     (
         lengths,
@@ -155,6 +156,8 @@ def run_cnaster(config_path, over_rides=None):
         filter_range_file=config.references.filterregion_file,
         min_percent_expressed_spots=config.quality.min_percent_expressed_spots,
     )
+
+    exit(0)
 
     # NB e.g. 'AAACAAGTATCTCCCA-1_HT112C1-U1' currently.
     barcodes = adata.obs.index

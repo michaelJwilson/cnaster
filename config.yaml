@@ -1,5 +1,5 @@
 paths:
-  sample_sheet: /u/mw9568/research/repos/cnaster/sample_sheet.tsv
+  sample_sheet: /u/mw9568/research/repos/cnaster/new_sample_sheet.tsv
   output_dir : /n/fs/scratch/mw9568/cnaster/htan 
   perf_path : logs/cnaster.perf
   # cache_dir : /n/fs/scratch/mw9568/cnaster/.cache

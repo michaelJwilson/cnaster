@@ -24,26 +24,30 @@ def get_sample_sheet(sample_sheet_path):
         df_meta.columns
     ), f"sample_sheet has columns {df_meta.columns} which missese the required: {required_columns - set(df_meta.columns)}:\n{df_meta}"
 
-    logger.info(f"Input sample_sheet_path={sample_sheet_path} contains:\n{df_meta}")
+    logger.info(f"Input sample_sheet_path={sample_sheet_path} contains {len(df_meta)} samples:\n{df_meta}")
 
     return df_meta
 
 
 # TODO check (e.g. sample sheet with john): AAACAAGTATCTCCCA-1_HT112C1-U1 == {spot}-1_{sample_id}-{slice}.
-def get_aggregated_barcodes(barcode_file):
+def get_aggregated_barcodes(barcode_file, known_sample_id=None):
     # NB see https://github.com/raphael-group/CalicoST/blob/5e4a8a1230e71505667d51390dc9c035a69d60d9/calicost.smk#L32
     df_barcode = pd.read_csv(barcode_file, header=None, names=["combined_barcode"])
-
+    sample_id_defined = df_barcode.combined_barcode.str.contains("_").all()
+    
     # NB per-slice Visium 10x defined barcode.
     df_barcode["barcode"] = [
         x.split("_")[0] for x in df_barcode.combined_barcode.to_numpy()
     ]
 
-    # NB user specified sample_id per bam.
-    # TODO define sample_id if it does not exist.
-    df_barcode["sample_id"] = [
-        x.split("_")[-1] for x in df_barcode.combined_barcode.to_numpy()
-    ]
+    if sample_id_defined:
+        logger.info(f"Found defined sample_ids")
+        df_barcode["sample_id"] = [
+            x.split("_")[-1] for x in df_barcode.combined_barcode.to_numpy()
+        ]
+    else:
+        logger.warning(f"Unable to resolve sample_ids from aggregated barcodes.  Assuming known sample_id={known_sample_id}.")
+        df_barcode["sample_id"] = known_sample_id if known_sample_id is not None else "UNKNOWN"
 
     # TODO sample ids currently slice, e.g. U1;
     logger.info(
@@ -143,7 +147,7 @@ def get_spaceranger_counts(spaceranger_dir):
     )
 
     logger.info(
-        f"Example names for {len(adatatmp.obs_names):_} barcodes: {adatatmp.obs_names[:5]}"
+        f"\nExample names for {len(adatatmp.obs_names):_} barcodes: {adatatmp.obs_names[:5]}"
     )
     logger.info(
         f"Example names for {len(adatatmp.var_names):_} genes: {adatatmp.var_names[:5]}"
@@ -215,10 +219,18 @@ def load_input_data(
     min_snp_umis=50,
     min_percent_expressed_spots=5.0e-3,  # BUG actually a fraction.
 ):
+    if alignment_files is None:
+        logger.warning(f"Alignment files not provided")
+    elif len(alignment_files) + 1 != df_meta.shape[0]:
+        logger.error(f"Incorrect number of alignment files found.")
+        raise RuntimeError()
+    else:
+        raise NotImplementedError("Alignment files are not supported.")
+    
     # NB see https://github.com/raphael-group/CalicoST/blob/5e4a8a1230e71505667d51390dc9c035a69d60d9/src/calicost/utils_IO.py#L127
     df_meta = get_sample_sheet(config.paths.sample_sheet)
 
-    # TODO HACK assumes snps derived from aggregation of all provided samples,
+    # NB assumes snps derived from aggregation of all provided samples,
     assert np.all(df_meta["snp_dir"] == df_meta["snp_dir"].iloc[0])
 
     # NB (phased) SNPs are determined for the pseudobulk of all spots.
@@ -226,11 +238,8 @@ def load_input_data(
 
     # TODO sample_id not defined?  barcodes uniquely identify each spot per slice,
     #      aggregated across slices/bams.
-    df_agg_barcode = get_aggregated_barcodes(f"{snp_dir}/barcodes.txt")
-
-    assert (alignment_files is None) or (
-        len(alignment_files) + 1 == df_meta.shape[0]
-    ), "TODO!"
+    known_sample_id = df_meta.sample_id[0] if len(df_meta) == 1 else None
+    df_agg_barcode = get_aggregated_barcodes(f"{snp_dir}/barcodes.txt", known_sample_id)
 
     # TODO duplicate of df_agg_barcode
     # NB dataframe of combined barcodes, i.e. Visium barcode + slice 'sample_id'.
@@ -238,6 +247,7 @@ def load_input_data(
         f"{snp_dir}/barcodes.txt", header=None, names=["barcodes"]
     )
 
+    """
     # TODO HACK >>>>>>>>
     try:
         sample_id_patcher = {
@@ -252,22 +262,25 @@ def load_input_data(
     except:
         logger.warning(f"Failed to patch input sample ids.")
     # <<<<<<<<<
+    """
 
     unique_snp_ids = np.load(f"{snp_dir}/unique_snp_ids.npy", allow_pickle=True)
 
     # NB read (phased) counts for H0/H1 for (spots, snps).
     cell_snp_Aallele = scipy.sparse.load_npz(f"{snp_dir}/cell_snp_Aallele.npz")
     cell_snp_Ballele = scipy.sparse.load_npz(f"{snp_dir}/cell_snp_Ballele.npz")
-
+    
     # NB read Visium transcripts/UMIs anndata & spot spatial coordinate.
     adata = None
 
     # NB df_meta provides the sample_ids, one per bam.
     for i, sname in enumerate(df_meta.sample_id.to_numpy()):
-        logger.info(f"Reading (spot, gene) UMIs for spaceranger sample {sname}.")
+        logger.info(f"Reading (spot, gene) UMIs for spaceranger sample={sname}.")
 
         index = np.where(df_agg_barcode["sample_id"] == sname)[0]
 
+        logger.info(f"Found {len(index)}/{len(df_agg_barcode)} matches by sample_id.")
+        
         # NB indexed spot barcodes for this sample/slice.
         df_this_barcode = copy.copy(df_agg_barcode.iloc[index, :])
         df_this_barcode.index = df_this_barcode.barcode
@@ -278,14 +291,15 @@ def load_input_data(
         # NB read filtered_feature_bc_matrix.h5(ad) from spaceranger_dir for this sample - UMIs (spot barcode, gene).
         adatatmp = get_spaceranger_counts(df_meta["spaceranger_dir"].iloc[i])
 
-        # NB reorder anndata spots to have the order of "df_this_barcode" (with enum).
+        # NB re-order anndata spots to have the order of "df_this_barcode" (with enum).
         idx_argsort = pd.Categorical(
             adatatmp.obs.index, categories=list(df_this_barcode.barcode), ordered=True
         ).argsort()
 
-        # TODO UGH
-        adatatmp = adatatmp[idx_argsort, :].copy()
-
+        if not np.array_equal(idx_argsort, np.arange(len(idx_argsort))):
+            logger.info(f"Sorting ST data by barcode.")
+            adatatmp = adatatmp[idx_argsort, :].copy()
+        
         # NB only keep shared barcodes between (IN_TISSUE) visium barcodes and filtered_feature_bc_matrix.
         shared_barcodes = set(list(df_this_pos.barcode)) & set(list(adatatmp.obs.index))
 
@@ -295,9 +309,9 @@ def load_input_data(
             f"Retaining {100.0 * np.mean(isin):.3f}% of spots based on (in-tissue) position and UMIs."
         )
 
-        # TODO filter before sort.
-        adatatmp = adatatmp[isin, :].copy()
-
+        if not isin.all():
+            adatatmp = adatatmp[isin, :].copy()
+        
         df_this_pos = df_this_pos[df_this_pos.barcode.isin(shared_barcodes)]
 
         # NB re-order positions to have order of df_this_barcode barcodes.
@@ -322,7 +336,7 @@ def load_input_data(
             if adata is None
             else anndata.concat([adata, adatatmp], join="outer")
         )
-
+        
     # NB filter by spots:  shared barcodes between adata and SNPs; e.g. drop spots with SNP counts but no transcripts.
     shared_barcodes = set(list(snp_barcodes.barcodes)) & set(list(adata.obs.index))
 
@@ -336,10 +350,11 @@ def load_input_data(
     )
 
     # NB barcode (row) selection.
-    cell_snp_Aallele = cell_snp_Aallele[isin, :]
-    cell_snp_Ballele = cell_snp_Ballele[isin, :]
+    if not isin.all():
+        cell_snp_Aallele = cell_snp_Aallele[isin, :]
+        cell_snp_Ballele = cell_snp_Ballele[isin, :]
 
-    snp_barcodes = snp_barcodes[isin]
+        snp_barcodes = snp_barcodes[isin]
 
     isin = adata.obs.index.isin(shared_barcodes)
 
@@ -347,13 +362,16 @@ def load_input_data(
         f"Retaining {100.0 * np.mean(isin):.3f}% of UMI barcodes (shared between UMIs and SNPs)."
     )
 
-    adata = adata[isin, :].copy()
-    adata = adata[
-        pd.Categorical(
-            adata.obs.index, categories=list(snp_barcodes.barcodes), ordered=True
-        ).argsort(),
-        :,
-    ]
+    if not isin.all():
+        adata = adata[isin, :].copy()
+
+    idx_argsort = pd.Categorical(
+        adata.obs.index, categories=list(snp_barcodes.barcodes), ordered=True
+    ).argsort()
+
+    if not np.array_equal(idx_argsort, np.arange(len(idx_argsort))):
+        logger.info(f"Sorting data by barcode.")        
+        adata = adata[idx_argsort,:]
 
     across_slice_adjacency_mat = get_alignments(
         alignment_files, df_meta, df_agg_barcode
@@ -377,7 +395,7 @@ def load_input_data(
     logger.info(
         f"Retaining {100.0 * np.mean(indicator):.3f}% of spots with sufficient snp UMIs"
     )
-
+    
     adata = adata[indicator, :]
 
     cell_snp_Aallele = cell_snp_Aallele[indicator, :]
@@ -387,7 +405,7 @@ def load_input_data(
         across_slice_adjacency_mat = across_slice_adjacency_mat[indicator, :][
             :, indicator
         ]
-
+        
     # NB filter out genes that are expressed in < min_percent_expressed_spots spots.
     indicator = (
         # NB number of barcodes expressing a particular gene; num. spots.
@@ -407,22 +425,22 @@ def load_input_data(
     adata = adata[:, indicator]
 
     logger.info(
-        f"Median spot UMI after filtering genes based on num. spots expressed = {np.median(np.sum(adata.layers['count'], axis=1)):.3f}"
+        f"Median spot UMI after filtering genes based on num. spots expressed = {np.median(np.sum(adata.layers['count'], axis=1)):_.3f}"
     )
 
     if filter_gene_file is not None:
         genes_to_filter = get_filter_genes(filter_gene_file).iloc[:, 0].to_numpy()
         indicator_filter = ~np.isin(adata.var.index, genes_to_filter)
 
-        logger.info(f"Removing genes based on input ranges ({filter_gene_file}):")
-
-        for to_print in genes_to_filter[np.isin(genes_to_filter, adata.var.index)]:
-            logger.info(to_print)
+        logger.info(f"Removing {len(filter_gene_file)} genes based on input file.")
+        
+        # for to_print in genes_to_filter[np.isin(genes_to_filter, adata.var.index)]:
+        #   logger.info(to_print)
 
         adata = adata[:, indicator_filter]
 
         logger.info(
-            f"Median UMI after filtering genes = {np.median(np.sum(adata.layers['count'], axis=1))}"
+            f"Median UMI after filtering genes = {np.median(np.sum(adata.layers['count'], axis=1)):_.3f}"
         )
 
         # TODO?
@@ -572,6 +590,8 @@ def load_input_data(
     assert len(unique_snp_ids) == cell_snp_Aallele.shape[1]
     assert cell_snp_Aallele.shape[1] == cell_snp_Ballele.shape[1]
 
+    exit(0)
+    
     # TODO dense arrays.
     return (
         adata,

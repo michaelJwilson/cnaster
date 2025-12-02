@@ -27,8 +27,11 @@ USE_EXISTING=false
 # RANDOM_STATES=(3)
 # SAMPLE_IDS=("numcnas3.3_cnasize5e7_ploidy2_random6")
 
-RANDOM_STATES=(3)
-SAMPLE_IDS=("numcnas6.3_cnasize3e7_ploidy2_random4")
+# RANDOM_STATES=(3)
+# SAMPLE_IDS=("numcnas6.3_cnasize3e7_ploidy2_random4")
+
+RANDOM_STATES=(0)
+SAMPLE_IDS=("numcnas6.3_cnasize5e7_ploidy2_random6")
 
 # echo "${SAMPLE_IDS[@]}"
 echo "Found ${#SAMPLE_IDS[@]} sample ids @ ${ROOT}"
@@ -56,9 +59,7 @@ for SAMPLE_ID in "${SAMPLE_IDS[@]}"; do
         PERF_PATH="logs/cnaster_${SAMPLE_ID}_${RANDOM_STATE}.perf"
         
         rm -f "${LOG_PATH}"
-        rm -f "${PERF_FILE}"
-        
-        echo "Solving for SAMPLE_ID=${SAMPLE_ID}, RANDOM_STATE=${RANDOM_STATE} to ${LOG_PATH} and ${PERF_PATH}"
+        rm -f "${PERF_FILE}"      
         
         run_cnaster zenodo_sim_config.yaml \
             -o "hmrf.random_state=${RANDOM_STATE}" \
@@ -66,6 +67,8 @@ for SAMPLE_ID in "${SAMPLE_IDS[@]}"; do
             -o "paths.output_dir=${ROOT}/nomixing_cnaster_related/${SAMPLE_ID}/" \
             -o "paths.perf_path=${PERF_PATH}" \
             2>&1 | tee "${LOG_PATH}"
+
+        echo "Solved for SAMPLE_ID=${SAMPLE_ID}, RANDOM_STATE=${RANDOM_STATE} to ${LOG_PATH} and ${PERF_PATH}"
         
         rc=${PIPESTATUS[0]}
         

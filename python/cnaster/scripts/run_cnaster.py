@@ -636,7 +636,7 @@ def run_cnaster(config_path, over_rides=None):
         merged_res,
         single_total_bb_RD,
         min_spots_thresholds=config.hmrf.min_spots_per_clone,
-        min_umicount_thresholds=n_obs * config.hmrf.min_avgumi_per_clone,
+        min_umicount_thresholds=n_obs * config.hmrf.min_avgumi_per_clone, # MAGIC 31_420 SNP UMIs
         single_tumor_prop=single_tumor_prop,
         threshold=config.hmrf.tumorprop_threshold,
     )
@@ -1147,7 +1147,7 @@ def run_cnaster(config_path, over_rides=None):
                 merged_res,
                 single_total_bb_RD[:, idx_spots],
                 min_spots_thresholds=config.hmrf.min_spots_per_clone,
-                min_umicount_thresholds=n_obs * config.hmrf.min_avgumi_per_clone,
+                min_umicount_thresholds=n_obs * config.hmrf.min_avgumi_per_clone, # MAGIC 31_420 SNP UMIs
                 single_tumor_prop=(
                     single_tumor_prop[idx_spots]
                     if single_tumor_prop is not None
@@ -1382,7 +1382,7 @@ def run_cnaster(config_path, over_rides=None):
         res_combine,
         single_total_bb_RD,
         min_spots_thresholds=config.hmrf.min_spots_per_clone,
-        min_umicount_thresholds=n_obs * config.hmrf.min_avgumi_per_clone,
+        min_umicount_thresholds=n_obs * config.hmrf.min_avgumi_per_clone, # MAGIC 31_420 SNP UMIs
         single_tumor_prop=single_tumor_prop,
         threshold=config.hmrf.tumorprop_threshold,
     )

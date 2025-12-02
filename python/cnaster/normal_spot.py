@@ -266,6 +266,9 @@ def normal_baf_bin_filter(
     df_gene_snp.bin_id = df_gene_snp.bin_id.astype("Int64")
 
     logger.info(f"Solved for unique bin ids:\n{np.unique(df_gene_snp.bin_id)}")
+
+    if df_gene_snp.bin_id.isnull().any():
+        logger.warning(f"NaN bin id detected.")
     
     single_X = single_X[index_remaining, :, :]
     single_base_nb_mean = single_base_nb_mean[index_remaining, :]

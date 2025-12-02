@@ -144,11 +144,11 @@ def get_spaceranger_counts(spaceranger_dir):
 
     # NB see https://scanpy.readthedocs.io/en/stable/generated/scanpy.read_10x_h5.html
     if Path(f"{spaceranger_dir}/{filtered_feature_name}.h5").exists():
-        adatatmp = sc.read_10x_h5(f"{spaceranger_dir}/{filtered_feature_name}.h5")
+        adatatmp = sc.read_10x_h5(f"{spaceranger_dir}/{filtered_feature_name}.h5", gex_only=True)
         logger.info(f"Reading {spaceranger_dir}/{filtered_feature_name}.h5")
 
     elif Path(f"{spaceranger_dir}/{filtered_feature_name}.h5ad").exists():
-        adatatmp = sc.read_h5ad(f"{spaceranger_dir}/{filtered_feature_name}.h5ad")
+        adatatmp = sc.read_h5ad(f"{spaceranger_dir}/{filtered_feature_name}.h5ad", gex_only=True)
         logger.info(f"Reading {spaceranger_dir}/{filtered_feature_name}.h5ad")
 
     else:
@@ -163,34 +163,37 @@ def get_spaceranger_counts(spaceranger_dir):
     is_nan = np.isnan(adatatmp.layers["count"])
 
     logger.info(
-        f"Found {100.0 * np.mean(is_nan):.3f}% NaN counts in anndata.  zeroing."
+        f"Found {100.0 * np.mean(is_nan):.3f}% NaN counts in anndata."
     )
 
     # NB replace nan with 0 and cast to int.
-    adatatmp.layers["count"][is_nan] = 0
-    adatatmp.layers["count"] = adatatmp.layers["count"].astype(int)
+    if np.any(is_nan):
+        adatatmp.layers["count"][is_nan] = 0
 
+    # TODO CHECK
+    adatatmp.layers["count"] = adatatmp.layers["count"].astype(int)
+        
     # e.g. duplicated:  TBCE  2, LINC01238  2.3; why?
     # duplicated_mask = adatatmp.var_names.duplicated(keep=False)
     # non_unique_vars = adatatmp.var_names[duplicated_mask]
 
     # duplicate_counts = non_unique_vars.value_counts()
 
-    # NB var names made unique by appending an index string,
-    #    see https://anndata.readthedocs.io/en/latest/generated/anndata.AnnData.var_names_make_unique.html
+    logger.info(
+        f"Read transcript counts of shape {adatatmp.shape}, i.e. (barcodes, genes) from {spaceranger_dir}"
+    )
+
+    logger.info(
+        f"\nExample names for {len(adatatmp.obs_names):_} barcodes:\n{adatatmp.obs_names[:5]}"
+    )
+    logger.info(
+        f"Example names for {len(adatatmp.var_names):_} genes:\n{adatatmp.var_names[:5]}"
+    )
+
+    # NB var names made unique by appending an index string,                                                                                                                                                      
+    #    see https://anndata.readthedocs.io/en/latest/generated/anndata.AnnData.var_names_make_unique.html                                                                                                        
     adatatmp.var_names_make_unique()
-
-    logger.info(
-        f"Read counts of shape {adatatmp.shape}, i.e. (barcodes, genes) from {spaceranger_dir}"
-    )
-
-    logger.info(
-        f"\nExample names for {len(adatatmp.obs_names):_} barcodes: {adatatmp.obs_names[:5]}"
-    )
-    logger.info(
-        f"Example names for {len(adatatmp.var_names):_} genes: {adatatmp.var_names[:5]}"
-    )
-
+    
     # NB data matrix X (ndarray/csr matrix, dask ...): observations/cells are named by their barcode and variables/genes by gene name.
     return adatatmp
 
@@ -339,7 +342,15 @@ def load_input_data(
             adatatmp = adatatmp[idx_argsort, :].copy()
 
         # NB only keep shared barcodes between (IN_TISSUE) visium barcodes and filtered_feature_bc_matrix.
-        shared_barcodes = set(list(df_this_pos.barcode)) & set(list(adatatmp.obs.index))
+        pos_barcodes = set(list(df_this_pos.barcode))
+        count_barcodes = set(list(adatatmp.obs.index))
+
+        print(list(pos_barcodes)[:10])
+        print(list(count_barcodes)[:10])
+
+        exit(0)
+        
+        shared_barcodes = pos_barcodes & count_barcodes
 
         isin = adatatmp.obs.index.isin(shared_barcodes)
 

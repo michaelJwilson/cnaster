@@ -407,8 +407,6 @@ def load_input_data(
             else anndata.concat([adata, adatatmp], join="outer")
         )
 
-    exit(0)
-
     # NB filter by spots:  shared barcodes between adata and SNPs; e.g. drop spots with SNP counts but no transcripts.
     shared_barcodes = set(list(snp_barcodes.barcodes)) & set(list(adata.obs.index))
 
@@ -450,7 +448,7 @@ def load_input_data(
     across_slice_adjacency_mat = get_alignments(
         alignment_files, df_meta, df_agg_barcode
     )
-
+    
     # NB filter out spots with too small number of UMIs (genome wide);
     # TODO differentiate min_snpumis; why before genomic binning?
     indicator = np.sum(adata.layers["count"], axis=1) >= min_snp_umis
@@ -670,6 +668,8 @@ def load_input_data(
     assert len(unique_snp_ids) == cell_snp_Aallele.shape[1]
     assert cell_snp_Aallele.shape[1] == cell_snp_Ballele.shape[1]
 
+    exit(0)
+    
     # TODO dense arrays.
     return (
         adata,

@@ -901,6 +901,7 @@ def reindex_clones(res_combine, posterior, single_tumor_prop):
         cid_normal = np.argmin(
             np.sum(np.maximum(np.abs(baf_profiles - 0.5) - EPS_BAF, 0), axis=1)
         )
+
         cid_rest = np.array([c for c in range(n_clones) if c != cid_normal]).astype(int)
         reidx = np.append(cid_normal, cid_rest)
         map_reidx = {cid: i for i, cid in enumerate(reidx)}

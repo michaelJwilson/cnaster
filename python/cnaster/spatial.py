@@ -65,6 +65,9 @@ def fixed_rectangle_partition(
         coords[:, 1], yrange[0] + (yrange[1] - yrange[0]) * py, right=True
     )
 
+    logger.info(f"Solved for xrange={xrange}, yrange={yrange}")
+    logger.info(f"Solved for x-partitions={xrange[0] + (xrange[1] - xrange[0]) * px}, y partitions={yrange[0] + (yrange[1] - yrange[0]) * py}")
+
     initial_clone_index = []
     clone_id = 0
 

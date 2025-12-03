@@ -623,6 +623,8 @@ def run_cnaster(config_path, over_rides=None):
     fig_path = f"{output_dir}/plots/bafonly_clones_spatial.pdf"
     write_fig(fig_path, bafonly_clones_fig, transparent=True, bbox_inches="tight")
 
+    exit(0)
+    
     if config.hmrf.np_merge:
         # NB merge similar clones based on Neyman-Pearson
         _, merged_res = neyman_pearson_similarity(

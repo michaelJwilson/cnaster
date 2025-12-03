@@ -19,3 +19,4 @@ TODO
 -  BUG missing clone for (numcnas6.3_cnasize5e7_ploidy2_random6,0)
 -  n_final_clones = len(np.unique(res_combine["prev_assignment"])); prev or new assignment?  see also downstream.
 -  aggr_hmrf_reassignment: clone summary.
+-  nb initial clones as diparate rectangles : more prone to merging (less signal).

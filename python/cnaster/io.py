@@ -346,7 +346,7 @@ def load_input_data(
     cell_snp = (cell_snp_Aallele + cell_snp_Ballele).todense().sum(axis=1)
 
     logger.info(
-        f"Read cell-snp A,B matrices of shape={cell_snp_Aallele.shape} with min={cell_snp.min()}, max={cell_snp.max()}, median={np.median(cell_snp[0])} snp-umis per cell."
+        f"Read cell-snp A,B matrices of shape={cell_snp_Aallele.shape} with min={cell_snp.min()}, max={cell_snp.max()}, median={np.median(cell_snp[0])} snp-umis per cell.  Found np.sum(cell_snp) snp-umis total."
     )
 
     # NB read Visium transcripts/UMIs anndata & spot spatial coordinate.
@@ -491,6 +491,15 @@ def load_input_data(
             :, indicator
         ]
 
+    # TODO HACK
+    logger.info(f"Found total UMI = {np.sum(adata.layers['count']):_} in input data.")
+
+    spot_umis = np.sum(adata.layers["count"], axis=1)
+    percentiles = [0, 1, 5, 10, 25, 50, 75, 90, 95, 99, 100]
+    perc_vals = np.percentile(spot_umis, percentiles)
+    pairs = ", ".join(f"{p:>3d}th={v:_.0f}" for p, v in zip(percentiles, perc_vals))
+    logger.info(f"UMIs per spot percentiles: {pairs}")
+        
     # NB filter out genes that are expressed in < min_percent_expressed_spots spots.
     indicator = (
         # NB number of barcodes expressing a particular gene; num. spots.

@@ -1,9 +1,9 @@
 paths:
-  # sample_sheet : /u/mw9568/research/repos/cnaster/htan_annotated_sample_sheet.tsv
-  # output_dir : /n/fs/scratch/mw9568/cnaster/htan
+  sample_sheet : /u/mw9568/research/repos/cnaster/htan_annotated_sample_sheet.tsv
+  output_dir : /n/fs/scratch/mw9568/cnaster/htan
 
-  sample_sheet : /u/mw9568/research/repos/cnaster/vishd_sample_sheet.tsv
-  output_dir : /n/fs/scratch/mw9568/cnaster/vishd
+  # sample_sheet : /u/mw9568/research/repos/cnaster/vishd_sample_sheet.tsv
+  # output_dir : /n/fs/scratch/mw9568/cnaster/vishd
 
   perf_path : logs/cnaster.perf
   # cache_dir : /n/fs/scratch/mw9568/cnaster/.cache
@@ -14,21 +14,21 @@ preprocessing:
   tumorprop_file : None
 
 visium:
-  # filtered_feature_name : "filtered_feature_bc_matrix"
-  filtered_feature_name : "filtered_feature_cell_matrix"
+  filtered_feature_name : "filtered_feature_bc_matrix"
+  # filtered_feature_name : "filtered_feature_cell_matrix"
 
 annotation:
   clone_label : None
   true_cnv : None
 
 run:
-  legacy : False
+  legacy : True
   bafonly : False
 
 references:
   geneticmap_file : /u/mw9568/research/data/references/genetic_map_GRCh38_merged.tab.gz
   hgtable_file : /u/mw9568/research/data/references/hgTables_hg38_gencode.txt
-  annotation_file : None
+  annotation_file : /u/mw9568/scratch/annotation/gencode.v49.basic.annotation.gtf.gz
   filtergenelist_file : /u/mw9568/research/data/references/ig_gene_list.txt
   filterregion_file : /u/mw9568/research/data/references/HLA_regions.bed
 

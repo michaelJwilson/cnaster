@@ -65,7 +65,7 @@ def get_reference_genes(hgtable_file, legacy=False):
         }
     )
 
-    df_gene["LENGTH"] = df_gene["END"] - df_gene["START"]
+    # df_gene["LENGTH"] = df_gene["END"] - df_gene["START"]
     
     return df_gene
 

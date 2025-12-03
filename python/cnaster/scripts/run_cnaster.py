@@ -428,23 +428,21 @@ def run_cnaster(config_path, over_rides=None):
     # NB zeros
     copy_single_base_nb_mean = copy.copy(single_base_nb_mean)
 
-    """
-    # NB non-contiguous assignment of clones to an unequal grid partitioning
-    #    of input coordinates.
-    initial_clone_index_baf, clone_id = rectangle_initialize_initial_clone(
-        coords, config.hmrf.n_clones, random_state=0
-    )
-    """
-    """
-    # TODO HACK
-    x_part = y_part = 4
-    initial_clone_index_baf, clone_id = fixed_rectangle_partition(
-        coords, x_part, y_part, single_tumor_prop=None, threshold=0.5
-    )
-    """
-    
-    # TODO HACK? adata.layers["count"]
+    # TODO HACK? adata.layers["count"]                                                                                                                                                                                                                 
     if initial_clone_index_baf is None:
+        """
+        # NB non-contiguous assignment of clones to an unequal grid partitioning
+        #    of input coordinates.
+        initial_clone_index_baf, clone_id = rectangle_initialize_initial_clone(
+            coords, config.hmrf.n_clones, random_state=0
+        )
+        """
+        # TODO HACK
+        x_part = y_part = 4
+        initial_clone_index_baf, clone_id = fixed_rectangle_partition(
+            coords, x_part, y_part, single_tumor_prop=None, threshold=0.5
+        )
+        """
         initial_clone_index_baf, clone_id, _ = sufficient_umis_initial_clone(
             coords,
             single_X[:,0,:],
@@ -453,6 +451,7 @@ def run_cnaster(config_path, over_rides=None):
             500_000, # MAGIC determine by baf.
             random_state=int(config.hmrf.random_state),
         )
+        """
     """
     adj_list = cast_csr(adjacency_mat)
     adj_spots, adj_neighbors, adj_weights = unpack_adjacency(adj_list)
@@ -546,8 +545,6 @@ def run_cnaster(config_path, over_rides=None):
 
     fig_path = f"{plots_dir}/initial_clones_spatial.pdf"
     write_fig(fig_path, initial_clones_fig, transparent=True, bbox_inches="tight")
-
-    exit(0)
     
     logger.info(
         "Solving HMM & HMRF for copy states and clone assignment with BAF only."
@@ -725,8 +722,6 @@ def run_cnaster(config_path, over_rides=None):
             for c in range(n_baf_clones)
         ]
     )
-
-    exit(0)
     
     logger.info(f"Determining normal spots based on BAF-only clones.")
 

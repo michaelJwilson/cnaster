@@ -20,3 +20,7 @@ TODO
 -  n_final_clones = len(np.unique(res_combine["prev_assignment"])); prev or new assignment?  see also downstream.
 -  aggr_hmrf_reassignment: clone summary.
 -  nb initial clones as diparate rectangles : more prone to merging (less signal).
+
+
+BUG
+-  HT306P1-U1: Clone VI has 2_112 spots; 17_658_742.0 umis; 2_546_012.0 snp-umis umis??

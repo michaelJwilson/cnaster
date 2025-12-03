@@ -22,7 +22,7 @@ annotation:
   true_cnv : None
 
 run:
-  legacy : True
+  legacy : False
   bafonly : False
 
 references:

@@ -466,7 +466,7 @@ def plot_clones_genomic(
         ax.text(
             0.,
             1.02,
-            f"{spots_per_clone[c]:_} spots;  {np.sum(X[:, 0, c]):_} umis; {np.sum(total_bb_RD[:, c]):_} snp-umis",
+            f"{spots_per_clone[c]:_} spots;  {int(np.sum(X[:, 0, c])):_} umis; {int(np.sum(total_bb_RD[:, c])):_} snp-umis",
             ha="left",
             va="bottom",
             fontsize=12,

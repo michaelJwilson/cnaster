@@ -188,7 +188,7 @@ def summarize_lattice_structure(coords, sample_ids=None, sample_list=None):
         sorted_neighbors = sorted_neighbors[:coordination_number]
         sorted_displacements = sorted_neighbors - np.array([[center_x, center_y]])
 
-        logger.info(f"Sample {i}: estimated lattice spacing nx, ny = {nx}, {ny}")
+        logger.info(f"Sample {i}: estimated lattice spacing nx, ny = {nx:_}, {ny:_}")
         logger.info(
             f"Lattice coordination number={coordination_number} with displacements from center spot at ({center_x:.1f}, {center_y:.1f})=\n{sorted_displacements}"
         )
@@ -540,6 +540,7 @@ def choose_lattice_adjacency(
 
     n_spots = coords.shape[0]
 
+    """
     x_dist = coords[:, 0][None, :] - coords[:, 0][:, None]
     y_dist = coords[:, 1][None, :] - coords[:, 1][:, None]
 
@@ -549,7 +550,23 @@ def choose_lattice_adjacency(
     np.fill_diagonal(pairwise_squared_dist, np.max(pairwise_squared_dist))
 
     logger.info(f"Construcuted pairwise distances.")
+    """
+
+    scaled_coords = coords.copy()
+    scaled_coords[:, 0] *= np.sqrt(unit_xsquared)
+    scaled_coords[:, 1] *= np.sqrt(unit_ysquared)
+
+    logger.info(f"Building KD-tree for efficient nearest neighbor search")
     
+    tree = cKDTree(scaled_coords)
+    
+    # NB query (k+1) nearest neighbors as includes self.
+    _, indices = tree.query(scaled_coords, k=coordination_num + 1)
+    
+    indices = indices[:, 1:]
+    
+    logger.info(f"Constructed nearest neighbor indices via KD-tree")
+
     # NB smooth matrix: identity (each spot pools only itself)
     smooth_mat = scipy.sparse.identity(n_spots, dtype=np.int8, format="csr")
 
@@ -572,10 +589,10 @@ def choose_lattice_adjacency(
 
     logger.info(f"Constructing adjacency matrix.")
 
-    nearest_indices = np.argpartition(pairwise_squared_dist, coordination_num, axis=1)[:, :coordination_num]
+    # nearest_indices = np.argpartition(pairwise_squared_dist, coordination_num, axis=1)[:, :coordination_num]
 
     rows = np.repeat(np.arange(n_spots), coordination_num)
-    cols = nearest_indices.flatten()
+    cols = indices.flatten()
     data = np.ones(len(rows), dtype=np.float64)
     
     adjacency_mat = csr_matrix((data, (rows, cols)), shape=(n_spots, n_spots))

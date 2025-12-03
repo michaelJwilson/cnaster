@@ -584,7 +584,7 @@ def update_emission_params_nb_nophasing_uniqvalues(
                     )                    
 
     if np.any(new_log_mu > max_log_rdr) or np.any(new_log_mu < min_log_rdr):
-        logger.warning("Clipping updated log RDR to range=({min_log_rdr},{max_log_rdr})")
+        logger.warning(f"Clipping updated log RDR to range=({min_log_rdr},{max_log_rdr})")
 
     new_log_mu[new_log_mu > max_log_rdr] = max_log_rdr
     new_log_mu[new_log_mu < min_log_rdr] = min_log_rdr

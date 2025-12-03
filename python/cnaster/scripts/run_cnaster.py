@@ -545,8 +545,6 @@ def run_cnaster(config_path, over_rides=None):
 
     fig_path = f"{plots_dir}/initial_clones_spatial.pdf"
     write_fig(fig_path, initial_clones_fig, transparent=True, bbox_inches="tight")
-
-    exit(0)
     
     logger.info(
         "Solving HMM & HMRF for copy states and clone assignment with BAF only."
@@ -604,6 +602,8 @@ def run_cnaster(config_path, over_rides=None):
         threshold=config.hmrf.tumorprop_threshold,
     )
 
+    logger.info(f"Inferred {len(np.unique(res['new_assignment']))} clones given BAF data.")
+
     # TODO
     if tumor_prop is not None:
         tumor_prop = np.repeat(tumor_prop, X.shape[0]).reshape(-1, 1)
@@ -640,6 +640,8 @@ def run_cnaster(config_path, over_rides=None):
         logger.warning(f"No Neyman-Pearson merging applied to baf-identified clones.")
         merged_res = res.copy()
 
+    logger.info(f"Inferred {len(np.unique(merged_res['new_assignment']))} clones given BAF data after NP merge.")
+
     _, merged_res = merge_by_minspots(
         merged_res["new_assignment"],
         merged_res,
@@ -649,6 +651,8 @@ def run_cnaster(config_path, over_rides=None):
         single_tumor_prop=single_tumor_prop,
         threshold=config.hmrf.tumorprop_threshold,
     )
+
+    logger.info(f"Inferred {len(np.unique(merged_res['new_assignment']))} clones given BAF data after min spots merge.")
 
     # TODO HACK
     assignment = pd.Series([f"clone {x}" for x in merged_res["new_assignment"]])
@@ -1001,8 +1005,17 @@ def run_cnaster(config_path, over_rides=None):
         # TODO split will be on RDR, seems an odd requirement?
         if np.sum(single_total_bb_RD[:, idx_spots]) < 20 * single_X.shape[0]:
             logger.warning(
-                f"Skipping RDR refinment of BAF identified clone {bafc} as too few snp-covering UMIs ({np.sum(single_total_bb_RD[:, idx_spots])}/{20 * single_X.shape[0]})!"
+                f"Skipping RDR refinment of BAF identified clone {bafc} as too few snp-covering UMIs ({np.sum(single_total_bb_RD[:, idx_spots]):_}/{20 * single_X.shape[0]:_})!"
             )
+            clone_res[prefix] = {
+                "barcodes": barcodes[idx_spots],
+                "num_iterations": 0,
+                "round-1_assignment" : np.zeros(len(idx_spots), dtype=int),
+                "new_assignment" : np.zeros(len(idx_spots), dtype=int),
+                "log_gamma" : merged_res["log_gamma"][:, (bafc * n_obs) : (bafc * n_obs + n_obs)], # NB first axis is state.
+                "pred_cnv" : np.argmax(merged_res["log_gamma"][:, (bafc * n_obs) : (bafc * n_obs + n_obs)], axis=0)
+            }
+
             continue
 
         """
@@ -1026,6 +1039,7 @@ def run_cnaster(config_path, over_rides=None):
 
         initial_assignment = np.zeros(len(idx_spots), dtype=int)
 
+        # NB zero-indexes clones.
         for c, idx in enumerate(initial_clone_index):
             initial_assignment[idx] = c
 
@@ -1101,20 +1115,13 @@ def run_cnaster(config_path, over_rides=None):
             merged_res = copy.copy(res)
             merged_res["new_assignment"] = np.zeros(len(idx_spots), dtype=int)
 
-            # NB first case for hmm_sitewise with phased states, otherwise n_states.
-            try:
-                log_gamma = res["log_gamma"][
-                    :, (c * n_obs) : (c * n_obs + n_obs)
-                ].reshape((2 * config.hmm.n_states, n_obs, 1))
-            except:
-                log_gamma = res["log_gamma"][
-                    :, (c * n_obs) : (c * n_obs + n_obs)
-                ].reshape((config.hmm.n_states, n_obs, 1))
+            # NB c must be zero here (1 clone, zero-indexed).
+            log_gamma = res["log_gamma"][
+                :, (c * n_obs) : (c * n_obs + n_obs)
+            ].reshape((-1, n_obs, 1))
 
-            # NB MAP copy state.
-            pred_cnv = res["pred_cnv"][(c * n_obs) : (c * n_obs + n_obs)].reshape(
-                (-1, 1)
-            )
+            # NB MAP copy state - both this and log_gamma should be null-ops as already correct shape.
+            pred_cnv = res["pred_cnv"][(c * n_obs) : (c * n_obs + n_obs)].reshape((-1, 1))
         else:
             clone_index = [
                 np.where(res["new_assignment"] == c)[0]
@@ -1167,7 +1174,7 @@ def run_cnaster(config_path, over_rides=None):
 
             # NB num. of rdr-split clones within baf clone after merging.
             n_merged_clones = len(merging_groups)
-            tmp = copy.copy(merged_res["new_assignment"])
+            fixed_assignment = copy.copy(merged_res["new_assignment"])
 
             # NB compute posterior using the newly merged pseudobulk
             X, base_nb_mean, total_bb_RD, tumor_prop = merge_pseudobulk_by_index_mix(
@@ -1218,7 +1225,8 @@ def run_cnaster(config_path, over_rides=None):
                 sample_length=np.ones(X.shape[2], dtype=int) * X.shape[0],
             )
 
-            merged_res["new_assignment"] = copy.copy(tmp)
+            # NB assignment has been fixed, but emission states updated; retain previous assignment.
+            merged_res["new_assignment"] = copy.copy(fixed_assignment)
 
             # NB combined only between similar states in the RDR split clones by updating res["pred_cnv"]
             merged_res = combine_similar_states_across_clones(
@@ -1250,7 +1258,7 @@ def run_cnaster(config_path, over_rides=None):
                 ]
             ).T
 
-        # TODO safe merge.
+        # NB number of keys, i.e. prev_assignment only.
         if len(res_combine) == 1:
             res_combine.update(
                 {
@@ -1296,6 +1304,8 @@ def run_cnaster(config_path, over_rides=None):
             merged_res["new_assignment"] + offset_clone
         )
 
+        logger.info(f"baf-identified clones generated rdr-split clones={np.unique(merged_res['new_assignment'] + offset_clone)}")
+
         offset_clone += n_merged_clones
 
     logger.info(
@@ -1305,7 +1315,7 @@ def run_cnaster(config_path, over_rides=None):
         f"Assuming min. tau dispersion between clones given current:\n{res_combine['new_taus']}"
     )
 
-    # HACK broadcast max. dispersion across all clones.
+    # HACK broadcast max. dispersion - parameters assumed to be shared across rdr-split clones only.
     res_combine["new_alphas"][:, :] = np.max(res_combine["new_alphas"])
 
     # HACK broadcast min. dispersion across all clones; tau is total pseduocounts for BAF
@@ -1338,7 +1348,10 @@ def run_cnaster(config_path, over_rides=None):
         ]
     ).T
     
-    # NB final re-assignment across all spots using estimated copy number states.
+    # NB final re-assignment across all spots using current copy states - 
+    #    does not conserve original e.g. baf clone assignments, or normal spots.
+    #
+    # TODO can generate small clones.
     if config.preprocessing.tumorprop_file is None:
         new_assignment, _, total_llf, posterior = aggr_hmrf_reassignment(
             single_X,
@@ -1382,7 +1395,9 @@ def run_cnaster(config_path, over_rides=None):
     res_combine["total_llf"] = total_llf
     res_combine["new_assignment"] = new_assignment
 
-    logger.info(f"Inferred final {len(np.unique(res_combine["new_assignment"]))} clones.")
+    final_clones, final_clone_counts = np.unique(res_combine["new_assignment"], return_counts=True)
+
+    logger.info(f"Inferred final clones=\n{final_clones}\nwith fractions=\n{final_clone_counts/np.sum(final_clone_counts)}.")
 
     """
     # UGH HACK? merge small clones ... again
@@ -1416,10 +1431,12 @@ def run_cnaster(config_path, over_rides=None):
     # NB infer integer allele-specific copy numbers
     final_clone_ids = np.sort(np.unique(res_combine["new_assignment"]))
 
+    # DEPRECATE
     # NB add normal clone as 0 if not present
     if 0 not in final_clone_ids:
         final_clone_ids = np.append(0, final_clone_ids)
-        logger.warning(f"Missing normal clones - prepended as 0 to final clone ids.")
+        logger.error(f"Missing normal clones - prepended as 0 to final clone ids.")
+        raise RuntimeError()
 
     # NB assumed ploidy for integer copy number problem
     medfix = [""] + [f"_{pp}" for pp in config.int_copy_num.ploidy.split(",")]
@@ -1451,7 +1468,7 @@ def run_cnaster(config_path, over_rides=None):
 
         for s, cid in enumerate(final_clone_ids):
             if np.sum(base_nb_mean[:, s]) == 0:
-                logger.warning("Final clone {cid} has no assigned transcripts!")
+                logger.warning("Final clone {cid} has no assigned transcripts.")
                 continue
 
             # lambd = base_nb_mean[:, s] / np.sum(base_nb_mean[:, s])
@@ -1469,7 +1486,7 @@ def run_cnaster(config_path, over_rides=None):
             adjusted_log_mu = np.log(
                 np.exp(res_combine["new_log_mu"][:, s])
                 / np.sum(np.exp(res_combine["new_log_mu"][this_pred_cnv, s]) * lambd)
-            ) if False else res_combine["new_log_mu"][:, s] # TODO HACK BUG?
+            ) if config.run.legacy else res_combine["new_log_mu"][:, s] # TODO HACK BUG?
             
             logger.info(f"For clone {cid}, normalized log mu to sum_bin lambda * np.exp(log_mu) = 1.; yielding new mu=\n{np.exp(adjusted_log_mu)}\ngiven mu=\n{np.exp(res_combine["new_log_mu"][:, s])}.")
 

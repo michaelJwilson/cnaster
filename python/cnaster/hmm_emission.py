@@ -250,14 +250,35 @@ def nloglikeobs_bb(
         result = -scipy.stats.betabinom.logpmf(endog, exposure, a, b)
         result[np.isnan(result)] = np.inf
 
-    if prior:
-        prior_shift = baf_prior_eval(a / (a + b), sigma=None)
-        result -= prior_shift
+    # if prior:
+    #   prior_shift = baf_prior_eval(a / (a + b), sigma=None)
+    #   result -= prior_shift
 
     if reduce:
-        result = result.dot(weights)
-        assert not np.isnan(result), f"{params}: {result}"
+        reduced_result = result.dot(weights)
 
+        if np.isnan(reduced_result):
+            logger.info(f"Detected invalid ln. likelihood={reduced_result} for:\n{params}")
+
+            nan_mask = np.isnan(result)
+            nan_endog = np.unique(endog[nan_mask])
+            nan_exposure = np.unique(exposure[nan_mask])
+            nan_alphas = np.unique(a[nan_mask])
+            nan_betas = np.unique(b[nan_mask])
+
+            logger.info(
+                f"NaN identified:\n"
+                f"  endog: {nan_endog}\n"
+                f"  exposure: {nan_exposure}\n"
+                f"  alphas: {nan_alphas}\n"
+                f"  betas: {nan_betas}\n"
+                f"  Fraction of NaN observations: {np.mean(nan_mask):.6e}"
+            )
+            
+            raise RuntimeError()
+
+        result = reduced_result
+            
     return result
 
 

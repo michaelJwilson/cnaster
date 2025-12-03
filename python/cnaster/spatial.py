@@ -165,6 +165,7 @@ def summarize_lattice_structure(coords, sample_ids=None, sample_list=None):
         center_x_dist = this_coords[center_xy_idx, 0] - this_coords[:, 0]
         center_y_dist = this_coords[center_xy_idx, 1] - this_coords[:, 1]
 
+        # NB distance to center - picked as oracle spot to determine nearest neighbor structure.
         center_pairwise_dist = np.sqrt(center_x_dist**2 + center_y_dist**2)
 
         # NB first is self.
@@ -175,6 +176,9 @@ def summarize_lattice_structure(coords, sample_ids=None, sample_list=None):
         sorted_neighbors = this_coords[sorted_indices, :]
 
         unique_dists, unique_cnts = np.unique(sorted_dists, return_counts=True)
+
+        # NB cell positions of Visium HD will not be regular.
+        logger.info(f"Found lattice distances from center:\n{unique_dists}\nwith counts:\n{unique_cnts}")
 
         assert np.all(unique_dists > 0.0)
 

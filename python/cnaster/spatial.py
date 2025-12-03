@@ -781,7 +781,7 @@ def multislice_adjacency(
     unit_xsquared=9,
     unit_ysquared=3,
 ):
-    logger.info("Solving for multi-slice adjacency (and smooth) matrix.")
+    logger.info("Solving for multi-slice adjacency (and spot-pooling) matrix.")
 
     # NB smooth_mat contains the edges of spots that are directly pooled.
     adjacency_mat, smooth_mat = [], []
@@ -829,5 +829,7 @@ def multislice_adjacency(
     # NB realize as block diagonal for inter-slice pooling.
     smooth_mat = scipy.linalg.block_diag(*smooth_mat)
     smooth_mat = scipy.sparse.csr_matrix(smooth_mat)
+
+    logger.info("Solving for multi-slice adjacency (and spot-pooling) matrix.")
 
     return adjacency_mat, smooth_mat

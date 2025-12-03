@@ -119,8 +119,6 @@ def form_gene_snp_table(
     df_gene_snp = df_gene_snp[isin]
 
     logger.info(f"Created gene-SNP table:\n{df_gene_snp.head()}")
-
-    exit(0)
     
     return df_gene_snp
 

@@ -143,6 +143,7 @@ def plot_clones_genomic(
 
     # NB add in normal clone.
     if "0" not in final_clone_ids:
+        logger.warning("Pre-pending 0 to final_clone_ids")
         final_clone_ids = np.array(["0"] + list(final_clone_ids))
 
     assert (clone_ids is None) or np.all(
@@ -152,6 +153,7 @@ def plot_clones_genomic(
     n_states = res_combine["new_p_binom"].shape[0]
     unique_chrs = np.unique(df_cnv.CHR.values)
 
+    # NB number of genomic segments conserved.
     assert single_X.shape[0] == df_cnv.shape[0]
 
     if clone_index is None:
@@ -459,10 +461,12 @@ def plot_clones_genomic(
             transform=ax.transAxes,
         )
 
+        np.arange(X[:, 1, c].shape[0])
+        
         ax.text(
             0.,
             1.05,
-            f"{spots_per_clone[c]:_} spots;",
+            f"{spots_per_clone[c]:_} spots;  {np.sum(X[:, 0, c]):_} umis; {np.sum(total_bb_RD[:, c]):_} snp-umis",
             ha="left",
             va="bottom",
             fontsize=12,

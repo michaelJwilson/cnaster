@@ -6,6 +6,7 @@ import scipy.sparse
 from scipy.sparse import lil_matrix
 from scipy.spatial import cKDTree
 from scipy.spatial import distance
+from scipy.sparse import csr_matrix
 
 logger = logging.getLogger(__name__)
 
@@ -570,18 +571,14 @@ def choose_lattice_adjacency(
     """
 
     logger.info(f"Constructing adjacency matrix.")
+
+    nearest_indices = np.argpartition(pairwise_squared_dist, coordination_num, axis=1)[:, :coordination_num]
+
+    rows = np.repeat(np.arange(n_spots), coordination_num)
+    cols = nearest_indices.flatten()
+    data = np.ones(len(rows), dtype=np.float64)
     
-    adjacency_mat = lil_matrix((n_spots, n_spots), dtype=np.float64)
-
-    for i in range(n_spots):
-        nearest_indices = np.argpartition(
-            pairwise_squared_dist[i, :], coordination_num
-        )[:coordination_num]
-        
-        if len(nearest_indices) > 0:
-            adjacency_mat[i, nearest_indices] = 1.0
-
-    adjacency_mat = adjacency_mat.tocsr()
+    adjacency_mat = csr_matrix((data, (rows, cols)), shape=(n_spots, n_spots))
 
     # TODO
     # num_neighbors = np.sum(adjacency_mat > 0, axis=1).A.flatten()

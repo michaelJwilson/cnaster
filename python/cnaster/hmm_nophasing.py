@@ -352,8 +352,10 @@ class hmm_nophasing:
 
                     logmu_shift = np.vstack(logmu_shift)
 
-                    logger.info(f"Applying logmu_shift with median={np.median(logmu_shift)} and max={logmu_shift.max()}")
-                    
+                    logger.info(
+                        f"Applying logmu_shift with median={np.median(logmu_shift)} and max={logmu_shift.max()}"
+                    )
+
                     (
                         log_emission_rdr,
                         log_emission_baf,
@@ -424,7 +426,7 @@ class hmm_nophasing:
                 new_log_startprob = new_log_startprob.flatten()
 
                 logger.info(f"Updated HMM start probability={new_log_startprob}")
-                
+
             else:
                 new_log_startprob = log_startprob
 
@@ -542,12 +544,16 @@ class hmm_nophasing:
                 np.max(np.abs(new_alphas - alphas)),
                 np.max(np.abs(new_taus - taus)),
             )
-            
+
             # Warn if dispersion parameters increased
             if np.any(new_alphas > alphas):
-                logger.warning(f"NB dispersion (alpha) increased: max change = {np.max(new_alphas - alphas):.6e}")
+                logger.warning(
+                    f"NB dispersion (alpha) increased: max change = {np.max(new_alphas - alphas):.6e}"
+                )
             if np.any(new_taus < taus):
-                logger.warning(f"BB dispersion (1/tau) increased (tau decreased): max change = {np.min(new_taus - taus):.6e}")
+                logger.warning(
+                    f"BB dispersion (1/tau) increased (tau decreased): max change = {np.min(new_taus - taus):.6e}"
+                )
 
             # NB log mu -> mu convergence.
             # TODO BUG? no check on start prob.

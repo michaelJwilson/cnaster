@@ -552,7 +552,7 @@ def update_emission_params_nb_nophasing_uniqvalues(
                 default_nloglikeobs = np.inf
 
                 logger.warning(f"Running without default parameters specified.")
-                
+
             if start_log_mu is not None:
                 res2 = model.fit(
                     **settings,
@@ -564,7 +564,9 @@ def update_emission_params_nb_nophasing_uniqvalues(
                         + [np.ones(1) * alphas[0, s]]
                     ),
                 )
-                if (model.nloglikeobs(res2.params) < default_nloglikeobs) or res is None:
+                if (
+                    model.nloglikeobs(res2.params) < default_nloglikeobs
+                ) or res is None:
                     if res is not None:
                         logger.info(
                             f"Provided initialization for ln mu better than default."
@@ -577,14 +579,18 @@ def update_emission_params_nb_nophasing_uniqvalues(
                     if res2.params[-1] > 0:
                         new_alphas[:, :] = res2.params[-1]
                     else:
-                        logger.warning(f"Detected negative dispersion parameter={res2.params[-1]}.")
+                        logger.warning(
+                            f"Detected negative dispersion parameter={res2.params[-1]}."
+                        )
                 else:
                     logger.info(
                         f"Default initialization for ln mu {model.nloglikeobs(res.params):.6e} better than provided {model.nloglikeobs(res2.params):.6e}."
-                    )                    
+                    )
 
     if np.any(new_log_mu > max_log_rdr) or np.any(new_log_mu < min_log_rdr):
-        logger.warning(f"Clipping updated log RDR to range=({min_log_rdr},{max_log_rdr})")
+        logger.warning(
+            f"Clipping updated log RDR to range=({min_log_rdr},{max_log_rdr})"
+        )
 
     new_log_mu[new_log_mu > max_log_rdr] = max_log_rdr
     new_log_mu[new_log_mu < min_log_rdr] = min_log_rdr
@@ -1258,7 +1264,7 @@ def update_emission_params_bb_sitewise_uniqvalues(
                     new_taus[:, :] = res.params[-1]
                 else:
                     logger.warning(f"Solved for negative tau={res.params[-1]}")
-                    
+
                 default_nloglikeobs = model.nloglikeobs(res.params)
             else:
                 default_nloglikeobs = np.inf
@@ -1495,9 +1501,7 @@ def update_emission_params_bb_nophasing_uniqvalues(
                     else:
                         logger.warning(f"Detected negative tau={res2.params[-1]}")
 
-    if np.any(new_p_binom < min_binom_prob) or np.any(
-        new_p_binom > max_binom_prob
-    ):
+    if np.any(new_p_binom < min_binom_prob) or np.any(new_p_binom > max_binom_prob):
         logger.warning(
             f"Clipping inferred p binom to range=({min_binom_prob},{max_binom_prob})."
         )

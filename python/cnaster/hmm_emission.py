@@ -258,7 +258,9 @@ def nloglikeobs_bb(
         reduced_result = result.dot(weights)
 
         if np.isnan(reduced_result):
-            logger.info(f"Detected invalid ln. likelihood={reduced_result} for:\n{params}")
+            logger.info(
+                f"Detected invalid ln. likelihood={reduced_result} for:\n{params}"
+            )
 
             nan_mask = np.isnan(result)
             nan_endog = np.unique(endog[nan_mask])
@@ -274,11 +276,11 @@ def nloglikeobs_bb(
                 f"  betas: {nan_betas}\n"
                 f"  Fraction of NaN observations: {np.mean(nan_mask):.6e}"
             )
-            
+
             raise RuntimeError()
 
         result = reduced_result
-            
+
     return result
 
 
@@ -496,11 +498,11 @@ class Weighted_NegativeBinomial_mix:
 
             state_assignment = np.argmax(self.exog, axis=-1)
             total_clipped = 0
-            
+
             for state_idx in range(self.num_states):
                 state_mask = state_assignment == state_idx
                 state_weight = np.sum(self.weights[state_mask])
-                
+
                 state_nlls = obs_nll[state_mask]
 
                 threshold = np.percentile(state_nlls, clip_percentile)
@@ -529,12 +531,14 @@ class Weighted_NegativeBinomial_mix:
             state_weight = np.sum(self.weights[state_mask])
 
             state_weights.append(state_weight)
-            
+
         state_weights = np.array(state_weights)
-            
+
         empirical_log_mu = np.log(empirical_rdr_mean)
-        
-        empirical_disp_state = (np.maximum(empirical_rdr_std**2., empirical_rdr_mean) - empirical_rdr_mean) / (empirical_rdr_mean**2.)
+
+        empirical_disp_state = (
+            np.maximum(empirical_rdr_std**2.0, empirical_rdr_mean) - empirical_rdr_mean
+        ) / (empirical_rdr_mean**2.0)
         empirical_disp = np.sum(empirical_disp_state * state_weights) / total_weight
 
         if empirical:
@@ -549,8 +553,8 @@ class Weighted_NegativeBinomial_mix:
             )
 
             if ~np.isfinite(empirical_disp) or empirical_disp <= 0.0:
-                # TODO HACK nb emission for disp=0.0                                                                                                                                                                                                                            
-                empirical_disp = 1.e-6
+                # TODO HACK nb emission for disp=0.0
+                empirical_disp = 1.0e-6
                 logger.warning(
                     f"Empirical dispersion is non-finite or non-positive: {empirical_disp_state}, assigning {empirical_disp}."
                 )

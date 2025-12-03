@@ -85,7 +85,7 @@ def cell_by_gene_lefthap_counts(cellsnp_folder, eagle_results_dir, barcode_list)
     is_phased = (df_snp.snp_id.isin(snp_gt_map)).to_numpy()
 
     # TODO logger for phase fraction.
-    
+
     df_snp = df_snp[is_phased]
     df_snp["GT"] = [snp_gt_map[x] for x in df_snp.snp_id]
 

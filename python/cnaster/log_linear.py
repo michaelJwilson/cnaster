@@ -69,12 +69,12 @@ class LinearThenLogMinorLocator(mticker.Locator):
 
         log_min = 1.0 + np.log2(t_min)
         log_max = 1.0 + np.log2(t_max)
-        
+
         # decades = np.arange(np.floor(log_min), np.ceil(log_max) + 1)
         # ticks = 2 ** (decades - 1.0)
 
-        ticks = np.arange(1.0, 2** np.ceil(log_max), 1.)
-        
+        ticks = np.arange(1.0, 2 ** np.ceil(log_max), 1.0)
+
         # filter to view range
         ticks = ticks[(ticks >= vmin) & (ticks <= vmax)]
         return ticks

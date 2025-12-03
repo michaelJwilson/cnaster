@@ -82,7 +82,9 @@ class YAMLConfig:
         if over_rides:
             for over_ride in over_rides:
                 if "=" not in over_ride:
-                    logger.warning(f"Provided over ride could not be resolved: {over_ride}")
+                    logger.warning(
+                        f"Provided over ride could not be resolved: {over_ride}"
+                    )
                     raise ValueError
 
                 key_path, value = over_ride.split("=", 1)
@@ -90,12 +92,12 @@ class YAMLConfig:
 
                 # NB find the correct sub-instance.
                 obj = self
-                
+
                 for k in keys[:-1]:
                     obj = getattr(obj, k, None) if hasattr(obj, k) else obj.get(k)
-                    
+
                 final_key = keys[-1]
-                
+
                 if hasattr(obj, final_key):
                     setattr(obj, final_key, value)
                     logger.info(f"Config over ride: {key_path} = {value}")
@@ -116,9 +118,7 @@ class YAMLConfig:
             logger.warning(f"Assuming no Neyman-Pearson model testing")
         if self.hmrf.fixed_assignment:
             logger.warning(f"Assuming fixed assignment")
-            
 
-            
 
 class JSONConfig:
     def __init__(self, d):

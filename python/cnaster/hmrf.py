@@ -427,7 +427,7 @@ def aggr_hmrfmix_reassignment_concatenate(
         )
         """
         _, cnts = np.unique(new_assignment, return_counts=True)
-        
+
         logger.info(
             f"Solved for updated clone labels with new cost {new_cost:.6e} and clone breakdown={cnts} in {niter} iterations (took {time.time() - start_time:.2f} seconds)."
         )
@@ -496,14 +496,18 @@ def clone_stack_obs(
 
 
 def validation_summary(
-    lengths, X, base_nb_mean, total_bb_RD, tumor_prop,
+    lengths,
+    X,
+    base_nb_mean,
+    total_bb_RD,
+    tumor_prop,
 ):
     n_segments, _, n_bulk = X.shape
     n_contigs = len(lengths)
 
     config = get_global_config()
     secondary_min_umi = config.quality.secondary_min_umi
-    
+
     # TODO
     assert n_contigs == 22
 
@@ -527,11 +531,16 @@ def validation_summary(
             contig_num_extreme_minor_baf.append(np.count_nonzero(contig_bafs <= 0.35))
 
             contig_num_insufficient_snp_umi.append(
-                np.count_nonzero(total_bb_RD[zero_point : zero_point + ll,c] < secondary_min_umi)
+                np.count_nonzero(
+                    total_bb_RD[zero_point : zero_point + ll, c] < secondary_min_umi
+                )
             )
 
             contig_num_insufficient_umi.append(
-		np.count_nonzero(base_nb_mean[zero_point : zero_point + ll,c] < 10 * secondary_min_umi)
+                np.count_nonzero(
+                    base_nb_mean[zero_point : zero_point + ll, c]
+                    < 10 * secondary_min_umi
+                )
             )
 
         logger.info(
@@ -589,7 +598,9 @@ def hmrfmix_concatenate_pipeline(
     unique_sample_ids = np.unique(sample_ids)
     n_samples = len(unique_sample_ids)
 
-    logger.info(f"Running hmrfmix_concatenate_pipeline for {n_clones} clones and {n_samples} samples/slices.")
+    logger.info(
+        f"Running hmrfmix_concatenate_pipeline for {n_clones} clones and {n_samples} samples/slices."
+    )
 
     tmp_map_index = {unique_sample_ids[i]: i for i in range(len(unique_sample_ids))}
     sample_ids = np.array([tmp_map_index[x] for x in sample_ids])
@@ -651,12 +662,14 @@ def hmrfmix_concatenate_pipeline(
         new_init_taus = init_taus
         """
 
-        new_init_log_mu, new_init_alphas, new_init_p_binom, new_init_taus = cna_mixture_init(
-            n_states,
-            clone_stack_X,
-            clone_stack_base_nb_mean,
-            clone_stack_total_bb_RD,
-            width=10,
+        new_init_log_mu, new_init_alphas, new_init_p_binom, new_init_taus = (
+            cna_mixture_init(
+                n_states,
+                clone_stack_X,
+                clone_stack_base_nb_mean,
+                clone_stack_total_bb_RD,
+                width=10,
+            )
         )
 
         if init_log_mu is None:
@@ -677,19 +690,35 @@ def hmrfmix_concatenate_pipeline(
         X, base_nb_mean, total_bb_RD, tumor_prop
 
         n_states = init_p_binom.shape[0]
-        
+
         plot_cna_mixture(
-            np.tile(init_log_mu, n_clones).reshape(n_states, n_clones) if init_log_mu is not None else None,
-            np.tile(init_alphas, n_clones).reshape(n_states, n_clones) if init_alphas is not None else None,
-            np.tile(init_p_binom, n_clones).reshape(n_states, n_clones) if init_p_binom is not None else None,
-            np.tile(init_taus, n_clones).reshape(n_states, n_clones) if init_taus is not None else None,
+            (
+                np.tile(init_log_mu, n_clones).reshape(n_states, n_clones)
+                if init_log_mu is not None
+                else None
+            ),
+            (
+                np.tile(init_alphas, n_clones).reshape(n_states, n_clones)
+                if init_alphas is not None
+                else None
+            ),
+            (
+                np.tile(init_p_binom, n_clones).reshape(n_states, n_clones)
+                if init_p_binom is not None
+                else None
+            ),
+            (
+                np.tile(init_taus, n_clones).reshape(n_states, n_clones)
+                if init_taus is not None
+                else None
+            ),
             X,
             base_nb_mean,
             total_bb_RD,
             width=10,
             prefix=f"instance{hmrfmix_concatenate_pipeline.call_count-1}",
         )
-        
+
         plot_cna_mixture(
             init_log_mu,
             init_alphas,
@@ -701,7 +730,7 @@ def hmrfmix_concatenate_pipeline(
             width=10,
             prefix=f"instance{hmrfmix_concatenate_pipeline.call_count-1}_clone",
         )
-        
+
     last_log_mu = init_log_mu if "m" in params else None
     last_p_binom = init_p_binom if "p" in params else None
     last_alphas = init_alphas
@@ -785,7 +814,7 @@ def hmrfmix_concatenate_pipeline(
             single_tumor_prop=single_tumor_prop,
             hmmclass=hmmclass,
         )
-        
+
         # NB handle the case when one clone has zero spots.
         if len(np.unique(new_assignment)) < X.shape[2]:
             logger.warning(
@@ -906,7 +935,9 @@ def reindex_clones(res_combine, posterior, single_tumor_prop):
         reidx = np.append(cid_normal, cid_rest)
         map_reidx = {cid: i for i, cid in enumerate(reidx)}
 
-        logger.info(f"Remapping clone index according to {map_reidx}, with {cid_normal} assumed normal.")
+        logger.info(
+            f"Remapping clone index according to {map_reidx}, with {cid_normal} assumed normal."
+        )
 
         # NB re-order entries in res_combine
         new_res_combine["new_assignment"] = np.array(
@@ -980,14 +1011,14 @@ def merge_by_minspots(
     # NB find entries in unique_assignment such that either:
     #    i) min_spots_thresholds
     #    ii) (SNP) min_umicount_thresholds are not satisfied
-        # NB find clones failing min_spots_thresholds
+    # NB find clones failing min_spots_thresholds
     insufficient_spots_clones = [
         c
         for c in unique_assignment
         if np.sum(new_assignment[tmp_single_tumor_prop > threshold] == c)
         < min_spots_thresholds
     ]
-    
+
     # NB find clones failing min_umicount_thresholds
     insufficient_umi_clones = [
         c
@@ -999,7 +1030,7 @@ def merge_by_minspots(
         )
         < min_umicount_thresholds
     ]
-    
+
     # NB log each condition separately
     logger.info(
         f"Found {len(insufficient_spots_clones)} clones with < {min_spots_thresholds} spots: {insufficient_spots_clones}"
@@ -1007,7 +1038,7 @@ def merge_by_minspots(
     logger.info(
         f"Found {len(insufficient_umi_clones)} clones with < {min_umicount_thresholds:_} SNP UMIs: {insufficient_umi_clones}"
     )
-    
+
     # TODO
     # failed_clones = list(set(insufficient_spots_clones) | set(insufficient_umi_clones))
     failed_clones = [
@@ -1169,7 +1200,7 @@ def aggr_hmrf_reassignment(
         new_assignment = prev_assignment.copy()
     else:
         logger.info(f"Solved for updated clone labels.")
-    
+
     # NB compute total log likelihood: log P(X | Z) + log P(Z)
     total_llf = np.sum(single_llf[np.arange(N), new_assignment])
     for i in range(N):

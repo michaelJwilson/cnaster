@@ -66,7 +66,9 @@ def fixed_rectangle_partition(
     )
 
     logger.info(f"Solved for xrange={xrange}, yrange={yrange}")
-    logger.info(f"Solved for x-partitions={xrange[0] + (xrange[1] - xrange[0]) * px}, y partitions={yrange[0] + (yrange[1] - yrange[0]) * py}")
+    logger.info(
+        f"Solved for x-partitions={xrange[0] + (xrange[1] - xrange[0]) * px}, y partitions={yrange[0] + (yrange[1] - yrange[0]) * py}"
+    )
 
     initial_clone_index = []
     clone_id = 0
@@ -198,6 +200,7 @@ def summarize_lattice_structure(coords, sample_ids=None, sample_list=None):
 
     return coordination_number
 
+
 # TODO snp umi requirement
 def sufficient_umis_initial_clone(
     coords,
@@ -216,9 +219,7 @@ def sufficient_umis_initial_clone(
     if prior_clone_assignment is not None:
         raise NotImplementedError()
 
-    summarize_lattice_structure(
-        coords, sample_ids=sample_ids, sample_list=sample_list
-    )
+    summarize_lattice_structure(coords, sample_ids=sample_ids, sample_list=sample_list)
 
     rand_rng = np.random.default_rng(random_state)
 
@@ -257,9 +258,7 @@ def sufficient_umis_initial_clone(
             last_dist = np.inf
 
             # NB compute distances from seed to all spots on this slice.
-            seed_dists = np.linalg.norm(
-                this_coords - this_coords[seed_idx], axis=1
-            )
+            seed_dists = np.linalg.norm(this_coords - this_coords[seed_idx], axis=1)
 
             initial_group_umis = this_spot_counts[seed_idx].copy()
 
@@ -272,7 +271,7 @@ def sufficient_umis_initial_clone(
                     break
 
                 unassigned_seed_dists = seed_dists[unassigned_idx]
-                
+
                 # NB sort unassigned spots by distance from seed.
                 sorted_indices = np.argsort(unassigned_seed_dists)
                 sorted_dists = unassigned_seed_dists[sorted_indices]
@@ -305,13 +304,11 @@ def sufficient_umis_initial_clone(
 
                 num_rounds += 1
 
-                if (initial_group_umis == group_umis):
-                    logger.warning(
-                        f"Saturated growth of current clone."
-                    )
+                if initial_group_umis == group_umis:
+                    logger.warning(f"Saturated growth of current clone.")
                     break
 
-                if (num_rounds == max_growth_rounds):
+                if num_rounds == max_growth_rounds:
                     logger.warning(
                         f"Max growth rounds={max_growth_rounds} reached for clone {clone_id} in sample {i}."
                     )
@@ -374,7 +371,9 @@ def sufficient_umis_initial_clone(
         id_map = {old: new for new, old in enumerate(new_ids)}
         for old, new in id_map.items():
             clone_assignment[clone_assignment == old] = new
-        logger.info(f"After reassignment based on min. umi, number of clones={len(id_map)}.")
+        logger.info(
+            f"After reassignment based on min. umi, number of clones={len(id_map)}."
+        )
 
     initial_clone_index = [
         np.where(clone_assignment == i)[0] for i in range(np.max(clone_assignment) + 1)
@@ -573,14 +572,14 @@ def choose_lattice_adjacency(
     scaled_coords[:, 1] *= np.sqrt(unit_ysquared)
 
     logger.info(f"Building KD-tree for efficient nearest neighbor search")
-    
+
     tree = cKDTree(scaled_coords)
-    
+
     # NB query (k+1) nearest neighbors as includes self.
     _, indices = tree.query(scaled_coords, k=coordination_num + 1)
-    
+
     indices = indices[:, 1:]
-    
+
     logger.info(f"Constructed nearest neighbor indices via KD-tree")
 
     # NB smooth matrix: identity (each spot pools only itself)
@@ -610,7 +609,7 @@ def choose_lattice_adjacency(
     rows = np.repeat(np.arange(n_spots), coordination_num)
     cols = indices.flatten()
     data = np.ones(len(rows), dtype=np.float64)
-    
+
     adjacency_mat = csr_matrix((data, (rows, cols)), shape=(n_spots, n_spots))
 
     # TODO
@@ -618,7 +617,7 @@ def choose_lattice_adjacency(
 
     # NB see https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.csr_matrix.getnnz.html
     num_neighbors = adjacency_mat.getnnz(axis=1)
-    
+
     # NB lattice adjacency: min=2, median=2.0, max=4 neighbors per spot.
     logger.info(
         f"Lattice adjacency: min={np.min(num_neighbors)}, "

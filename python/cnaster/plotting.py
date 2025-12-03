@@ -66,7 +66,7 @@ def get_full_palette(palette="tab20b"):
 
     ordered_acn = get_ordered_acn()
     ordered_acn_rev = [xx[::-1] for xx in ordered_acn]
-    
+
     # TODO HACK
     colors = sns.color_palette("tab20b", len(ordered_acn)).as_hex()
     # np.random.shuffle(colors)
@@ -204,7 +204,7 @@ def plot_clones_genomic(
             row += 1
 
     if sample_list is not None:
-        fig.suptitle(", ".join(sample_list), x=0.5, y=0.99, fontsize=16, ha='center')
+        fig.suptitle(", ".join(sample_list), x=0.5, y=0.99, fontsize=16, ha="center")
 
     logger.info(
         f"Found non-empty clones: {nonempty_clones} for final_clone_ids={final_clone_ids}"
@@ -339,8 +339,8 @@ def plot_clones_genomic(
         )
         """
         sns.scatterplot(
-            x=np.arange(X[:, 1, c].shape[0]),  # NB integer per segment.                                                                                                                                                                                                                            
-            y=X[:, 1, c] / total_bb_RD[:, c],  # NB BAF.                                                                                                                                                                                                                                            
+            x=np.arange(X[:, 1, c].shape[0]),  # NB integer per segment.
+            y=X[:, 1, c] / total_bb_RD[:, c],  # NB BAF.
             hue=hue,
             palette=palette,
             s=pointsize,
@@ -357,9 +357,9 @@ def plot_clones_genomic(
 
         if remove_xticks:
             axes[2 * s + 1].set_xticks([])
-            
+
         for i, seg in enumerate(segments):
-            for to_plot in np.arange(-0.5, rdr_ylim, .5):
+            for to_plot in np.arange(-0.5, rdr_ylim, 0.5):
                 axes[2 * s].plot(
                     seg,
                     [
@@ -400,12 +400,12 @@ def plot_clones_genomic(
                 linestyle="--",
             )
 
-            for to_plot in np.arange(0., 1.1, .1):
+            for to_plot in np.arange(0.0, 1.1, 0.1):
                 axes[2 * s + 1].plot(
                     seg,
                     [
                         to_plot,
-			to_plot,
+                        to_plot,
                     ],
                     c="lightgray",
                     linewidth=0.5,
@@ -462,9 +462,9 @@ def plot_clones_genomic(
         )
 
         np.arange(X[:, 1, c].shape[0])
-        
+
         ax.text(
-            0.,
+            0.0,
             1.02,
             f"{spots_per_clone[c]:_} spots;  {int(np.sum(X[:, 0, c])):_} umis; {int(np.sum(total_bb_RD[:, c])):_} snp-umis",
             ha="left",

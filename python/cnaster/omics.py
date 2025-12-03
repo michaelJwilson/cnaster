@@ -10,7 +10,11 @@ logger = logging.getLogger(__name__)
 
 # TODO assumes reference gene contains all those present in Visium anndata.
 def form_gene_snp_table(
-    unique_snp_ids, hgtable_file, adata, verbose=False, num_preceeding_rows=1_000  # MAGIC
+    unique_snp_ids,
+    hgtable_file,
+    adata,
+    verbose=False,
+    num_preceeding_rows=1_000,  # MAGIC
 ):
     logger.info(f"Forming gene & snp meta data.")
 
@@ -27,15 +31,17 @@ def form_gene_snp_table(
     )
 
     # NB enriched for sex-chromosome and mitochondrial genes, many lncRNAs/antisense/pseudogenes, and CT antigens commonly over-expressed in tumors.
-    logger.info(f"Found {len(genes_not_in_reference):_} genes to be in visium but not in reference:")
+    logger.info(
+        f"Found {len(genes_not_in_reference):_} genes to be in visium but not in reference:"
+    )
 
     genes_sorted = sorted(genes_not_in_reference)
 
     if verbose:
         for i in range(0, len(genes_sorted), 10):
-            chunk = genes_sorted[i:i + 10]
+            chunk = genes_sorted[i : i + 10]
             logger.info(", ".join(chunk))
-    
+
     # NB limits reference genes to those present in (filtered) AnnData UMIs.
     df_gene = df_gene[df_gene.gene.isin(adata.var.index)]
 
@@ -120,7 +126,7 @@ def form_gene_snp_table(
     df_gene_snp = df_gene_snp[isin]
 
     logger.info(f"Created gene-SNP table:\n{df_gene_snp.head()}")
-    
+
     return df_gene_snp
 
 
@@ -132,7 +138,7 @@ def summarize_blocks(
     unique_snp_ids,
     block_key=None,
     normal_candidates=None,
-    sort_key="total_umi"
+    sort_key="total_umi",
 ):
     assert block_key is not None, "block_key must be specified"
     assert block_key in gene_snp_table.columns, f"{block_key} not in DataFrame"
@@ -162,11 +168,17 @@ def summarize_blocks(
     normal_snp_umis = np.zeros(len(block_summary), dtype=int)
 
     if normal_candidates is not None:
-        assert count_matrix.shape[0] == len(normal_candidates), f"{count_matrix.shape[0]} != {len(normal_candidates)}"
-        
-        assert cell_snp_Aallele.shape[0] == len(normal_candidates), f"{cell_snp_Aallele.shape[0]} != {len(normal_candidates)}"
-        assert cell_snp_Ballele.shape[0] == len(normal_candidates), f"{cell_snp_Ballele.shape[0]} != {len(normal_candidates)}"
-        
+        assert count_matrix.shape[0] == len(
+            normal_candidates
+        ), f"{count_matrix.shape[0]} != {len(normal_candidates)}"
+
+        assert cell_snp_Aallele.shape[0] == len(
+            normal_candidates
+        ), f"{cell_snp_Aallele.shape[0]} != {len(normal_candidates)}"
+        assert cell_snp_Ballele.shape[0] == len(
+            normal_candidates
+        ), f"{cell_snp_Ballele.shape[0]} != {len(normal_candidates)}"
+
     for idx, (block_id, row) in enumerate(block_summary.iterrows()):
         genes = row["genes"]
         if genes:
@@ -177,7 +189,9 @@ def summarize_blocks(
 
                 # Calculate normal spot UMIs
                 if normal_candidates is not None:
-                    normal_umis[idx] = int(count_matrix[normal_candidates, :][:, gene_idx].sum())
+                    normal_umis[idx] = int(
+                        count_matrix[normal_candidates, :][:, gene_idx].sum()
+                    )
 
         # SNP-covering UMIs
         snp_ids = row["snp_ids"]
@@ -192,10 +206,9 @@ def summarize_blocks(
                 # Calculate SNP-covering UMIs for normal spots
                 if normal_candidates is not None:
                     normal_snp_umis[idx] = int(
-                        cell_snp_Aallele[np.ix_(normal_candidates, snp_idx)].sum() +
-                        cell_snp_Ballele[np.ix_(normal_candidates, snp_idx)].sum()
+                        cell_snp_Aallele[np.ix_(normal_candidates, snp_idx)].sum()
+                        + cell_snp_Ballele[np.ix_(normal_candidates, snp_idx)].sum()
                     )
-                    
 
     block_summary["total_umi"] = total_umis
     block_summary["snp_umi"] = snp_umis
@@ -204,8 +217,8 @@ def summarize_blocks(
     block_summary["normal_snp_umi"] = normal_snp_umis
 
     if sort_key is not None:
-        block_summary = block_summary.sort_values(sort_key, ascending=False)    
-    
+        block_summary = block_summary.sort_values(sort_key, ascending=False)
+
     logger.info(f"Breakdown of genes/SNPs/UMI per {block_key} sorted by {sort_key}:")
     logger.info(
         f"{'Block ID':<10}\t{'Chr':>4}\t{'Start':>12}\t{'Length':>12} [Mbp]\t{'SNPs':>8}\t{'Genes':>8}\t{'Total UMI':>12}\t{'SNP UMI':>12}\t{'Normal UMI':>12}\t{'Normal SNP UMI':>12}"
@@ -213,7 +226,7 @@ def summarize_blocks(
     logger.info("-" * 136)
 
     max_rows = 50
-    
+
     for ii, (block_id, row) in enumerate(block_summary.iterrows()):
         logger.info(
             f"{block_id:<10}\t{row['chr']:>4}\t{row['start']:>12}\t{row['length'] / 1.e6:>12}\t{row['num_snps']:>8}\t{row['num_genes']:>8}\t"
@@ -223,7 +236,7 @@ def summarize_blocks(
         if ii > max_rows:
             logger.warning(f"Suppressed breakdown to {max_rows} rows.")
             break
-        
+
     logger.info(
         f"\n"
         f"median block length: {block_summary['length'].median() / 1.e6:.1f} [Mbp],\n"
@@ -461,7 +474,7 @@ def assign_initial_blocks(
         unique_snp_ids,
         block_key="block_id",
     )
-    
+
     return df_gene_snp.drop(columns=["initial_block_id"])
 
 
@@ -514,7 +527,7 @@ def summarize_counts_for_blocks_legacy(
 
     if df_block_contents.index.isna().any():
         logger.warning(f"Found ill-defined group with None entries for group.")
-    
+
     logger.info(f"Summarizing counts for blocks")
 
     # NB loop over blocks.
@@ -582,7 +595,7 @@ def summarize_counts_for_blocks(
     # filter to SNPs only (drop genes)
     df_snps = df_gene_snp[df_gene_snp.snp_id.notna()].copy()
     df_snps["snp_idx"] = df_snps.snp_id.map(map_snp_index)
-    
+
     # group SNPs by block_id and aggregate indices as lists
     snp_groups = df_snps.groupby("block_id")["snp_idx"].apply(np.array)
 
@@ -655,7 +668,7 @@ def get_sitewise_transmat(df_gene_snp, geneticmap_file, nu, logphase_shift):
 
     if sorted_chr_pos_first.index.isna().any():
         logger.warning(f"Found ill-defined group with None entries for group.")
-    
+
     # NB dataframe to list.
     sorted_chr_pos_first = list(
         zip(sorted_chr_pos_first.CHR.to_numpy(), sorted_chr_pos_first.START.to_numpy())
@@ -696,7 +709,9 @@ def get_sitewise_transmat(df_gene_snp, geneticmap_file, nu, logphase_shift):
     return log_sitewise_transmat
 
 
-def greedy_binning_nobreak_legacy(block_lengths, block_umi, secondary_min_umi, max_binlength):
+def greedy_binning_nobreak_legacy(
+    block_lengths, block_umi, secondary_min_umi, max_binlength
+):
     """
     Given a set of blocks, find new blocks that meet a requirement on the minimum number
     of UMIs and do not exceed max_binlength.
@@ -792,11 +807,13 @@ def create_bin_ranges_legacy(
 
     if sorted_chr_pos_first.index.isna().any():
         logger.warning(f"Found ill-defined group with None entries for group.")
-    
+
     unique_blocks = sorted_chr_pos_both.index
 
-    logger.info(f"Recalculating blocks (given new phasing) and unique block ids:\n{unique_blocks}")
-    
+    logger.info(
+        f"Recalculating blocks (given new phasing) and unique block ids:\n{unique_blocks}"
+    )
+
     block_lengths = (
         sorted_chr_pos_both.END.to_numpy() - sorted_chr_pos_both.START.to_numpy()
     )
@@ -850,9 +867,9 @@ def create_bin_ranges_legacy(
             offset += np.max(this_bin_ids) + 1
 
     if "bin_id" in df_gene_snp.columns:
-        logger.warning(f"Overwriting bin_id column, storing in block_id.")        
+        logger.warning(f"Overwriting bin_id column, storing in block_id.")
         df_gene_snp["block_id"] = df_gene_snp["bin_id"]
-            
+
     # Append bin_ids to df_gene_snp
     df_gene_snp["bin_id"] = df_gene_snp.block_id.map(
         {i: x for i, x in enumerate(bin_ids)}
@@ -866,7 +883,7 @@ def create_bin_ranges_legacy(
         unique_snp_ids,
         block_key="bin_id",
     )
-    
+
     return df_gene_snp
 
 
@@ -887,14 +904,19 @@ def greedy_binning_nobreak(
     - minimum normal UMIs
     - maximum bin length
     """
-    assert len(block_lengths) == len(block_umi) == len(block_snp_umi) == len(block_normal_umi), (
+    assert (
+        len(block_lengths)
+        == len(block_umi)
+        == len(block_snp_umi)
+        == len(block_normal_umi)
+    ), (
         f"Block array length mismatch: "
         f"lengths={len(block_lengths)}, "
         f"umi={len(block_umi)}, "
         f"snp_umi={len(block_snp_umi)}, "
         f"normal_umi={len(block_normal_umi)}"
     )
-    
+
     bin_ranges = []
     s = 0
 
@@ -937,9 +959,11 @@ def greedy_binning_nobreak(
 
         # Check if it's a small bin at the end that doesn't meet criteria
         if s > 0 and t == len(block_lengths):
-            if (total_umi < secondary_min_umi or
-                snp_umi < secondary_min_snp_umi or
-                normal_umi < secondary_min_normal_umi):
+            if (
+                total_umi < secondary_min_umi
+                or snp_umi < secondary_min_snp_umi
+                or normal_umi < secondary_min_normal_umi
+            ):
                 logger.debug(
                     f"Last bin failed thresholds "
                     f"(UMI={total_umi:>8}/{secondary_min_umi:<8}, "
@@ -1022,7 +1046,9 @@ def create_bin_ranges(
 
     unique_blocks = sorted_chr_pos_both.index
 
-    logger.info(f"Recalculating bins (given phasing) and unique bins ids:\n{unique_blocks}")
+    logger.info(
+        f"Recalculating bins (given phasing) and unique bins ids:\n{unique_blocks}"
+    )
 
     block_lengths = (
         sorted_chr_pos_both.END.to_numpy() - sorted_chr_pos_both.START.to_numpy()
@@ -1037,17 +1063,25 @@ def create_bin_ranges(
 
     # Normal-spot UMI per block
     if normal_candidates is not None:
-        if isinstance(normal_candidates, (np.ndarray, pd.Series)) and normal_candidates.dtype == bool:
+        if (
+            isinstance(normal_candidates, (np.ndarray, pd.Series))
+            and normal_candidates.dtype == bool
+        ):
             normal_idx = np.flatnonzero(normal_candidates)
         else:
             normal_idx = np.asarray(normal_candidates, dtype=int)
-            
+
         block_normal_umi = np.sum(single_X[:, 0, normal_idx], axis=1)
     else:
         block_normal_umi = np.zeros(n_blocks, dtype=int)
         secondary_min_normal_umi = 0
-        
-    assert len(block_lengths) == len(block_umi) == len(block_snp_umi) == len(block_normal_umi), (
+
+    assert (
+        len(block_lengths)
+        == len(block_umi)
+        == len(block_snp_umi)
+        == len(block_normal_umi)
+    ), (
         f"Block array length mismatch: "
         f"lengths={len(block_lengths)}, "
         f"umi={len(block_umi)}, "
@@ -1055,8 +1089,8 @@ def create_bin_ranges(
         f"normal_umi={len(block_normal_umi)}"
     )
 
-    frac_normal=normal_candidates.mean() if normal_candidates is not None else np.nan
-    
+    frac_normal = normal_candidates.mean() if normal_candidates is not None else np.nan
+
     logger.info(
         f"Creating bin ranges: max_length={max_binlength:_}, "
         f"min_umi={secondary_min_umi}, "
@@ -1107,9 +1141,9 @@ def create_bin_ranges(
             offset += np.max(this_bin_ids) + 1
 
     if "bin_id" in df_gene_snp.columns:
-        logger.warning(f"Overwriting bin_id column, storing in block_id.")        
+        logger.warning(f"Overwriting bin_id column, storing in block_id.")
         df_gene_snp["block_id"] = df_gene_snp["bin_id"]
-            
+
     # Append bin_ids to df_gene_snp
     df_gene_snp["bin_id"] = getattr(df_gene_snp, key).map(
         {i: x for i, x in enumerate(bin_ids)}
@@ -1184,13 +1218,15 @@ def summarize_counts_for_bins_legacy(
         .groupby("bin_id")
         .agg({"block_id": set, "gene": set})
     )
-    
+
     # NB loop over bins (phased blocks meeting max. length and min. UMI requirements).
     for b in range(df_bin_contents.shape[0]):
         logger.info(f"Solved for block {b}/{df_bin_contents.shape[0]}")
 
         # NB BAF (SNPs): gather involved blocks
-        involved_blocks = [x for x in df_bin_contents.block_id.to_numpy()[b] if x is not None]
+        involved_blocks = [
+            x for x in df_bin_contents.block_id.to_numpy()[b] if x is not None
+        ]
         if involved_blocks:
             ib = np.fromiter(involved_blocks, dtype=int)
             # phased B counts per block
@@ -1206,7 +1242,9 @@ def summarize_counts_for_bins_legacy(
             bin_single_total_bb_RD[b, :] = single_total_bb_RD[ib, :].sum(axis=0)
 
         # RDR (genes): gather involved gene indices
-        involved_genes = [x for x in df_bin_contents.gene.to_numpy()[b] if x is not None]
+        involved_genes = [
+            x for x in df_bin_contents.gene.to_numpy()[b] if x is not None
+        ]
         if involved_genes:
             gene_idx = [
                 gene_index_map[g] for g in involved_genes if g in gene_index_map
@@ -1235,7 +1273,7 @@ def summarize_counts_for_bins_legacy(
 
     if sorted_chr_pos_first.index.isna().any():
         logger.warning(f"Found ill-defined group with None entries for group.")
-    
+
     sorted_chr_pos_first = list(
         zip(sorted_chr_pos_first.CHR.to_numpy(), sorted_chr_pos_first.START.to_numpy())
     )
@@ -1329,7 +1367,7 @@ def summarize_counts_for_bins(
 
     if df_bin_contents.index.isna().any():
         logger.warning(f"Found ill-defined group with None entries for group.")
-    
+
     block_sets = df_bin_contents["block_id"].to_numpy()
     gene_sets = df_bin_contents["gene"].to_numpy()
 
@@ -1384,7 +1422,7 @@ def summarize_counts_for_bins(
 
     if sorted_chr_pos_first.index.isna().any():
         logger.warning(f"Found ill-defined group with None entries for group.")
-    
+
     sorted_chr_pos_first = list(
         zip(sorted_chr_pos_first.CHR.to_numpy(), sorted_chr_pos_first.START.to_numpy())
     )

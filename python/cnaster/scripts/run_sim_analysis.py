@@ -189,26 +189,36 @@ def plot_truth_acn_profile(root, sample_id):
     )
     clone_cols_a = [c for c in truth.columns if c.endswith("_A_copy")]
     clone_cols_b = [c for c in truth.columns if c.endswith("_B_copy")]
-    
-    clones = sorted(set(c.replace("_A_copy", "").replace("_B_copy", "") for c in clone_cols_a + clone_cols_b))
+
+    clones = sorted(
+        set(
+            c.replace("_A_copy", "").replace("_B_copy", "")
+            for c in clone_cols_a + clone_cols_b
+        )
+    )
     # Map and cast clone labels for display; order with normal first
-    clone_map = remap_clone_num(clones)  # dict: original -> remapped (e.g., normal->clone_0, clone_0->clone_1)
+    clone_map = remap_clone_num(
+        clones
+    )  # dict: original -> remapped (e.g., normal->clone_0, clone_0->clone_1)
     display_names = {
-        c: cast_clone_label(clone_map.get(c, c).replace("_", " "))
-        for c in clones
+        c: cast_clone_label(clone_map.get(c, c).replace("_", " ")) for c in clones
     }
     clones_ordered = sorted(
         clones,
         key=lambda c: (
             0 if c.startswith("normal") else 1,
-            int(c.split("_")[1]) if (c.startswith("clone_") and c.split("_")[1].isdigit()) else 999
+            (
+                int(c.split("_")[1])
+                if (c.startswith("clone_") and c.split("_")[1].isdigit())
+                else 999
+            ),
         ),
     )
-    
+
     all_copy_cols = clone_cols_a + clone_cols_b
     has_cna_mask = ~(truth[all_copy_cols].eq(1).all(axis=1))
     truth_with_cna = truth[has_cna_mask]
-    
+
     logger.info(
         f"Found {len(truth_with_cna)}/{len(truth)} segments with CNA "
         f"(any clone copy != 1):\n{truth_with_cna[['Chromosome', 'Start', 'End'] + all_copy_cols]}"
@@ -238,8 +248,7 @@ def plot_truth_acn_profile(root, sample_id):
 
     # Precompute contig ends for drawing start/end boundaries
     chr_ends = {
-        chrom: chr_offsets[chrom]
-        + truth[truth["Chromosome"] == chrom]["End"].max()
+        chrom: chr_offsets[chrom] + truth[truth["Chromosome"] == chrom]["End"].max()
         for chrom in chromosomes
     }
 
@@ -272,7 +281,7 @@ def plot_truth_acn_profile(root, sample_id):
 
         # Track segments by (chromosome, state) to place one label per combination
         state_positions = {}  # key: (chrom, state), value: list of (start, end)
-        
+
         for _, row in truth.iterrows():
             chrom = row["Chromosome"]
             start = chr_offsets[chrom] + row["Start"]
@@ -283,9 +292,9 @@ def plot_truth_acn_profile(root, sample_id):
             state = (a_copy, b_copy)
 
             color = state_colors.get(state, "gray")
-            
+
             # Add hatching when A == B
-            hatch = '///' if a_copy == b_copy and state != (1, 1) else None
+            hatch = "///" if a_copy == b_copy and state != (1, 1) else None
 
             ax.add_patch(
                 mpatches.Rectangle(
@@ -293,27 +302,30 @@ def plot_truth_acn_profile(root, sample_id):
                     end - start,
                     1,
                     facecolor=color,
-                    edgecolor='none',
+                    edgecolor="none",
                     linewidth=0,
                     alpha=0.5,
                     hatch=hatch,
                 )
             )
-            
+
             # Collect positions for labeling
             if state != (1, 1):
                 key = (chrom, state)
                 if key not in state_positions:
                     state_positions[key] = []
                 state_positions[key].append((start, end))
-        
+
         # Add one label per (chromosome, state) combination at the centroid
         for (chrom, state), positions in state_positions.items():
             # Calculate centroid of all segments with this state on this chromosome
             total_length = sum(end - start for start, end in positions)
 
-            centroid = sum((start + end) / 2 * (end - start) for start, end in positions) / total_length
-            
+            centroid = (
+                sum((start + end) / 2 * (end - start) for start, end in positions)
+                / total_length
+            )
+
             a_copy, b_copy = state
             ax.text(
                 centroid,
@@ -330,11 +342,11 @@ def plot_truth_acn_profile(root, sample_id):
         ax.set_xlim(0, genome_length)
         ax.set_ylabel(
             display_names[clone],
-            rotation=90,          # rotate y clone labels by 90
+            rotation=90,  # rotate y clone labels by 90
             ha="center",
             va="center",
             fontsize=12,
-            labelpad=20,          # add padding so it clears the frame
+            labelpad=20,  # add padding so it clears the frame
         )
         ax.set_yticks([])
 
@@ -356,14 +368,13 @@ def plot_truth_acn_profile(root, sample_id):
 
             ax.axvline(chr_ends[chrom], color="k", linestyle="-", linewidth=0.5)
 
-
     axes[-1].set_xticks([])
     axes[-1].tick_params(axis="x", which="both", length=0)
 
     for chrom in chromosomes:
         axes[-1].text(
             chr_offsets[chrom],
-            -0.4,             
+            -0.4,
             f"chr{chrom}",
             transform=axes[-1].get_xaxis_transform(),
             ha="left",
@@ -380,21 +391,21 @@ def plot_truth_acn_profile(root, sample_id):
 
         label = f"({state[0]},{state[1]})"
         # Add hatching to legend if A == B
-        hatch = '///' if state[0] == state[1] else None
+        hatch = "///" if state[0] == state[1] else None
         legend_elements.append(
             mpatches.Patch(
-                facecolor=color, 
-                label=label, 
+                facecolor=color,
+                label=label,
                 alpha=0.5,
                 hatch=hatch,
-                edgecolor='black' if hatch else None,
+                edgecolor="black" if hatch else None,
             )
         )
 
     leg = axes[0].legend(
         handles=legend_elements,
         loc="upper left",
-        bbox_to_anchor=(1.02, 1.0), 
+        bbox_to_anchor=(1.02, 1.0),
         frameon=False,
         fontsize=9,
         borderaxespad=0.0,
@@ -404,7 +415,7 @@ def plot_truth_acn_profile(root, sample_id):
 
     # Align suptitle x with left y-axis of the topmost axis
     left_x = axes[0].get_position().x0  # figure fraction
-    plt.suptitle(f"{sample_id}", fontsize=12, y=0.925, x=left_x, ha="left")  
+    plt.suptitle(f"{sample_id}", fontsize=12, y=0.925, x=left_x, ha="left")
 
     return fig
 
@@ -581,7 +592,10 @@ def render_copy_states_table(tsv_path, output_pdf_path):
     # Build global color palette
     ordered_global_states = sorted(
         global_states,
-        key=lambda ab: (ab[0] + ab[1], ab[0] / (ab[0] + ab[1]) if (ab[0] + ab[1]) > 0 else 0),
+        key=lambda ab: (
+            ab[0] + ab[1],
+            ab[0] / (ab[0] + ab[1]) if (ab[0] + ab[1]) > 0 else 0,
+        ),
     )
     palette = sns.color_palette("husl", len(ordered_global_states))
     state_colors = {st: palette[i] for i, st in enumerate(ordered_global_states)}
@@ -590,11 +604,13 @@ def render_copy_states_table(tsv_path, output_pdf_path):
     # Order HMM states independently per clone by BAF then μ
     # Build a dict: clone -> sorted list of state indices
     clone_state_orders = {}
+
     def _state_cmp(a, b):
         # a, b: (state_index, baf, mu, (A,B))
         if abs(a[1] - b[1]) < 0.05:
             return -1 if a[2] < b[2] else (1 if a[2] > b[2] else 0)
         return -1 if a[1] < b[1] else (1 if a[1] > b[1] else 0)
+
     for clone in clone_names:
         order_info = []
         for s in range(n_states):
@@ -665,7 +681,9 @@ def render_copy_states_table(tsv_path, output_pdf_path):
     # Color all sub-rows by (A,B) state from global palette (using each clone's ordering)
     for r, rtype in enumerate(row_types):
         table_r = r + data_row_offset
-        clone_idx = r // 3 # NB assumes three row sub-types i.e. (μ, BAF, (A,B)) per clone.
+        clone_idx = (
+            r // 3
+        )  # NB assumes three row sub-types i.e. (μ, BAF, (A,B)) per clone.
         clone = clone_names[clone_idx]
         sorted_indices = clone_state_orders[clone]
         for c, s_idx in enumerate(sorted_indices):
@@ -679,7 +697,9 @@ def render_copy_states_table(tsv_path, output_pdf_path):
         start_r = data_row_offset + clone_idx * 3
         top_cell = tbl[(start_r, 0)]
         bottom_cell = tbl[(start_r + 2, 0)]
-        y_center = (top_cell.get_y() + bottom_cell.get_y() + bottom_cell.get_height()) / 2
+        y_center = (
+            top_cell.get_y() + bottom_cell.get_y() + bottom_cell.get_height()
+        ) / 2
         ax.text(
             -0.050,
             y_center,
@@ -729,7 +749,7 @@ def get_sample_estimate(root, sample_id, method, rectangle, cna_only=False):
     perstate_tsv_path = Path(parent) / "cnv_diploid_perstate.tsv"
     plots_dir = Path(parent) / "plots"
     output_pdf = plots_dir / f"{sample_id}_rectangle{rectangle}_copy_states.pdf"
-    
+
     render_copy_states_table(perstate_tsv_path, output_pdf)
 
     clones = (
@@ -989,7 +1009,8 @@ def get_validation_stats(
     # TODO
     try:
         ari = adjusted_rand_score(
-            spot_join_cna["true_clone"].astype(int), spot_join_cna["clone"].to_numpy().astype(int)
+            spot_join_cna["true_clone"].astype(int),
+            spot_join_cna["clone"].to_numpy().astype(int),
         )
     except:
         ari = np.nan
@@ -1152,9 +1173,7 @@ def main():
     # "numcnas3.3_cnasize3e7_ploidy2_random0",
     # "numcnas3.3_cnasize5e7_ploidy2_random0",
 
-    sample_ids = [
-        "numcnas6.3_cnasize5e7_ploidy2_random6"
-    ]
+    sample_ids = ["numcnas6.3_cnasize5e7_ploidy2_random6"]
     """
     sample_ids = [
         xx.split("/")[-1]

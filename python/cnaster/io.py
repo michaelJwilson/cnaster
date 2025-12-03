@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 pl.Config.set_tbl_cols(-1)
 
+
 def get_sample_sheet(sample_sheet_path):
     df_meta = pd.read_csv(sample_sheet_path, sep=r"\s+")
 
@@ -124,16 +125,20 @@ def get_spatial_positions(spaceranger_dir, filter_in_tissue=True):
             )
             .select(["square_002um", "cell_id", "x", "y", "in_tissue"])
             .group_by("cell_id")
-            .agg([
-                pl.col("x").mean().alias("x"),
-                pl.col("y").mean().alias("y"),
-                pl.col("square_002um").n_unique().alias("num_square_002um"),
-                pl.col("in_tissue").cast(pl.Boolean).any().alias("in_tissue")
-            ])
+            .agg(
+                [
+                    pl.col("x").mean().alias("x"),
+                    pl.col("y").mean().alias("y"),
+                    pl.col("square_002um").n_unique().alias("num_square_002um"),
+                    pl.col("in_tissue").cast(pl.Boolean).any().alias("in_tissue"),
+                ]
+            )
             .with_columns(pl.col("cell_id").alias("barcode"))
-        ).to_pandas() # .set_index("barcode")
-        
-        logger.info(f"Read {spaceranger_dir}/spatial/tissue_positions.parquet:\n{df_this_pos}")
+        ).to_pandas()  # .set_index("barcode")
+
+        logger.info(
+            f"Read {spaceranger_dir}/spatial/tissue_positions.parquet:\n{df_this_pos}"
+        )
 
     else:
         logger.error(f"No spatial coordinate file @ {spaceranger_dir}.")
@@ -168,13 +173,13 @@ def get_spaceranger_counts(spaceranger_dir):
     # NB see https://scanpy.readthedocs.io/en/stable/generated/scanpy.read_10x_h5.html
     if Path(f"{spaceranger_dir}/{filtered_feature_name}.h5").exists():
         adatatmp = sc.read_10x_h5(
-            f"{spaceranger_dir}/{filtered_feature_name}.h5", # gex_only=True
+            f"{spaceranger_dir}/{filtered_feature_name}.h5",  # gex_only=True
         )
         logger.info(f"Reading {spaceranger_dir}/{filtered_feature_name}.h5")
 
     elif Path(f"{spaceranger_dir}/{filtered_feature_name}.h5ad").exists():
         adatatmp = sc.read_h5ad(
-            f"{spaceranger_dir}/{filtered_feature_name}.h5ad", # gex_only=True
+            f"{spaceranger_dir}/{filtered_feature_name}.h5ad",  # gex_only=True
         )
         logger.info(f"Reading {spaceranger_dir}/{filtered_feature_name}.h5ad")
 
@@ -339,9 +344,11 @@ def load_input_data(
     assert cell_snp_Aallele.shape == cell_snp_Ballele.shape
 
     cell_snp = (cell_snp_Aallele + cell_snp_Ballele).todense().sum(axis=1)
-    
-    logger.info(f"Read cell-snp A,B matrices of shape={cell_snp_Aallele.shape} with min={cell_snp.min()}, max={cell_snp.max()}, median={np.median(cell_snp[0])} snp-umis per cell.")
-    
+
+    logger.info(
+        f"Read cell-snp A,B matrices of shape={cell_snp_Aallele.shape} with min={cell_snp.min()}, max={cell_snp.max()}, median={np.median(cell_snp[0])} snp-umis per cell."
+    )
+
     # NB read Visium transcripts/UMIs anndata & spot spatial coordinate.
     adata = None
 
@@ -387,7 +394,7 @@ def load_input_data(
         # TODO visium hd.
         if not isin.all():
             adatatmp = adatatmp[isin, :].copy()
-            
+
         df_this_pos = df_this_pos[df_this_pos.barcode.isin(shared_barcodes)]
 
         # NB re-order positions to have order of df_this_barcode barcodes.
@@ -454,7 +461,7 @@ def load_input_data(
     across_slice_adjacency_mat = get_alignments(
         alignment_files, df_meta, df_agg_barcode
     )
-    
+
     # NB filter out spots with too small number of UMIs (genome wide);
     # TODO differentiate min_snpumis; why before genomic binning?
     indicator = np.sum(adata.layers["count"], axis=1) >= min_snp_umis
@@ -473,7 +480,7 @@ def load_input_data(
     logger.info(
         f"Retaining {100.0 * np.mean(indicator):.3f}% of spots with sufficient snp-/UMIs (>= {min_snp_umis})."
     )
- 
+
     adata = adata[indicator, :]
 
     cell_snp_Aallele = cell_snp_Aallele[indicator, :]
@@ -673,7 +680,7 @@ def load_input_data(
     # NB SNP consistency; 17_797 anndata genes vs 16_681 SNPs.
     assert len(unique_snp_ids) == cell_snp_Aallele.shape[1]
     assert cell_snp_Aallele.shape[1] == cell_snp_Ballele.shape[1]
-    
+
     # TODO dense arrays.
     return (
         adata,

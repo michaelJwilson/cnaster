@@ -45,7 +45,7 @@ def initial_phase_given_partition(
     # NB (initial clones, segments).
     n_clones = X.shape[2]
     baf_profiles = np.zeros((n_clones, X.shape[0]))
-    
+
     # NB loop over initial clones.
     for i in range(n_clones):
         logger.info(f"Solving for phasing of initial clone {i} of {n_clones}.")
@@ -87,7 +87,7 @@ def initial_phase_given_partition(
             pred = np.argmax(res["log_gamma"], axis=0)
 
             # TODO calculate empirical switch error rate.
-            
+
             # NB BAF by mirroring by inferred haplotype - assumed baf is not e.g. minor, but initialization
             #    dependent.
             this_baf_profiles = np.where(
@@ -101,13 +101,13 @@ def initial_phase_given_partition(
 
             # NB TODO attractor to 0.5 if sufficiently close, independent of coverage.
             EPS_BAF = 0.05  # MAGIC
-            
-            assumed_normal = np.abs(this_baf_profiles - 0.5) < EPS_BAF            
+
+            assumed_normal = np.abs(this_baf_profiles - 0.5) < EPS_BAF
             this_baf_profiles[assumed_normal] = 0.5
 
             # NB solved for baf_profile of this clone, mitigating switch errors.
             baf_profiles[i, :] = this_baf_profiles
-            
+
     # NB assumed minor baf profile.
     minor_baf_profiles = np.where(baf_profiles < 0.5, baf_profiles, 1.0 - baf_profiles)
 
@@ -137,7 +137,9 @@ def initial_phase_given_partition(
             @ baf_profiles
         )
 
-    logger.info(f"Found non-normal population BAF to be:\n{[xx for xx in np.unique(population_baf[population_baf != 0.5])]}")
+    logger.info(
+        f"Found non-normal population BAF to be:\n{[xx for xx in np.unique(population_baf[population_baf != 0.5])]}"
+    )
 
     # NB makes sense: phasing determined with all clones; copy state BAF phased appropriately.
     phase_indicator = population_baf < 0.5
@@ -145,7 +147,7 @@ def initial_phase_given_partition(
     cumlen = 0
 
     config = get_global_config()
-    BAF_CHANGE_THRESHOLD = config.phasing.baf_change_threshold # MAGIC
+    BAF_CHANGE_THRESHOLD = config.phasing.baf_change_threshold  # MAGIC
     MIN_SEGMENT_SIZE = config.phasing.min_new_segment_size
 
     # NB le is the number of blocks per contig.

@@ -72,9 +72,9 @@ def cna_mixture_init_search(
     flat_idx = np.arange(num_segments * num_spots)
     solution, solution_lnlike = None, -np.inf
 
-    inital_log_mu, initial_p_binom = np.array([0.0 if known_normal else np.nan]).reshape(
-        (1, 1)
-    ), np.array([0.5]).reshape((1, 1))
+    inital_log_mu, initial_p_binom = np.array(
+        [0.0 if known_normal else np.nan]
+    ).reshape((1, 1)), np.array([0.5]).reshape((1, 1))
 
     initial_lnlike_rdr, initial_lnlike_baf = (
         hmm_sitewise.compute_emission_probability_nb_betabinom(
@@ -135,12 +135,14 @@ def cna_mixture_init_search(
                 )
 
                 # TODO base_nb_mean is (N,1)?
-                with np.errstate(divide='ignore', invalid='ignore'):
+                with np.errstate(divide="ignore", invalid="ignore"):
                     sample_ln_rdr = np.log(
-                        X[sample_segment, 0, sample_spot] / base_nb_mean[sample_segment, 0]
+                        X[sample_segment, 0, sample_spot]
+                        / base_nb_mean[sample_segment, 0]
                     )
                     sample_baf = (
-                        X[sample_segment, 1, sample_spot] / total_bb_RD[sample_segment, 0]
+                        X[sample_segment, 1, sample_spot]
+                        / total_bb_RD[sample_segment, 0]
                     )
 
             log_mu = np.vstack([log_mu, [[sample_ln_rdr]]])

@@ -104,6 +104,7 @@ def np_sum_ax_squeeze(arr, axis=0):
 
     return result
 
+
 """
 def convert_params(mean, std):
     p = mean / std**2
@@ -112,13 +113,15 @@ def convert_params(mean, std):
     return n, p
 """
 
+
 def convert_params_disp(mean, overdisp):
-    p = 1. / (1. + overdisp * mean)
+    p = 1.0 / (1.0 + overdisp * mean)
 
     # NB guard on min. overdispersion, such that (overdisp * mean) << 1.
-    n = 1. / np.maximum(overdisp, 1.e-10)
+    n = 1.0 / np.maximum(overdisp, 1.0e-10)
 
     return n, p
+
 
 def calc_sparsity(csr_matrix):
     total_elements = csr_matrix.shape[0] * csr_matrix.shape[1]
@@ -157,7 +160,7 @@ def construct_unique_matrix(obs_count, total_count):
             counts = counts.round(decimals=decimals)
 
         pairs, pairs_counts = np.unique(counts, axis=0, return_counts=True)
-        
+
         logger.info(
             f"Found {len(pairs)} unique pairs with {100. * np.mean(valid):.3f}% non-zero:\n{pairs}"
         )

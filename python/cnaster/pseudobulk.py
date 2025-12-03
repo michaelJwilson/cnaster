@@ -51,13 +51,19 @@ def merge_pseudobulk_by_index_mix(
 
     for k, idx in enumerate(clone_index):
         percentiles = [50, 75, 90, 95, 99, 100]
-                
+
+        # TODO may be NAN if insufficient spots to aggregate at least one snp-covering umi for a segment.
         bafs = X[:, 1, k] / total_bb_RD[:, k]
 
         valid_rdr = base_nb_mean[:,k] > 0
-        rdrs = X[:, 0, k] / base_nb_mean[:,k]
 
-        logger.info(f"Found median BAF={np.median(bafs):.3f} for clone {k}.")
+        # NB base_nb_mean is initially non-defined.
+        if np.any(valid_rdr):
+            rdrs = X[:, 0, k] / base_nb_mean[:,k]
+        else:
+            rdrs = np.nan * np.ones_like(X[:, 0, k])
+            
+        logger.info(f"Found median (finite) BAF={np.median(bafs[np.isfinite(bafs)]):.3f} for clone {k}.")
         logger.info(f"Found {len(idx)} spots, mean UMIs per spot={np.sum(X[:, 0, k]) / len(idx):.3f} and mean snp-covering UMIs per spot={np.sum(total_bb_RD[:, k]) / len(idx):.3f} for clone {k}")
         
         if np.any(valid_rdr):

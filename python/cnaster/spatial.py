@@ -237,7 +237,7 @@ def sufficient_umis_initial_clone(
         this_spot_counts = spot_counts[index]
 
         logger.info(
-            f"Solving initial assignment of sample/slice {i} with {len(this_coords)} spots median spot UMIs {np.median(this_spot_counts)}"
+            f"Solving initial assignment of sample/slice {i} with {len(this_coords):_} spots median spot UMIs {np.median(this_spot_counts)}"
         )
 
         # NB assignments for this sample/slice.
@@ -287,7 +287,7 @@ def sufficient_umis_initial_clone(
                     # NB guard against disjoint groups.
                     # TODO tailor to Visium (HD).
                     if min_dist_to_group > 1.2 * last_dist:
-                        continue
+                        break
 
                     if neighbor not in group:
                         group.add(neighbor)

@@ -438,7 +438,7 @@ def run_cnaster(config_path, over_rides=None):
         )
         """
         # TODO HACK
-        x_part = y_part = 3
+        x_part = y_part = 2
         initial_clone_index_baf, clone_id = fixed_rectangle_partition(
             coords, x_part, y_part, single_tumor_prop=None, threshold=0.5
         )
@@ -622,8 +622,6 @@ def run_cnaster(config_path, over_rides=None):
 
     fig_path = f"{output_dir}/plots/bafonly_clones_spatial.pdf"
     write_fig(fig_path, bafonly_clones_fig, transparent=True, bbox_inches="tight")
-
-    exit(0)
     
     if config.hmrf.np_merge:
         # NB merge similar clones based on Neyman-Pearson
@@ -996,7 +994,7 @@ def run_cnaster(config_path, over_rides=None):
     clone_res = {}
 
     for bafc in range(n_baf_clones):
-        logger.info(f"Refining BAF identified clone {bafc}/{n_baf_clones}.")
+        logger.info(f"-----  Refining BAF identified clone {bafc}/{n_baf_clones}  -----")
 
         prefix = f"clone{bafc}"
 
@@ -1308,7 +1306,7 @@ def run_cnaster(config_path, over_rides=None):
             merged_res["new_assignment"] + offset_clone
         )
 
-        logger.info(f"baf-identified clones generated rdr-split clones={np.unique(merged_res['new_assignment'] + offset_clone)}")
+        logger.info(f"baf-identified clone={bafc} generated rdr-split clones={np.unique(merged_res['new_assignment'] + offset_clone)}")
 
         offset_clone += n_merged_clones
 

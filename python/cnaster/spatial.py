@@ -3,8 +3,9 @@ import logging
 import numpy as np
 import scipy.linalg
 import scipy.sparse
-from scipy.spatial import cKDTree  # added for connectivity checks
-from scipy.spatial import distance  # added for pairwise distances
+from scipy.sparse import lil_matrix
+from scipy.spatial import cKDTree
+from scipy.spatial import distance
 
 logger = logging.getLogger(__name__)
 
@@ -546,9 +547,14 @@ def choose_lattice_adjacency(
     # NB set diagonal to infinity to exclude self from nearest neighbors
     np.fill_diagonal(pairwise_squared_dist, np.max(pairwise_squared_dist))
 
+    logger.info(f"Construcuted pairwise distances.")
+    
     # NB smooth matrix: identity (each spot pools only itself)
     smooth_mat = scipy.sparse.identity(n_spots, dtype=np.int8, format="csr")
 
+    logger.info(f"Assumed identity smooth mat.")
+
+    """
     # NB adjacency matrix: connect each spot to coordination_num nearest neighbors
     A = np.zeros((n_spots, n_spots), dtype=np.float64)
 
@@ -561,9 +567,28 @@ def choose_lattice_adjacency(
             A[i, nearest_indices] = 1.0
 
     adjacency_mat = scipy.sparse.csr_matrix(A)
+    """
 
-    num_neighbors = np.sum(adjacency_mat > 0, axis=1).A.flatten()
+    logger.info(f"Constructing adjacency matrix.")
+    
+    adjacency_mat = lil_matrix((n_spots, n_spots), dtype=np.float64)
 
+    for i in range(n_spots):
+        nearest_indices = np.argpartition(
+            pairwise_squared_dist[i, :], coordination_num
+        )[:coordination_num]
+        
+        if len(nearest_indices) > 0:
+            adjacency_mat[i, nearest_indices] = 1.0
+
+    adjacency_mat = adjacency_mat.tocsr()
+
+    # TODO
+    # num_neighbors = np.sum(adjacency_mat > 0, axis=1).A.flatten()
+
+    # NB see https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.csr_matrix.getnnz.html
+    num_neighbors = adjacency_mat.getnnz(axis=1)
+    
     # NB lattice adjacency: min=2, median=2.0, max=4 neighbors per spot.
     logger.info(
         f"Lattice adjacency: min={np.min(num_neighbors)}, "

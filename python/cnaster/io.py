@@ -514,7 +514,7 @@ def load_input_data(
         adata = adata[:, indicator_filter]
 
         logger.info(
-            f"Median UMI after filtering genes = {np.median(np.sum(adata.layers['count'], axis=1)):_.3f}"
+            f"Median spot UMI after filtering genes = {np.median(np.sum(adata.layers['count'], axis=1)):_.3f}"
         )
 
         # TODO?
@@ -667,8 +667,6 @@ def load_input_data(
     # NB SNP consistency; 17_797 anndata genes vs 16_681 SNPs.
     assert len(unique_snp_ids) == cell_snp_Aallele.shape[1]
     assert cell_snp_Aallele.shape[1] == cell_snp_Ballele.shape[1]
-
-    exit(0)
 
     # TODO dense arrays.
     return (

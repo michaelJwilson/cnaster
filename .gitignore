@@ -11,6 +11,7 @@ sandbox/
 errors/
 logs/
 target/
+annotation/
 zenodo_sample_sheets/
 NOTES.md
 .nextflow*

@@ -10,17 +10,16 @@ logger = logging.getLogger(__name__)
 
 # TODO assumes reference gene contains all those present in Visium anndata.
 def form_gene_snp_table(
-    unique_snp_ids, hgtable_file, adata, num_preceeding_rows=50  # MAGIC
+    unique_snp_ids, hgtable_file, adata, num_preceeding_rows=100  # MAGIC
 ):
     logger.info(f"Forming gene & snp meta data.")
-    logger.info(f"Retrieving reference genes: {hgtable_file}")
 
-    # NB read gene info and keep only chr1-chr22 and genes appearing in adata
-    df_hgtable = get_reference_genes(hgtable_file)
+    # NB includes both gene and SNP info: CHR, START, END, snp_id, gene, is_interval
+    df_gene = get_reference_genes(hgtable_file)
 
-    logger.info(f"Filtering reference genes to those in visium: {hgtable_file}")
+    logger.info(f"Filtering reference genes to those in visium.")
 
-    common_genes = set(df_hgtable.name2) & set(adata.var.index)
+    common_genes = set(df_gene.gene) & set(adata.var.index)
     genes_not_in_reference = set(adata.var.index) - common_genes
 
     logger.info(
@@ -29,23 +28,11 @@ def form_gene_snp_table(
 
     logger.info(f"Found {len(genes_not_in_reference):_} genes to be in visium but not in reference:")
 
-    # for gene in sorted(genes_not_in_reference):
-    #   logger.info(gene)
+    for gene in sorted(genes_not_in_reference):
+       logger.info(gene)
 
     # NB limits reference genes to those present in (filtered) AnnData UMIs.
-    df_hgtable = df_hgtable[df_hgtable.name2.isin(adata.var.index)]
-
-    # NB a data frame including both gene and SNP info: CHR, START, END, snp_id, gene, is_interval
-    df_gene = pd.DataFrame(
-        {
-            "CHR": [int(x[3:]) for x in df_hgtable.chrom.to_numpy()],
-            "START": df_hgtable.cdsStart.to_numpy(),
-            "END": df_hgtable.cdsEnd.to_numpy(),
-            "snp_id": None,
-            "gene": df_hgtable.name2.to_numpy(),
-            "is_interval": True,
-        }
-    )
+    df_gene = df_gene[df_gene.gene.isin(adata.var.index)]
 
     # NB add SNP info: {contig}_{pos}_{ref}_{alt}.
     snp_chr = np.array([int(x.split("_")[0]) for x in unique_snp_ids])
@@ -129,6 +116,8 @@ def form_gene_snp_table(
 
     logger.info(f"Created gene-SNP table:\n{df_gene_snp.head()}")
 
+    exit(0)
+    
     return df_gene_snp
 
 

@@ -23,7 +23,7 @@ run:
 references:
   geneticmap_file : /Users/mw9568/repos/CalicoST/GRCh38_resources/genetic_map_GRCh38_merged.tab.gz
   hgtable_file : /Users/mw9568/repos/CalicoST/GRCh38_resources/hgTables_hg38_gencode.txt
-  annotation_file: None
+  annotation_file: /Users/mw9568/repos/cnaster/annotation/gencode.v49.basic.annotation.gtf.gz
   filtergenelist_file : /Users/mw9568/repos/CalicoST/GRCh38_resources/ig_gene_list.txt
   filterregion_file : /Users/mw9568/repos/CalicoST/GRCh38_resources/HLA_regions.bed
 

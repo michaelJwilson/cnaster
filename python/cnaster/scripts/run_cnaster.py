@@ -75,7 +75,7 @@ class RuntimeFormatter(logging.Formatter):
 
 
 formatter = RuntimeFormatter(
-    fmt="%(asctime)s - %(runtime)s - %(name)s - %(levelname)s - %(filename)s:%(lineno)d - %(message)s",
+    fmt="%(asctime)s - %(runtime)s - %(name)s - %(levelname)-7s - %(filename)s:%(lineno)d - %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 

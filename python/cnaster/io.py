@@ -168,13 +168,13 @@ def get_spaceranger_counts(spaceranger_dir):
     # NB see https://scanpy.readthedocs.io/en/stable/generated/scanpy.read_10x_h5.html
     if Path(f"{spaceranger_dir}/{filtered_feature_name}.h5").exists():
         adatatmp = sc.read_10x_h5(
-            f"{spaceranger_dir}/{filtered_feature_name}.h5", gex_only=True
+            f"{spaceranger_dir}/{filtered_feature_name}.h5", # gex_only=True
         )
         logger.info(f"Reading {spaceranger_dir}/{filtered_feature_name}.h5")
 
     elif Path(f"{spaceranger_dir}/{filtered_feature_name}.h5ad").exists():
         adatatmp = sc.read_h5ad(
-            f"{spaceranger_dir}/{filtered_feature_name}.h5ad", gex_only=True
+            f"{spaceranger_dir}/{filtered_feature_name}.h5ad", # gex_only=True
         )
         logger.info(f"Reading {spaceranger_dir}/{filtered_feature_name}.h5ad")
 
@@ -338,9 +338,9 @@ def load_input_data(
 
     assert cell_snp_Aallele.shape == cell_snp_Ballele.shape
 
-    cell_snps = (cell_snp_Aallele + cell_snp_Ballele).sum(axis=-1)
+    cell_snp = (cell_snp_Aallele + cell_snp_Ballele).todense().sum(axis=1)
     
-    logger.info(f"Read cell-snp A,B matrices of shape={cell_snp_Aallele.shape} with min={cell_snps.min()}, max={cell_snps.max()}, median={np.median(cell_snps)} snp-umis per cell.")
+    logger.info(f"Read cell-snp A,B matrices of shape={cell_snp_Aallele.shape} with min={cell_snp.min()}, max={cell_snp.max()}, median={np.median(cell_snp[0])} snp-umis per cell.")
     
     # NB read Visium transcripts/UMIs anndata & spot spatial coordinate.
     adata = None
@@ -673,8 +673,6 @@ def load_input_data(
     # NB SNP consistency; 17_797 anndata genes vs 16_681 SNPs.
     assert len(unique_snp_ids) == cell_snp_Aallele.shape[1]
     assert cell_snp_Aallele.shape[1] == cell_snp_Ballele.shape[1]
-
-    exit(0)
     
     # TODO dense arrays.
     return (

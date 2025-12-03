@@ -195,7 +195,7 @@ def summarize_lattice_structure(coords, sample_ids=None, sample_list=None):
 
     return coordination_number
 
-
+# TODO snp umi requirement
 def sufficient_umis_initial_clone(
     coords,
     spot_gene_umis,
@@ -226,6 +226,7 @@ def sufficient_umis_initial_clone(
     clone_assignment = np.full(n_spots, -1)
     clone_id = 0
 
+    # TODO note why transposed?
     spot_counts = np.sum(spot_gene_umis, axis=0)
 
     for i, _ in enumerate(sample_list):
@@ -243,16 +244,16 @@ def sufficient_umis_initial_clone(
         assigned = np.zeros(len(index), dtype=bool)
 
         while not np.all(assigned):
-            # NB pick the unassigned spot with the largest UMI count
             num_rounds = 0
             unassigned_idx = np.where(~assigned)[0]
 
+            # NB seed spot to grow a new initial clone.
             seed_idx = rand_rng.choice(unassigned_idx)
             group, group_umis = {seed_idx}, this_spot_counts[seed_idx]
 
             last_dist = np.inf
 
-            # NB compute distance from each unassigned spot to seed
+            # NB compute distances from seed to all spots on this slice.
             seed_dists = np.linalg.norm(
                 this_coords - this_coords[seed_idx], axis=1
             )
@@ -260,7 +261,7 @@ def sufficient_umis_initial_clone(
             initial_group_umis = this_spot_counts[seed_idx].copy()
 
             # NB grow group by adding nearest unassigned neighbors until MIN_CLONE_UMIS is reached
-            while group_umis < min_clone_umis and len(group) < num_spots_slice:
+            while group_umis < min_clone_umis:
                 unassigned_idx = np.where(~assigned)[0]
 
                 if len(unassigned_idx) == 0:
@@ -269,7 +270,7 @@ def sufficient_umis_initial_clone(
 
                 unassigned_seed_dists = seed_dists[unassigned_idx]
                 
-                # NB sort by distance from seed
+                # NB sort unassigned spots by distance from seed.
                 sorted_indices = np.argsort(unassigned_seed_dists)
                 sorted_dists = unassigned_seed_dists[sorted_indices]
                 sorted_neighbors = unassigned_idx[sorted_indices]
@@ -292,24 +293,26 @@ def sufficient_umis_initial_clone(
                         group.add(neighbor)
                         group_umis += this_spot_counts[neighbor]
 
+                        assigned[neighbor] = True
+
                         last_dist = min_dist_to_group
 
                     if group_umis >= min_clone_umis:
                         break
 
-                if (initial_group_umis == group_umis) or (len(group) == num_spots_slice):
+                num_rounds += 1
+
+                if (initial_group_umis == group_umis):
                     logger.warning(
-                        f"No growth of clone possible."
+                        f"Saturated growth of current clone."
                     )
                     break
 
                 if (num_rounds == max_growth_rounds):
                     logger.warning(
-                        f"Max growth rounds reached for clone {clone_id} in sample {i}."
+                        f"Max growth rounds={max_growth_rounds} reached for clone {clone_id} in sample {i}."
                     )
                     break
-
-                num_rounds += 1
 
             # NB assign clone_id to these spots
             for g in group:
@@ -320,19 +323,16 @@ def sufficient_umis_initial_clone(
 
             clone_id += 1
 
-    logger.info(f"Solved for initial clones.")
+    assert np.all(clone_assignment >= 0), "ERROR: spots were not assigned to a clone."
 
-    clone_ids = np.unique(clone_assignment[clone_assignment >= 0])
+    clone_ids = np.unique(clone_assignment)
 
-    if len(clone_ids) == 0:
-        logger.error("No clones were initialized.")
-        initial_clone_index = []
-        return initial_clone_index, clone_assignment, spot_counts
+    logger.info(f"Solved for first pass at initial clones={clone_ids}")
 
     clone_total_umis = {}
     for cid in clone_ids:
-        idxs = np.where(clone_assignment == cid)[0]
-        clone_total_umis[cid] = np.sum(spot_counts[idxs])
+        idx = np.where(clone_assignment == cid)[0]
+        clone_total_umis[cid] = np.sum(spot_counts[idx])
 
     sufficient = np.array(
         [cid for cid in clone_ids if clone_total_umis[cid] >= min_clone_umis]
@@ -344,7 +344,7 @@ def sufficient_umis_initial_clone(
 
     if len(insufficient) > 0:
         logger.info(
-            f"Found {len(insufficient)} clones with insufficient UMIs (< {min_clone_umis})."
+            f"Found {len(insufficient)} clones with insufficient UMIs (< {min_clone_umis:_})."
         )
 
         if len(sufficient) == 0:
@@ -361,20 +361,22 @@ def sufficient_umis_initial_clone(
 
             for cid in insufficient:
                 insuff_spot_idxs = np.where(clone_assignment == cid)[0]
+
                 for si in insuff_spot_idxs:
                     dists = np.linalg.norm(suff_coords - coords[si], axis=1)
                     target_clone = suff_clone_ids[np.argmin(dists)]
                     clone_assignment[si] = target_clone
 
-        new_ids = sorted(np.unique(clone_assignment[clone_assignment >= 0]))
+        new_ids = sorted(np.unique(clone_assignment))
         id_map = {old: new for new, old in enumerate(new_ids)}
         for old, new in id_map.items():
             clone_assignment[clone_assignment == old] = new
-        logger.info(f"After reassignment, total clones={len(id_map)}.")
+        logger.info(f"After reassignment based on min. umi, number of clones={len(id_map)}.")
 
     initial_clone_index = [
         np.where(clone_assignment == i)[0] for i in range(np.max(clone_assignment) + 1)
     ]
+
     return initial_clone_index, clone_assignment, spot_counts
 
 
@@ -563,7 +565,7 @@ def choose_lattice_adjacency(
     logger.info(f"Construcuted pairwise distances.")
     """
 
-    scaled_coords = coords.copy()
+    scaled_coords = coords.copy().astype(float)
     scaled_coords[:, 0] *= np.sqrt(unit_xsquared)
     scaled_coords[:, 1] *= np.sqrt(unit_ysquared)
 

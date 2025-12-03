@@ -9,6 +9,9 @@ preprocessing:
   normalidx_file : None
   tumorprop_file : None
 
+visium:
+  filtered_feature_name : "filtered_feature_bc_matrix"                                                                                                                                                            
+
 annotation:
   clone_label : None # /Users/mw9568/Work/ragr/sim/simulated_data_related/numcnas1.2_cnasize1e7_ploidy2_random0/truth_clone_labels.tsv
   true_cnv : None # /Users/mw9568/Work/ragr/sim/simulated_data_related/numcnas1.2_cnasize1e7_ploidy2_random0/truth_acn_profile.tsv
@@ -30,6 +33,7 @@ references:
 #           normal_allele_specific_confidence : (0.05, 0.95) ->
 #           min_normal_count_perbin : 20 ->
 quality:
+  spot_min_snp_umis : 50
   min_percent_expressed_spots : 0.0
   secondary_min_umi : 0
   secondary_min_snp_umi : 200

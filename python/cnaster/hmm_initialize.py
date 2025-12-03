@@ -135,12 +135,13 @@ def cna_mixture_init_search(
                 )
 
                 # TODO base_nb_mean is (N,1)?
-                sample_ln_rdr = np.log(
-                    X[sample_segment, 0, sample_spot] / base_nb_mean[sample_segment, 0]
-                )
-                sample_baf = (
-                    X[sample_segment, 1, sample_spot] / total_bb_RD[sample_segment, 0]
-                )
+                with np.errstate(divide='ignore', invalid='ignore'):
+                    sample_ln_rdr = np.log(
+                        X[sample_segment, 0, sample_spot] / base_nb_mean[sample_segment, 0]
+                    )
+                    sample_baf = (
+                        X[sample_segment, 1, sample_spot] / total_bb_RD[sample_segment, 0]
+                    )
 
             log_mu = np.vstack([log_mu, [[sample_ln_rdr]]])
             p_binom = np.vstack([p_binom, [[sample_baf]]])

@@ -994,7 +994,7 @@ def run_cnaster(config_path, over_rides=None):
     clone_res = {}
 
     for bafc in range(n_baf_clones):
-        logger.info(f"Solving for BAF clone {bafc}/{n_baf_clones}.")
+        logger.info(f"Refining BAF identified clone {bafc}/{n_baf_clones}.")
 
         prefix = f"clone{bafc}"
 
@@ -1018,7 +1018,7 @@ def run_cnaster(config_path, over_rides=None):
 
             continue
 
-        """
+        
         # NB initialize new set of clones within this BAF identified clone.
         # TODO tumor_prop, i.e. _mix.
         initial_clone_index, _ = rectangle_initialize_initial_clone(
@@ -1026,9 +1026,10 @@ def run_cnaster(config_path, over_rides=None):
             config.hmrf.n_clones_rdr,
             random_state=0,  # TODO HACK.
         )
+        
         """
-
         # TODO HACK?  splits each BAF clone along the x direction.
+        # TODO BUG require min spots/umis etc ...
         x_part, y_part = config.hmrf.n_clones_rdr, 1
         
         initial_clone_index, _ = fixed_rectangle_partition(
@@ -1036,7 +1037,8 @@ def run_cnaster(config_path, over_rides=None):
             x_part,
             y_part,
         )
-
+        """
+        
         initial_assignment = np.zeros(len(idx_spots), dtype=int)
 
         # NB zero-indexes clones.
@@ -1471,7 +1473,6 @@ def run_cnaster(config_path, over_rides=None):
                 logger.warning("Final clone {cid} has no assigned transcripts.")
                 continue
 
-            # lambd = base_nb_mean[:, s] / np.sum(base_nb_mean[:, s])
             this_pred_cnv = res_combine["pred_cnv"][:, s]
 
             # NB log state usage
@@ -1483,6 +1484,7 @@ def run_cnaster(config_path, over_rides=None):
             )
 
             # NB adjust log_mu such that sum_bin lambda * np.exp(log_mu) = 1.
+            lambd = base_nb_mean[:, s] / np.sum(base_nb_mean[:, s])
             adjusted_log_mu = np.log(
                 np.exp(res_combine["new_log_mu"][:, s])
                 / np.sum(np.exp(res_combine["new_log_mu"][this_pred_cnv, s]) * lambd)

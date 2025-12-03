@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 # TODO assumes reference gene contains all those present in Visium anndata.
 def form_gene_snp_table(
-    unique_snp_ids, hgtable_file, adata, num_preceeding_rows=1_000  # MAGIC
+    unique_snp_ids, hgtable_file, adata, verbose=False, num_preceeding_rows=1_000  # MAGIC
 ):
     logger.info(f"Forming gene & snp meta data.")
 
@@ -30,10 +30,11 @@ def form_gene_snp_table(
     logger.info(f"Found {len(genes_not_in_reference):_} genes to be in visium but not in reference:")
 
     genes_sorted = sorted(genes_not_in_reference)
-    
-    for i in range(0, len(genes_sorted), 10):
-        chunk = genes_sorted[i:i + 10]
-        logger.info(", ".join(chunk))
+
+    if verbose:
+        for i in range(0, len(genes_sorted), 10):
+            chunk = genes_sorted[i:i + 10]
+            logger.info(", ".join(chunk))
     
     # NB limits reference genes to those present in (filtered) AnnData UMIs.
     df_gene = df_gene[df_gene.gene.isin(adata.var.index)]

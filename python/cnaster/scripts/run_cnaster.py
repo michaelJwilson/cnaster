@@ -154,6 +154,7 @@ def run_cnaster(config_path, over_rides=None):
         config,
         filter_gene_file=config.references.filtergenelist_file,
         filter_range_file=config.references.filterregion_file,
+        min_snp_umis=config.quality.spot_min_snp_umis, 
         min_percent_expressed_spots=config.quality.min_percent_expressed_spots,
     )
 
@@ -545,6 +546,8 @@ def run_cnaster(config_path, over_rides=None):
 
     fig_path = f"{plots_dir}/initial_clones_spatial.pdf"
     write_fig(fig_path, initial_clones_fig, transparent=True, bbox_inches="tight")
+
+    exit(0)
     
     logger.info(
         "Solving HMM & HMRF for copy states and clone assignment with BAF only."

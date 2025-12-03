@@ -133,7 +133,7 @@ def get_spatial_positions(spaceranger_dir, filter_in_tissue=True):
             .with_columns(pl.col("cell_id").alias("barcode"))
         ).to_pandas() # .set_index("barcode")
         
-        logger.info(f"Reading {spaceranger_dir}/spatial/tissue_positions.parquet")
+        logger.info(f"Read {spaceranger_dir}/spatial/tissue_positions.parquet:\n{df_this_pos}")
 
     else:
         logger.error(f"No spatial coordinate file @ {spaceranger_dir}.")
@@ -454,7 +454,7 @@ def load_input_data(
     indicator = np.sum(adata.layers["count"], axis=1) >= min_snp_umis
 
     logger.info(
-        f"Retaining {100.0 * np.mean(indicator):.3f}% of spots with sufficient UMIs"
+        f"Retaining {100.0 * np.mean(indicator):.3f}% of spots with sufficient UMIs (>= {min_snp_umis})."
     )
 
     # NB retain barcodes with sufficient SNP covering UMIs per spot.
@@ -465,9 +465,9 @@ def load_input_data(
     )
 
     logger.info(
-        f"Retaining {100.0 * np.mean(indicator):.3f}% of spots with sufficient snp UMIs"
+        f"Retaining {100.0 * np.mean(indicator):.3f}% of spots with sufficient snp-/UMIs (>= {min_snp_umis})."
     )
-
+ 
     adata = adata[indicator, :]
 
     cell_snp_Aallele = cell_snp_Aallele[indicator, :]
@@ -669,7 +669,7 @@ def load_input_data(
     assert cell_snp_Aallele.shape[1] == cell_snp_Ballele.shape[1]
 
     exit(0)
-    
+
     # TODO dense arrays.
     return (
         adata,

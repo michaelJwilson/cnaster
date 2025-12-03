@@ -32,12 +32,14 @@ references:
   filtergenelist_file : /u/mw9568/research/data/references/ig_gene_list.txt
   filterregion_file : /u/mw9568/research/data/references/HLA_regions.bed
 
-# TODO HACK 
+# TODO HACK
+#           spot_min_snp_umis : 50 ->
 #           min_percent_expressed_spots : 0.005 ->
 #           secondary_min_snp_umi : 300 ->
 #           normal_allele_specific_confidence : (0.05, 0.95) ->
 #           min_normal_count_perbin : 20 ->
 quality:
+  spot_min_snp_umis : 10
   min_percent_expressed_spots : 0.0
   secondary_min_umi : 0
   secondary_min_snp_umi : 300

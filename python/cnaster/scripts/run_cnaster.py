@@ -438,7 +438,7 @@ def run_cnaster(config_path, over_rides=None):
         )
         """
         # TODO HACK
-        x_part = y_part = 4
+        x_part = y_part = 3
         initial_clone_index_baf, clone_id = fixed_rectangle_partition(
             coords, x_part, y_part, single_tumor_prop=None, threshold=0.5
         )
@@ -545,6 +545,8 @@ def run_cnaster(config_path, over_rides=None):
 
     fig_path = f"{plots_dir}/initial_clones_spatial.pdf"
     write_fig(fig_path, initial_clones_fig, transparent=True, bbox_inches="tight")
+
+    exit(0)
     
     logger.info(
         "Solving HMM & HMRF for copy states and clone assignment with BAF only."

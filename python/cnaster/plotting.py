@@ -202,7 +202,7 @@ def plot_clones_genomic(
             row += 1
 
     if sample_list is not None:
-        fig.suptitle(", ".join(sample_list), x=0.5, y=1.05, fontsize=16, ha='center')
+        fig.suptitle(", ".join(sample_list), x=0.5, y=1.0, fontsize=16, ha='center')
 
     logger.info(
         f"Found non-empty clones: {nonempty_clones} for final_clone_ids={final_clone_ids}"
@@ -460,8 +460,8 @@ def plot_clones_genomic(
         )
 
         ax.text(
-            0.5,
-            1.15,
+            0.,
+            1.1,
             f"{spots_per_clone[c]:_} spots;",
             ha="center",
             va="bottom",

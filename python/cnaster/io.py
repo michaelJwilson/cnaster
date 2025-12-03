@@ -337,12 +337,10 @@ def load_input_data(
     cell_snp_Ballele = scipy.sparse.load_npz(f"{snp_dir}/cell_snp_Ballele.npz")
 
     assert cell_snp_Aallele.shape == cell_snp_Ballele.shape
+
+    cell_snps = (cell_snp_Aallele + cell_snp_Ballele).sum(axis=-1)
     
-    logger.info(f"Read cell-snp A,B matrices of shape={cell_snp_Aallele.shape}")
-
-    cell_snps = (cell_snp_Aallele + cell_snp_Ballele).sum(-1)
-
-    logger.info(f"Found min={cell_snps.min()}, max={cell_snps.max()}, median={np.median(cell_snps)} snps per cell")
+    logger.info(f"Read cell-snp A,B matrices of shape={cell_snp_Aallele.shape} with min={cell_snps.min()}, max={cell_snps.max()}, median={np.median(cell_snps)} snp-umis per cell.")
     
     # NB read Visium transcripts/UMIs anndata & spot spatial coordinate.
     adata = None

@@ -240,7 +240,6 @@ def plot_adjacency(
 ):
     fig, ax = plt.subplots(1, 1, figsize=(base_height * 1.2, base_height), dpi=300, facecolor="white")
     ax.set_title("Adjacency", fontsize=14)
-
     ax.scatter(
         coords[:, 0],
         -coords[:, 1],
@@ -253,6 +252,9 @@ def plot_adjacency(
 
     # NB can be pooled with self only.
     rows, cols = smooth_mat.nonzero()
+
+    logger.info(f"Mean pooling per spot: {np.mean(smooth_mat.sum(axis=0))}")
+
     for i, j in zip(rows, cols):
         if i < j:
             ax.plot(
@@ -263,6 +265,8 @@ def plot_adjacency(
                 linewidth=0.5,
                 zorder=2
             )
+
+    logger.info(f"Mean edge weight per spot: {np.mean(adjacency_mat.sum(axis=0))}")
 
     rows, cols = adjacency_mat.nonzero()
     weights = np.array(adjacency_mat[rows, cols]).flatten()
@@ -275,16 +279,15 @@ def plot_adjacency(
     samples = np.random.randint(0, high=20, size=n_nodes, dtype=int)
 
     for i, j, w in zip(rows, cols, weights):
-        if i < j:
-            alpha = np.clip(w / max_weight, 0.1, 1.0)
-            ax.plot(
-                [coords[i, 0], coords[j, 0]],
-                [-coords[i, 1], -coords[j, 1]],
-                c=cm(samples[i]),
-                alpha=alpha,
-                linewidth=0.5,
-                zorder=3
-            )
+        alpha = np.clip(w / max_weight, 0.1, 1.0)
+        ax.plot(
+            [coords[i, 0], coords[j, 0]],
+            [-coords[i, 1], -coords[j, 1]],
+            c=cm(samples[i]),
+            alpha=alpha,
+            linewidth=0.5,
+            zorder=3
+        )
 
     ax.axis("off")
     

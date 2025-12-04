@@ -168,7 +168,7 @@ def plot_clones_genomic_simple(
     if sample_list is not None:
         fig.suptitle(", ".join(sample_list), x=0.5, y=0.99, fontsize=16, ha="center")
     
-    unique_chrs = np.arange(len(lengths))
+    unique_chrs = 1 + np.arange(len(lengths))
     
     for s, c in enumerate(nonempty_clones):
         ax_idx = s * axes_per_clone
@@ -240,9 +240,9 @@ def plot_clones_genomic_simple(
         )
     
     for i in range(len(lengths)):
-        median_len = np.sum(lengths[:(i)]) * 0.55 + np.sum(lengths[: (i + 1)]) * 0.45
+        start_len = np.sum(lengths[:i])
         axes[-1].text(
-            median_len - 7.5,
+            start_len,
             chrtext_shift,
             f"chr{unique_chrs[i]}",
             rotation=45,
@@ -251,7 +251,7 @@ def plot_clones_genomic_simple(
             ha="left",
         )
         for k in range(len(axes)):
-            axes[k].axvline(x=np.sum(lengths[:(i)]), c="k", linewidth=1)
+            axes[k].axvline(x=start_len, c="k", linewidth=1)
 
     for s, c in enumerate(nonempty_clones):
         ax_idx = s * axes_per_clone

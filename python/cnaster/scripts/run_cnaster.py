@@ -313,6 +313,27 @@ def run_cnaster(config_path, over_rides=None):
             y_part=config.phasing.npart_phasing,
         )
 
+    assignment = np.full(len(coords), -1, dtype=int)
+
+    for clone_id, indices in enumerate(initial_clone_for_phasing):
+        assignment[indices] = clone_id
+
+    assignment = pd.Series([f"clone {x}" for x in assignment])
+    phasing_clones_fig = plot_clones_spatial(
+    	coords,
+        assignment,
+        single_tumor_prop=single_tumor_prop,
+        sample_list=sample_list,
+        sample_ids=sample_ids,
+        base_width=4,
+	    base_height=3,
+    )
+
+    fig_path = f"{plots_dir}/phasing_clones_spatial.pdf"
+    write_fig(fig_path, phasing_clones_fig, transparent=True, bbox_inches="tight")
+
+    exit(0)
+        
     # TODO copy rename.
     prephasing_clones_genomic = plot_clones_genomic_simple(
         single_X,

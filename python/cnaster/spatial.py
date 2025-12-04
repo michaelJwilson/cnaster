@@ -798,7 +798,7 @@ def multislice_adjacency(
         # NB (x,y) for these spots.
         this_coords = np.array(coords[index, :])
 
-        """
+        
         tmpsmooth_mat, tmpadjacency_mat = choose_adjacency_by_readcounts(
             this_coords,
             single_total_bb_RD[:, index],
@@ -807,7 +807,6 @@ def multislice_adjacency(
             unit_ysquared=unit_ysquared,
         )
         """
-        
         tmpsmooth_mat, tmpadjacency_mat = choose_lattice_adjacency(
             this_coords,
             single_total_bb_RD[:, index],
@@ -815,6 +814,7 @@ def multislice_adjacency(
             unit_xsquared=unit_xsquared,
             unit_ysquared=unit_ysquared,
         )
+        """
 
         adjacency_mat.append(tmpadjacency_mat.toarray())
         smooth_mat.append(tmpsmooth_mat.toarray())

@@ -126,7 +126,6 @@ def plot_gene_snp_spatial(
 ):
     genes = df_gene_snp["gene"].unique()
 
-    # Sort genes by total UMIs
     def get_gene_umi(g):
         if g in adata.var_names:
             return float(np.sum(adata[:, g].X))
@@ -239,13 +238,14 @@ def plot_adjacency(
     cmap="tab20b",
 ):
     fig, ax = plt.subplots(1, 1, figsize=(base_height * 1.2, base_height), dpi=300, facecolor="white")
-    ax.set_title("Adjacency", fontsize=14)
+    ax.set_title("Assumed adjacency", fontsize=12, y=0.95)
     ax.scatter(
         coords[:, 0],
         -coords[:, 1],
-        c="lightgray",
+        facecolors="none",
         s=pointsize,
-        edgecolor="none",
+        edgecolor="k",
+        linewidth=0.1,
         alpha=0.8,
         zorder=1
     )
@@ -255,16 +255,22 @@ def plot_adjacency(
 
     logger.info(f"Mean pooling per spot: {np.mean(smooth_mat.sum(axis=0))}")
 
+    exclude = set()
+
     for i, j in zip(rows, cols):
-        if i < j:
-            ax.plot(
-                [coords[i, 0], coords[j, 0]],
-                [-coords[i, 1], -coords[j, 1]],
-                c="orange",
-                alpha=0.5,
-                linewidth=0.5,
-                zorder=2
-            )
+        if i in exclude:
+            continue
+
+        exclude.add(j)
+
+        ax.plot(
+            [coords[i, 0], coords[j, 0]],
+            [-coords[i, 1], -coords[j, 1]],
+            c="k",
+            alpha=1.,
+            linewidth=0.1,
+            zorder=3
+        )
 
     logger.info(f"Mean edge weight per spot: {np.mean(adjacency_mat.sum(axis=0))}")
 
@@ -276,17 +282,24 @@ def plot_adjacency(
     cm = plt.get_cmap(cmap)
     n_nodes = coords.shape[0]
 
-    samples = np.random.randint(0, high=20, size=n_nodes, dtype=int)
+    node_colors = np.random.randint(0, 20, size=n_nodes)
+    exclude = set()
 
-    for i, j, w in zip(rows, cols, weights):
-        alpha = np.clip(w / max_weight, 0.1, 1.0)
+    for _, (row, col, weight) in enumerate(zip(rows, cols, weights)):
+        if row in exclude:
+            continue
+
+        exclude.add(col)
+
+        # NB row & col guranteed to be in visited, with rank fixed by first appearance.
+        c_idx = node_colors[row]
         ax.plot(
-            [coords[i, 0], coords[j, 0]],
-            [-coords[i, 1], -coords[j, 1]],
-            c=cm(samples[i]),
-            alpha=alpha,
-            linewidth=0.5,
-            zorder=3
+            [coords[row, 0], coords[col, 0]],
+            [-coords[row, 1], -coords[col, 1]],
+            c=cm(node_colors[c_idx]),
+            alpha=1.0,
+            linewidth=0.5 * weight / max_weight,
+            zorder=1
         )
 
     ax.axis("off")

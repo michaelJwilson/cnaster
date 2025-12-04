@@ -243,7 +243,7 @@ def run_cnaster(config_path, over_rides=None):
         base_height=4,
     )
     """
-    
+
     # NB parse_visium::create_haplotype_block_ranges
     df_gene_snp = assign_initial_blocks(
         df_gene_snp,

@@ -134,12 +134,14 @@ def get_spatial_positions(spaceranger_dir, filter_in_tissue=True):
                 ]
             )
             .with_columns(pl.col("cell_id").alias("barcode"))
-        ).to_pandas()  # .set_index("barcode")
+        )
 
         logger.info(
             f"Read {spaceranger_dir}/spatial/tissue_positions.parquet:\n{df_this_pos}"
         )
-
+        
+        df_this_pos = df_this_pos.to_pandas() # .set_index("barcode")
+        
     else:
         logger.error(f"No spatial coordinate file @ {spaceranger_dir}.")
         raise RuntimeError()

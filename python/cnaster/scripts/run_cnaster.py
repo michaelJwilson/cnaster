@@ -61,7 +61,7 @@ from cnaster.integer_copy import (
     hill_climbing_integer_copynumber_oneclone,
     hill_climbing_integer_copynumber_fixdiploid,
 )
-from cnaster.plotting import plot_clones_genomic, plot_clones_spatial, plot_clones_genomic_simple, plot_gene_snp_spatial, plot_gene_snp_spatial
+from cnaster.plotting import plot_clones_genomic, plot_clones_spatial, plot_clones_genomic_simple, plot_gene_snp_spatial, plot_gene_snp_spatial, plot_adjacency
 from collections import defaultdict
 
 start_time = time.time()
@@ -230,6 +230,7 @@ def run_cnaster(config_path, over_rides=None):
         unique_snp_ids, config.references.hgtable_file, adata
     )
 
+    """
     plot_gene_snp_spatial(
         adata,
         cell_snp_Aallele,
@@ -241,7 +242,8 @@ def run_cnaster(config_path, over_rides=None):
         cmap="viridis",
         base_height=4,
     )
-
+    """
+    
     # NB parse_visium::create_haplotype_block_ranges
     df_gene_snp = assign_initial_blocks(
         df_gene_snp,
@@ -482,6 +484,19 @@ def run_cnaster(config_path, over_rides=None):
         unit_xsquared=config.hmrf.unit_xsquared,
         unit_ysquared=config.hmrf.unit_ysquared,
     )
+
+    adjacency_fig = plot_adjacency(
+        coords,
+        smooth_mat,
+        adjacency_mat,
+        pointsize=5,
+        base_height=6,
+    )
+
+    fig_path = f"{plots_dir}/adjacency.pdf"
+    write_fig(fig_path, adjacency_fig, transparent=True, bbox_inches="tight")
+
+    exit(0)
 
     # TODO table_bininfo? table_rdrbaf? table_meta?
     # NB end run_parse_n_load::parse_visium.

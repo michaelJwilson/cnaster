@@ -121,7 +121,8 @@ def plot_gene_snp_spatial(
     pointsize=10,
     cmap="viridis",
     base_height=4,
-    sampling=0.1, 
+    sampling=1.,
+    max_genes=100,
 ):
     genes = df_gene_snp["gene"].unique()
 
@@ -139,9 +140,16 @@ def plot_gene_snp_spatial(
 
     os.makedirs(f"{plots_dir}/genes", exist_ok=True)
 
+    gene_count = 0
+
     for gene_name in genes:
         if np.random.rand() > sampling:
             continue
+
+        if gene_count >= max_genes:
+            break
+
+        gene_count += 1
 
         try:
             gene_expression = adata[:, gene_name].X
@@ -221,6 +229,67 @@ def plot_gene_snp_spatial(
 
         gene_fig_path = f"{plots_dir}/genes/{gene_name}_umis{total_umis}_snpumis{total_snp_umis}_spatial.pdf"
         write_fig(gene_fig_path, fig, transparent=True, bbox_inches="tight")
+
+def plot_adjacency(
+    coords,
+    smooth_mat,
+    adjacency_mat,
+    pointsize=5,
+    base_height=6,
+    cmap="tab20b",
+):
+    fig, ax = plt.subplots(1, 1, figsize=(base_height * 1.2, base_height), dpi=300, facecolor="white")
+    ax.set_title("Adjacency", fontsize=14)
+
+    ax.scatter(
+        coords[:, 0],
+        -coords[:, 1],
+        c="lightgray",
+        s=pointsize,
+        edgecolor="none",
+        alpha=0.8,
+        zorder=1
+    )
+
+    # NB can be pooled with self only.
+    rows, cols = smooth_mat.nonzero()
+    for i, j in zip(rows, cols):
+        if i < j:
+            ax.plot(
+                [coords[i, 0], coords[j, 0]],
+                [-coords[i, 1], -coords[j, 1]],
+                c="orange",
+                alpha=0.5,
+                linewidth=0.5,
+                zorder=2
+            )
+
+    rows, cols = adjacency_mat.nonzero()
+    weights = np.array(adjacency_mat[rows, cols]).flatten()
+    
+    max_weight = weights.max() if weights.size > 0 else 1.0
+    
+    cm = plt.get_cmap(cmap)
+    n_nodes = coords.shape[0]
+
+    samples = np.random.randint(0, high=20, size=n_nodes, dtype=int)
+
+    for i, j, w in zip(rows, cols, weights):
+        if i < j:
+            alpha = np.clip(w / max_weight, 0.1, 1.0)
+            ax.plot(
+                [coords[i, 0], coords[j, 0]],
+                [-coords[i, 1], -coords[j, 1]],
+                c=cm(samples[i]),
+                alpha=alpha,
+                linewidth=0.5,
+                zorder=3
+            )
+
+    ax.axis("off")
+    
+    fig.tight_layout()
+    return fig
 
 def plot_clones_genomic_simple(
     single_X,

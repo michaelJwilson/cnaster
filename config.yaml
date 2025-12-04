@@ -76,7 +76,7 @@ hmrf:
   min_avgumi_per_clone : 10
   maxspots_pooling : 20
   tumorprop_threshold : 0.5
-  max_iter_outer : 5
+  max_iter_outer : 2
   nodepotential : max
   initialization_method : rectangle
   num_hmrf_initialization_start : 0

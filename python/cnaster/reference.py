@@ -2,6 +2,7 @@ import logging
 import re
 
 import pandas as pd
+import polars as pl
 import pyranges as pr
 from cnaster.config import get_global_config
 

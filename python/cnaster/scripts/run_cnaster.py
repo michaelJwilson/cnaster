@@ -1012,6 +1012,8 @@ def run_cnaster(config_path, over_rides=None):
     n_obs = single_X.shape[0]
     # <<<<<
 
+    exit(0)
+    
     logger.info(
         f"Refinining {n_baf_clones} BAF identified clones with RDR data assuming n_clones_rdr={config.hmrf.n_clones_rdr}"
     )

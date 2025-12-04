@@ -346,7 +346,7 @@ def load_input_data(
     cell_snp = (cell_snp_Aallele + cell_snp_Ballele).todense().sum(axis=1)
 
     logger.info(
-        f"Read cell-snp A,B matrices of shape={cell_snp_Aallele.shape} with min={cell_snp.min()}, max={cell_snp.max()}, median={np.median(cell_snp[0])} snp-umis per cell.  Found np.sum(cell_snp) snp-umis total."
+        f"Read cell-snp A,B matrices of shape={cell_snp_Aallele.shape} with min={cell_snp.min()}, max={cell_snp.max()}, median={np.median(cell_snp[0])} snp-umis per cell.  Found {np.sum(cell_snp):_} snp-umis total."
     )
 
     # NB read Visium transcripts/UMIs anndata & spot spatial coordinate.

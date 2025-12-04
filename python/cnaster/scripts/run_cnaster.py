@@ -496,8 +496,6 @@ def run_cnaster(config_path, over_rides=None):
     fig_path = f"{plots_dir}/adjacency.pdf"
     write_fig(fig_path, adjacency_fig, transparent=True, bbox_inches="tight")
 
-    exit(0)
-
     # TODO table_bininfo? table_rdrbaf? table_meta?
     # NB end run_parse_n_load::parse_visium.
 
@@ -1073,8 +1071,6 @@ def run_cnaster(config_path, over_rides=None):
     single_base_nb_mean = copy_single_base_nb_mean
     n_obs = single_X.shape[0]
     # <<<<<
-
-    exit(0)
     
     logger.info(
         f"Refinining {n_baf_clones} BAF identified clones with RDR data assuming n_clones_rdr={config.hmrf.n_clones_rdr}"

@@ -714,8 +714,6 @@ def run_cnaster(config_path, over_rides=None):
     fig_path = f"{plots_dir}/bafonly_clones_genomic.pdf"
     write_fig(fig_path, bafonly_clones_genomic, transparent=True, bbox_inches="tight")
 
-    exit(0)
-
     if config.hmrf.np_merge:
         # NB merge similar clones based on Neyman-Pearson
         _, merged_res = neyman_pearson_similarity(
@@ -779,6 +777,7 @@ def run_cnaster(config_path, over_rides=None):
             for c in np.sort(np.unique(merged_res["new_assignment"]))
         ],
         lengths,
+        res=merged_res,
         single_tumor_prop=None,
         sample_list=sample_list,
         remove_xticks=True,
@@ -791,8 +790,6 @@ def run_cnaster(config_path, over_rides=None):
 
     fig_path = f"{plots_dir}/merged_bafonly_clones_genomic.pdf"
     write_fig(fig_path, merged_bafonly_clones_genomic, transparent=True, bbox_inches="tight")
-
-    exit(0)
 
     # NB construct clone labels.
     df_clone_label = pd.DataFrame(

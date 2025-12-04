@@ -109,7 +109,6 @@ def get_intervals(pred_cnv):
             s = s + t
     return intervals, labs
 
-
 def plot_clones_genomic_simple(
     single_X,
     single_base_nb_mean,
@@ -140,13 +139,19 @@ def plot_clones_genomic_simple(
     spots_per_clone = [len(idx) for idx in clone_index]
     nonempty_clones = np.where(np.sum(total_bb_RD, axis=0) > 0)[0]
     
+    # Check if base_nb_mean is defined and has valid data
+    has_rdr = base_nb_mean is not None and np.max(base_nb_mean) > 0
+    
     n_pairs = len(nonempty_clones)
+    axes_per_clone = 2 if has_rdr else 1  # RDR + BAF if RDR available, else just BAF
+    n_axes_total = axes_per_clone * n_pairs
+    
     fig = plt.figure(figsize=(20, base_height * n_pairs), dpi=300, facecolor="white")
     
     # Build height_ratios with spacing between pairs
     height_ratios = []
     for i in range(n_pairs):
-        height_ratios.extend([1, 1])
+        height_ratios.extend([1] * axes_per_clone)
         if i < n_pairs - 1:
             height_ratios.append(0.25)
     
@@ -154,10 +159,10 @@ def plot_clones_genomic_simple(
     gs = gridspec.GridSpec(n_rows, 1, height_ratios=height_ratios, hspace=0)
     
     axes, row = [], 0
-    for i in range(2 * n_pairs):
+    for i in range(n_axes_total):
         axes.append(fig.add_subplot(gs[row, 0]))
         row += 1
-        if (i % 2 == 1) and (i < 2 * n_pairs - 1):
+        if (i % axes_per_clone == axes_per_clone - 1) and (i < n_axes_total - 1):
             row += 1
     
     if sample_list is not None:
@@ -166,22 +171,30 @@ def plot_clones_genomic_simple(
     unique_chrs = np.arange(len(lengths))
     
     for s, c in enumerate(nonempty_clones):
-        sns.scatterplot(
-            x=np.arange(X.shape[0]),
-            y=X[:, 0, c] / base_nb_mean[:, c],
-            s=pointsize,
-            edgecolor="none",
-            linewidth=linewidth,
-            ax=axes[2 * s],
-        )
+        ax_idx = s * axes_per_clone
         
-        axes[2 * s].set_ylabel("RDR")
-        axes[2 * s].set_ylim([-0.5, rdr_ylim])
-        axes[2 * s].set_xlim([0, n_obs])
+        if has_rdr:
+            sns.scatterplot(
+                x=np.arange(X.shape[0]),
+                y=X[:, 0, c] / base_nb_mean[:, c],
+                s=pointsize,
+                edgecolor="none",
+                linewidth=linewidth,
+                ax=axes[ax_idx],
+            )
+            
+            axes[ax_idx].set_ylabel("RDR")
+            axes[ax_idx].set_ylim([-0.5, rdr_ylim])
+            axes[ax_idx].set_xlim([0, n_obs])
+            
+            if remove_xticks:
+                axes[ax_idx].set_xticks([])
+            
+            # Add gray axvlines for segments in RDR
+            for i in range(len(lengths)):
+                axes[ax_idx].axvline(x=np.sum(lengths[:(i)]), c="lightgray", linewidth=0.5)
         
-        if remove_xticks:
-            axes[2 * s].set_xticks([])
-        
+        baf_idx = ax_idx + (1 if has_rdr else 0)
         sns.scatterplot(
             x=np.arange(X.shape[0]),
             y=X[:, 1, c] / total_bb_RD[:, c],
@@ -189,22 +202,26 @@ def plot_clones_genomic_simple(
             edgecolor="none",
             alpha=0.8,
             legend=False,
-            ax=axes[2 * s + 1],
+            ax=axes[baf_idx],
         )
         
-        axes[2 * s + 1].set_ylabel("BAF")
-        axes[2 * s + 1].set_ylim([-0.05, 1.05])
-        axes[2 * s + 1].set_yticks(np.arange(0.0, 1.1, 0.2))
-        axes[2 * s + 1].set_xlim([0, n_obs])
+        axes[baf_idx].set_ylabel("BAF")
+        axes[baf_idx].set_ylim([-0.05, 1.05])
+        axes[baf_idx].set_yticks(np.arange(0.0, 1.1, 0.2))
+        axes[baf_idx].set_xlim([0, n_obs])
         
         if remove_xticks:
-            axes[2 * s + 1].set_xticks([])
+            axes[baf_idx].set_xticks([])
         
-        ax = axes[2 * s]
+        # Add gray axvlines for segments in BAF
+        for i in range(len(lengths)):
+            axes[baf_idx].axvline(x=np.sum(lengths[:(i)]), c="lightgray", linewidth=0.5)
+        
+        ax = axes[ax_idx]
         ax.text(
             -0.04,
             0.00,
-            f"Clone {c}",
+            f"{cast_clone_label(str(c))}",
             ha="center",
             va="center",
             fontsize=12,
@@ -214,7 +231,7 @@ def plot_clones_genomic_simple(
         
         ax.text(
             0.0,
-            1.1,
+            1.02,
             f"{spots_per_clone[c]:_} spots; {int(np.sum(X[:, 0, c])):_} UMIs; {int(np.sum(total_bb_RD[:, c])):_} SNP-UMIs",
             ha="left",
             va="bottom",
@@ -232,7 +249,7 @@ def plot_clones_genomic_simple(
             fontsize=9,
             ha="left",
         )
-        for k in range(2 * len(nonempty_clones)):
+        for k in range(len(axes)):
             axes[k].axvline(x=np.sum(lengths[:(i)]), c="k", linewidth=1)
     
     fig.tight_layout()

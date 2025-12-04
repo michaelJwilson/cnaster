@@ -1167,7 +1167,7 @@ def update_emission_params_bb_sitewise_uniqvalues(
                                 else res2.params[-1]
                             )
         else:
-            logger.info(
+            logger.debug(
                 "Constructing input for (phasing) BAF emission parameters with shared dispersion."
             )
 

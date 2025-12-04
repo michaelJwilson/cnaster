@@ -20,6 +20,7 @@ cancer_gene_patterns = (
     r"^RPS",  # Ribosomal protein S genes
 )
 
+pl.Config.set_tbl_cols(-1)
 
 def exp_cancer_gene(gene_name):
     return any(re.match(pattern, gene_name) for pattern in cancer_gene_patterns)

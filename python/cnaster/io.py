@@ -480,7 +480,7 @@ def load_input_data(
     )
 
     logger.info(
-        f"Retaining {100.0 * np.mean(indicator):.3f}% of spots with sufficient snp-/UMIs (>= {min_snp_umis})."
+        f"Retaining {100.0 * np.mean(indicator):.3f}% of spots with sufficient snp-UMIs (>= {min_snp_umis})."
     )
 
     adata = adata[indicator, :]
@@ -499,7 +499,7 @@ def load_input_data(
     spot_umis = np.sum(adata.layers["count"], axis=1)
     percentiles = [0, 1, 5, 10, 25, 50, 75, 90, 95, 99, 100]
     perc_vals = np.percentile(spot_umis, percentiles)
-    pairs = ", ".join(f"{p:>3d}th={v:_.0f}" for p, v in zip(percentiles, perc_vals))
+    pairs = "\n".join(f"{100. * p:.3f}[%]\t{v:_.0f}" for p, v in zip(percentiles, perc_vals))
     logger.info(f"UMIs per spot percentiles: {pairs}")
         
     # NB filter out genes that are expressed in < min_percent_expressed_spots spots.

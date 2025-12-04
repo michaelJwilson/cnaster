@@ -313,6 +313,7 @@ def plot_clones_genomic_simple(
     single_total_bb_RD,
     clone_index,
     lengths,
+    res=None,
     single_tumor_prop=None,
     sample_list=None,
     remove_xticks=True,
@@ -440,6 +441,42 @@ def plot_clones_genomic_simple(
             fontsize=12,
             transform=ax.transAxes,
         )
+
+        if res is not None:
+            # NB for all clones
+            pred = np.argmax(res["log_gamma"], axis=0)
+            pred = np.array(
+                [pred[(c * n_obs) : (c * n_obs + n_obs)] for c in range(n_baf_clones)]
+            )
+
+            segments, labs = get_intervals(pred)
+                
+            mus = np.exp(res["new_log_mu"][:, c])
+            ps = res["new_p_binom"][:, c]
+
+            for i, (seg, state) in enumerate(zip(segments, labs)):
+                if has_rdr:
+                    ax.plot(
+                        seg, 
+                        [mus[state], mus[state]], 
+                        c="k", 
+                        linewidth=1.5
+                    )
+                
+                axes[baf_idx].plot(
+                    seg, 
+                    [ps[state], ps[state]], 
+                    c="k", 
+                    linewidth=1.5
+                )
+
+                axes[baf_idx].plot(
+                    seg, 
+                    [1. - ps[state], 1. - ps[state]], 
+                    c="k", 
+                    linewidth=1.5,
+                    linestyle="--",
+                )
     
     for i in range(len(lengths)):
         start_len = np.sum(lengths[:(i)])

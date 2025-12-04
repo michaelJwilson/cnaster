@@ -220,7 +220,7 @@ def plot_clones_genomic_simple(
         ax = axes[ax_idx]
         ax.text(
             -0.04,
-            0.00,
+            0.00 if has_rdr else 0.5,
             f"{cast_clone_label(str(c))}",
             ha="center",
             va="center",
@@ -245,8 +245,9 @@ def plot_clones_genomic_simple(
             median_len - 7.5,
             chrtext_shift,
             f"chr{unique_chrs[i]}",
+            rotation=45,
             transform=axes[-1].get_xaxis_transform(),
-            fontsize=9,
+            fontsize=10,
             ha="left",
         )
         for k in range(len(axes)):

@@ -40,7 +40,7 @@ references:
 #           min_normal_count_perbin : 20 ->
 quality:
   spot_min_snp_umis : 10
-  min_percent_expressed_spots : 0.0
+  min_percent_expressed_spots : 0.005
   secondary_min_umi : 0
   secondary_min_snp_umi : 300
   secondary_min_normal_umi : 100
@@ -58,9 +58,9 @@ phasing:
   run : True
   nu : 1.0
   logphase_shift : -2.0
-  npart_phasing : 1
+  npart_phasing : 2
   baf_change_threshold : 0.1
-  min_new_segment_size : 1
+  min_new_segment_size : 10
 
 # TODO HACK max_iter_outer : 20 ->
 #           spatial_weight : 1.0 ->
@@ -74,7 +74,7 @@ hmrf:
   n_clones_rdr : 2
   min_spots_per_clone : 100
   min_avgumi_per_clone : 10
-  maxspots_pooling : 7
+  maxspots_pooling : 20
   tumorprop_threshold : 0.5
   max_iter_outer : 5
   nodepotential : max

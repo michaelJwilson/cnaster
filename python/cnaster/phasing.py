@@ -46,14 +46,13 @@ def initial_phase_given_partition(
     n_clones = X.shape[2]
     baf_profiles = np.zeros((n_clones, X.shape[0]))
 
-    # NB loop over initial clones.
     for i in range(n_clones):
         logger.info(f"Solving for phasing of initial clone {i} of {n_clones}.")
 
         # NB assumes BAF = 0.5 for insufficient snp umi count; initial binning chosen so this is not the case
         #    for pseudobulk of all spots?
         if np.sum(total_bb_RD[:, i]) < min_snpumi:
-            logger.warning(f"Insufficient SNP UMI to infer BAF, assuming 0.5;")
+            logger.warning(f"Insufficient snp umi to infer BAF, assuming 0.5;")
             baf_profiles[i, :] = 0.5
         else:
             # NB phasing of a single clone; independent BAF values.

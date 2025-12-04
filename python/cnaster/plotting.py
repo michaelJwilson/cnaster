@@ -458,21 +458,21 @@ def plot_clones_genomic_simple(
                         seg, 
                         [mus[state], mus[state]], 
                         c="k", 
-                        linewidth=0.5
+                        linewidth=1.0
                     )
                 
                 axes[baf_idx].plot(
                     seg, 
                     [ps[state], ps[state]], 
                     c="k", 
-                    linewidth=0.5
+                    linewidth=1.0
                 )
 
                 axes[baf_idx].plot(
                     seg, 
                     [1. - ps[state], 1. - ps[state]], 
                     c="k", 
-                    linewidth=0.5,
+                    linewidth=1.0,
                     linestyle="--",
                 )
     

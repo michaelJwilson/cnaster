@@ -1,9 +1,9 @@
 paths:
-  sample_sheet : /u/mw9568/research/repos/cnaster/htan_annotated_sample_sheet.tsv
-  output_dir : /n/fs/scratch/mw9568/cnaster/htan
+  # sample_sheet : /u/mw9568/research/repos/cnaster/htan_annotated_sample_sheet.tsv
+  # output_dir : /n/fs/scratch/mw9568/cnaster/htan
 
-  # sample_sheet : /u/mw9568/research/repos/cnaster/vishd_sample_sheet.tsv
-  # output_dir : /n/fs/scratch/mw9568/cnaster/vishd
+  sample_sheet : /u/mw9568/research/repos/cnaster/vishd_sample_sheet.tsv
+  output_dir : /n/fs/scratch/mw9568/cnaster/vishd
 
   perf_path : logs/cnaster.perf
   # cache_dir : /n/fs/scratch/mw9568/cnaster/.cache
@@ -14,8 +14,8 @@ preprocessing:
   tumorprop_file : None
 
 visium:
-  filtered_feature_name : "filtered_feature_bc_matrix"
-  # filtered_feature_name : "filtered_feature_cell_matrix"
+  # filtered_feature_name : "filtered_feature_bc_matrix"
+  filtered_feature_name : "filtered_feature_cell_matrix"
 
 annotation:
   clone_label : None
@@ -76,7 +76,7 @@ hmrf:
   min_avgumi_per_clone : 10
   maxspots_pooling : 7
   tumorprop_threshold : 0.5
-  max_iter_outer : 20
+  max_iter_outer : 5
   nodepotential : max
   initialization_method : rectangle
   num_hmrf_initialization_start : 0
@@ -87,8 +87,8 @@ hmrf:
   construct_adjacency_w : 1.0
   np_merge : True
   fixed_assignment : False
-  unit_xsquared : 9
-  unit_ysquared : 3
+  unit_xsquared : 1
+  unit_ysquared : 1
   random_state : 0
 
 # TODO HACK max_iter : 30 ->

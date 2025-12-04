@@ -364,7 +364,7 @@ def plot_clones_genomic_simple(
             row += 1
     
     if sample_list is not None:
-        fig.suptitle(", ".join(sample_list), x=0.5, y=0.99, fontsize=16, ha="center")
+        fig.suptitle(", ".join(sample_list), x=0.5, y=0.98, fontsize=16, ha="center")
     
     unique_chrs = 1 + np.arange(len(lengths))
     
@@ -416,7 +416,6 @@ def plot_clones_genomic_simple(
         if remove_xticks:
             axes[baf_idx].set_xticks([])
         
-        # Add gray axvline
         for i in range(len(lengths)):
             axes[baf_idx].axvline(x=np.sum(lengths[:(i)]), c="black", linewidth=0.5)
         

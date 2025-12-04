@@ -61,7 +61,7 @@ from cnaster.integer_copy import (
     hill_climbing_integer_copynumber_oneclone,
     hill_climbing_integer_copynumber_fixdiploid,
 )
-from cnaster.plotting import plot_clones_genomic, plot_clones_spatial
+from cnaster.plotting import plot_clones_genomic, plot_clones_spatial, plot_clones_genomic_simple
 from collections import defaultdict
 
 start_time = time.time()
@@ -103,6 +103,21 @@ def run_cnaster(config_path, over_rides=None):
     logger.info(f"Read configuration:\n{config}")
 
     set_global_config(config)
+
+    # {config.hmrf.n_clones_rdr}
+    output_dir = f"{config.paths.output_dir}/clone{config.hmrf.n_clones}_rectangle{config.hmrf.random_state}_w{config.hmrf.spatial_weight:.1f}/"
+
+    if not (poutput_dir := Path(output_dir)).exists():
+        logger.info(f"Creating {output_dir}")
+
+        poutput_dir.parent.mkdir(exist_ok=True)
+        poutput_dir.mkdir(exist_ok=True)
+
+    plots_dir = f"{output_dir}/plots/"
+
+    if not (pplots_dir := Path(plots_dir)).exists():
+        logger.info(f"Creating {plots_dir}")
+        pplots_dir.mkdir(exist_ok=True)
 
     """
     (
@@ -322,6 +337,28 @@ def run_cnaster(config_path, over_rides=None):
     )
     """
 
+    # TODO copy rename.
+    prephasing_clones_genomic = plot_clones_genomic_simple(
+        single_X,
+        single_base_nb_mean,
+        single_total_bb_RD,
+        initial_clone_for_phasing,
+        lengths,
+        single_tumor_prop=None,
+        sample_list=sample_list,
+        remove_xticks=True,
+        rdr_ylim=6,
+        chrtext_shift=-0.2,
+        base_height=3.2,
+        pointsize=5,
+        linewidth=1,
+    )
+
+    fig_path = f"{plots_dir}/prephasing_clones_genomic.pdf"
+    write_fig(fig_path, prephasing_clones_genomic, transparent=True, bbox_inches="tight")
+
+    exit(0)
+
     logger.warning("Assuming (magic) five BAF states for phasing.")
 
     assert single_X.ndim == 3
@@ -514,21 +551,6 @@ def run_cnaster(config_path, over_rides=None):
     df_clone_label = df_clone_label.groupby("sample_id", group_keys=False).apply(
         lambda g: g.sort_values(["x", "y"])
     )
-
-    # {config.hmrf.n_clones_rdr}
-    output_dir = f"{config.paths.output_dir}/clone{config.hmrf.n_clones}_rectangle{config.hmrf.random_state}_w{config.hmrf.spatial_weight:.1f}/"
-
-    if not (poutput_dir := Path(output_dir)).exists():
-        logger.info(f"Creating {output_dir}")
-
-        poutput_dir.parent.mkdir(exist_ok=True)
-        poutput_dir.mkdir(exist_ok=True)
-
-    plots_dir = f"{output_dir}/plots/"
-
-    if not (pplots_dir := Path(plots_dir)).exists():
-        logger.info(f"Creating {plots_dir}")
-        pplots_dir.mkdir(exist_ok=True)
 
     opath = f"{output_dir}/initial_clone_labels.tsv"
     logger.info(f"Writing initial clone labels to {opath},\n{df_clone_label.head()}")

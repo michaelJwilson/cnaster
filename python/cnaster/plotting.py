@@ -2,9 +2,7 @@ import copy
 import seaborn as sns
 import numpy as np
 import matplotlib
-import matplotlib as mpl
 import matplotlib.pyplot as plt
-import matplotlib.colors as mcolors
 import pandas as pd
 
 import logging
@@ -14,8 +12,6 @@ from matplotlib.lines import Line2D
 from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
 from cnaster.integer_copy import get_ordered_acn
 from cnaster.utils import cast_clone_label
-from cnaster.hmrf_utils import cast_csr
-from cnaster.config import get_global_config
 
 logger = logging.getLogger(__name__)
 
@@ -93,8 +89,9 @@ def get_full_palette(palette="tab20b"):
 
 def get_intervals(pred_cnv):
     """
-    Find contiguous intervals in the array pred_cnv where the value (e.g., a copy number state) stays the same,
-    and records both the intervals and their associated labels.
+    Find contiguous intervals in the array pred_cnv where the 
+    copy number state is the same.  Returns the list of intervals
+    and their state.
     """
     intervals, labs = [], []
     s = 0
@@ -112,6 +109,134 @@ def get_intervals(pred_cnv):
             s = s + t
     return intervals, labs
 
+
+def plot_clones_genomic_simple(
+    single_X,
+    single_base_nb_mean,
+    single_total_bb_RD,
+    clone_index,
+    lengths,
+    single_tumor_prop=None,
+    sample_list=None,
+    remove_xticks=True,
+    rdr_ylim=6,
+    chrtext_shift=-0.2,
+    base_height=3.2,
+    pointsize=5,
+    linewidth=1,
+):
+    logger.info("Plotting simplified RDR & BAF scatter plots per clone.")
+    
+    # Create pseudobulk for each clone
+    X, base_nb_mean, total_bb_RD, _ = merge_pseudobulk_by_index_mix(
+        single_X,
+        single_base_nb_mean,
+        single_total_bb_RD,
+        clone_index,
+        single_tumor_prop,
+    )
+    
+    n_obs = X.shape[0]
+    spots_per_clone = [len(idx) for idx in clone_index]
+    nonempty_clones = np.where(np.sum(total_bb_RD, axis=0) > 0)[0]
+    
+    n_pairs = len(nonempty_clones)
+    fig = plt.figure(figsize=(20, base_height * n_pairs), dpi=300, facecolor="white")
+    
+    # Build height_ratios with spacing between pairs
+    height_ratios = []
+    for i in range(n_pairs):
+        height_ratios.extend([1, 1])
+        if i < n_pairs - 1:
+            height_ratios.append(0.25)
+    
+    n_rows = len(height_ratios)
+    gs = gridspec.GridSpec(n_rows, 1, height_ratios=height_ratios, hspace=0)
+    
+    axes, row = [], 0
+    for i in range(2 * n_pairs):
+        axes.append(fig.add_subplot(gs[row, 0]))
+        row += 1
+        if (i % 2 == 1) and (i < 2 * n_pairs - 1):
+            row += 1
+    
+    if sample_list is not None:
+        fig.suptitle(", ".join(sample_list), x=0.5, y=0.99, fontsize=16, ha="center")
+    
+    unique_chrs = np.arange(len(lengths))
+    
+    for s, c in enumerate(nonempty_clones):
+        sns.scatterplot(
+            x=np.arange(X.shape[0]),
+            y=X[:, 0, c] / base_nb_mean[:, c],
+            s=pointsize,
+            edgecolor="none",
+            linewidth=linewidth,
+            ax=axes[2 * s],
+        )
+        
+        axes[2 * s].set_ylabel("RDR")
+        axes[2 * s].set_ylim([-0.5, rdr_ylim])
+        axes[2 * s].set_xlim([0, n_obs])
+        
+        if remove_xticks:
+            axes[2 * s].set_xticks([])
+        
+        sns.scatterplot(
+            x=np.arange(X.shape[0]),
+            y=X[:, 1, c] / total_bb_RD[:, c],
+            s=pointsize,
+            edgecolor="none",
+            alpha=0.8,
+            legend=False,
+            ax=axes[2 * s + 1],
+        )
+        
+        axes[2 * s + 1].set_ylabel("BAF")
+        axes[2 * s + 1].set_ylim([-0.05, 1.05])
+        axes[2 * s + 1].set_yticks(np.arange(0.0, 1.1, 0.2))
+        axes[2 * s + 1].set_xlim([0, n_obs])
+        
+        if remove_xticks:
+            axes[2 * s + 1].set_xticks([])
+        
+        ax = axes[2 * s]
+        ax.text(
+            -0.04,
+            0.00,
+            f"Clone {c}",
+            ha="center",
+            va="center",
+            fontsize=12,
+            rotation="vertical",
+            transform=ax.transAxes,
+        )
+        
+        ax.text(
+            0.0,
+            1.1,
+            f"{spots_per_clone[c]:_} spots; {int(np.sum(X[:, 0, c])):_} UMIs; {int(np.sum(total_bb_RD[:, c])):_} SNP-UMIs",
+            ha="left",
+            va="bottom",
+            fontsize=12,
+            transform=ax.transAxes,
+        )
+    
+    for i in range(len(lengths)):
+        median_len = np.sum(lengths[:(i)]) * 0.55 + np.sum(lengths[: (i + 1)]) * 0.45
+        axes[-1].text(
+            median_len - 7.5,
+            chrtext_shift,
+            f"chr{unique_chrs[i]}",
+            transform=axes[-1].get_xaxis_transform(),
+            fontsize=9,
+            ha="left",
+        )
+        for k in range(2 * len(nonempty_clones)):
+            axes[k].axvline(x=np.sum(lengths[:(i)]), c="k", linewidth=1)
+    
+    fig.tight_layout()
+    return fig
 
 def plot_clones_genomic(
     df_cnv,  # NB integer copy numbers for each segment.
@@ -132,7 +257,7 @@ def plot_clones_genomic(
     linewidth=1,
     palette_name="chisel",
 ):
-    logger.info(f"Plotting inferred rdr+baf for all clones.")
+    logger.info(f"Plotting inferred rdr & baf for all clones.")
 
     chisel_palette, ordered_acn = get_full_palette(palette_name)
 
@@ -143,12 +268,15 @@ def plot_clones_genomic(
 
     # NB add in normal clone.
     if "0" not in final_clone_ids:
-        logger.warning("Pre-pending 0 to final_clone_ids")
+        logger.error("Pre-pending 0 to final_clone_ids")
         final_clone_ids = np.array(["0"] + list(final_clone_ids))
 
     assert (clone_ids is None) or np.all(
         [(cid in final_clone_ids) for cid in clone_ids]
     )
+
+    # TODO?
+    assert clone_ids is None
 
     n_states = res_combine["new_p_binom"].shape[0]
     unique_chrs = np.unique(df_cnv.CHR.values)
@@ -173,9 +301,6 @@ def plot_clones_genomic(
     n_obs = X.shape[0]
     spots_per_clone = [len(xx) for xx in clone_index]
     nonempty_clones = np.where(np.sum(total_bb_RD, axis=0) > 0)[0]
-
-    # TODO?
-    assert clone_ids is None
 
     n_axes = 2 * len(nonempty_clones)  # RDR + BAF for each clone
     n_pairs = len(nonempty_clones)

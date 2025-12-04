@@ -444,15 +444,13 @@ def plot_clones_genomic_simple(
 
         if res is not None:
             # NB for all clones
-            pred = np.argmax(res["log_gamma"], axis=0)
-            pred = np.array(
-                [pred[(c * n_obs) : (c * n_obs + n_obs)] for c in range(n_baf_clones)]
-            )
+            max_pred = np.argmax(res["log_gamma"], axis=0)
+            this_pred = max_pred[(c * n_obs) : (c * n_obs + n_obs)]
 
-            segments, labs = get_intervals(pred)
+            segments, labs = get_intervals(this_pred)
                 
-            mus = np.exp(res["new_log_mu"][:, c])
-            ps = res["new_p_binom"][:, c]
+            mus = np.exp(res["new_log_mu"])
+            ps = res["new_p_binom"]
 
             for i, (seg, state) in enumerate(zip(segments, labs)):
                 if has_rdr:
@@ -460,21 +458,21 @@ def plot_clones_genomic_simple(
                         seg, 
                         [mus[state], mus[state]], 
                         c="k", 
-                        linewidth=1.5
+                        linewidth=0.5
                     )
                 
                 axes[baf_idx].plot(
                     seg, 
                     [ps[state], ps[state]], 
                     c="k", 
-                    linewidth=1.5
+                    linewidth=0.5
                 )
 
                 axes[baf_idx].plot(
                     seg, 
                     [1. - ps[state], 1. - ps[state]], 
                     c="k", 
-                    linewidth=1.5,
+                    linewidth=0.5,
                     linestyle="--",
                 )
     

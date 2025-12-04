@@ -251,7 +251,7 @@ def run_cnaster(config_path, over_rides=None):
         cell_snp_Aallele,
         cell_snp_Ballele,
         unique_snp_ids,
-        initial_min_umi=15,  # MAGIC
+        initial_min_umi=config.quality.phasing_min_snp_umis,
     )
 
     # NB num. of blocks per contig; SN-based H0 and H0+H1 counts block; total UMIs per block.
@@ -463,6 +463,8 @@ def run_cnaster(config_path, over_rides=None):
     fig_path = f"{plots_dir}/postphasing_clones_genomic.pdf"
     write_fig(fig_path, postphasing_clones_genomic, transparent=True, bbox_inches="tight")
 
+    exit(0)
+    
     # NB sparse transcript counts (spot, gene).
     exp_counts = pd.DataFrame.sparse.from_spmatrix(
         scipy.sparse.csc_matrix(adata.layers["count"]),

@@ -61,7 +61,7 @@ from cnaster.integer_copy import (
     hill_climbing_integer_copynumber_oneclone,
     hill_climbing_integer_copynumber_fixdiploid,
 )
-from cnaster.plotting import plot_clones_genomic, plot_clones_spatial
+from cnaster.plotting import plot_clones_genomic, plot_clones_spatial, plot_clones_genomic_simple, plot_gene_snp_spatial, plot_gene_snp_spatial, plot_adjacency
 from collections import defaultdict
 
 start_time = time.time()
@@ -103,6 +103,21 @@ def run_cnaster(config_path, over_rides=None):
     logger.info(f"Read configuration:\n{config}")
 
     set_global_config(config)
+
+    # {config.hmrf.n_clones_rdr}
+    output_dir = f"{config.paths.output_dir}/clone{config.hmrf.n_clones}_rectangle{config.hmrf.random_state}_w{config.hmrf.spatial_weight:.1f}/"
+
+    if not (poutput_dir := Path(output_dir)).exists():
+        logger.info(f"Creating {output_dir}")
+
+        poutput_dir.parent.mkdir(exist_ok=True)
+        poutput_dir.mkdir(exist_ok=True)
+
+    plots_dir = f"{output_dir}/plots/"
+
+    if not (pplots_dir := Path(plots_dir)).exists():
+        logger.info(f"Creating {plots_dir}")
+        pplots_dir.mkdir(exist_ok=True)
 
     """
     (
@@ -215,6 +230,20 @@ def run_cnaster(config_path, over_rides=None):
         unique_snp_ids, config.references.hgtable_file, adata
     )
 
+    """
+    plot_gene_snp_spatial(
+        adata,
+        cell_snp_Aallele,
+        cell_snp_Ballele,
+        df_gene_snp,
+        unique_snp_ids,
+        plots_dir,
+        pointsize=5,
+        cmap="viridis",
+        base_height=4,
+    )
+    """
+
     # NB parse_visium::create_haplotype_block_ranges
     df_gene_snp = assign_initial_blocks(
         df_gene_snp,
@@ -297,30 +326,45 @@ def run_cnaster(config_path, over_rides=None):
             x_part=config.phasing.npart_phasing,
             y_part=config.phasing.npart_phasing,
         )
-    """
-    # TODO HACK
-    prephase_X, prephase_base_nb_mean, prephase_total_bb_RD, _ = merge_pseudobulk_by_index_mix(
-        single_X,
-        known_single_base_nb_mean,
-        single_total_bb_RD,
-        initial_clone_index_baf,
-        single_tumor_prop,
-        threshold=config.hmrf.tumorprop_threshold,
+
+    assignment = np.full(len(coords), -1, dtype=int)
+
+    for clone_id, indices in enumerate(initial_clone_for_phasing):
+        assignment[indices] = clone_id
+
+    assignment = pd.Series([f"clone {x}" for x in assignment])
+    phasing_clones_fig = plot_clones_spatial(
+    	coords,
+        assignment,
+        single_tumor_prop=single_tumor_prop,
+        sample_list=sample_list,
+        sample_ids=sample_ids,
+        base_width=4,
+	    base_height=3,
     )
 
-    # TODO HACK
-    plot_cna_mixture(
-        None,
-        None,
-        None,
-        None,
-        prephase_X,
-        prephase_base_nb_mean,
-        prephase_total_bb_RD,
-        prefix="pre_phasing",
-        max_rdr=10,
+    fig_path = f"{plots_dir}/phasing_clones_spatial.pdf"
+    write_fig(fig_path, phasing_clones_fig, transparent=True, bbox_inches="tight")
+        
+    # TODO copy rename.
+    prephasing_clones_genomic = plot_clones_genomic_simple(
+        single_X,
+        single_base_nb_mean,
+        single_total_bb_RD,
+        initial_clone_for_phasing,
+        lengths,
+        single_tumor_prop=None,
+        sample_list=sample_list,
+        remove_xticks=True,
+        rdr_ylim=6,
+        chrtext_shift=-0.2,
+        base_height=3.2,
+        pointsize=5,
+        linewidth=1,
     )
-    """
+
+    fig_path = f"{plots_dir}/prephasing_clones_genomic.pdf"
+    write_fig(fig_path, prephasing_clones_genomic, transparent=True, bbox_inches="tight")
 
     logger.warning("Assuming (magic) five BAF states for phasing.")
 
@@ -399,6 +443,26 @@ def run_cnaster(config_path, over_rides=None):
         geneticmap_file=config.references.geneticmap_file,
     )
 
+    # TODO copy rename.
+    postphasing_clones_genomic = plot_clones_genomic_simple(
+        single_X,
+        single_base_nb_mean,
+        single_total_bb_RD,
+        initial_clone_for_phasing,
+        lengths,
+        single_tumor_prop=None,
+        sample_list=sample_list,
+        remove_xticks=True,
+        rdr_ylim=6,
+        chrtext_shift=-0.2,
+        base_height=3.2,
+        pointsize=5,
+        linewidth=1,
+    )
+
+    fig_path = f"{plots_dir}/postphasing_clones_genomic.pdf"
+    write_fig(fig_path, postphasing_clones_genomic, transparent=True, bbox_inches="tight")
+
     # NB sparse transcript counts (spot, gene).
     exp_counts = pd.DataFrame.sparse.from_spmatrix(
         scipy.sparse.csc_matrix(adata.layers["count"]),
@@ -420,6 +484,19 @@ def run_cnaster(config_path, over_rides=None):
         unit_xsquared=config.hmrf.unit_xsquared,
         unit_ysquared=config.hmrf.unit_ysquared,
     )
+
+    adjacency_fig = plot_adjacency(
+        coords,
+        smooth_mat,
+        adjacency_mat,
+        pointsize=5,
+        base_height=6,
+    )
+
+    fig_path = f"{plots_dir}/adjacency.pdf"
+    write_fig(fig_path, adjacency_fig, transparent=True, bbox_inches="tight")
+
+    exit(0)
 
     # TODO table_bininfo? table_rdrbaf? table_meta?
     # NB end run_parse_n_load::parse_visium.
@@ -514,21 +591,6 @@ def run_cnaster(config_path, over_rides=None):
     df_clone_label = df_clone_label.groupby("sample_id", group_keys=False).apply(
         lambda g: g.sort_values(["x", "y"])
     )
-
-    # {config.hmrf.n_clones_rdr}
-    output_dir = f"{config.paths.output_dir}/clone{config.hmrf.n_clones}_rectangle{config.hmrf.random_state}_w{config.hmrf.spatial_weight:.1f}/"
-
-    if not (poutput_dir := Path(output_dir)).exists():
-        logger.info(f"Creating {output_dir}")
-
-        poutput_dir.parent.mkdir(exist_ok=True)
-        poutput_dir.mkdir(exist_ok=True)
-
-    plots_dir = f"{output_dir}/plots/"
-
-    if not (pplots_dir := Path(plots_dir)).exists():
-        logger.info(f"Creating {plots_dir}")
-        pplots_dir.mkdir(exist_ok=True)
 
     opath = f"{output_dir}/initial_clone_labels.tsv"
     logger.info(f"Writing initial clone labels to {opath},\n{df_clone_label.head()}")

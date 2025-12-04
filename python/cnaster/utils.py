@@ -57,7 +57,7 @@ def write_fig(opath, fig=None, transparent=True, bbox_inches="tight"):
         fig = plt.figure()
         ax = fig.add_subplot(111)
 
-    logger.info(f"Writing figure to {opath}.")
+    logger.info(f"Writing figure to:\n{opath}")
     fig.savefig(opath, format="pdf", transparent=transparent, bbox_inches=bbox_inches)
 
 

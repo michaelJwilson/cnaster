@@ -546,11 +546,19 @@ def choose_lattice_adjacency(
     maxspots_pooling=7,
     unit_xsquared=9,
     unit_ysquared=3,
+    min_coordination_num=8,
 ):
     # NB called per slice.
     coordination_num = summarize_lattice_structure(
         coords, sample_ids=np.zeros(len(coords)), sample_list=[None]
     )
+
+    if coordination_num < min_coordination_num:
+        logger.warning(
+            f"Assuming minimum coordination number={min_coordination_num}."
+        )
+
+        coordination_num = min_coordination_num
 
     logger.info(
         f"Assigning lattice adjacency matrix with coordination_num={coordination_num}, "
@@ -798,7 +806,7 @@ def multislice_adjacency(
         # NB (x,y) for these spots.
         this_coords = np.array(coords[index, :])
 
-        
+        """
         tmpsmooth_mat, tmpadjacency_mat = choose_adjacency_by_readcounts(
             this_coords,
             single_total_bb_RD[:, index],
@@ -814,7 +822,6 @@ def multislice_adjacency(
             unit_xsquared=unit_xsquared,
             unit_ysquared=unit_ysquared,
         )
-        """
 
         adjacency_mat.append(tmpadjacency_mat.toarray())
         smooth_mat.append(tmpsmooth_mat.toarray())

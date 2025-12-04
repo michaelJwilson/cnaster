@@ -252,6 +252,17 @@ def plot_clones_genomic_simple(
         )
         for k in range(len(axes)):
             axes[k].axvline(x=np.sum(lengths[:(i)]), c="k", linewidth=1)
+
+    for s, c in enumerate(nonempty_clones):
+        ax_idx = s * axes_per_clone
+        
+        if has_rdr:
+            for to_plot in np.arange(-0.5, rdr_ylim, 0.5):
+                axes[ax_idx].axhline(y=to_plot, c="lightgray", linewidth=0.5)
+        
+        baf_idx = ax_idx + (1 if has_rdr else 0)
+        for to_plot in np.arange(0.0, 1.1, 0.1):
+            axes[baf_idx].axhline(y=to_plot, c="lightgray", linewidth=0.5)
     
     fig.tight_layout()
     return fig

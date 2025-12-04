@@ -312,30 +312,6 @@ def run_cnaster(config_path, over_rides=None):
             x_part=config.phasing.npart_phasing,
             y_part=config.phasing.npart_phasing,
         )
-    """
-    # TODO HACK
-    prephase_X, prephase_base_nb_mean, prephase_total_bb_RD, _ = merge_pseudobulk_by_index_mix(
-        single_X,
-        known_single_base_nb_mean,
-        single_total_bb_RD,
-        initial_clone_index_baf,
-        single_tumor_prop,
-        threshold=config.hmrf.tumorprop_threshold,
-    )
-
-    # TODO HACK
-    plot_cna_mixture(
-        None,
-        None,
-        None,
-        None,
-        prephase_X,
-        prephase_base_nb_mean,
-        prephase_total_bb_RD,
-        prefix="pre_phasing",
-        max_rdr=10,
-    )
-    """
 
     # TODO copy rename.
     prephasing_clones_genomic = plot_clones_genomic_simple(
@@ -356,8 +332,6 @@ def run_cnaster(config_path, over_rides=None):
 
     fig_path = f"{plots_dir}/prephasing_clones_genomic.pdf"
     write_fig(fig_path, prephasing_clones_genomic, transparent=True, bbox_inches="tight")
-
-    exit(0)
 
     logger.warning("Assuming (magic) five BAF states for phasing.")
 
@@ -435,6 +409,28 @@ def run_cnaster(config_path, over_rides=None):
         logphase_shift=config.phasing.logphase_shift,
         geneticmap_file=config.references.geneticmap_file,
     )
+
+    # TODO copy rename.
+    postphasing_clones_genomic = plot_clones_genomic_simple(
+        single_X,
+        single_base_nb_mean,
+        single_total_bb_RD,
+        initial_clone_for_phasing,
+        lengths,
+        single_tumor_prop=None,
+        sample_list=sample_list,
+        remove_xticks=True,
+        rdr_ylim=6,
+        chrtext_shift=-0.2,
+        base_height=3.2,
+        pointsize=5,
+        linewidth=1,
+    )
+
+    fig_path = f"{plots_dir}/postphasing_clones_genomic.pdf"
+    write_fig(fig_path, postphasing_clones_genomic, transparent=True, bbox_inches="tight")
+
+    exit(0)
 
     # NB sparse transcript counts (spot, gene).
     exp_counts = pd.DataFrame.sparse.from_spmatrix(

@@ -61,7 +61,7 @@ from cnaster.integer_copy import (
     hill_climbing_integer_copynumber_oneclone,
     hill_climbing_integer_copynumber_fixdiploid,
 )
-from cnaster.plotting import plot_clones_genomic, plot_clones_spatial, plot_clones_genomic_simple
+from cnaster.plotting import plot_clones_genomic, plot_clones_spatial, plot_clones_genomic_simple, plot_gene_snp_spatial, plot_gene_snp_spatial
 from collections import defaultdict
 
 start_time = time.time()
@@ -230,6 +230,18 @@ def run_cnaster(config_path, over_rides=None):
         unique_snp_ids, config.references.hgtable_file, adata
     )
 
+    plot_gene_snp_spatial(
+        adata,
+        cell_snp_Aallele,
+        cell_snp_Ballele,
+        df_gene_snp,
+        unique_snp_ids,
+        plots_dir,
+        pointsize=5,
+        cmap="viridis",
+        base_height=4,
+    )
+
     # NB parse_visium::create_haplotype_block_ranges
     df_gene_snp = assign_initial_blocks(
         df_gene_snp,
@@ -331,8 +343,6 @@ def run_cnaster(config_path, over_rides=None):
 
     fig_path = f"{plots_dir}/phasing_clones_spatial.pdf"
     write_fig(fig_path, phasing_clones_fig, transparent=True, bbox_inches="tight")
-
-    exit(0)
         
     # TODO copy rename.
     prephasing_clones_genomic = plot_clones_genomic_simple(
@@ -450,8 +460,6 @@ def run_cnaster(config_path, over_rides=None):
 
     fig_path = f"{plots_dir}/postphasing_clones_genomic.pdf"
     write_fig(fig_path, postphasing_clones_genomic, transparent=True, bbox_inches="tight")
-
-    exit(0)
 
     # NB sparse transcript counts (spot, gene).
     exp_counts = pd.DataFrame.sparse.from_spmatrix(

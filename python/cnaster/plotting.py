@@ -1,3 +1,4 @@
+import os
 import copy
 import seaborn as sns
 import numpy as np
@@ -9,9 +10,10 @@ import logging
 import matplotlib.gridspec as gridspec
 import cnaster.log_linear
 from matplotlib.lines import Line2D
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
 from cnaster.integer_copy import get_ordered_acn
-from cnaster.utils import cast_clone_label
+from cnaster.utils import cast_clone_label, write_fig
 
 logger = logging.getLogger(__name__)
 
@@ -109,6 +111,117 @@ def get_intervals(pred_cnv):
             s = s + t
     return intervals, labs
 
+def plot_gene_snp_spatial(
+    adata,
+    cell_snp_Aallele,
+    cell_snp_Ballele,
+    df_gene_snp,
+    unique_snp_ids,
+    plots_dir,
+    pointsize=10,
+    cmap="viridis",
+    base_height=4,
+    sampling=0.1, 
+):
+    genes = df_gene_snp["gene"].unique()
+
+    # Sort genes by total UMIs
+    def get_gene_umi(g):
+        if g in adata.var_names:
+            return float(np.sum(adata[:, g].X))
+        return -1.0
+
+    genes = sorted(genes, key=get_gene_umi, reverse=True)
+
+    logger.info(f"Plotting spatial distribution for {len(genes)} genes")
+
+    coords = adata.obsm["X_pos"]
+
+    os.makedirs(f"{plots_dir}/genes", exist_ok=True)
+
+    for gene_name in genes:
+        if np.random.rand() > sampling:
+            continue
+
+        try:
+            gene_expression = adata[:, gene_name].X
+            if hasattr(gene_expression, "toarray"):
+                gene_expression = gene_expression.toarray()
+            gene_expression = np.array(gene_expression).flatten()
+        except KeyError:
+            logger.error(f"Gene {gene_name} not found in adata.")
+            continue
+        
+        relevant_snps = df_gene_snp[df_gene_snp["gene"] == gene_name]["snp_id"].values
+        
+        if len(relevant_snps) == 0:
+            logger.warning(f"No SNPs found for gene {gene_name} in df_gene_snp.")
+            snp_A = np.zeros(coords.shape[0])
+            snp_B = np.zeros(coords.shape[0])
+        else:
+            snp_indices = np.where(np.isin(unique_snp_ids, relevant_snps))[0]
+            
+            if len(snp_indices) == 0:
+                 logger.warning(f"SNPs for {gene_name} found in table but not in matrix columns.")
+                 snp_A = np.zeros(coords.shape[0])
+                 snp_B = np.zeros(coords.shape[0])
+            else:
+                snp_A = np.array(cell_snp_Aallele[:, snp_indices].sum(axis=1)).flatten()
+                snp_B = np.array(cell_snp_Ballele[:, snp_indices].sum(axis=1)).flatten()
+
+        snp_total = snp_A + snp_B
+
+        fig, axes = plt.subplots(1, 3, figsize=(base_height * 3.5, base_height), dpi=300, facecolor="white")
+        
+        total_umis = int(np.sum(gene_expression))
+        total_snp_umis = int(np.sum(snp_total))
+
+        titles = [
+            f"{gene_name} umis: {total_umis:_}",
+            f"{gene_name} snp-umis: {total_snp_umis:_}",
+            f"{gene_name} $\\alpha$s: {int(np.sum(snp_A)):_}",
+        ]
+        data_layers = [gene_expression, snp_total, snp_A]
+
+        for i, ax in enumerate(axes):
+            data = data_layers[i]
+            is_zero = data == 0
+
+            if np.any(is_zero):
+                ax.scatter(
+                    coords[is_zero, 0],
+                    -coords[is_zero, 1],
+                    c="white",
+                    s=pointsize,
+                    edgecolor="black",
+                    linewidth=0.1,
+                    alpha=0.9,
+                )
+
+            if np.any(~is_zero):
+                c = np.log10(data[~is_zero]) if i ==0 else data[~is_zero]
+                sc = ax.scatter(
+                    coords[~is_zero, 0],
+                    -coords[~is_zero, 1],
+                    c=c,
+                    s=pointsize,
+                    cmap=cmap,
+                    edgecolor="none",
+                    alpha=0.9,
+                )
+                divider = make_axes_locatable(ax)
+                cax = divider.append_axes("right", size="5%", pad=0.05)
+                cbar = plt.colorbar(sc, cax=cax)
+                cbar.set_label("log10(count)" if i == 0 else "count")
+
+            ax.set_title(titles[i], fontsize=12)
+            ax.axis("off")
+        
+        fig.tight_layout()
+
+        gene_fig_path = f"{plots_dir}/genes/{gene_name}_umis{total_umis}_snpumis{total_snp_umis}_spatial.pdf"
+        write_fig(gene_fig_path, fig, transparent=True, bbox_inches="tight")
+
 def plot_clones_genomic_simple(
     single_X,
     single_base_nb_mean,
@@ -119,7 +232,7 @@ def plot_clones_genomic_simple(
     sample_list=None,
     remove_xticks=True,
     rdr_ylim=6,
-    chrtext_shift=-0.2,
+    chrtext_shift=-0.1,
     base_height=3.2,
     pointsize=5,
     linewidth=1,
@@ -186,13 +299,15 @@ def plot_clones_genomic_simple(
             axes[ax_idx].set_ylabel("RDR")
             axes[ax_idx].set_ylim([-0.5, rdr_ylim])
             axes[ax_idx].set_xlim([0, n_obs])
-            
+
+            for y in np.arange(0, rdr_ylim, 0.5):
+                axes[ax_idx].axhline(y=y, c="lightgray", linewidth=0.5)
+
             if remove_xticks:
                 axes[ax_idx].set_xticks([])
             
-            # Add gray axvlines for segments in RDR
             for i in range(len(lengths)):
-                axes[ax_idx].axvline(x=np.sum(lengths[:(i)]), c="lightgray", linewidth=0.5)
+                axes[ax_idx].axvline(x=np.sum(lengths[:(i)]), c="black", linewidth=0.5)
         
         baf_idx = ax_idx + (1 if has_rdr else 0)
         sns.scatterplot(
@@ -209,13 +324,16 @@ def plot_clones_genomic_simple(
         axes[baf_idx].set_ylim([-0.05, 1.05])
         axes[baf_idx].set_yticks(np.arange(0.0, 1.1, 0.2))
         axes[baf_idx].set_xlim([0, n_obs])
+
+        for y in np.arange(0.0, 1.1, 0.1):
+            axes[baf_idx].axhline(y=y, c="lightgray", linewidth=0.5)
         
         if remove_xticks:
             axes[baf_idx].set_xticks([])
         
-        # Add gray axvlines for segments in BAF
+        # Add gray axvline
         for i in range(len(lengths)):
-            axes[baf_idx].axvline(x=np.sum(lengths[:(i)]), c="lightgray", linewidth=0.5)
+            axes[baf_idx].axvline(x=np.sum(lengths[:(i)]), c="black", linewidth=0.5)
         
         ax = axes[ax_idx]
         ax.text(
@@ -232,7 +350,7 @@ def plot_clones_genomic_simple(
         ax.text(
             0.0,
             1.02,
-            f"{spots_per_clone[c]:_} spots; {int(np.sum(X[:, 0, c])):_} UMIs; {int(np.sum(total_bb_RD[:, c])):_} SNP-UMIs",
+            f"{spots_per_clone[c]:_} spots; {int(np.sum(X[:, 0, c])):_} umis; {int(np.sum(total_bb_RD[:, c])):_} snp-umis",
             ha="left",
             va="bottom",
             fontsize=12,
@@ -240,7 +358,7 @@ def plot_clones_genomic_simple(
         )
     
     for i in range(len(lengths)):
-        start_len = np.sum(lengths[:i])
+        start_len = np.sum(lengths[:(i)])
         axes[-1].text(
             start_len,
             chrtext_shift,
@@ -251,18 +369,7 @@ def plot_clones_genomic_simple(
             ha="left",
         )
         for k in range(len(axes)):
-            axes[k].axvline(x=start_len, c="k", linewidth=1)
-
-    for s, c in enumerate(nonempty_clones):
-        ax_idx = s * axes_per_clone
-        
-        if has_rdr:
-            for to_plot in np.arange(-0.5, rdr_ylim, 0.5):
-                axes[ax_idx].axhline(y=to_plot, c="lightgray", linewidth=0.5)
-        
-        baf_idx = ax_idx + (1 if has_rdr else 0)
-        for to_plot in np.arange(0.0, 1.1, 0.1):
-            axes[baf_idx].axhline(y=to_plot, c="lightgray", linewidth=0.5)
+            axes[k].axvline(x=np.sum(lengths[:(i)]), c="k", linewidth=1)
     
     fig.tight_layout()
     return fig
@@ -286,7 +393,7 @@ def plot_clones_genomic(
     linewidth=1,
     palette_name="chisel",
 ):
-    logger.info(f"Plotting inferred rdr & baf for all clones.")
+    logger.info(f"Plotting inferred rdr+baf for all clones.")
 
     chisel_palette, ordered_acn = get_full_palette(palette_name)
 
@@ -297,15 +404,12 @@ def plot_clones_genomic(
 
     # NB add in normal clone.
     if "0" not in final_clone_ids:
-        logger.error("Pre-pending 0 to final_clone_ids")
+        logger.warning("Pre-pending 0 to final_clone_ids")
         final_clone_ids = np.array(["0"] + list(final_clone_ids))
 
     assert (clone_ids is None) or np.all(
         [(cid in final_clone_ids) for cid in clone_ids]
     )
-
-    # TODO?
-    assert clone_ids is None
 
     n_states = res_combine["new_p_binom"].shape[0]
     unique_chrs = np.unique(df_cnv.CHR.values)
@@ -330,6 +434,9 @@ def plot_clones_genomic(
     n_obs = X.shape[0]
     spots_per_clone = [len(xx) for xx in clone_index]
     nonempty_clones = np.where(np.sum(total_bb_RD, axis=0) > 0)[0]
+
+    # TODO?
+    assert clone_ids is None
 
     n_axes = 2 * len(nonempty_clones)  # RDR + BAF for each clone
     n_pairs = len(nonempty_clones)
@@ -630,7 +737,6 @@ def plot_clones_genomic(
     fig.tight_layout()
 
     return fig
-
 
 def plot_clones_spatial(
     coords,

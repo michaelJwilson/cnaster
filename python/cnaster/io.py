@@ -216,7 +216,7 @@ def get_spaceranger_counts(spaceranger_dir):
     )
 
     logger.info(
-        f"\nExample names for {len(adatatmp.obs_names):_} barcodes:\n{adatatmp.obs_names[:5]}"
+        f"Example names for {len(adatatmp.obs_names):_} barcodes:\n{adatatmp.obs_names[:5]}"
     )
     logger.info(
         f"Example names for {len(adatatmp.var_names):_} genes:\n{adatatmp.var_names[:5]}"
@@ -500,7 +500,7 @@ def load_input_data(
     percentiles = [0, 1, 5, 10, 25, 50, 75, 90, 95, 99, 100]
     perc_vals = np.percentile(spot_umis, percentiles)
     pairs = ", ".join(f"{p:>3d}th={v:_.0f}" for p, v in zip(percentiles, perc_vals))
-    logger.info(f"UMIs per spot percentiles: {pairs}")
+    logger.info(f"UMIs per spot percentiles:\n{pairs}")
         
     # NB filter out genes that are expressed in < min_percent_expressed_spots spots.
     indicator = (
@@ -637,8 +637,7 @@ def load_input_data(
                     f"  {i+1:2d}. {gene_name:<20} {gene_pct:6.3f}% UMIs {warning}"
                 )
 
-        # TODO BUG?  zeroed for all spots.
-        # NB zero count of outlier genes (!)
+        # NB  zero count of outlier genes (!)  Should retain snp-umi counts ...
         adata.layers["count"][:, to_zero] = 0
 
     elif config.quality.normalize_gene_outliers:

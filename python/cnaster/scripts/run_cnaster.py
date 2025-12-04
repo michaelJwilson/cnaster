@@ -496,8 +496,6 @@ def run_cnaster(config_path, over_rides=None):
     fig_path = f"{plots_dir}/adjacency.pdf"
     write_fig(fig_path, adjacency_fig, transparent=True, bbox_inches="tight")
 
-    exit(0)
-
     # TODO table_bininfo? table_rdrbaf? table_meta?
     # NB end run_parse_n_load::parse_visium.
 
@@ -692,6 +690,29 @@ def run_cnaster(config_path, over_rides=None):
     fig_path = f"{output_dir}/plots/bafonly_clones_spatial.pdf"
     write_fig(fig_path, bafonly_clones_fig, transparent=True, bbox_inches="tight")
 
+    # TODO copy rename.
+    bafonly_clones_genomic = plot_clones_genomic_simple(
+        single_X,
+        single_base_nb_mean,
+        single_total_bb_RD,
+        [
+            np.where(res["new_assignment"] == c)[0]
+            for c in np.sort(np.unique(res["new_assignment"]))
+        ],
+        lengths,
+        single_tumor_prop=None,
+        sample_list=sample_list,
+        remove_xticks=True,
+        rdr_ylim=6,
+        chrtext_shift=-0.2,
+        base_height=3.2,
+        pointsize=5,
+        linewidth=1,
+    )
+
+    fig_path = f"{plots_dir}/bafonly_clones_genomic.pdf"
+    write_fig(fig_path, bafonly_clones_genomic, transparent=True, bbox_inches="tight")
+
     if config.hmrf.np_merge:
         # NB merge similar clones based on Neyman-Pearson
         _, merged_res = neyman_pearson_similarity(
@@ -744,6 +765,31 @@ def run_cnaster(config_path, over_rides=None):
     write_fig(
         fig_path, merged_bafonly_clones_fig, transparent=True, bbox_inches="tight"
     )
+
+    # TODO copy rename.
+    merged_bafonly_clones_genomic = plot_clones_genomic_simple(
+        single_X,
+        single_base_nb_mean,
+        single_total_bb_RD,
+        [
+            np.where(merged_res["new_assignment"] == c)[0]
+            for c in np.sort(np.unique(merged_res["new_assignment"]))
+        ],
+        lengths,
+        single_tumor_prop=None,
+        sample_list=sample_list,
+        remove_xticks=True,
+        rdr_ylim=6,
+        chrtext_shift=-0.2,
+        base_height=3.2,
+        pointsize=5,
+        linewidth=1,
+    )
+
+    fig_path = f"{plots_dir}/merged_bafonly_clones_genomic.pdf"
+    write_fig(fig_path, merged_bafonly_clones_genomic, transparent=True, bbox_inches="tight")
+
+    exit(0)
 
     # NB construct clone labels.
     df_clone_label = pd.DataFrame(

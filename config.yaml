@@ -76,7 +76,7 @@ hmrf:
   min_avgumi_per_clone : 10
   maxspots_pooling : 7
   tumorprop_threshold : 0.5
-  max_iter_outer : 20
+  max_iter_outer : 5
   nodepotential : max
   initialization_method : rectangle
   num_hmrf_initialization_start : 0
@@ -87,8 +87,8 @@ hmrf:
   construct_adjacency_w : 1.0
   np_merge : True
   fixed_assignment : False
-  unit_xsquared : 9
-  unit_ysquared : 3
+  unit_xsquared : 1
+  unit_ysquared : 1
   random_state : 0
 
 # TODO HACK max_iter : 30 ->

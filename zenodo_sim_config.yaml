@@ -34,13 +34,13 @@ references:
 #           min_normal_count_perbin : 20 ->
 quality:
   spot_min_snp_umis : 50
-  min_percent_expressed_spots : 0.0
+  min_percent_expressed_spots : 0.005
   secondary_min_umi : 0
   secondary_min_snp_umi : 200
   secondary_min_normal_umi : 100
   max_binlength : 5000000
   local_outlier_filter : True
-  filter_normal_diffexp : False
+  filter_normal_diffexp : True
   normalize_gene_outliers : False
   normal_allele_specific_confidence : (0.01, 0.99)
   min_normal_count_perbin : 100
@@ -54,7 +54,7 @@ phasing:
   logphase_shift : -2.0
   npart_phasing : 2
   baf_change_threshold : 0.1
-  min_new_segment_size : 1
+  min_new_segment_size : 10
 
 # TODO HACK max_iter_outer : 20 ->
 #           spatial_weight : 0.1 ->

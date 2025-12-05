@@ -58,7 +58,20 @@ def cacher(filename):
                                 shape=shape
                             )
                         else:
-                            data[k] = item[()]
+                            val = item[()]
+                            # NB decode bytes to strings for object arrays, e.g. pandas string cols.
+                            if isinstance(val, np.ndarray) and val.dtype.kind == 'O':
+                                # Vectorized decode if possible, or list comprehension
+                                try:
+                                    # Check first element to see if it's bytes
+                                    if val.size > 0 and isinstance(val.flat[0], bytes):
+                                        val = np.array([x.decode('utf-8') for x in val.flat]).reshape(val.shape)
+                                except Exception:
+                                    pass # Keep as is if decoding fails
+                            elif isinstance(val, np.ndarray) and val.dtype.kind == 'S':
+                                 val = val.astype(str)
+                                 
+                            data[k] = val
                     
                     if 'fields' in f.attrs:
                         fields = f.attrs['fields']
@@ -78,12 +91,12 @@ def cacher(filename):
             strategies = {
                 '.tsv': (
                     lambda p: pd.read_csv(p, sep='\t'), 
-                    lambda d, p: d.to_csv(p, sep='\t', index=False),
+                    lambda d, p: d.to_csv(p, sep='\t', index=False, na_rep=''),
                     lambda d: f"\n{d.head()}"
                 ),
                 '.csv': (
                     lambda p: pd.read_csv(p), 
-                    lambda d, p: d.to_csv(p, index=False),
+                    lambda d, p: d.to_csv(p, index=False, na_rep=''),
                     lambda d: f"\n{d.head()}"
                 ),
                 '.pkl': (

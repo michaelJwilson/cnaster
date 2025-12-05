@@ -51,17 +51,19 @@ def cacher(relative_path):
 
             loader, writer = strategies.get(ext, strategies['.pkl'])
 
-            if os.path.exists(filepath):
+            if config.run.cache and os.path.exists(filepath):
                 mtime = os.path.getmtime(filepath)
                 last_modified = datetime.datetime.fromtimestamp(mtime).strftime('%Y-%m-%d %H:%M:%S')
-                logger.warning(f"Loading cached result from {filepath} (last modified: {last_modified})")
+                logger.warning(f"Loading cached result (last modified: {last_modified}) from:\n{filepath}")
 
                 return loader(filepath)
 
             result = func(*args, **kwargs)
 
-            if result is not None:
+            if config.run.cache and result is not None:
                 os.makedirs(os.path.dirname(filepath), exist_ok=True)
+
+                logger.warning(f"Writing cached result to {filepath}.")
                 writer(result, filepath)
 
             return result

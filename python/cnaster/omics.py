@@ -4,11 +4,13 @@ import numpy as np
 import pandas as pd
 from cnaster.recomb import assign_centiMorgans, compute_numbat_phase_switch_prob
 from cnaster.reference import get_reference_genes, get_reference_recomb_rates
+from cnaster.utils import cacher
 
 logger = logging.getLogger(__name__)
 
 
 # TODO assumes reference gene contains all those present in Visium anndata.
+@cacher("cache/gene_snp_table.tsv")
 def form_gene_snp_table(
     unique_snp_ids,
     hgtable_file,

@@ -1317,6 +1317,7 @@ def summarize_counts_for_bins_legacy(
     )
 
 
+@cacher("binned_counts.hdf5")
 def summarize_counts_for_bins(
     df_gene_snp,
     adata,
@@ -1457,10 +1458,22 @@ def summarize_counts_for_bins(
 
     assert bin_single_X.ndim == 3
 
-    return (
-        lengths,
-        bin_single_X,
-        bin_single_base_nb_mean,
-        bin_single_total_bb_RD,
-        log_sitewise_transmat,
+    # NB named tuple to return
+    BinnedCounts = namedtuple(
+        "BinnedCounts",
+        [
+            "lengths",
+            "bin_single_X",
+            "bin_single_base_nb_mean",
+            "bin_single_total_bb_RD",
+            "log_sitewise_transmat",
+        ],
+    )
+
+    return BinnedCounts(
+        lengths=lengths,
+        bin_single_X=bin_single_X,
+        bin_single_base_nb_mean=bin_single_base_nb_mean,
+        bin_single_total_bb_RD=bin_single_total_bb_RD,
+        log_sitewise_transmat=log_sitewise_transmat,
     )

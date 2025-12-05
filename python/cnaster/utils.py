@@ -1,6 +1,7 @@
 from copyreg import pickle
 import os
 import h5py
+import scipy
 import pickle
 import logging
 import datetime
@@ -34,15 +35,33 @@ def cacher(filename):
                         d = d._asdict()
                     
                     for k, v in d.items():
-                        f.create_dataset(k, data=v)
-
+                        if scipy.sparse.issparse(v):
+                            v_csr = v.tocsr()
+                            g = f.create_group(k)
+                            g.attrs['type'] = 'scipy.sparse.csr_matrix'
+                            g.attrs['shape'] = v_csr.shape
+                            g.create_dataset('data', data=v_csr.data)
+                            g.create_dataset('indices', data=v_csr.indices)
+                            g.create_dataset('indptr', data=v_csr.indptr)
+                        else:
+                            f.create_dataset(k, data=v)
+                
             def load_h5(p):
                 with h5py.File(p, 'r') as f:
-                    data = {k: f[k][()] for k in f.keys()}
+                    data = {}
+                    for k in f.keys():
+                        item = f[k]
+                        if isinstance(item, h5py.Group) and item.attrs.get('type') == 'scipy.sparse.csr_matrix':
+                            shape = tuple(item.attrs['shape'])
+                            data[k] = scipy.sparse.csr_matrix(
+                                (item['data'][()], item['indices'][()], item['indptr'][()]),
+                                shape=shape
+                            )
+                        else:
+                            data[k] = item[()]
                     
                     if 'fields' in f.attrs:
                         fields = f.attrs['fields']
-
                         if isinstance(fields, np.ndarray):
                             fields = [x.decode('utf-8') if isinstance(x, bytes) else x for x in fields]
                         
@@ -54,28 +73,28 @@ def cacher(filename):
             def synopsis_h5(d):
                 if hasattr(d, '_fields'):
                     return f"\tfields={d._fields}"
-                return f"\tkeys={list(d.keys())}"
+                return f"keys={list(d.keys())}"
 
             strategies = {
                 '.tsv': (
                     lambda p: pd.read_csv(p, sep='\t'), 
                     lambda d, p: d.to_csv(p, sep='\t', index=False),
-                    lambda d: d.head()
+                    lambda d: f"\n{d.head()}"
                 ),
                 '.csv': (
                     lambda p: pd.read_csv(p), 
                     lambda d, p: d.to_csv(p, index=False),
-                    lambda d: d.head()
+                    lambda d: f"\n{d.head()}"
                 ),
                 '.pkl': (
                     lambda p: pickle.load(open(p, "rb")), 
                     lambda d, p: pickle.dump(d, open(p, "wb")),
-                    lambda d: f"\ttype={type(d)}"
+                    lambda d: f"type={type(d)}"
                 ),
                 '.npy': (
                     lambda p: np.load(p), 
                     lambda d, p: np.save(p, d),
-                    lambda d: f"{d}"
+                    lambda d: f"\n{d}"
                 ),
                 '.hdf5': (
                     load_h5, 
@@ -94,11 +113,14 @@ def cacher(filename):
                 mtime = os.path.getmtime(filepath)
                 last_modified = datetime.datetime.fromtimestamp(mtime).strftime('%Y-%m-%d %H:%M:%S')
 
-                result = loader(filepath)
+                try:
+                    result = loader(filepath)
 
-                logger.warning(f"Loading cached result (last modified: {last_modified}) from:\n{filepath}\n with result:\n{synopsis(result)}")
+                    logger.warning(f"Loading cached result (last modified: {last_modified}) from:\n{filepath}\n with result:  {synopsis(result)}")
 
-                return result
+                    return result
+                except Exception as e:
+                    logger.warning(f"Failed to load cached file=\n{filepath}\n with error=\n{e}")
 
             result = func(*args, **kwargs)
 
@@ -106,7 +128,16 @@ def cacher(filename):
                 os.makedirs(os.path.dirname(filepath), exist_ok=True)
 
                 logger.warning(f"Writing cached result to:\n{filepath}.")
-                writer(result, filepath)
+
+                tmp_filepath = filepath + ".tmp"
+                try:
+                    writer(result, tmp_filepath)
+                    os.replace(tmp_filepath, filepath)
+                except Exception as e:
+                    logger.error(f"Failed to write cache file: {e}")
+                    
+                    if os.path.exists(tmp_filepath):
+                        os.remove(tmp_filepath)
 
             return result
 

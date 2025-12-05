@@ -431,8 +431,6 @@ def run_cnaster(config_path, over_rides=None):
         max_binlength=config.quality.max_binlength,
     )
 
-    exit(0)
-
     logger.info(f"Recalculating counts given new phase-based bins.")
 
     # TODO separate transmat.
@@ -494,6 +492,8 @@ def run_cnaster(config_path, over_rides=None):
         unit_xsquared=config.hmrf.unit_xsquared,
         unit_ysquared=config.hmrf.unit_ysquared,
     )
+
+    exit(0)
 
     adjacency_fig = plot_adjacency(
         coords,

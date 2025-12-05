@@ -493,8 +493,6 @@ def run_cnaster(config_path, over_rides=None):
         unit_ysquared=config.hmrf.unit_ysquared,
     )
 
-    exit(0)
-
     adjacency_fig = plot_adjacency(
         coords,
         smooth_mat,

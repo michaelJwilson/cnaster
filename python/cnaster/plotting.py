@@ -994,9 +994,9 @@ def plot_recombination_rates(df_recomb, base_height=4):
     chrom_mins = df.groupby('chrom')['pos'].min()
     chrom_maxes = df.groupby('chrom')['pos'].max()
 
-    logger.info("Found range per contig:")
+    logger.info("Contig ranges:")
     for chrom in chrom_mins.index:
-        logger.info(f"Chromosome {chrom}: {chrom_mins[chrom]} - {chrom_maxes[chrom]}")
+        logger.info(f"chr{chrom:<2}:\t{chrom_mins[chrom]:>12_} - {chrom_maxes[chrom]:>12_}")
 
     unique_chroms = sorted(df['chrom'].unique())
     n_chroms = len(unique_chroms)

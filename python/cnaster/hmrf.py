@@ -183,10 +183,11 @@ def pool_hmrf_data(
 
 @njit(parallel=True, cache=True)
 def compute_single_llf(
+    N,
     smooth_indices,
     smooth_indptr,
-    nz_base,
-    nz_total,
+    nz_nb_base,
+    nz_bb_total,
     single_tumor_prop,
     use_mixture,
     tmp_log_emission_rdr,
@@ -195,16 +196,16 @@ def compute_single_llf(
     n_obs,
     n_clones,
 ):
-    N = len(smooth_indptr) - 1
     single_llf = np.zeros((N, n_clones))
 
     for i in prange(N):
         start_idx = smooth_indptr[i]
         end_idx = smooth_indptr[i + 1]
 
-        sum_base = 0
-        sum_total = 0
+        sum_nb_base, sum_bb_total = 0, 0
 
+        # NB loop over pooled neighbors of spot i,
+        #    skipping those with nan tumor proportion.
         for k in range(start_idx, end_idx):
             neighbor = smooth_indices[k]
 
@@ -212,26 +213,27 @@ def compute_single_llf(
                 if np.isnan(single_tumor_prop[neighbor]):
                     continue
 
-            sum_base += nz_base[neighbor]
-            sum_total += nz_total[neighbor]
+            sum_nb_base += nz_nb_base[neighbor]
+            sum_bb_total += nz_bb_total[neighbor]
 
-        multiplier = 1.0
-        if sum_base > 0 and sum_total > 0:
-            multiplier = sum_total / sum_base
+        ratio_nonzeros = 1.0
 
-        # 2. Compute Log-Likelihood for each clone
+        # NB both normal and baf signals available.
+        if sum_nb_base > 0 and sum_bb_total > 0:
+            ratio_nonzeros = sum_bb_total / sum_nb_base
+
         for c in range(n_clones):
             offset = c * n_obs
 
-            term_rdr = 0.0
-            term_baf = 0.0
+            term_rdr, term_baf = 0.0, 0.0
 
             for o in range(n_obs):
                 state = pred[offset + o]
+
                 term_rdr += tmp_log_emission_rdr[state, o, i]
                 term_baf += tmp_log_emission_baf[state, o, i]
 
-            single_llf[i, c] = multiplier * term_rdr + term_baf
+            single_llf[i, c] = ratio_nonzeros * term_rdr + term_baf
 
     return single_llf
 
@@ -399,8 +401,7 @@ def aggr_hmrfmix_reassignment_concatenate(
             res["new_taus"],
         )
 
-    logger.info(f"TODO: post-processing likelihood")
-
+    """
     # NB log likelihood of each spot given that its label is each clone, i.e. unary Potts term.
     single_llf = np.zeros((N, n_clones))
 
@@ -414,11 +415,13 @@ def aggr_hmrfmix_reassignment_concatenate(
             idx = idx[~np.isnan(single_tumor_prop[idx])]
 
         # TODO pooled_X treated as a bool
-        # NB there are available RDR and BAF counts given these neighbors..
+        # NB pooled neighbors have at least one normal umi, and at least one snp-covering umi (all segments)
         if (
             np.sum(single_base_nb_mean[:, idx] > 0) > 0
             and np.sum(single_total_bb_RD[:, idx] > 0) > 0
         ):
+            # NB aggregating over all segments in these neighbors, ratio of normal umis to snp-covering umis
+            #    for pooled neighbors of spot i.
             ratio_nonzeros = (
                 1.0
                 * np.sum(single_total_bb_RD[:, idx] > 0)
@@ -426,12 +429,11 @@ def aggr_hmrfmix_reassignment_concatenate(
             )
 
             for c in range(n_clones):
-                # MAP copy state for this clone.
+                # NB MAP copy state for this clone (concatenated).
                 this_pred = pred[(c * n_obs) : ((c + 1) * n_obs)]
 
-                # NB log likelihood for this spot, given copy number profile of this clone;
-                #    assumes IID along the genome.
-                # TODO np.arange(n_obs) -> : ?
+                # NB log likelihood for this spot, given copy number
+                #    profile of this clone; assumes IID along the genome.
                 single_llf[i, c] = ratio_nonzeros * np.sum(
                     tmp_log_emission_rdr[this_pred, np.arange(n_obs), i]
                 ) + np.sum(tmp_log_emission_baf[this_pred, np.arange(n_obs), i])
@@ -439,25 +441,22 @@ def aggr_hmrfmix_reassignment_concatenate(
             for c in range(n_clones):
                 this_pred = pred[(c * n_obs) : ((c + 1) * n_obs)]
 
-                # TODO np.arange(n_obs) -> :?
                 single_llf[i, c] = np.sum(
                     tmp_log_emission_rdr[this_pred, np.arange(n_obs), i]
                 ) + np.sum(tmp_log_emission_baf[this_pred, np.arange(n_obs), i])
-
-    # assert np.allclose(single_llf, legacy_single_llf), "BUG: single_llf mismatch"
-
-    print(np.sum(single_llf))
-
-    nz_base = (single_base_nb_mean > 0).sum(axis=0)
-    nz_total = (single_total_bb_RD > 0).sum(axis=0)
+    """
+    # NB number of non-zero nb_base and bb_total per spot.
+    nz_nb_base = (single_base_nb_mean > 0).sum(axis=0)
+    nz_bb_total = (single_total_bb_RD > 0).sum(axis=0)
 
     _tumor_prop = single_tumor_prop if single_tumor_prop is not None else np.empty(0)
 
     single_llf = compute_single_llf(
+        N,
         smooth_mat.indices,
         smooth_mat.indptr,
-        nz_base,
-        nz_total,
+        nz_nb_base,
+        nz_bb_total,
         _tumor_prop,
         use_mixture,
         tmp_log_emission_rdr,
@@ -467,9 +466,7 @@ def aggr_hmrfmix_reassignment_concatenate(
         n_clones,
     )
 
-    print(np.sum(single_llf))
-
-    exit(0)
+    # assert np.allclose(single_llf, new_single_llf), "BUG: single_llf mismatch"
 
     adj_list = cast_csr(adjacency_mat)
     adj_spots, adj_neighbors, adj_weights = unpack_adjacency(adj_list)

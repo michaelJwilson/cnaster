@@ -1107,7 +1107,11 @@ def plot_copy_states(state_cnv):
     # Build table rows: 3 per clone (μ, BAF, (A,B)), using each clone's own state ordering.
     table_rows = []
     row_types = []
-    for clone in clone_names:
+    for i, clone in enumerate(clone_names):
+        if i > 0:
+            table_rows.append([""] * len(col_labels))
+            row_types.append(-1)
+
         sorted_indices = clone_state_orders[clone]
         for rtype in (0, 1, 2):
             row = []
@@ -1126,7 +1130,7 @@ def plot_copy_states(state_cnv):
             table_rows.append(row)
             row_types.append(rtype)
 
-    fig_height = max(6, len(clone_names) * 3 * 0.35 + 2)
+    fig_height = max(6, len(table_rows) * 0.35 + 2)
     fig_width = max(10, len(col_labels) * 1.2)
     fig, ax = plt.subplots(figsize=(fig_width, fig_height))
     ax.axis("off")
@@ -1156,24 +1160,43 @@ def plot_copy_states(state_cnv):
         return (r, g, b, 1.0)
 
     data_row_offset = 1
+    current_clone_idx = 0
 
     # Color all sub-rows by (A,B) state from global palette (using each clone's ordering)
     for r, rtype in enumerate(row_types):
         table_r = r + data_row_offset
-        clone_idx = (
-            r // 3
-        )  # NB assumes three row sub-types i.e. (μ, BAF, (A,B)) per clone.
-        clone = clone_names[clone_idx]
+
+        if rtype == -1:
+            # Style the gap row: make it invisible
+            for c in range(len(col_labels)):
+                cell = tbl[(table_r, c)]
+                cell.set_text_props(text="")
+                cell.set_facecolor("none")
+                cell.set_edgecolor("none")
+                cell.set_height(0.02) # Make gap row shorter
+            continue
+
+        clone = clone_names[current_clone_idx]
         sorted_indices = clone_state_orders[clone]
+
         for c, s_idx in enumerate(sorted_indices):
             a = int(state_cnv.iloc[s_idx][f"{clone} A"])
             b = int(state_cnv.iloc[s_idx][f"{clone} B"])
             base_col = state_colors.get((a, b), "#FFFFFF")
             tbl[(table_r, c)].set_facecolor(blend(base_col, alpha=0.5))
+            
+        if rtype == 2:
+            current_clone_idx += 1
 
+    current_row_idx = 0
     for clone_idx, clone in enumerate(clone_names):
+        if clone_idx > 0:
+            current_row_idx += 1 # Skip gap row
+            
         display_clone = cast_clone_label(clone)
-        start_r = data_row_offset + clone_idx * 3
+        start_r = data_row_offset + current_row_idx
+        
+        # Clone Label (Vertical Center of 3 rows)
         top_cell = tbl[(start_r, 0)]
         bottom_cell = tbl[(start_r + 2, 0)]
         y_center = (
@@ -1189,7 +1212,27 @@ def plot_copy_states(state_cnv):
             fontsize=11,
             transform=ax.transAxes,
         )
+        
+        # Sub-row labels
+        label_map = {0: r"$\mu$", 1: r"$\beta$", 2: r"$\mathbb{N}$"}
+        for offset in range(3):
+            table_r = start_r + offset
+            first_cell = tbl[(table_r, 0)]
+            y_center = first_cell.get_y() + first_cell.get_height() / 2
+            ax.text(
+                -0.020,
+                y_center,
+                label_map[offset],
+                rotation=90,
+                va="center",
+                ha="center",
+                fontsize=9,
+                transform=ax.transAxes,
+            )
+            
+        current_row_idx += 3
 
+    """
     # Vertical sub-row labels
     label_map = {0: r"$\mu$", 1: r"$\beta$", 2: r"$\mathbb{N}$"}
     for r, rtype in enumerate(row_types):
@@ -1206,6 +1249,7 @@ def plot_copy_states(state_cnv):
             fontsize=9,
             transform=ax.transAxes,
         )
+    """
 
     plt.title(r"$\mathbb{R}$ copy states", fontsize=14, pad=20)
     plt.tight_layout()

@@ -523,6 +523,7 @@ def run_cnaster(config_path, over_rides=None):
         adjacency_mat,
         pointsize=5,
         base_height=6,
+        sample_list=sample_list,
     )
 
     fig_path = f"{plots_dir}/adjacency.pdf"
@@ -1892,7 +1893,7 @@ def run_cnaster(config_path, over_rides=None):
 
         copy_states_fig = plot_copy_states(state_cnv)
         write_fig(
-            f"{plots_dir}/copy_states_{medfix[o]}.pdf",
+            f"{plots_dir}/copy_states{medfix[o]}.pdf",
             copy_states_fig,
             transparent=True,
             bbox_inches="tight",

@@ -8,6 +8,8 @@ import datetime
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import anndata
+from anndata.experimental import read_elem, write_elem
 from collections import namedtuple
 from pathlib import Path
 from functools import wraps
@@ -35,6 +37,15 @@ def cacher(filename):
                         d = d._asdict()
                     
                     for k, v in d.items():
+                        if v is None:
+                            ds = f.create_dataset(k, dtype='i1', data=h5py.Empty('i1'))
+                            ds.attrs['is_none'] = True
+                            continue
+
+                        if isinstance(v, anndata.AnnData):
+                            write_elem(f, k, v)
+                            continue
+
                         if scipy.sparse.issparse(v):
                             v_csr = v.tocsr()
                             g = f.create_group(k)
@@ -51,6 +62,15 @@ def cacher(filename):
                     data = {}
                     for k in f.keys():
                         item = f[k]
+
+                        if item.attrs.get('is_none'):
+                            data[k] = None
+                            continue
+
+                        if isinstance(item, h5py.Group) and item.attrs.get("encoding-type") == "anndata":
+                            data[k] = read_elem(item)
+                            continue
+
                         if isinstance(item, h5py.Group) and item.attrs.get('type') == 'scipy.sparse.csr_matrix':
                             shape = tuple(item.attrs['shape'])
                             data[k] = scipy.sparse.csr_matrix(
@@ -61,13 +81,11 @@ def cacher(filename):
                             val = item[()]
                             # NB decode bytes to strings for object arrays, e.g. pandas string cols.
                             if isinstance(val, np.ndarray) and val.dtype.kind == 'O':
-                                # Vectorized decode if possible, or list comprehension
                                 try:
-                                    # Check first element to see if it's bytes
                                     if val.size > 0 and isinstance(val.flat[0], bytes):
                                         val = np.array([x.decode('utf-8') for x in val.flat]).reshape(val.shape)
                                 except Exception:
-                                    pass # Keep as is if decoding fails
+                                    pass
                             elif isinstance(val, np.ndarray) and val.dtype.kind == 'S':
                                  val = val.astype(str)
                                  
@@ -137,10 +155,10 @@ def cacher(filename):
 
             result = func(*args, **kwargs)
 
-            if config.run.cache and result is not None:
+            if config.run.cache:
                 os.makedirs(os.path.dirname(filepath), exist_ok=True)
 
-                logger.warning(f"Writing cached result to:\n{filepath}.")
+                logger.warning(f"Writing cached result to:\n{filepath}")
 
                 tmp_filepath = filepath + ".tmp"
                 try:
@@ -151,6 +169,9 @@ def cacher(filename):
                     
                     if os.path.exists(tmp_filepath):
                         os.remove(tmp_filepath)
+
+                # NB load from cache as a verification.
+                result = loader(filepath)
 
             return result
 

@@ -989,7 +989,7 @@ def merge_by_minspots(
     if adjacency_mat is not None:
         raise NotImplementedError()
     else:
-        logger.warning("TODO: adjacency_mat not queried by merge_by_minspots.")
+        logger.warning_once("TODO: adjacency_mat not queried by merge_by_minspots.")
 
     n_clones = len(np.unique(assignment))
     if n_clones == 1:

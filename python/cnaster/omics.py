@@ -200,7 +200,7 @@ def summarize_blocks(
         snp_ids = row["snp_ids"]
         if snp_ids:
             # TODO HACK?
-            snp_idx = np.array([map_snp_index[s] for s in snp_ids if s is not np.nan])
+            snp_idx = np.array([map_snp_index[s] for s in snp_ids if s])
             if len(snp_idx) > 0:
                 snp_umis[idx] = int(
                     cell_snp_Aallele[:, snp_idx].sum()

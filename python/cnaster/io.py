@@ -293,7 +293,7 @@ def map_unique_snps_enum(unique_snp_ids):
     """
     # NB log the number of unique snps and warn on any repeats
     bonafide_unique_snps, cnts = np.unique(unique_snp_ids, return_counts=True)
-    logger.info(f"Detected {len(bonafide_unique_snps)} unique snps from {len(unique_snp_ids)} input snp ids.")
+    logger.info(f"Detected {len(bonafide_unique_snps)} unique snps from {len(unique_snp_ids)} input snp ids with dtype={unique_snp_ids.dtype}.")
 
     repeats = dict()
 
@@ -317,7 +317,7 @@ def map_unique_snps_enum(unique_snp_ids):
         new_snp_id = f"{contig}_{pos}_{enum}"
         result.append(new_snp_id)
 
-    result = np.array(result)
+    result = np.array(result, dtype=unique_snp_ids.dtype)
 
     logger.info(f"Mapped input snp ids to enum:\n{result[:5]}")
 
@@ -745,10 +745,12 @@ def load_input_data(
     )
 
     # TODO dense arrays.
-    return ProcessedData(
+    result = ProcessedData(
         adata,
         cell_snp_Aallele.toarray(),
         cell_snp_Ballele.toarray(),
         unique_snp_ids,
         across_slice_adjacency_mat,
     )
+
+    return result

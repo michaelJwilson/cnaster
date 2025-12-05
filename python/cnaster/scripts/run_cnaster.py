@@ -73,6 +73,17 @@ class RuntimeFormatter(logging.Formatter):
         runtime_minutes = (time.time() - start_time) / 60.0
         record.runtime = f"{runtime_minutes:.2f}m"
         return super().format(record)
+    
+def warning_once(msg, *args, **kwargs):
+    """
+    Logs a warning message only once per unique message string.
+    """
+    if not hasattr(warning_once, "_seen"):
+        warning_once._seen = set()
+    
+    if msg not in warning_once._seen:
+        logger.warning(msg, *args, **kwargs)
+        warning_once._seen.add(msg)
 
 
 formatter = RuntimeFormatter(
@@ -92,6 +103,7 @@ stream_handler.setFormatter(formatter)
 logger.addHandler(stream_handler)
 
 logger = logging.getLogger(__name__)
+logging.Logger.warning_once = warning_once
 
 
 def run_cnaster(config_path, over_rides=None):
@@ -159,14 +171,8 @@ def run_cnaster(config_path, over_rides=None):
     #    cell_snp_Aallele: haplotype H0 counts (barcode x snp).
     #    cell_snp_Ballele: haplotype H1 counts (barcode x snp).
     #    unique_snp_ids: {contig}_{pos}_{ref}_{alt} for all snps.
-    #    across_slice_adjacency_mat: ...
-    (
-        adata,
-        cell_snp_Aallele,
-        cell_snp_Ballele,
-        unique_snp_ids,
-        across_slice_adjacency_mat,
-    ) = load_input_data(
+    #    across_slice_adjacency_mat: ...    
+    input_data = load_input_data(
         config,
         filter_gene_file=config.references.filtergenelist_file,
         filter_range_file=config.references.filterregion_file,
@@ -174,6 +180,14 @@ def run_cnaster(config_path, over_rides=None):
         min_percent_expressed_spots=config.quality.min_percent_expressed_spots,
     )
 
+    (
+        adata,
+        cell_snp_Aallele,
+        cell_snp_Ballele,
+        unique_snp_ids,
+        across_slice_adjacency_mat,
+    ) = input_data
+    
     # NB e.g. 'AAACAAGTATCTCCCA-1_HT112C1-U1' currently.
     barcodes = adata.obs.index
     sample_list = [adata.obs["sample"].iloc[0]]

@@ -7,6 +7,7 @@ import datetime
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+from collections import namedtuple
 from pathlib import Path
 from functools import wraps
 from numba import njit
@@ -28,42 +29,83 @@ def cacher(relative_path):
             # TODO
             def write_h5(d, p):
                 with h5py.File(p, 'w') as f:
+                    if hasattr(d, '_fields'):
+                        f.attrs['fields'] = d._fields
+                        d = d._asdict()
+                    
                     for k, v in d.items():
                         f.create_dataset(k, data=v)
 
             def load_h5(p):
                 with h5py.File(p, 'r') as f:
-                    return {k: f[k][()] for k in f.keys()}
+                    data = {k: f[k][()] for k in f.keys()}
+                    
+                    if 'fields' in f.attrs:
+                        fields = f.attrs['fields']
+
+                        if isinstance(fields, np.ndarray):
+                            fields = [x.decode('utf-8') if isinstance(x, bytes) else x for x in fields]
+                        
+                        GenericTuple = namedtuple("GenericTuple", fields)
+                        return GenericTuple(**data)
+                    
+                    return data
+            
+            def synopsis_h5(d):
+                if hasattr(d, '_fields'):
+                    return f"\tfields={d._fields}"
+                return f"\tkeys={list(d.keys())}"
 
             strategies = {
-                '.tsv': (lambda p: pd.read_csv(p, sep='\t'), lambda d, p: d.to_csv(p, sep='\t', index=False)),
-                '.csv': (lambda p: pd.read_csv(p), lambda d, p: d.to_csv(p, index=False)),
-                '.pkl': (lambda p: pickle.load(open(p, "rb")), lambda d, p: pickle.dump(d, open(p, "wb"))),
-                '.npy': (lambda p: np.load(p), lambda d, p: np.save(p, d)),
-                '.npz': (lambda p: dict(np.load(p)), lambda d, p: np.savez(p, **d)),
-                '.h5':  (load_h5, write_h5),
-                '.hdf5': (load_h5, write_h5),
+                '.tsv': (
+                    lambda p: pd.read_csv(p, sep='\t'), 
+                    lambda d, p: d.to_csv(p, sep='\t', index=False),
+                    lambda d: d.head()
+                ),
+                '.csv': (
+                    lambda p: pd.read_csv(p), 
+                    lambda d, p: d.to_csv(p, index=False),
+                    lambda d: d.head()
+                ),
+                '.pkl': (
+                    lambda p: pickle.load(open(p, "rb")), 
+                    lambda d, p: pickle.dump(d, open(p, "wb")),
+                    lambda d: f"\ttype={type(d)}"
+                ),
+                '.npy': (
+                    lambda p: np.load(p), 
+                    lambda d, p: np.save(p, d),
+                    lambda d: f"{d}"
+                ),
+                '.hdf5': (
+                    load_h5, 
+                    write_h5,
+                    synopsis_h5
+                ),
             }
 
             if ext not in strategies:
                 logger.warning(f"Skipping unknown extension '{ext}' for caching:\n'{filepath}'.")
                 return func(*args, **kwargs)
 
-            loader, writer = strategies.get(ext, strategies['.pkl'])
+            loader, writer, synopsis = strategies.get(ext, strategies['.pkl'])
 
             if config.run.cache and os.path.exists(filepath):
                 mtime = os.path.getmtime(filepath)
                 last_modified = datetime.datetime.fromtimestamp(mtime).strftime('%Y-%m-%d %H:%M:%S')
-                logger.warning(f"Loading cached result (last modified: {last_modified}) from:\n{filepath}")
 
-                return loader(filepath)
+                result = loader(filepath)
+
+                logger.warning(f"Loading cached result (last modified: {last_modified}) from:\n{filepath}\n with result:\n{synopsis(result)}")
+
+                return result
 
             result = func(*args, **kwargs)
 
             if config.run.cache and result is not None:
                 os.makedirs(os.path.dirname(filepath), exist_ok=True)
 
-                logger.warning(f"Writing cached result to {filepath}.")
+                logger.warning(f"Writing cached result to:\n{filepath}.")
                 writer(result, filepath)
 
             return result

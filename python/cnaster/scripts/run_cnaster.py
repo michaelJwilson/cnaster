@@ -238,8 +238,6 @@ def run_cnaster(config_path, over_rides=None):
         unique_snp_ids, config.references.hgtable_file, adata
     )
 
-    exit(0)
-
     """
     plot_gene_snp_spatial(
         adata,
@@ -277,6 +275,8 @@ def run_cnaster(config_path, over_rides=None):
         cell_snp_Ballele,
         unique_snp_ids,
     )
+
+    exit(0)
 
     # NB 1D array of expected phase error rate.
     log_sitewise_transmat = get_sitewise_transmat(

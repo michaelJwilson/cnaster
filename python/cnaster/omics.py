@@ -2,6 +2,7 @@ import logging
 
 import numpy as np
 import pandas as pd
+from collections import namedtuple
 from cnaster.recomb import assign_centiMorgans, compute_numbat_phase_switch_prob
 from cnaster.reference import get_reference_genes, get_reference_recomb_rates
 from cnaster.utils import cacher
@@ -260,6 +261,7 @@ def summarize_blocks(
         logger.warning(f"Found ill-defined group:/n{block_summary.loc[np.nan]}")
 
 
+@cacher("cache/blocked_gene_snp_table.tsv")
 def assign_initial_blocks(
     df_gene_snp,
     adata,
@@ -581,7 +583,7 @@ def summarize_counts_for_blocks_legacy(
         single_total_bb_RD,
     )
 
-
+@cacher("summarize_counts_for_blocks.hdf5")
 def summarize_counts_for_blocks(
     df_gene_snp,
     adata,
@@ -644,11 +646,13 @@ def summarize_counts_for_blocks(
 
     assert single_X.ndim == 3
 
-    return (
-        lengths,
-        single_X,
-        single_base_nb_mean,
-        single_total_bb_RD,
+    BlockSummary = namedtuple("BlockSummary", ["lengths", "single_X", "single_base_nb_mean", "single_total_bb_RD"])
+
+    return BlockSummary(
+        lengths=lengths,
+        single_X=single_X,
+        single_base_nb_mean=single_base_nb_mean,
+        single_total_bb_RD=single_total_bb_RD,
     )
 
 

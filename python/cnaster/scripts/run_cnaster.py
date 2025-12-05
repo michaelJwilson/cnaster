@@ -276,8 +276,6 @@ def run_cnaster(config_path, over_rides=None):
         unique_snp_ids,
     )
 
-    exit(0)
-
     # NB 1D array of expected phase error rate.
     log_sitewise_transmat = get_sitewise_transmat(
         df_gene_snp,
@@ -432,6 +430,8 @@ def run_cnaster(config_path, over_rides=None):
         config.quality.secondary_min_normal_umi,
         max_binlength=config.quality.max_binlength,
     )
+
+    exit(0)
 
     logger.info(f"Recalculating counts given new phase-based bins.")
 

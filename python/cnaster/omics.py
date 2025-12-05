@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 # TODO assumes reference gene contains all those present in Visium anndata.
-@cacher("cache/gene_snp_table.tsv")
+@cacher("gene_snp_table.tsv")
 def form_gene_snp_table(
     unique_snp_ids,
     hgtable_file,
@@ -199,7 +199,8 @@ def summarize_blocks(
         # SNP-covering UMIs
         snp_ids = row["snp_ids"]
         if snp_ids:
-            snp_idx = np.array([map_snp_index[s] for s in snp_ids])
+            # TODO HACK?
+            snp_idx = np.array([map_snp_index[s] for s in snp_ids if s is not np.nan])
             if len(snp_idx) > 0:
                 snp_umis[idx] = int(
                     cell_snp_Aallele[:, snp_idx].sum()
@@ -261,7 +262,7 @@ def summarize_blocks(
         logger.warning(f"Found ill-defined group:/n{block_summary.loc[np.nan]}")
 
 
-@cacher("cache/blocked_gene_snp_table.tsv")
+@cacher("blocked_gene_snp_table.tsv")
 def assign_initial_blocks(
     df_gene_snp,
     adata,
@@ -583,7 +584,7 @@ def summarize_counts_for_blocks_legacy(
         single_total_bb_RD,
     )
 
-@cacher("summarize_counts_for_blocks.hdf5")
+@cacher("blocked_counts.hdf5")
 def summarize_counts_for_blocks(
     df_gene_snp,
     adata,
@@ -993,6 +994,7 @@ def greedy_binning_nobreak(
     return bin_ids
 
 
+@cacher("binned_gene_snp_table.tsv")
 def create_bin_ranges(
     df_gene_snp,
     adata,

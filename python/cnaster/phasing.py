@@ -1,6 +1,8 @@
 import logging
 
 import numpy as np
+from collections import namedtuple
+from cnaster.utils import cacher
 from cnaster.hmm import hmm_sitewise, pipeline_baum_welch
 from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
 from cnaster.config import get_global_config
@@ -8,6 +10,7 @@ from cnaster.config import get_global_config
 logger = logging.getLogger(__name__)
 
 
+@cacher("initial_phase.hdf5")
 def initial_phase_given_partition(
     single_X,
     lengths,
@@ -238,4 +241,7 @@ def initial_phase_given_partition(
         f"Solved for {len(refined_lengths)} phase-refined lengths given {len(lengths)} input lengths with sum={sum(lengths)}."
     )
 
-    return phase_indicator, refined_lengths
+    # NB return named tuple PhaseSummary
+    PhaseSummary = namedtuple("PhaseSummary", ["phase_indicator", "refined_lengths"])
+
+    return PhaseSummary(phase_indicator=phase_indicator, refined_lengths=refined_lengths)

@@ -15,14 +15,14 @@ from cnaster.config import get_global_config
 
 logger = logging.getLogger(__name__)
 
-def cacher(relative_path):
+def cacher(filename):
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
             config = get_global_config()
             
             output_dir = config.paths.output_dir
-            filepath = os.path.join(output_dir, relative_path)
+            filepath = os.path.join(output_dir, "cache", filename)
 
             ext = os.path.splitext(filepath)[1].lower()
 

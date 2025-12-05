@@ -653,8 +653,8 @@ def hmrfmix_concatenate_pipeline(
             clone_stack_total_bb_RD,
             params,
             random_state=random_state,
-            in_log_space=False,  # TODO BUG?
-            only_minor=False,  # TODO BUG?
+            in_log_space=False,
+            only_minor=False,  # NB with no phasing, we need states > 0.5;
         )
 
         new_init_alphas = init_alphas

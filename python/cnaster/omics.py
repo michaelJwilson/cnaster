@@ -268,7 +268,8 @@ def assign_initial_blocks(
 ):
     """
     Initially assigns SNPs to blocks along the genome, based on merging overlapping gene intervals
-    and requiring blocks have a minimm number of SNP covering reads.
+    & requiring blocks have a minimm number of snp-covering reads; these can be aggregated up to the
+    scale of switch errors in the population-based phasing.
 
     Returns
     ----------
@@ -385,7 +386,6 @@ def assign_initial_blocks(
             t += 1
 
             reach_end = t == len(block_ranges)
-
             change_chr = initial_block_chr[s] != initial_block_chr[t - 1]
 
             # NB count SNP-covering UMI

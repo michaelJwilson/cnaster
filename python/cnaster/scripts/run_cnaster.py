@@ -251,7 +251,7 @@ def run_cnaster(config_path, over_rides=None):
         cell_snp_Aallele,
         cell_snp_Ballele,
         unique_snp_ids,
-        initial_min_umi=15,  # MAGIC
+        initial_min_umi=config.quality.phasing_min_snp_umis,
     )
 
     # NB num. of blocks per contig; SN-based H0 and H0+H1 counts block; total UMIs per block.
@@ -462,7 +462,7 @@ def run_cnaster(config_path, over_rides=None):
 
     fig_path = f"{plots_dir}/postphasing_clones_genomic.pdf"
     write_fig(fig_path, postphasing_clones_genomic, transparent=True, bbox_inches="tight")
-
+    
     # NB sparse transcript counts (spot, gene).
     exp_counts = pd.DataFrame.sparse.from_spmatrix(
         scipy.sparse.csc_matrix(adata.layers["count"]),
@@ -700,6 +700,7 @@ def run_cnaster(config_path, over_rides=None):
             for c in np.sort(np.unique(res["new_assignment"]))
         ],
         lengths,
+        res=res,
         single_tumor_prop=None,
         sample_list=sample_list,
         remove_xticks=True,
@@ -765,7 +766,7 @@ def run_cnaster(config_path, over_rides=None):
     write_fig(
         fig_path, merged_bafonly_clones_fig, transparent=True, bbox_inches="tight"
     )
-
+   
     # TODO copy rename.
     merged_bafonly_clones_genomic = plot_clones_genomic_simple(
         single_X,
@@ -776,6 +777,7 @@ def run_cnaster(config_path, over_rides=None):
             for c in np.sort(np.unique(merged_res["new_assignment"]))
         ],
         lengths,
+        res=merged_res,
         single_tumor_prop=None,
         sample_list=sample_list,
         remove_xticks=True,
@@ -788,8 +790,6 @@ def run_cnaster(config_path, over_rides=None):
 
     fig_path = f"{plots_dir}/merged_bafonly_clones_genomic.pdf"
     write_fig(fig_path, merged_bafonly_clones_genomic, transparent=True, bbox_inches="tight")
-
-    exit(0)
 
     # NB construct clone labels.
     df_clone_label = pd.DataFrame(

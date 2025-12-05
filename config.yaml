@@ -33,12 +33,14 @@ references:
   filterregion_file : /u/mw9568/research/data/references/HLA_regions.bed
 
 # TODO HACK
+#           phasing_min_snp_umis : 15 -> 
 #           spot_min_snp_umis : 50 ->
 #           min_percent_expressed_spots : 0.005 ->
 #           secondary_min_snp_umi : 300 ->
 #           normal_allele_specific_confidence : (0.05, 0.95) ->
 #           min_normal_count_perbin : 20 ->
 quality:
+  phasing_min_snp_umis : 50
   spot_min_snp_umis : 10
   min_percent_expressed_spots : 0.005
   secondary_min_umi : 0

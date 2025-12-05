@@ -29,6 +29,11 @@ def initial_phase_given_partition(
     threshold,
     min_snpumi=2e3,
 ):
+    assert np.all(single_base_nb_mean == 0)
+
+    # NB TODO attractor to 0.5 if sufficiently close, independent of coverage.
+    EPS_BAF = 0.05  # MAGIC
+
     # NB on input phase_indicator is 0s by construction, up to phase switch errors TBD.
     logger.info(f"Starting phasing assuming {len(initial_clone_index)} clones.")
 
@@ -45,15 +50,17 @@ def initial_phase_given_partition(
     # NB (initial clones, segments).
     n_clones = X.shape[2]
     baf_profiles = np.zeros((n_clones, X.shape[0]))
+    phase_profiles = np.zeros((n_clones, X.shape[0]), dtype=bool)
 
-    # NB loop over initial clones.
+    cumulative_lengths = np.cumsum(lengths)
+
     for i in range(n_clones):
         logger.info(f"Solving for phasing of initial clone {i} of {n_clones}.")
 
         # NB assumes BAF = 0.5 for insufficient snp umi count; initial binning chosen so this is not the case
         #    for pseudobulk of all spots?
         if np.sum(total_bb_RD[:, i]) < min_snpumi:
-            logger.warning(f"Insufficient SNP UMI to infer BAF, assuming 0.5;")
+            logger.warning(f"Insufficient snp umi to infer BAF, assuming 0.5;")
             baf_profiles[i, :] = 0.5
         else:
             # NB phasing of a single clone; independent BAF values.
@@ -83,35 +90,73 @@ def initial_phase_given_partition(
                 tol=tol,
             )
 
+            assert np.all(res["new_p_binom"] <= 0.5 + EPS_BAF)
+
             # NB MAP estimate of state given log posterior; pred. > n_states indicates switch-error.
             pred = np.argmax(res["log_gamma"], axis=0)
 
-            # TODO calculate empirical switch error rate.
-
-            # NB BAF by mirroring by inferred haplotype - assumed baf is not e.g. minor, but initialization
-            #    dependent.
+            # NB by initialization, baf p_binom is minor (<0.5); states > n_states are phase flips
+            #    corresponding to 1 - p_binom.
+            #
+            #    This has the derived consequence that all data > 0.5 is "flipped", irrespective of
+            #    whether there was a switch error, i.e. a run of p, followed by 1-p, or vice versa. 
             this_baf_profiles = np.where(
                 pred < n_states,
                 res["new_p_binom"][pred % n_states, 0],
                 1.0
                 - res["new_p_binom"][
                     pred % n_states, 0
-                ],  # BAF evidence for switch-error so flip.
+                ],
             )
-
-            # NB TODO attractor to 0.5 if sufficiently close, independent of coverage.
-            EPS_BAF = 0.05  # MAGIC
 
             assumed_normal = np.abs(this_baf_profiles - 0.5) < EPS_BAF
             this_baf_profiles[assumed_normal] = 0.5
 
-            # NB solved for baf_profile of this clone, mitigating switch errors.
+            # NB model of the baf profile (as copy states) for all clones, phased.
             baf_profiles[i, :] = this_baf_profiles
 
-    # NB assumed minor baf profile.
+            phase_profiles[i, :] = pred < n_states
+            phase_profiles[i, res["new_p_binom"][pred % n_states, 0] > 0.5] = True
+            phase_profiles[i, assumed_normal] = True
+            """
+            valid = ~assumed_normal
+            baf_switches = np.where(
+                valid[:-1] 
+                & (np.abs(np.diff(this_minor_baf_profiles)) > EPS_BAF)
+            )[0]
+
+            phase_switches = np.where( 
+                valid[:-1] 
+                & (np.abs(this_baf_profiles[:-1] - (1. - this_baf_profiles[1:])) < EPS_BAF)
+            )[0]
+
+            n_total_bins = len(pred)
+
+            # NB log best-fit mu, p for this clone
+            logger.info(f"Clone {i} mu=\n{np.exp(res['new_log_mu'])}\nand\np={res['new_p_binom']}")
+
+            for phase_switch in phase_switches:
+                remaining_baf_switches = baf_switches[baf_switches > phase_switch]
+                next_baf_change = remaining_baf_switches[0] if len(remaining_baf_switches) > 0 else n_total_bins
+
+                remaining_lengths = cumulative_lengths[cumulative_lengths > phase_switch]
+                next_end = remaining_lengths[0] if len(remaining_lengths) > 0 else n_total_bins
+
+                num_segments_to_flip = min(1 + next_baf_change, next_end) - phase_switch
+
+                contig = 1 + np.searchsorted(cumulative_lengths, phase_switch, side='right')
+                baf_val = this_baf_profiles[phase_switch]
+                next_baf = this_baf_profiles[1 + next_baf_change] if 1 + next_baf_change < n_total_bins else np.nan
+
+                logger.info(
+                    f"Clone {i}, chr{contig} phase switch for baf={baf_val:.6f} and {num_segments_to_flip} segments (next_baf={next_baf:.6f})."
+                )
+            """
+
+    # NB corresponds to the baf profile as realized by res["new_p_binom"][pred % n_states, 0].
     minor_baf_profiles = np.where(baf_profiles < 0.5, baf_profiles, 1.0 - baf_profiles)
 
-    # NB compute population-level BAF with weighted mean by clone size.
+    # NB compute population-level BAF, weighted by clone fraction.
     if single_tumor_prop is None:
         num_spots_per_clone = [len(x) for x in initial_clone_index]
         n_total_spots = np.sum(num_spots_per_clone)
@@ -137,21 +182,32 @@ def initial_phase_given_partition(
             @ baf_profiles
         )
 
-    logger.info(
-        f"Found non-normal population BAF to be:\n{[xx for xx in np.unique(population_baf[population_baf != 0.5])]}"
-    )
-
-    # NB makes sense: phasing determined with all clones; copy state BAF phased appropriately.
+    # NB behaviour is to force a flip of the data is the population model baf >0.5;
+    #    this is shared by all spots/clones, so mirrored events are conserved, e.g.
+    #   (2,1) & (1,2) -> (1,2) & (2,1),
+    #
+    # TODO HACK < -> <= to reduce flips for EPS_BAF.
     phase_indicator = population_baf < 0.5
+    logger.info(f"Legacy phase indicator assumed {np.count_nonzero(phase_indicator)}/{len(phase_indicator)} (mean={np.mean(phase_indicator)}) switches.")
+
+    phase_indicator = population_baf <= 0.5
     refined_lengths = []
     cumlen = 0
 
+    logger.info(f"Phase indicator assumes {np.count_nonzero(phase_indicator)}/{len(phase_indicator)} (mean={np.mean(phase_indicator)}) switches.")
+
+    # TODO HACK flipped where false.
+    phase_indicator = np.all(phase_profiles, axis=0)
+
     config = get_global_config()
-    BAF_CHANGE_THRESHOLD = config.phasing.baf_change_threshold  # MAGIC
+    BAF_CHANGE_THRESHOLD = config.phasing.baf_change_threshold
     MIN_SEGMENT_SIZE = config.phasing.min_new_segment_size
 
-    # NB le is the number of blocks per contig.
-    for le in lengths:
+    # NB TODO?  this can only be necessary if phase indicator does not correctly capture all switches,
+    #           and potentially allows merges that should be excluded based on the BAF.  
+    # 
+    # le is the number of blocks per contig.
+    for ii, le in enumerate(lengths):
         s = 0
 
         for i in range(le):
@@ -164,9 +220,11 @@ def initial_phase_given_partition(
                 >= BAF_CHANGE_THRESHOLD
             ):
                 # NB new blocks are a min. size and set by change in BAF.
+                logger.warning(f"Forced a block boundary at contig {1 + ii} pos {i} given dBAF={np.abs(minor_baf_profiles[:, i + cumlen] - minor_baf_profiles[:, i + cumlen - 1]).max()}.")
                 refined_lengths.append(i - s)
                 s = i
 
+        # NB force a stop at contig end.
         refined_lengths.append(le - s)
         cumlen += le
 

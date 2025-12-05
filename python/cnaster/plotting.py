@@ -991,13 +991,16 @@ def plot_recombination_rates(df_recomb, base_height=4):
     df['chrom'] = df['chrom'].astype(int)
     df = df.sort_values(['chrom', 'pos'])
 
+    """
     chrom_mins = df.groupby('chrom')['pos'].min()
     chrom_maxes = df.groupby('chrom')['pos'].max()
 
+    
     logger.info("Contig ranges:")
     for chrom in chrom_mins.index:
         logger.info(f"chr{chrom:<2}:\t{chrom_mins[chrom]:>12_} - {chrom_maxes[chrom]:>12_}")
-
+    """
+        
     unique_chroms = sorted(df['chrom'].unique())
     n_chroms = len(unique_chroms)
 
@@ -1014,8 +1017,8 @@ def plot_recombination_rates(df_recomb, base_height=4):
         axes = [axes]
 
     for i, chrom in enumerate(unique_chroms):
-        chrom_data = df[df['chrom'] == chrom]
-        chrom_data["pos"] /= 1e6  # Convert to Mb
+        chrom_data = df[df['chrom'] == chrom].copy()
+        chrom_data.loc[:, "pos"] = chrom_data["pos"] / 1e6  # Convert to Mb
 
         ax = axes[i]
         
@@ -1041,6 +1044,168 @@ def plot_recombination_rates(df_recomb, base_height=4):
             ax.set_xlabel("Pos [Mb]")
     
     fig.suptitle("Recombination rate")
+    plt.tight_layout()
+    
+    return fig
+
+def plot_copy_states(state_cnv):
+    clone_cols = [c for c in state_cnv.columns if "logmu" in c]
+    clone_names = sorted(set(c.split()[0] for c in clone_cols))
+    if len(clone_names) == 0:
+        logger.warning("No clone columns detected in per-state table.")
+        return
+    n_states = len(state_cnv)
+
+    print(state_cnv)
+
+    # Collect unique (A,B) states across ALL clones for global color palette
+    global_states = set()
+    for clone in clone_names:
+        a_vals = state_cnv[f"{clone} A"].astype(int).to_list()
+        b_vals = state_cnv[f"{clone} B"].astype(int).to_list()
+        for a, b in zip(a_vals, b_vals):
+            global_states.add((a, b))
+
+    # Build global color palette
+    ordered_global_states = sorted(
+        global_states,
+        key=lambda ab: (
+            ab[0] + ab[1],
+            ab[0] / (ab[0] + ab[1]) if (ab[0] + ab[1]) > 0 else 0,
+        ),
+    )
+    palette = sns.color_palette("husl", len(ordered_global_states))
+    state_colors = {st: palette[i] for i, st in enumerate(ordered_global_states)}
+    state_colors[(1, 1)] = "#FFFFFF"
+
+    # Order HMM states independently per clone by BAF then μ
+    # Build a dict: clone -> sorted list of state indices
+    clone_state_orders = {}
+
+    def _state_cmp(a, b):
+        # a, b: (state_index, baf, mu, (A,B))
+        if abs(a[1] - b[1]) < 0.05:
+            return -1 if a[2] < b[2] else (1 if a[2] > b[2] else 0)
+        return -1 if a[1] < b[1] else (1 if a[1] > b[1] else 0)
+
+    for clone in clone_names:
+        order_info = []
+        for s in range(n_states):
+            baf = state_cnv.iloc[s][f"{clone} p"]
+            logmu = state_cnv.iloc[s][f"{clone} logmu"]
+            mu = np.exp(logmu)
+            a = int(state_cnv.iloc[s][f"{clone} A"])
+            b = int(state_cnv.iloc[s][f"{clone} B"])
+            order_info.append((s, baf, mu, (a, b)))
+        order_info = sorted(order_info, key=cmp_to_key(_state_cmp))
+        clone_state_orders[clone] = [x[0] for x in order_info]
+
+    col_labels = [f"$\\mathbb{{R}}_{{{i}}}$" for i in range(n_states)]
+
+    # Build table rows: 3 per clone (μ, BAF, (A,B)), using each clone's own state ordering.
+    table_rows = []
+    row_types = []
+    for clone in clone_names:
+        sorted_indices = clone_state_orders[clone]
+        for rtype in (0, 1, 2):
+            row = []
+            for s_idx in sorted_indices:
+                if rtype == 0:  # μ
+                    logmu = state_cnv.iloc[s_idx][f"{clone} logmu"]
+                    mu = np.exp(logmu)
+                    row.append(f"{mu:.3f}")
+                elif rtype == 1:  # BAF
+                    baf = state_cnv.iloc[s_idx][f"{clone} p"]
+                    row.append(f"{baf:.3f}")
+                else:  # (A,B)
+                    a = int(state_cnv.iloc[s_idx][f"{clone} A"])
+                    b = int(state_cnv.iloc[s_idx][f"{clone} B"])
+                    row.append(f"({a},{b})")
+            table_rows.append(row)
+            row_types.append(rtype)
+
+    fig_height = max(6, len(clone_names) * 3 * 0.35 + 2)
+    fig_width = max(10, len(col_labels) * 1.2)
+    fig, ax = plt.subplots(figsize=(fig_width, fig_height))
+    ax.axis("off")
+    tbl = ax.table(
+        cellText=table_rows,
+        colLabels=col_labels,
+        cellLoc="center",
+        loc="center",
+        bbox=[0, 0, 1, 1],
+    )
+    tbl.auto_set_font_size(False)
+    tbl.set_fontsize(8)
+    tbl.scale(1, 1.6)
+    fig.canvas.draw()
+
+    # Style header
+    for c in range(len(col_labels)):
+        cell = tbl[(0, c)]
+        cell.set_facecolor("#FFFFFF")
+        cell.set_text_props(fontsize=9)
+
+    def blend(color, alpha=0.5):
+        r, g, b, _ = mcolors.to_rgba(color)
+        r = 1 - alpha * (1 - r)
+        g = 1 - alpha * (1 - g)
+        b = 1 - alpha * (1 - b)
+        return (r, g, b, 1.0)
+
+    data_row_offset = 1
+
+    # Color all sub-rows by (A,B) state from global palette (using each clone's ordering)
+    for r, rtype in enumerate(row_types):
+        table_r = r + data_row_offset
+        clone_idx = (
+            r // 3
+        )  # NB assumes three row sub-types i.e. (μ, BAF, (A,B)) per clone.
+        clone = clone_names[clone_idx]
+        sorted_indices = clone_state_orders[clone]
+        for c, s_idx in enumerate(sorted_indices):
+            a = int(state_cnv.iloc[s_idx][f"{clone} A"])
+            b = int(state_cnv.iloc[s_idx][f"{clone} B"])
+            base_col = state_colors.get((a, b), "#FFFFFF")
+            tbl[(table_r, c)].set_facecolor(blend(base_col, alpha=0.5))
+
+    for clone_idx, clone in enumerate(clone_names):
+        display_clone = cast_clone_label(clone)
+        start_r = data_row_offset + clone_idx * 3
+        top_cell = tbl[(start_r, 0)]
+        bottom_cell = tbl[(start_r + 2, 0)]
+        y_center = (
+            top_cell.get_y() + bottom_cell.get_y() + bottom_cell.get_height()
+        ) / 2
+        ax.text(
+            -0.050,
+            y_center,
+            display_clone,
+            rotation=90,
+            va="center",
+            ha="center",
+            fontsize=11,
+            transform=ax.transAxes,
+        )
+
+    # Vertical sub-row labels
+    label_map = {0: r"$\mu$", 1: r"$\beta$", 2: r"$\mathbb{N}$"}
+    for r, rtype in enumerate(row_types):
+        table_r = r + data_row_offset
+        first_cell = tbl[(table_r, 0)]
+        y_center = first_cell.get_y() + first_cell.get_height() / 2
+        ax.text(
+            -0.020,
+            y_center,
+            label_map[rtype],
+            rotation=90,
+            va="center",
+            ha="center",
+            fontsize=9,
+            transform=ax.transAxes,
+        )
+
+    plt.title(r"$\mathbb{R}$ copy states", fontsize=14, pad=20)
     plt.tight_layout()
     
     return fig

@@ -74,17 +74,21 @@ class RuntimeFormatter(logging.Formatter):
         record.runtime = f"{runtime_minutes:.2f}m"
         return super().format(record)
     
-def warning_once(msg, *args, **kwargs):
-    """
-    Logs a warning message only once per unique message string.
-    """
+def warning_once(self, msg, *args, **kwargs):
     if not hasattr(warning_once, "_seen"):
         warning_once._seen = set()
     
     if msg not in warning_once._seen:
-        logger.warning(msg, *args, **kwargs)
+        self.warning(msg, *args, **kwargs)
         warning_once._seen.add(msg)
 
+def info_once(self, msg, *args, **kwargs):
+    if not hasattr(info_once, "_seen"):
+        info_once._seen = set()
+    
+    if msg not in info_once._seen:
+        self.info(msg, *args, **kwargs)
+        info_once._seen.add(msg)
 
 formatter = RuntimeFormatter(
     fmt="%(asctime)s - %(runtime)s - %(name)s - %(levelname)-7s - %(filename)s:%(lineno)d - %(message)s",
@@ -104,6 +108,7 @@ logger.addHandler(stream_handler)
 
 logger = logging.getLogger(__name__)
 logging.Logger.warning_once = warning_once
+logging.Logger.info_once = info_once
 
 
 def run_cnaster(config_path, over_rides=None):
@@ -388,7 +393,12 @@ def run_cnaster(config_path, over_rides=None):
     fig_path = f"{plots_dir}/prephasing_clones_genomic.pdf"
     write_fig(fig_path, prephasing_clones_genomic, transparent=True, bbox_inches="tight")
 
-    logger.warning("Assuming (magic) five BAF states for phasing.")
+    if config.run.legacy:
+        logger.warning("Assuming (magic) five BAF states for phasing.")
+        n_states_phasing = 5
+    else:
+        n_states_phasing = config.hmm.n_states
+
 
     assert single_X.ndim == 3
 
@@ -401,7 +411,7 @@ def run_cnaster(config_path, over_rides=None):
             single_total_bb_RD,
             single_tumor_prop,
             initial_clone_for_phasing,
-            5,  # MAGIC n_states
+            n_states_phasing,
             log_sitewise_transmat,
             "sp",  # MAGIC params (start prob. & baf states, no transition).
             config.hmm.t_phaseing,
@@ -1879,6 +1889,14 @@ def run_cnaster(config_path, over_rides=None):
 
         opath = f"{output_dir}/cnv{medfix[o]}_perstate.tsv"
         write_tsv(opath, state_cnv, header=True, index=False)
+
+        copy_states_fig = plot_copy_states(state_cnv)
+        write_fig(
+            f"{plots_dir}/copy_states_{medfix[o]}.pdf",
+            copy_states_fig,
+            transparent=True,
+            bbox_inches="tight",
+        )
 
     # NB construct clone labels.
     df_clone_label = pd.DataFrame(

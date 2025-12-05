@@ -9,7 +9,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import anndata
-from anndata.experimental import read_elem, write_elem
+from anndata.io import read_elem, write_elem
 from collections import namedtuple
 from pathlib import Path
 from functools import wraps
@@ -147,7 +147,7 @@ def cacher(filename):
                 try:
                     result = loader(filepath)
 
-                    logger.warning(f"Loading cached result (last modified: {last_modified}) from:\n{filepath}\n with result:  {synopsis(result)}")
+                    logger.warning(f"Loading cached result (last modified: {last_modified}) from:\n{filepath}\nwith result:  {synopsis(result)}")
 
                     return result
                 except Exception as e:

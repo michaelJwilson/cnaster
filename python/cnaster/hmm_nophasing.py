@@ -425,7 +425,7 @@ class hmm_nophasing:
                 new_log_startprob = update_startprob_nophasing(lengths, log_gamma)
                 new_log_startprob = new_log_startprob.flatten()
 
-                logger.info(f"Updated HMM start probability=\n{new_log_startprob}")
+                logger.info(f"Updated HMM start probability=\n{*new_log_startprob}")
 
             else:
                 new_log_startprob = log_startprob

@@ -103,7 +103,7 @@ def neyman_pearson_similarity(
     **kwargs,
 ):
     logger.info(
-        "Solving for Neyman-Pearson similiarity with {hmmclass.__name__} instance and\nnew_log_mu={res['new_log_mu']}\nnew_p_binom={res['new_p_binom']}"
+        f"Solving for Neyman-Pearson similiarity with np. threshold={threshold} and {hmmclass.__name__} instance with:\nnew_log_mu=\n{res['new_log_mu']}\nnew_p_binom=\n{res['new_p_binom']}"
     )
 
     n_obs, _, n_clones = X.shape

@@ -1020,7 +1020,7 @@ def plot_recombination_rates(df_recomb, base_height=4):
 
     for i, chrom in enumerate(unique_chroms):
         chrom_data = df[df['chrom'] == chrom].copy()
-        chrom_data.loc[:, "pos"] = chrom_data["pos"] / 1.e6  # Convert to Mb
+        chrom_data["pos"] = chrom_data["pos"].astype(float) / 1.e6  # Convert to Mb
 
         ax = axes[i]
         

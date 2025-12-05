@@ -182,7 +182,7 @@ def pool_hmrf_data(
 
 
 @njit(parallel=True, cache=True)
-def compute_single_llf_numba(
+def compute_single_llf(
     smooth_indices,
     smooth_indptr,
     nz_base,
@@ -199,7 +199,6 @@ def compute_single_llf_numba(
     single_llf = np.zeros((N, n_clones))
 
     for i in prange(N):
-        # 1. Aggregate neighbors to compute ratio_nonzeros
         start_idx = smooth_indptr[i]
         end_idx = smooth_indptr[i + 1]
 
@@ -208,11 +207,11 @@ def compute_single_llf_numba(
 
         for k in range(start_idx, end_idx):
             neighbor = smooth_indices[k]
-            
+
             if use_mixture:
                 if np.isnan(single_tumor_prop[neighbor]):
                     continue
-            
+
             sum_base += nz_base[neighbor]
             sum_total += nz_total[neighbor]
 
@@ -223,7 +222,7 @@ def compute_single_llf_numba(
         # 2. Compute Log-Likelihood for each clone
         for c in range(n_clones):
             offset = c * n_obs
-            
+
             term_rdr = 0.0
             term_baf = 0.0
 
@@ -235,6 +234,7 @@ def compute_single_llf_numba(
             single_llf[i, c] = multiplier * term_rdr + term_baf
 
     return single_llf
+
 
 # NB aggregate by smooth mat. with tumor/normal mix, spot reassignment, concatenated by clone?
 def aggr_hmrfmix_reassignment_concatenate(
@@ -443,6 +443,33 @@ def aggr_hmrfmix_reassignment_concatenate(
                 single_llf[i, c] = np.sum(
                     tmp_log_emission_rdr[this_pred, np.arange(n_obs), i]
                 ) + np.sum(tmp_log_emission_baf[this_pred, np.arange(n_obs), i])
+
+    # assert np.allclose(single_llf, legacy_single_llf), "BUG: single_llf mismatch"
+
+    print(np.sum(single_llf))
+
+    nz_base = (single_base_nb_mean > 0).sum(axis=0)
+    nz_total = (single_total_bb_RD > 0).sum(axis=0)
+
+    _tumor_prop = single_tumor_prop if single_tumor_prop is not None else np.empty(0)
+
+    single_llf = compute_single_llf(
+        smooth_mat.indices,
+        smooth_mat.indptr,
+        nz_base,
+        nz_total,
+        _tumor_prop,
+        use_mixture,
+        tmp_log_emission_rdr,
+        tmp_log_emission_baf,
+        pred,
+        n_obs,
+        n_clones,
+    )
+
+    print(np.sum(single_llf))
+
+    exit(0)
 
     adj_list = cast_csr(adjacency_mat)
     adj_spots, adj_neighbors, adj_weights = unpack_adjacency(adj_list)

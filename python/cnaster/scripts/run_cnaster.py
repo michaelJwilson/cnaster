@@ -232,8 +232,6 @@ def run_cnaster(config_path, over_rides=None):
         f"{plots_dir}/recombination_rates.pdf", recomb_fig, transparent=True, bbox_inches="tight"
     )
 
-    exit(0)
-
     # NB parse_visium::combine_gene_snps
     #    chr, start, end, snp_id, gene, is_interval (is_gene).
     df_gene_snp = form_gene_snp_table(

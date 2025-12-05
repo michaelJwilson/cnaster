@@ -187,21 +187,24 @@ def initial_phase_given_partition(
     #   (2,1) & (1,2) -> (1,2) & (2,1),
     #
     # TODO HACK < -> <= to reduce flips for EPS_BAF.
-    phase_indicator = population_baf < 0.5
-    logger.info(f"Legacy phase indicator assumed {np.count_nonzero(phase_indicator)}/{len(phase_indicator)} (mean={np.mean(phase_indicator)}) switches.")
-
-    phase_indicator = population_baf <= 0.5
-    refined_lengths = []
-    cumlen = 0
-
-    logger.info(f"Phase indicator assumes {np.count_nonzero(phase_indicator)}/{len(phase_indicator)} (mean={np.mean(phase_indicator)}) switches.")
-
-    # TODO HACK flipped where false.
-    phase_indicator = np.all(phase_profiles, axis=0)
-
     config = get_global_config()
     BAF_CHANGE_THRESHOLD = config.phasing.baf_change_threshold
     MIN_SEGMENT_SIZE = config.phasing.min_new_segment_size
+
+    if config.run.legacy:
+        phase_indicator = population_baf < 0.5
+        logger.info(f"Legacy phase indicator assumed {np.count_nonzero(phase_indicator)}/{len(phase_indicator)} (mean={np.mean(phase_indicator)}) switches.")
+
+    else:
+        phase_indicator = population_baf <= 0.5
+        
+        # TODO HACK flipped where false.                                                                                                                                                                                                                 
+        # phase_indicator = np.all(phase_profiles, axis=0)
+
+        logger.info(f"Phase indicator assumes {np.count_nonzero(phase_indicator)}/{len(phase_indicator)} (mean={np.mean(phase_indicator)}) switches.")
+                
+    refined_lengths = []
+    cumlen = 0
 
     # NB TODO?  this can only be necessary if phase indicator does not correctly capture all switches,
     #           and potentially allows merges that should be excluded based on the BAF.  

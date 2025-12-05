@@ -237,9 +237,15 @@ def plot_adjacency(
     pointsize=5,
     base_height=6,
     cmap="tab20b",
+    sample_list=None
 ):
     fig, ax = plt.subplots(1, 1, figsize=(base_height * 1.2, base_height), dpi=300, facecolor="white")
-    ax.set_title("Assumed adjacency", fontsize=12, y=0.95)
+
+    if sample_list is not None:
+        ax.set_title(", ".join(sample_list) + ": adjacency", fontsize=12, y=0.95)
+    else:
+        ax.set_title("Adjacency", fontsize=12, y=0.95)
+
     ax.scatter(
         coords[:, 0],
         -coords[:, 1],
@@ -1026,7 +1032,6 @@ def plot_recombination_rates(df_recomb, base_height=4):
         ax.set_ylabel(f"chr{chrom}", rotation=90, ha='right', va='bottom', fontsize=10)
         ax.set_xlim(0, None)
         ax.set_ylim(0, 100)
-        # ax.set_yticks([])
 
         sns.despine(ax=ax)
         

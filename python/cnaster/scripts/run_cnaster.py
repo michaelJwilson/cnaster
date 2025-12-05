@@ -2,6 +2,7 @@ import argparse
 import copy
 import time
 import logging
+import random
 
 from networkx import config
 import numpy as np
@@ -136,6 +137,11 @@ def run_cnaster(config_path, over_rides=None):
     if not (pplots_dir := Path(plots_dir)).exists():
         logger.info(f"Creating {plots_dir}")
         pplots_dir.mkdir(exist_ok=True)
+
+    random_seed = int(config.hmrf.random_state)
+    logger.info(f"Set (numpy) random seed={random_seed}")
+    np.random.seed(random_seed)
+    random.seed(random_seed)
 
     """
     (

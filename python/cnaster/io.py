@@ -8,9 +8,11 @@ import pandas as pd
 import scanpy as sc
 import polars as pl
 import scipy.sparse
+from collections import namedtuple
 from cnaster.filter import get_filter_genes, get_filter_ranges
 from cnaster.reference import exp_cancer_gene
 from cnaster.config import get_global_config
+from cnaster.utils import cacher
 from sklearn.neighbors import LocalOutlierFactor
 
 logger = logging.getLogger(__name__)
@@ -282,7 +284,7 @@ def get_alignments(alignment_files, df_meta, df_agg_barcode, significance=1.0e-6
 
     return across_slice_adjacency_mat
 
-
+@cacher("processed_input.hdf5")
 def load_input_data(
     config,
     alignment_files=None,
@@ -691,8 +693,19 @@ def load_input_data(
     assert len(unique_snp_ids) == cell_snp_Aallele.shape[1]
     assert cell_snp_Aallele.shape[1] == cell_snp_Ballele.shape[1]
 
+    ProcessedData = namedtuple(
+        "ProcessedData",
+        [
+            "adata",
+            "cell_snp_Aallele",
+            "cell_snp_Ballele",
+            "unique_snp_ids",
+            "across_slice_adjacency_mat",
+        ],
+    )
+
     # TODO dense arrays.
-    return (
+    return ProcessedData(
         adata,
         cell_snp_Aallele.toarray(),
         cell_snp_Ballele.toarray(),

@@ -1,12 +1,74 @@
+from copyreg import pickle
+import os
+import h5py
+import pickle
 import logging
+import datetime
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
+from functools import wraps
 from numba import njit
+from cnaster.config import get_global_config
 
 logger = logging.getLogger(__name__)
 
+def cacher(relative_path):
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            config = get_global_config()
+            
+            output_dir = config.paths.output_dir
+            filepath = os.path.join(output_dir, relative_path)
+
+            ext = os.path.splitext(filepath)[1].lower()
+
+            # TODO
+            def write_h5(d, p):
+                with h5py.File(p, 'w') as f:
+                    for k, v in d.items():
+                        f.create_dataset(k, data=v)
+
+            def load_h5(p):
+                with h5py.File(p, 'r') as f:
+                    return {k: f[k][()] for k in f.keys()}
+
+            strategies = {
+                '.tsv': (lambda p: pd.read_csv(p, sep='\t'), lambda d, p: d.to_csv(p, sep='\t', index=False)),
+                '.csv': (lambda p: pd.read_csv(p), lambda d, p: d.to_csv(p, index=False)),
+                '.pkl': (lambda p: pickle.load(open(p, "rb")), lambda d, p: pickle.dump(d, open(p, "wb"))),
+                '.npy': (lambda p: np.load(p), lambda d, p: np.save(p, d)),
+                '.npz': (lambda p: dict(np.load(p)), lambda d, p: np.savez(p, **d)),
+                '.h5':  (load_h5, write_h5),
+                '.hdf5': (load_h5, write_h5),
+            }
+
+            if ext not in strategies:
+                logger.warning(f"Skipping unknown extension '{ext}' for caching:\n'{filepath}'.")
+                return func(*args, **kwargs)
+
+            loader, writer = strategies.get(ext, strategies['.pkl'])
+
+            if os.path.exists(filepath):
+                mtime = os.path.getmtime(filepath)
+                last_modified = datetime.datetime.fromtimestamp(mtime).strftime('%Y-%m-%d %H:%M:%S')
+                logger.warning(f"Loading cached result from {filepath} (last modified: {last_modified})")
+
+                return loader(filepath)
+
+            result = func(*args, **kwargs)
+
+            if result is not None:
+                os.makedirs(os.path.dirname(filepath), exist_ok=True)
+                writer(result, filepath)
+
+            return result
+
+        return wrapper
+
+    return decorator
 
 def count_calls(func):
     """Decorator: increments func.call_count each time func is called."""

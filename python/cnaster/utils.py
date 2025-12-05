@@ -90,12 +90,12 @@ def cacher(filename):
 
             strategies = {
                 '.tsv': (
-                    lambda p: pd.read_csv(p, sep='\t'), 
+                    lambda p: pd.read_csv(p, sep='\t', keep_default_na=False), 
                     lambda d, p: d.to_csv(p, sep='\t', index=False, na_rep=''),
                     lambda d: f"\n{d.head()}"
                 ),
                 '.csv': (
-                    lambda p: pd.read_csv(p), 
+                    lambda p: pd.read_csv(p, keep_default_na=False), 
                     lambda d, p: d.to_csv(p, index=False, na_rep=''),
                     lambda d: f"\n{d.head()}"
                 ),

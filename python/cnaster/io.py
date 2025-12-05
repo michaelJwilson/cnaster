@@ -8,9 +8,11 @@ import pandas as pd
 import scanpy as sc
 import polars as pl
 import scipy.sparse
+from collections import namedtuple
 from cnaster.filter import get_filter_genes, get_filter_ranges
 from cnaster.reference import exp_cancer_gene
 from cnaster.config import get_global_config
+from cnaster.utils import cacher
 from sklearn.neighbors import LocalOutlierFactor
 
 logger = logging.getLogger(__name__)
@@ -282,7 +284,46 @@ def get_alignments(alignment_files, df_meta, df_agg_barcode, significance=1.0e-6
 
     return across_slice_adjacency_mat
 
+def map_unique_snps_enum(unique_snp_ids):
+    """
+    Given unique_snp_ids (array) of {contig}_{pos}_{ref}_{alt} for all snps,
+    where ref = alt = N is a potentially anonymized snp (unknown base),
+    map each snp to a unique id of the form {contig}_{pos}_{enum}, where enum
+    allows for erroneous repeats, but is typically 0.
+    """
+    # NB log the number of unique snps and warn on any repeats
+    bonafide_unique_snps, cnts = np.unique(unique_snp_ids, return_counts=True)
+    logger.info(f"Detected {len(bonafide_unique_snps)} unique snps from {len(unique_snp_ids)} input snp ids with dtype={unique_snp_ids.dtype}.")
 
+    repeats = dict()
+
+    if len(bonafide_unique_snps) != len(unique_snp_ids):
+        for snp_id, count in zip(bonafide_unique_snps[cnts > 1], cnts[cnts > 1]):
+            contig, pos, _, _ = snp_id.split("_")
+            logger.warning(f"Detected repeated snp_id @ chr{contig}:{pos} with count={count}.")
+            repeats[snp_id] = 0
+
+    result = []
+
+    for snp_id in unique_snp_ids:
+        contig, pos, _, _ = snp_id.split("_")
+
+        if snp_id in repeats:
+            enum = repeats[snp_id]
+            repeats[snp_id] += 1
+        else:
+            enum = 0
+
+        new_snp_id = f"{contig}_{pos}_{enum}"
+        result.append(new_snp_id)
+
+    result = np.array(result, dtype=unique_snp_ids.dtype)
+
+    logger.info(f"Mapped input snp ids to enum:\n{result[:5]}")
+
+    return result
+
+@cacher("processed_input.hdf5")
 def load_input_data(
     config,
     alignment_files=None,
@@ -338,6 +379,7 @@ def load_input_data(
     """
 
     unique_snp_ids = np.load(f"{snp_dir}/unique_snp_ids.npy", allow_pickle=True)
+    unique_snp_ids = map_unique_snps_enum(unique_snp_ids)
 
     # NB read (phased) counts for H0/H1 for (spots, snps).
     cell_snp_Aallele = scipy.sparse.load_npz(f"{snp_dir}/cell_snp_Aallele.npz")
@@ -692,11 +734,24 @@ def load_input_data(
     assert len(unique_snp_ids) == cell_snp_Aallele.shape[1]
     assert cell_snp_Aallele.shape[1] == cell_snp_Ballele.shape[1]
 
+    ProcessedData = namedtuple(
+        "ProcessedData",
+        [
+            "adata",
+            "cell_snp_Aallele",
+            "cell_snp_Ballele",
+            "unique_snp_ids",
+            "across_slice_adjacency_mat",
+        ],
+    )
+
     # TODO dense arrays.
-    return (
+    result = ProcessedData(
         adata,
         cell_snp_Aallele.toarray(),
         cell_snp_Ballele.toarray(),
         unique_snp_ids,
         across_slice_adjacency_mat,
     )
+
+    return result

@@ -3,10 +3,12 @@ import logging
 import numpy as np
 import scipy.linalg
 import scipy.sparse
+from collections import namedtuple
 from scipy.sparse import lil_matrix
 from scipy.spatial import cKDTree
 from scipy.spatial import distance
 from scipy.sparse import csr_matrix
+from cnaster.utils import cacher
 
 logger = logging.getLogger(__name__)
 
@@ -780,6 +782,7 @@ def renormalize_adjacency_mat(adjacency_mat):
     return adj
 
 
+@cacher("adjacency.hdf5")
 def multislice_adjacency(
     sample_ids,
     sample_list,
@@ -842,4 +845,6 @@ def multislice_adjacency(
 
     logger.info("Solving for multi-slice adjacency (and spot-pooling) matrix.")
 
-    return adjacency_mat, smooth_mat
+    Adjacency = namedtuple("Adjacency", ["adjacency_mat", "smooth_mat"])
+
+    return Adjacency(adjacency_mat=adjacency_mat, smooth_mat=smooth_mat)

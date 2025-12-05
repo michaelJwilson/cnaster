@@ -752,8 +752,6 @@ def hmrfmix_concatenate_pipeline(
     res = {}
 
     for r in range(max_iter_outer):
-        print("\n\n")
-
         logger.info(
             f"----****  Solving iteration {r}/{max_iter_outer} of copy number state fitting & clone assignment (HMM + HMRF) ****----"
         )
@@ -991,7 +989,7 @@ def merge_by_minspots(
     if adjacency_mat is not None:
         raise NotImplementedError()
     else:
-        logger.warning("TODO: adjacency_mat not queried by merge_by_minspots.")
+        logger.warning_once("TODO: adjacency_mat not queried by merge_by_minspots.")
 
     n_clones = len(np.unique(assignment))
     if n_clones == 1:

@@ -1,6 +1,8 @@
 import logging
 
 import numpy as np
+from collections import namedtuple
+from cnaster.utils import cacher
 from cnaster.hmm import hmm_sitewise, pipeline_baum_welch
 from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
 from cnaster.config import get_global_config
@@ -8,6 +10,7 @@ from cnaster.config import get_global_config
 logger = logging.getLogger(__name__)
 
 
+@cacher("initial_phase.hdf5")
 def initial_phase_given_partition(
     single_X,
     lengths,
@@ -187,21 +190,24 @@ def initial_phase_given_partition(
     #   (2,1) & (1,2) -> (1,2) & (2,1),
     #
     # TODO HACK < -> <= to reduce flips for EPS_BAF.
-    phase_indicator = population_baf < 0.5
-    logger.info(f"Legacy phase indicator assumed {np.count_nonzero(phase_indicator)}/{len(phase_indicator)} (mean={np.mean(phase_indicator)}) switches.")
-
-    phase_indicator = population_baf <= 0.5
-    refined_lengths = []
-    cumlen = 0
-
-    logger.info(f"Phase indicator assumes {np.count_nonzero(phase_indicator)}/{len(phase_indicator)} (mean={np.mean(phase_indicator)}) switches.")
-
-    # TODO HACK flipped where false.
-    phase_indicator = np.all(phase_profiles, axis=0)
-
     config = get_global_config()
     BAF_CHANGE_THRESHOLD = config.phasing.baf_change_threshold
     MIN_SEGMENT_SIZE = config.phasing.min_new_segment_size
+
+    if config.run.legacy:
+        phase_indicator = population_baf < 0.5
+        logger.info(f"Legacy phase indicator assumed {np.count_nonzero(phase_indicator)}/{len(phase_indicator)} (mean={np.mean(phase_indicator)}) switches.")
+
+    else:
+        phase_indicator = population_baf <= 0.5
+        
+        # TODO HACK flipped where false.                                                                                                                                                                                                                 
+        # phase_indicator = np.all(phase_profiles, axis=0)
+
+        logger.info(f"Phase indicator assumes {np.count_nonzero(phase_indicator)}/{len(phase_indicator)} (mean={np.mean(phase_indicator)}) switches.")
+                
+    refined_lengths = []
+    cumlen = 0
 
     # NB TODO?  this can only be necessary if phase indicator does not correctly capture all switches,
     #           and potentially allows merges that should be excluded based on the BAF.  
@@ -235,4 +241,7 @@ def initial_phase_given_partition(
         f"Solved for {len(refined_lengths)} phase-refined lengths given {len(lengths)} input lengths with sum={sum(lengths)}."
     )
 
-    return phase_indicator, refined_lengths
+    # NB return named tuple PhaseSummary
+    PhaseSummary = namedtuple("PhaseSummary", ["phase_indicator", "refined_lengths"])
+
+    return PhaseSummary(phase_indicator=phase_indicator, refined_lengths=refined_lengths)

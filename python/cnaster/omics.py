@@ -2,13 +2,16 @@ import logging
 
 import numpy as np
 import pandas as pd
+from collections import namedtuple
 from cnaster.recomb import assign_centiMorgans, compute_numbat_phase_switch_prob
 from cnaster.reference import get_reference_genes, get_reference_recomb_rates
+from cnaster.utils import cacher
 
 logger = logging.getLogger(__name__)
 
 
 # TODO assumes reference gene contains all those present in Visium anndata.
+@cacher("gene_snp_table.tsv")
 def form_gene_snp_table(
     unique_snp_ids,
     hgtable_file,
@@ -196,7 +199,8 @@ def summarize_blocks(
         # SNP-covering UMIs
         snp_ids = row["snp_ids"]
         if snp_ids:
-            snp_idx = np.array([map_snp_index[s] for s in snp_ids])
+            # TODO HACK?
+            snp_idx = np.array([map_snp_index[s] for s in snp_ids if s])
             if len(snp_idx) > 0:
                 snp_umis[idx] = int(
                     cell_snp_Aallele[:, snp_idx].sum()
@@ -258,6 +262,7 @@ def summarize_blocks(
         logger.warning(f"Found ill-defined group:/n{block_summary.loc[np.nan]}")
 
 
+@cacher("blocked_gene_snp_table.tsv")
 def assign_initial_blocks(
     df_gene_snp,
     adata,
@@ -579,7 +584,7 @@ def summarize_counts_for_blocks_legacy(
         single_total_bb_RD,
     )
 
-
+@cacher("blocked_counts.hdf5")
 def summarize_counts_for_blocks(
     df_gene_snp,
     adata,
@@ -642,11 +647,13 @@ def summarize_counts_for_blocks(
 
     assert single_X.ndim == 3
 
-    return (
-        lengths,
-        single_X,
-        single_base_nb_mean,
-        single_total_bb_RD,
+    BlockSummary = namedtuple("BlockSummary", ["lengths", "single_X", "single_base_nb_mean", "single_total_bb_RD"])
+
+    return BlockSummary(
+        lengths=lengths,
+        single_X=single_X,
+        single_base_nb_mean=single_base_nb_mean,
+        single_total_bb_RD=single_total_bb_RD,
     )
 
 
@@ -987,6 +994,7 @@ def greedy_binning_nobreak(
     return bin_ids
 
 
+@cacher("binned_gene_snp_table.tsv")
 def create_bin_ranges(
     df_gene_snp,
     adata,
@@ -1309,6 +1317,7 @@ def summarize_counts_for_bins_legacy(
     )
 
 
+@cacher("binned_counts.hdf5")
 def summarize_counts_for_bins(
     df_gene_snp,
     adata,
@@ -1449,10 +1458,22 @@ def summarize_counts_for_bins(
 
     assert bin_single_X.ndim == 3
 
-    return (
-        lengths,
-        bin_single_X,
-        bin_single_base_nb_mean,
-        bin_single_total_bb_RD,
-        log_sitewise_transmat,
+    # NB named tuple to return
+    BinnedCounts = namedtuple(
+        "BinnedCounts",
+        [
+            "lengths",
+            "bin_single_X",
+            "bin_single_base_nb_mean",
+            "bin_single_total_bb_RD",
+            "log_sitewise_transmat",
+        ],
+    )
+
+    return BinnedCounts(
+        lengths=lengths,
+        bin_single_X=bin_single_X,
+        bin_single_base_nb_mean=bin_single_base_nb_mean,
+        bin_single_total_bb_RD=bin_single_total_bb_RD,
+        log_sitewise_transmat=log_sitewise_transmat,
     )

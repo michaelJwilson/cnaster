@@ -551,7 +551,7 @@ def update_emission_params_nb_nophasing_uniqvalues(
                 res = None
                 default_nloglikeobs = np.inf
 
-                logger.warning(f"Running without default parameters specified.")
+                logger.warning_once(f"Running without default parameters specified.")
 
             if start_log_mu is not None:
                 res2 = model.fit(

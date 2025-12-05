@@ -61,8 +61,9 @@ from cnaster.integer_copy import (
     hill_climbing_integer_copynumber_oneclone,
     hill_climbing_integer_copynumber_fixdiploid,
 )
-from cnaster.plotting import plot_clones_genomic, plot_clones_spatial, plot_clones_genomic_simple, plot_gene_snp_spatial, plot_gene_snp_spatial, plot_adjacency
-from collections import defaultdict
+from cnaster.plotting import plot_clones_genomic, plot_clones_spatial, plot_clones_genomic_simple, plot_gene_snp_spatial, plot_gene_snp_spatial, plot_adjacency, plot_recombination_rates
+from cnaster.reference import get_reference_recomb_rates
+
 
 start_time = time.time()
 
@@ -223,6 +224,15 @@ def run_cnaster(config_path, over_rides=None):
     else:
         logger.info(f"No (pre-processed) tumorprop. file provided.")
         single_tumor_prop = None
+
+    recomb_rates = get_reference_recomb_rates(config.references.geneticmap_file)
+    recomb_fig = plot_recombination_rates(recomb_rates)
+
+    write_fig(
+        f"{plots_dir}/recombination_rates.pdf", recomb_fig, transparent=True, bbox_inches="tight"
+    )
+
+    exit(0)
 
     # NB parse_visium::combine_gene_snps
     #    chr, start, end, snp_id, gene, is_interval (is_gene).

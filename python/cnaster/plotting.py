@@ -14,6 +14,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
 from cnaster.integer_copy import get_ordered_acn
 from cnaster.utils import cast_clone_label, write_fig
+from cnaster.config import get_global_config
 
 logger = logging.getLogger(__name__)
 
@@ -973,4 +974,68 @@ def plot_clones_spatial(
 
     fig.tight_layout()
 
+    return fig
+
+def plot_recombination_rates(df_recomb, base_height=4):
+    df = df_recomb.copy()
+    df['chrom'] = df['chrom'].astype(str).str.replace('chr', '')
+    
+    valid_chroms = [str(i) for i in range(1, 23)]
+    df = df[df['chrom'].isin(valid_chroms)]
+    df['chrom'] = df['chrom'].astype(int)
+    df = df.sort_values(['chrom', 'pos'])
+
+    chrom_mins = df.groupby('chrom')['pos'].min()
+    chrom_maxes = df.groupby('chrom')['pos'].max()
+
+    logger.info("Found range per contig:")
+    for chrom in chrom_mins.index:
+        logger.info(f"Chromosome {chrom}: {chrom_mins[chrom]} - {chrom_maxes[chrom]}")
+
+    unique_chroms = sorted(df['chrom'].unique())
+    n_chroms = len(unique_chroms)
+
+    fig, axes = plt.subplots(
+        n_chroms, 
+        1, 
+        figsize=(15, max(base_height, n_chroms * 0.8)), 
+        sharex=True, 
+        sharey=True, 
+        dpi=300
+    )
+    
+    if n_chroms == 1:
+        axes = [axes]
+
+    for i, chrom in enumerate(unique_chroms):
+        chrom_data = df[df['chrom'] == chrom]
+        chrom_data["pos"] /= 1e6  # Convert to Mb
+
+        ax = axes[i]
+        
+        sns.lineplot(
+            data=chrom_data,
+            x='pos',
+            y='recomb_rate',
+            linewidth=0.5,
+            alpha=0.8,
+            ax=ax,
+            c="k", 
+        )
+
+        ax.set_ylabel(f"chr{chrom}", rotation=90, ha='right', va='bottom', fontsize=10)
+        ax.set_xlim(0, None)
+        ax.set_ylim(0, 100)
+        # ax.set_yticks([])
+
+        sns.despine(ax=ax)
+        
+        if i < n_chroms - 1:
+            ax.set_xlabel("")
+        else:
+            ax.set_xlabel("Pos [Mb]")
+    
+    fig.suptitle("Recombination rate")
+    plt.tight_layout()
+    
     return fig

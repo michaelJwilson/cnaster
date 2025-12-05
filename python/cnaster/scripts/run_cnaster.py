@@ -54,6 +54,7 @@ from cnaster.normal_spot import (
     filter_normal_diffexp,
     binned_gene_snp,
 )
+from numba import njit
 from cnaster.sim import load_tables_to_matrices
 from cnaster.hmm import pipeline_baum_welch
 from cnaster.hmm_initialize import plot_cna_mixture
@@ -111,6 +112,9 @@ logger = logging.getLogger(__name__)
 logging.Logger.warning_once = warning_once
 logging.Logger.info_once = info_once
 
+@njit
+def set_numba_seed(value):
+    np.random.seed(value)
 
 def run_cnaster(config_path, over_rides=None):
     logger.info("----  Welcome to cnaster  ----")
@@ -142,6 +146,7 @@ def run_cnaster(config_path, over_rides=None):
     logger.info(f"Set (numpy) random seed={random_seed}")
     np.random.seed(random_seed)
     random.seed(random_seed)
+    set_numba_seed(random_seed)
 
     """
     (

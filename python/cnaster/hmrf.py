@@ -4,7 +4,7 @@ import time
 
 import numpy as np
 import scipy.special
-from numba import njit
+from numba import njit, prange
 from cnaster.icm import icm_sweep, wolff_sweep, unpack_adjacency
 from cnaster.hmm import gmm_init, pipeline_baum_welch
 from cnaster.hmm_sitewise import hmm_sitewise
@@ -180,6 +180,61 @@ def pool_hmrf_data(
         weighted_tp,
     )
 
+
+@njit(parallel=True, cache=True)
+def compute_single_llf_numba(
+    smooth_indices,
+    smooth_indptr,
+    nz_base,
+    nz_total,
+    single_tumor_prop,
+    use_mixture,
+    tmp_log_emission_rdr,
+    tmp_log_emission_baf,
+    pred,
+    n_obs,
+    n_clones,
+):
+    N = len(smooth_indptr) - 1
+    single_llf = np.zeros((N, n_clones))
+
+    for i in prange(N):
+        # 1. Aggregate neighbors to compute ratio_nonzeros
+        start_idx = smooth_indptr[i]
+        end_idx = smooth_indptr[i + 1]
+
+        sum_base = 0
+        sum_total = 0
+
+        for k in range(start_idx, end_idx):
+            neighbor = smooth_indices[k]
+            
+            if use_mixture:
+                if np.isnan(single_tumor_prop[neighbor]):
+                    continue
+            
+            sum_base += nz_base[neighbor]
+            sum_total += nz_total[neighbor]
+
+        multiplier = 1.0
+        if sum_base > 0 and sum_total > 0:
+            multiplier = sum_total / sum_base
+
+        # 2. Compute Log-Likelihood for each clone
+        for c in range(n_clones):
+            offset = c * n_obs
+            
+            term_rdr = 0.0
+            term_baf = 0.0
+
+            for o in range(n_obs):
+                state = pred[offset + o]
+                term_rdr += tmp_log_emission_rdr[state, o, i]
+                term_baf += tmp_log_emission_baf[state, o, i]
+
+            single_llf[i, c] = multiplier * term_rdr + term_baf
+
+    return single_llf
 
 # NB aggregate by smooth mat. with tumor/normal mix, spot reassignment, concatenated by clone?
 def aggr_hmrfmix_reassignment_concatenate(

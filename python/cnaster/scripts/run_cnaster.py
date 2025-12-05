@@ -61,7 +61,7 @@ from cnaster.integer_copy import (
     hill_climbing_integer_copynumber_oneclone,
     hill_climbing_integer_copynumber_fixdiploid,
 )
-from cnaster.plotting import plot_clones_genomic, plot_clones_spatial, plot_clones_genomic_simple, plot_gene_snp_spatial, plot_gene_snp_spatial, plot_adjacency, plot_recombination_rates
+from cnaster.plotting import plot_clones_genomic, plot_clones_spatial, plot_clones_genomic_simple, plot_gene_snp_spatial, plot_gene_snp_spatial, plot_adjacency, plot_recombination_rates, plot_copy_states
 from cnaster.reference import get_reference_recomb_rates
 
 

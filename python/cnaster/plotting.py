@@ -9,6 +9,8 @@ import pandas as pd
 import logging
 import matplotlib.gridspec as gridspec
 import cnaster.log_linear
+from functools import cmp_to_key
+import matplotlib.colors as mcolors
 from matplotlib.lines import Line2D
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from cnaster.pseudobulk import merge_pseudobulk_by_index_mix

@@ -608,11 +608,6 @@ def icm_sweep(
     cost_zeropoint=0.0,
     temp=1.0,
 ):
-    """
-    single_llf: log emission likelihood, to be maximized.
-    adj_spots, adj_neighbors, adj_weights: ordered neighbor and weight for all spots.
-    new_assignment: array for new assignment, updated in place.
-    """
     # NB ICM is guranteed to converge to a local (maximum).
     n_spots, n_clones = single_llf.shape
     w_edge = np.zeros(n_clones)

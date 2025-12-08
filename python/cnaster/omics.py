@@ -143,6 +143,8 @@ def summarize_blocks(
     normal_candidates=None,
     sort_key="total_umi",
 ):
+    logger.info(f"Summarizing blocks ...")
+
     assert block_key is not None, "block_key must be specified"
     assert block_key in gene_snp_table.columns, f"{block_key} not in DataFrame"
 
@@ -1156,7 +1158,8 @@ def create_bin_ranges(
     df_gene_snp["bin_id"] = getattr(df_gene_snp, key).map(
         {i: x for i, x in enumerate(bin_ids)}
     )
-
+    """
+    TODO slow
     summarize_blocks(
         df_gene_snp,
         adata,
@@ -1166,6 +1169,7 @@ def create_bin_ranges(
         block_key="bin_id",
         normal_candidates=normal_candidates,
     )
+    """
 
     return df_gene_snp
 

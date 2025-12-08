@@ -1,9 +1,11 @@
 import logging
 import time
 import warnings
+import corner
 
 import numpy as np
 import scipy.stats
+import matplotlib.pyplot as plt
 from math import lgamma
 from scipy.special import loggamma
 from functools import partial
@@ -784,13 +786,7 @@ class Weighted_BetaBinom_mix:
             options=options,
         )
 
-        # TODO
-        # if "hess_inv" in result:
-        #     hess_inv = result.hess_inv.todense()
-        #     sigmas = np.sqrt(np.maximum(np.diag(hess_inv), 0.0))
-        #     print(f"sigmas=\n{sigmas}")
-
-        result = OptimizationResult(
+        optimize_result = OptimizationResult(
             optimizer=get_solver(),
             params=result.x,
             llf=-result.fun,
@@ -809,26 +805,107 @@ class Weighted_BetaBinom_mix:
             using_default_params,
             start_time,
             end_time,
-            result,
+            optimize_result,
         )
 
         logger.debug(
-            f"Weighted_BetaBinom_mix debug - mle_retvals: {result.mle_retvals}, "
-            f"mle_settings: {result.mle_settings}"
+            f"Weighted_BetaBinom_mix debug - mle_retvals: {optimize_result.mle_retvals}, "
+            f"mle_settings: {optimize_result.mle_settings}"
         )
 
         logger.info(
             f"Weighted_BetaBinom_mix done: {runtime:.2f}s with {get_solver()}\nendog_shape={self.endog.shape},\ntumor_prop={self.tumor_prop is not None},\n"
             f"{len(start_params)} params ({'with default start' if using_default_params else 'with custom start'}),\n"
-            f"{result.mle_retvals.get('iterations', 'N/A')} iter,\n"
-            f"{result.mle_retvals.get('fcalls', 'N/A')} fcalls,\n"
-            f"optimizer: {result.mle_settings.get('optimizer', 'Unknown')},\n"
-            f"converged: {result.mle_retvals.get('converged', 'N/A')},\n"
-            f"llf: {result.llf:.6e}\n"
-            f"params: {result.params}"
+            f"{optimize_result.mle_retvals.get('iterations', 'N/A')} iter,\n"
+            f"{optimize_result.mle_retvals.get('fcalls', 'N/A')} fcalls,\n"
+            f"optimizer: {optimize_result.mle_settings.get('optimizer', 'Unknown')},\n"
+            f"converged: {optimize_result.mle_retvals.get('converged', 'N/A')},\n"
+            f"llf: {optimize_result.llf:.6e}\n"
+            f"params:\n{[xx for xx in optimize_result.params]}"
         )
 
-        return result
+        chain = self.run_mcmc()
+
+        self.plot_mcmc(chain)
+
+        exit(0)
+
+        return optimize_result
+
+    def run_mcmc(self, start_params=None, n_samples=100_000, burn_in=1_000):
+        if start_params is None:
+            ps, disp = get_betabinom_start_params(legacy=False, exog=self.exog)
+            start_params = np.array(ps[: self.num_states] + [disp])
+
+        current_params = np.array(start_params, dtype=np.float64)
+        n_params = len(current_params)
+
+        current_nloglikeobs = self.nloglikeobs(current_params)
+
+        samples = np.zeros((n_samples, n_params))
+        bounds = self.get_bounds(current_params)
+
+        rel_step = 0.005
+        step_scales = np.abs(current_params) * rel_step
+
+        accepted = 0
+
+        for i in range(n_samples + burn_in):
+            proposal = current_params + np.random.normal(
+                np.zeros_like(step_scales), step_scales, size=n_params
+            )
+
+            valid = True
+            for idx, val in enumerate(proposal):
+                if val < bounds[idx][0] or val > bounds[idx][1]:
+                    valid = False
+                    break
+
+            if not valid:
+                if i >= burn_in:
+                    samples[i - burn_in] = current_params
+                continue
+
+            prop_nloglikeobs = self.nloglikeobs(proposal)
+
+            if np.log(np.random.rand()) < (current_nloglikeobs - prop_nloglikeobs):
+                current_params = proposal
+                current_nloglikeobs = prop_nloglikeobs
+                if i >= burn_in:
+                    accepted += 1
+
+            if i >= burn_in:
+                samples[i - burn_in] = current_params
+
+        acceptance_rate = accepted / n_samples
+
+        means = np.mean(samples, axis=0)
+        errors = np.std(samples, axis=0)
+
+        logger.info(
+            f"Found {acceptance_rate:.2%} acceptance rate for MCMC with means=\n{means}\nand errors=\n{[xx for xx in errors]}"
+        )
+
+        return samples
+
+    def plot_mcmc(self, samples):
+        means = np.mean(samples, axis=0)
+        errors = np.std(samples, axis=0)
+
+        labels = [f"p_{i}" for i in range(len(means) - 1)] + ["Dispersion"]
+
+        fig = corner.corner(
+            samples,
+            labels=labels,
+            show_titles=True,
+            title_fmt=".3f",
+            quantiles=[0.16, 0.5, 0.84],
+            top_ticks=True,
+            color="#2E86C1",
+        )
+
+        plt.tight_layout()
+        plt.show()
 
 
 # LEGACY

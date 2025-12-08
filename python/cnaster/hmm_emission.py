@@ -765,7 +765,7 @@ class Weighted_BetaBinom_mix:
         start_time = time.time()
 
         logger.info(
-            f"Weighted_BetaBinom_mix (compress={self.compress}, num_states={self.num_states}, endog_shape={self.endog.shape}) initial likelihood={self.nloglikeobs(start_params):.6e} @ start_params:\n{start_params}"
+            f"Weighted_BetaBinom_mix (compress={self.compress}, num_states={self.num_states}, endog_shape={self.endog.shape}) initial likelihood={self.nloglikeobs(start_params):.6e} @ start_params:\n{[xx for xx in start_params]}"
         )
 
         bounds = self.get_bounds(start_params)
@@ -825,7 +825,7 @@ class Weighted_BetaBinom_mix:
             f"optimizer: {result.mle_settings.get('optimizer', 'Unknown')},\n"
             f"converged: {result.mle_retvals.get('converged', 'N/A')},\n"
             f"llf: {result.llf:.6e}\n"
-            f"params: {result.params}"
+            f"params:\n{[xx for xx in result.params]}"
         )
 
         return result

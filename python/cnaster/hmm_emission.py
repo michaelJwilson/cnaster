@@ -738,7 +738,7 @@ class Weighted_BetaBinom_mix:
 
         EPSILON = 1.0e-6
 
-        for i in range(n_params - 1):
+        for _ in range(n_params - 1):
             bounds.append((EPSILON, 1.0 - EPSILON))
 
         bounds.append((EPSILON, 1e6))
@@ -825,14 +825,13 @@ class Weighted_BetaBinom_mix:
         )
 
         chain = self.run_mcmc()
-
         self.plot_mcmc(chain)
 
         exit(0)
 
         return optimize_result
 
-    def run_mcmc(self, start_params=None, n_samples=100_000, burn_in=1_000):
+    def run_mcmc(self, start_params=None, n_samples=200_000, burn_in=5_000):
         if start_params is None:
             ps, disp = get_betabinom_start_params(legacy=False, exog=self.exog)
             start_params = np.array(ps[: self.num_states] + [disp])
@@ -842,7 +841,7 @@ class Weighted_BetaBinom_mix:
 
         current_nloglikeobs = self.nloglikeobs(current_params)
 
-        samples = np.zeros((n_samples, n_params))
+        samples = np.empty((n_samples, n_params))
         bounds = self.get_bounds(current_params)
 
         rel_step = 0.005
@@ -883,7 +882,7 @@ class Weighted_BetaBinom_mix:
         errors = np.std(samples, axis=0)
 
         logger.info(
-            f"Found {acceptance_rate:.2%} acceptance rate for MCMC with means=\n{means}\nand errors=\n{[xx for xx in errors]}"
+            f"Found {acceptance_rate:.2%} acceptance rate for MCMC with means=\n{[xx for xx in means]}\nand errors=\n{[xx for xx in errors]}"
         )
 
         return samples
@@ -892,19 +891,23 @@ class Weighted_BetaBinom_mix:
         means = np.mean(samples, axis=0)
         errors = np.std(samples, axis=0)
 
-        labels = [f"p_{i}" for i in range(len(means) - 1)] + ["Dispersion"]
+        n_params = samples.shape[1]
 
+        labels = [f"$p_{{{i}}}$" for i in range(n_params - 1)] + ["Dispersion"]
+
+        fig = plt.figure(figsize=(1.5 * n_params, 1.5 * n_params))
         fig = corner.corner(
             samples,
+            fig=fig,
             labels=labels,
             show_titles=True,
             title_fmt=".3f",
             quantiles=[0.16, 0.5, 0.84],
             top_ticks=True,
-            color="#2E86C1",
+            color="#A3C1AD",
         )
-
-        plt.tight_layout()
+        # plt.subplots_adjust(wspace=0, hspace=0)
+        # plt.tight_layout()
         plt.show()
 
 

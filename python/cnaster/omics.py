@@ -1156,7 +1156,7 @@ def create_bin_ranges(
     df_gene_snp["bin_id"] = getattr(df_gene_snp, key).map(
         {i: x for i, x in enumerate(bin_ids)}
     )
-
+    """
     summarize_blocks(
         df_gene_snp,
         adata,
@@ -1166,6 +1166,7 @@ def create_bin_ranges(
         block_key="bin_id",
         normal_candidates=normal_candidates,
     )
+    """
 
     return df_gene_snp
 

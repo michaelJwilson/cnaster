@@ -233,6 +233,95 @@ def betabinom_logpmf(endog, exposure, a, b, zero_point):
     return result_array
 
 
+@njit(cache=True)
+def numba_nloglikeobs_bb(
+    endog,
+    exog,
+    weights,
+    exposure,
+    params,
+    tumor_prop,
+    zero_point,
+):
+    a, b = compute_bb_ab(exog, params, tumor_prop)
+    result = -betabinom_logpmf(endog, exposure, a, b, zero_point)
+
+    return result.dot(weights)
+
+
+@njit(cache=True)
+def run_mcmc_numba(
+    start_params,
+    n_samples,
+    burn_in,
+    endog,
+    exog,
+    weights,
+    exposure,
+    tumor_prop,
+    zero_point,
+    bounds,
+    step_scales,
+):
+    current_params = start_params.copy()
+    n_params = len(current_params)
+
+    current_nloglikeobs = numba_nloglikeobs_bb(
+        endog, exog, weights, exposure, current_params, tumor_prop, zero_point
+    )
+
+    samples = np.empty((n_samples, n_params))
+    accepted = 0
+    
+    # Adaptive MCMC parameters
+    target_acceptance = 0.30
+    adaptation_window = 1_000
+    batch_accepted = 0
+
+    for i in range(n_samples + burn_in):
+        proposal = current_params + np.random.standard_normal(n_params) * step_scales
+
+        valid = True
+        for idx in range(n_params):
+            val = proposal[idx]
+            if val < bounds[idx, 0] or val > bounds[idx, 1]:
+                valid = False
+                break
+
+        if not valid:
+            if i >= burn_in:
+                samples[i - burn_in] = current_params
+            continue
+
+        prop_nloglikeobs = numba_nloglikeobs_bb(
+            endog, exog, weights, exposure, proposal, tumor_prop, zero_point
+        )
+
+        if np.log(np.random.rand()) < (current_nloglikeobs - prop_nloglikeobs):
+            current_params = proposal
+            current_nloglikeobs = prop_nloglikeobs
+            if i < burn_in:
+                batch_accepted += 1
+            if i >= burn_in:
+                accepted += 1
+
+        if i < burn_in and (i + 1) % adaptation_window == 0:
+            batch_acceptance_rate = batch_accepted / adaptation_window
+            
+            # Simple adaptive scaling
+            if batch_acceptance_rate > target_acceptance:
+                step_scales *= 1.05
+            else:
+                step_scales *= 0.95 
+            
+            batch_accepted = 0
+
+        if i >= burn_in:
+            samples[i - burn_in] = current_params
+
+    return samples, accepted
+
+
 def nloglikeobs_bb(
     endog,
     exog,
@@ -305,7 +394,6 @@ class Weighted_NegativeBinomial_mix:
     exposure : array, (n_samples,)
         Multiplication constant outside the exponential term. In scRNA-seq or SRT data, this term is the total UMI count per cell/spot.
     """
-
     def __init__(
         self,
         endog,
@@ -824,57 +912,33 @@ class Weighted_BetaBinom_mix:
             f"params:\n{[xx for xx in optimize_result.params]}"
         )
 
-        chain = self.run_mcmc()
+        chain = self.run_mcmc(optimize_result.params, n_samples=200_000, burn_in=20_000)
         self.plot_mcmc(chain, optimum=optimize_result.params)
 
         exit(0)
 
         return optimize_result
 
-    def run_mcmc(self, start_params=None, n_samples=400_000, burn_in=5_000):
-        if start_params is None:
-            ps, disp = get_betabinom_start_params(legacy=False, exog=self.exog)
-            start_params = np.array(ps[: self.num_states] + [disp])
-
-        current_params = np.array(start_params, dtype=np.float64)
-        n_params = len(current_params)
-
-        current_nloglikeobs = self.nloglikeobs(current_params)
-
-        samples = np.empty((n_samples, n_params))
-        bounds = self.get_bounds(current_params)
+    def run_mcmc(self, start_params, n_samples, burn_in):
+        bounds_list = self.get_bounds(start_params)
+        bounds = np.array(bounds_list, dtype=np.float64)
 
         rel_step = 0.005
-        step_scales = np.abs(current_params) * rel_step
+        step_scales = np.abs(start_params) * rel_step
 
-        accepted = 0
-
-        for i in range(n_samples + burn_in):
-            proposal = current_params + np.random.normal(
-                np.zeros_like(step_scales), step_scales, size=n_params
-            )
-
-            valid = True
-            for idx, val in enumerate(proposal):
-                if val < bounds[idx][0] or val > bounds[idx][1]:
-                    valid = False
-                    break
-
-            if not valid:
-                if i >= burn_in:
-                    samples[i - burn_in] = current_params
-                continue
-
-            prop_nloglikeobs = self.nloglikeobs(proposal)
-
-            if np.log(np.random.rand()) < (current_nloglikeobs - prop_nloglikeobs):
-                current_params = proposal
-                current_nloglikeobs = prop_nloglikeobs
-                if i >= burn_in:
-                    accepted += 1
-
-            if i >= burn_in:
-                samples[i - burn_in] = current_params
+        samples, accepted = run_mcmc_numba(
+            start_params,
+            n_samples,
+            burn_in,
+            self.endog,
+            self.exog,
+            self.weights,
+            self.exposure,
+            self.tumor_prop,
+            self.zero_point,
+            bounds,
+            step_scales,
+        )
 
         acceptance_rate = accepted / n_samples
 
@@ -893,22 +957,31 @@ class Weighted_BetaBinom_mix:
 
         n_params = samples.shape[1]
 
-        labels = [f"$p_{{{i}}}$" for i in range(n_params - 1)] + ["$\tau"]
+        # Scale samples and optimum for visualization
+        samples_plot = samples.copy()
+        samples_plot[:, -1] /= 1.0e3
 
-        fig = plt.figure(figsize=(1.5 * n_params, 1.5 * n_params))
+        optimum_plot = None
+        if optimum is not None:
+            optimum_plot = optimum.copy()
+            optimum_plot[-1] /= 1.0e3
+
+        labels = [f"$p_{{{i}}}$" for i in range(n_params - 1)] + [r"$\tau$ [$10^3$]"]
+
+        fig = plt.figure(figsize=(2.5 * n_params, 2.5 * n_params))
         fig = corner.corner(
-            samples,
+            samples_plot,
             fig=fig,
-            truth = optimum,
+            truths=optimum_plot,
             labels=labels,
             show_titles=True,
             title_fmt=".3f",
-            quantiles=[0.16, 0.5, 0.84],
             top_ticks=False,
+            plot_datapoints=False,
             color="#A3C1AD",
+            label_kwargs={"fontsize": 8},
+            title_kwargs={"fontsize": 8},
         )
-        # plt.subplots_adjust(wspace=0, hspace=0)
-        # plt.tight_layout()
         plt.show()
 
 

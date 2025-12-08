@@ -105,6 +105,8 @@ def get_spatial_positions(spaceranger_dir, filter_in_tissue=True):
         #    see https://www.10xgenomics.com/support/software/space-ranger/latest/analysis/outputs/spatial-outputs
         #
         #    native columns:  barcode, in_tissue, array_row, array_col, pxl_row_in_fullres, pxl_col_in_fullres.
+
+        """
         df_this_pos = (
             pl.scan_parquet(f"{spaceranger_dir}/spatial/tissue_positions.parquet")
             .rename({"pxl_row_in_fullres": "y", "pxl_col_in_fullres": "x"})
@@ -137,13 +139,20 @@ def get_spatial_positions(spaceranger_dir, filter_in_tissue=True):
             )
             .with_columns(pl.col("cell_id").alias("barcode"))
         )
+        """
+        df_this_pos = (
+            pl.scan_parquet(f"{spaceranger_dir}/spatial/tissue_positions.parquet")
+            .rename({"pxl_row_in_fullres": "y", "pxl_col_in_fullres": "x"})
+            .filter(pl.col("in_tissue") == True)
+            .collect()
+        )
 
         logger.info(
             f"Read {spaceranger_dir}/spatial/tissue_positions.parquet:\n{df_this_pos}"
         )
-        
-        df_this_pos = df_this_pos.to_pandas() # .set_index("barcode")
-        
+
+        df_this_pos = df_this_pos.to_pandas()  # .set_index("barcode")
+
     else:
         logger.error(f"No spatial coordinate file @ {spaceranger_dir}.")
         raise RuntimeError()
@@ -284,6 +293,7 @@ def get_alignments(alignment_files, df_meta, df_agg_barcode, significance=1.0e-6
 
     return across_slice_adjacency_mat
 
+
 def map_unique_snps_enum(unique_snp_ids):
     """
     Given unique_snp_ids (array) of {contig}_{pos}_{ref}_{alt} for all snps,
@@ -293,14 +303,18 @@ def map_unique_snps_enum(unique_snp_ids):
     """
     # NB log the number of unique snps and warn on any repeats
     bonafide_unique_snps, cnts = np.unique(unique_snp_ids, return_counts=True)
-    logger.info(f"Detected {len(bonafide_unique_snps)} unique snps from {len(unique_snp_ids)} input snp ids with dtype={unique_snp_ids.dtype}.")
+    logger.info(
+        f"Detected {len(bonafide_unique_snps)} unique snps from {len(unique_snp_ids)} input snp ids with dtype={unique_snp_ids.dtype}."
+    )
 
     repeats = dict()
 
     if len(bonafide_unique_snps) != len(unique_snp_ids):
         for snp_id, count in zip(bonafide_unique_snps[cnts > 1], cnts[cnts > 1]):
             contig, pos, _, _ = snp_id.split("_")
-            logger.warning(f"Detected repeated snp_id @ chr{contig}:{pos} with count={count}.")
+            logger.warning(
+                f"Detected repeated snp_id @ chr{contig}:{pos} with count={count}."
+            )
             repeats[snp_id] = 0
 
     result = []
@@ -322,6 +336,7 @@ def map_unique_snps_enum(unique_snp_ids):
     logger.info(f"Mapped input snp ids to enum:\n{result[:5]}")
 
     return result
+
 
 @cacher("processed_input.hdf5")
 def load_input_data(
@@ -542,9 +557,11 @@ def load_input_data(
     percentiles = [0, 1, 5, 10, 25, 50, 75, 90, 95, 99, 100]
     perc_vals = np.percentile(spot_umis, percentiles)
 
-    pairs = "\n".join(f"{100. * p:.3f}[%]\t{v:_.0f}" for p, v in zip(percentiles, perc_vals))
-    logger.info(f"UMIs per spot percentiles: {pairs}")
-        
+    pairs = "\n".join(
+        f"{p:.3f} [%]\t{v:_.0f}" for p, v in zip(percentiles, perc_vals)
+    )
+    logger.info(f"UMIs per spot percentiles:\n{pairs}")
+
     # NB filter out genes that are expressed in < min_percent_expressed_spots spots.
     indicator = (
         # NB number of barcodes expressing a particular gene; num. spots.

@@ -126,7 +126,7 @@ def run_cnaster(config_path, over_rides=None):
     logger.info(f"Read configuration:\n{config}")
 
     set_global_config(config)
-
+    
     # {config.hmrf.n_clones_rdr}
     output_dir = f"{config.paths.output_dir}/clone{config.hmrf.n_clones}_rectangle{config.hmrf.random_state}_w{config.hmrf.spatial_weight:.1f}/"
 
@@ -195,7 +195,7 @@ def run_cnaster(config_path, over_rides=None):
         min_snp_umis=config.quality.spot_min_snp_umis,
         min_percent_expressed_spots=config.quality.min_percent_expressed_spots,
     )
-
+    
     (
         adata,
         cell_snp_Aallele,
@@ -256,11 +256,12 @@ def run_cnaster(config_path, over_rides=None):
         single_tumor_prop = None
 
     recomb_rates = get_reference_recomb_rates(config.references.geneticmap_file)
+    """
     recomb_fig = plot_recombination_rates(recomb_rates)
-
     write_fig(
         f"{plots_dir}/recombination_rates.pdf", recomb_fig, transparent=True, bbox_inches="tight"
     )
+    """
 
     # NB parse_visium::combine_gene_snps
     #    chr, start, end, snp_id, gene, is_interval (is_gene).
@@ -409,7 +410,6 @@ def run_cnaster(config_path, over_rides=None):
         n_states_phasing = 5
     else:
         n_states_phasing = config.hmm.n_states
-
 
     assert single_X.ndim == 3
 

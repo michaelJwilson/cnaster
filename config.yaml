@@ -13,8 +13,8 @@ preprocessing:
   tumorprop_file : None
 
 visium:
-  # filtered_feature_name : "filtered_feature_bc_matrix"
-  filtered_feature_name : "filtered_feature_cell_matrix"
+  filtered_feature_name : "filtered_feature_bc_matrix"
+  # filtered_feature_name : "filtered_feature_cell_matrix"
 
 annotation:
   clone_label : None

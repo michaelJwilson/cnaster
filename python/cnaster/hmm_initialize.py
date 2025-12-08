@@ -62,7 +62,10 @@ def cna_mixture_init_search(
     total_bb_RD,
     max_rdr,
     known_normal,
+    seed,
 ):
+    np.random.seed(seed)
+
     alphas = alpha * np.ones((n_states, 1))
     taus = tau * np.ones((n_states, 1))
 
@@ -165,7 +168,6 @@ def cna_mixture_init(
     max_iter=500,
     only_minor=False,
     max_rdr=np.inf,
-    num_jobs=1,
 ):
     # TODO X is a clone stack along axis 0.
     if width is not None:
@@ -186,6 +188,9 @@ def cna_mixture_init(
 
     param_grid = [(alpha, tau) for alpha in grid_alphas for tau in grid_taus]
 
+    num_jobs = int(get_global_config().hmm.max_workers)
+    task_seeds = np.random.randint(0, 2**31 - 1, size=len(param_grid))
+
     logger.info(
         f"Initializing HMM emission with CNA Mixture++ for max_iter={max_iter}, num_grid_points={len(param_grid)}, num_jobs={num_jobs}, known normal={known_normal}, max_rdr={max_rdr}, with X.shape={X.shape}, base_nb_mean.shape={base_nb_mean.shape}."
     )
@@ -202,8 +207,9 @@ def cna_mixture_init(
             total_bb_RD,
             max_rdr,
             known_normal,
+            seed,
         )
-        for alpha, tau in param_grid
+        for (alpha, tau), seed in zip(param_grid, task_seeds)
     )
 
     (log_mu, alphas, p_binom, taus), solution_lnlike = max(

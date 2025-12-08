@@ -109,6 +109,7 @@ hmm:
   compression_decimals: 3
   max_iter : 30
   tol : 0.001
+  max_workers : 2
   gmm_random_state : 0
   gmm_maxiter: 30
   gmm_min_binom_prob: 0.0

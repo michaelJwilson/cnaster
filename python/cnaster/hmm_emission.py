@@ -825,13 +825,13 @@ class Weighted_BetaBinom_mix:
         )
 
         chain = self.run_mcmc()
-        self.plot_mcmc(chain)
+        self.plot_mcmc(chain, optimum=optimize_result.params)
 
         exit(0)
 
         return optimize_result
 
-    def run_mcmc(self, start_params=None, n_samples=200_000, burn_in=5_000):
+    def run_mcmc(self, start_params=None, n_samples=400_000, burn_in=5_000):
         if start_params is None:
             ps, disp = get_betabinom_start_params(legacy=False, exog=self.exog)
             start_params = np.array(ps[: self.num_states] + [disp])
@@ -887,23 +887,24 @@ class Weighted_BetaBinom_mix:
 
         return samples
 
-    def plot_mcmc(self, samples):
+    def plot_mcmc(self, samples, optimum=None):
         means = np.mean(samples, axis=0)
         errors = np.std(samples, axis=0)
 
         n_params = samples.shape[1]
 
-        labels = [f"$p_{{{i}}}$" for i in range(n_params - 1)] + ["Dispersion"]
+        labels = [f"$p_{{{i}}}$" for i in range(n_params - 1)] + ["$\tau"]
 
         fig = plt.figure(figsize=(1.5 * n_params, 1.5 * n_params))
         fig = corner.corner(
             samples,
             fig=fig,
+            truth = optimum,
             labels=labels,
             show_titles=True,
             title_fmt=".3f",
             quantiles=[0.16, 0.5, 0.84],
-            top_ticks=True,
+            top_ticks=False,
             color="#A3C1AD",
         )
         # plt.subplots_adjust(wspace=0, hspace=0)

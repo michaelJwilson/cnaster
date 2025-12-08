@@ -273,8 +273,7 @@ def run_mcmc_numba(
     samples = np.empty((n_samples, n_params))
     accepted = 0
     
-    # Adaptive MCMC parameters
-    target_acceptance = 0.30
+    target_acceptance = 0.45
     adaptation_window = 1_000
     batch_accepted = 0
 
@@ -982,8 +981,8 @@ class Weighted_BetaBinom_mix:
             label_kwargs={"fontsize": 8},
             title_kwargs={"fontsize": 8},
         )
-        plt.show()
-
+        plt.savefig("mcmc.pdf")
+        exit(0)
 
 # LEGACY
 Weighted_NegativeBinomial = partial(Weighted_NegativeBinomial_mix, tumor_prop=None)

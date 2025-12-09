@@ -12,6 +12,7 @@ from functools import partial
 from cnaster.config import get_global_config
 from cnaster.hmm_utils import convert_params_disp, get_solver
 from cnaster.priors import rdr_prior_eval
+from cnaster.hmm_mcmc import run_mcmc_numba, plot_mcmc
 from dataclasses import dataclass, asdict
 from typing import Optional, Any
 import csv
@@ -234,94 +235,6 @@ def betabinom_logpmf(endog, exposure, a, b, zero_point):
     return result_array
 
 
-@njit(cache=True)
-def numba_nloglikeobs_bb(
-    endog,
-    exog,
-    weights,
-    exposure,
-    params,
-    tumor_prop,
-    zero_point,
-):
-    a, b = compute_bb_ab(exog, params, tumor_prop)
-    result = -betabinom_logpmf(endog, exposure, a, b, zero_point)
-
-    return result.dot(weights)
-
-
-@njit(cache=True)
-def run_mcmc_numba(
-    start_params,
-    n_samples,
-    burn_in,
-    endog,
-    exog,
-    weights,
-    exposure,
-    tumor_prop,
-    zero_point,
-    bounds,
-    step_scales,
-):
-    current_params = start_params.copy()
-    n_params = len(current_params)
-
-    current_nloglikeobs = numba_nloglikeobs_bb(
-        endog, exog, weights, exposure, current_params, tumor_prop, zero_point
-    )
-
-    samples = np.empty((n_samples, n_params))
-    accepted = 0
-    
-    target_acceptance = 0.60
-    adaptation_window = 1_000
-    batch_accepted = 0
-
-    for i in range(n_samples + burn_in):
-        proposal = current_params + np.random.standard_normal(n_params) * step_scales
-
-        valid = True
-        for idx in range(n_params):
-            val = proposal[idx]
-            if val < bounds[idx, 0] or val > bounds[idx, 1]:
-                valid = False
-                break
-
-        if not valid:
-            if i >= burn_in:
-                samples[i - burn_in] = current_params
-            continue
-
-        prop_nloglikeobs = numba_nloglikeobs_bb(
-            endog, exog, weights, exposure, proposal, tumor_prop, zero_point
-        )
-
-        if np.log(np.random.rand()) < (current_nloglikeobs - prop_nloglikeobs):
-            current_params = proposal
-            current_nloglikeobs = prop_nloglikeobs
-            if i < burn_in:
-                batch_accepted += 1
-            if i >= burn_in:
-                accepted += 1
-
-        if i < burn_in and (i + 1) % adaptation_window == 0:
-            batch_acceptance_rate = batch_accepted / adaptation_window
-            
-            # Simple adaptive scaling
-            if batch_acceptance_rate > target_acceptance:
-                step_scales *= 1.05
-            else:
-                step_scales *= 0.95 
-            
-            batch_accepted = 0
-
-        if i >= burn_in:
-            samples[i - burn_in] = current_params
-
-    return samples, accepted
-
-
 def nloglikeobs_bb(
     endog,
     exog,
@@ -331,7 +244,6 @@ def nloglikeobs_bb(
     tumor_prop=None,
     zero_point=None,
     reduce=True,
-    prior=False,
 ):
     a, b = compute_bb_ab(exog, params, tumor_prop)
 
@@ -818,9 +730,6 @@ class Weighted_BetaBinom_mix:
         )
 
     def get_bounds(self, params):
-        """
-        Set reasonable bounds for parameters
-        """
         n_params = len(params)
         bounds = []
 
@@ -832,6 +741,35 @@ class Weighted_BetaBinom_mix:
         bounds.append((EPSILON, 1e6))
 
         return bounds
+    
+    def run_mcmc(self, start_params, n_samples, burn_in, bounds):
+        rel_step = 0.005
+        step_scales = np.abs(start_params) * rel_step
+
+        samples, accepted = run_mcmc_numba(
+            start_params,
+            n_samples,
+            burn_in,
+            self.endog,
+            self.exog,
+            self.weights,
+            self.exposure,
+            self.tumor_prop,
+            self.zero_point,
+            bounds,
+            step_scales,
+        )
+
+        acceptance_rate = accepted / n_samples
+
+        means = np.mean(samples, axis=0)
+        errors = np.std(samples, axis=0)
+
+        logger.info(
+            f"Found {acceptance_rate:.2%} acceptance rate for MCMC with means=\n{[xx for xx in means]}\nand errors=\n{[xx for xx in errors]}"
+        )
+
+        return samples
 
     def fit(
         self, start_params=None, maxiter=10_000, maxfun=5_000, legacy=False, **kwargs
@@ -912,77 +850,19 @@ class Weighted_BetaBinom_mix:
             f"params:\n{[xx for xx in optimize_result.params]}"
         )
 
-        chain = self.run_mcmc(optimize_result.params, n_samples=400_000, burn_in=20_000)
-        self.plot_mcmc(chain, optimum=optimize_result.params)
+        # TODO n_states rather than start_params
+        bounds = self.get_bounds(start_params)
+        bounds = np.array(bounds, dtype=np.float64)
+
+        chain = self.run_mcmc(optimize_result.params, n_samples=400_000, burn_in=20_000, bounds=bounds)
+        labels = [f"$p_{{{i}}}$" for i in range(n_params - 1)] + [r"$\tau$ [$10^3$]"]
+
+        self.plot_mcmc(chain, labels=labels, optimum=optimize_result.params)
 
         exit(0)
 
         return optimize_result
-
-    def run_mcmc(self, start_params, n_samples, burn_in):
-        bounds_list = self.get_bounds(start_params)
-        bounds = np.array(bounds_list, dtype=np.float64)
-
-        rel_step = 0.005
-        step_scales = np.abs(start_params) * rel_step
-
-        samples, accepted = run_mcmc_numba(
-            start_params,
-            n_samples,
-            burn_in,
-            self.endog,
-            self.exog,
-            self.weights,
-            self.exposure,
-            self.tumor_prop,
-            self.zero_point,
-            bounds,
-            step_scales,
-        )
-
-        acceptance_rate = accepted / n_samples
-
-        means = np.mean(samples, axis=0)
-        errors = np.std(samples, axis=0)
-
-        logger.info(
-            f"Found {acceptance_rate:.2%} acceptance rate for MCMC with means=\n{[xx for xx in means]}\nand errors=\n{[xx for xx in errors]}"
-        )
-
-        return samples
-
-    def plot_mcmc(self, samples, optimum=None):
-        means = np.mean(samples, axis=0)
-        errors = np.std(samples, axis=0)
-
-        n_params = samples.shape[1]
-
-        # Scale samples and optimum for visualization
-        samples_plot = samples.copy()
-        samples_plot[:, -1] /= 1.0e3
-
-        optimum_plot = None
-        if optimum is not None:
-            optimum_plot = optimum.copy()
-            optimum_plot[-1] /= 1.0e3
-
-        labels = [f"$p_{{{i}}}$" for i in range(n_params - 1)] + [r"$\tau$ [$10^3$]"]
-
-        fig = plt.figure(figsize=(2.5 * n_params, 2.5 * n_params))
-        fig = corner.corner(
-            samples_plot,
-            fig=fig,
-            labels=labels,
-            show_titles=True,
-            title_fmt=".3f",
-            top_ticks=False,
-            plot_datapoints=False,
-            color="#A3C1AD",
-            label_kwargs={"fontsize": 9},
-            title_kwargs={"fontsize": 9},
-        )
-        plt.savefig("mcmc.pdf")
-        exit(0)
+    
 
 # LEGACY
 Weighted_NegativeBinomial = partial(Weighted_NegativeBinomial_mix, tumor_prop=None)

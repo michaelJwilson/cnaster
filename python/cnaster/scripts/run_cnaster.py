@@ -451,6 +451,7 @@ def run_cnaster(config_path, over_rides=None):
         df_gene_snp.block_id.map({i: x for i, x in enumerate(phase_indicator)}),
     )
 
+    # NB adds 'bin_id' column to df_gene_snp.
     df_gene_snp = create_bin_ranges(
         df_gene_snp,
         adata,
@@ -539,8 +540,6 @@ def run_cnaster(config_path, over_rides=None):
 
     fig_path = f"{plots_dir}/adjacency.pdf"
     write_fig(fig_path, adjacency_fig, transparent=True, bbox_inches="tight")
-
-    # TODO table_bininfo? table_rdrbaf? table_meta?
     # NB end run_parse_n_load::parse_visium.
 
     # NB by construction, require normal spots (based on BAF to determine baseline).

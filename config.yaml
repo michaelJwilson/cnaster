@@ -117,8 +117,8 @@ hmm:
   max_workers : 2
   gmm_random_state : 0
   gmm_maxiter: 30
-  gmm_min_binom_prob: 0.0
-  gmm_max_binom_prob: 1.0
+  gmm_min_binom_prob: 0.1
+  gmm_max_binom_prob: 0.9
   np_threshold : 1.0
   np_eventminlen : 5
   em_maxiter: 1500

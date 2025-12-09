@@ -26,3 +26,5 @@ cnaster.log*
 *.pdf
 cnaster.perf*
 cnaster_hmrf.perf*
+
+vishd_benchmark.log

@@ -493,7 +493,7 @@ class hmm_sitewise:
             log_gamma = compute_posterior_obs(log_alpha, log_beta)
 
             logger.info(
-                f"State posterior breakdown:\n{np.sum(np.exp(log_gamma), axis=1) / np.sum(np.exp(log_gamma))}"
+                f"State posterior breakdown:\n{[xx for xx in np.sum(np.exp(log_gamma), axis=1) / np.sum(np.exp(log_gamma))]}"
             )
 
             log_xi = compute_posterior_transition_sitewise(

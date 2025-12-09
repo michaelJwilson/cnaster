@@ -725,7 +725,6 @@ def hmrfmix_concatenate_pipeline(
     )
 
     if (init_log_mu is None) or (init_p_binom is None):
-        """
         new_init_log_mu, new_init_p_binom = gmm_init(
             n_states,
             clone_stack_X,
@@ -739,8 +738,8 @@ def hmrfmix_concatenate_pipeline(
 
         new_init_alphas = init_alphas
         new_init_taus = init_taus
-        """
 
+        """
         new_init_log_mu, new_init_alphas, new_init_p_binom, new_init_taus = (
             cna_mixture_init(
                 n_states,
@@ -750,6 +749,7 @@ def hmrfmix_concatenate_pipeline(
                 width=10,
             )
         )
+        """
 
         if init_log_mu is None:
             init_log_mu = new_init_log_mu

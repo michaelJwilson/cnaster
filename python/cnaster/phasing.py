@@ -93,7 +93,8 @@ def initial_phase_given_partition(
                 tol=tol,
             )
 
-            assert np.all(res["new_p_binom"] <= 0.5 + EPS_BAF)
+            if not np.all(res["new_p_binom"] <= 0.5 + EPS_BAF):
+                logger.warning(f"Found best-fit phased baf > 0.5 += eps.")
 
             # NB MAP estimate of state given log posterior; pred. > n_states indicates switch-error.
             pred = np.argmax(res["log_gamma"], axis=0)

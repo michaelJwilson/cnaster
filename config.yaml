@@ -6,7 +6,6 @@ paths:
   output_dir : /n/fs/scratch/mw9568/cnaster/vishd
 
   perf_path : logs/cnaster.perf
-  # cache_dir : /n/fs/scratch/mw9568/cnaster/.cache
 
 # tumorprop_file : /n/fs/scratch/mw9568/cnaster/loh_estimator_tumor_prop.tsv
 preprocessing:
@@ -14,8 +13,8 @@ preprocessing:
   tumorprop_file : None
 
 visium:
-  # filtered_feature_name : "filtered_feature_bc_matrix"
-  filtered_feature_name : "filtered_feature_cell_matrix"
+  filtered_feature_name : "filtered_feature_bc_matrix"
+  # filtered_feature_name : "filtered_feature_cell_matrix"
 
 annotation:
   clone_label : None
@@ -41,7 +40,7 @@ references:
 #           normal_allele_specific_confidence : (0.05, 0.95) ->
 #           min_normal_count_perbin : 20 ->
 quality:
-  phasing_min_snp_umis : 50
+  phasing_min_snp_umis : 150
   spot_min_snp_umis : 10
   min_percent_expressed_spots : 0.005
   secondary_min_umi : 0
@@ -73,13 +72,13 @@ phasing:
 #           unit_xsquared 9 ->
 #           unit_ysquared 3 ->
 hmrf:
-  n_clones : 3
+  n_clones : 4
   n_clones_rdr : 2
   min_spots_per_clone : 100
   min_avgumi_per_clone : 10
-  maxspots_pooling : 20
+  maxspots_pooling : 5
   tumorprop_threshold : 0.5
-  max_iter_outer : 5
+  max_iter_outer : 20
   nodepotential : max
   initialization_method : rectangle
   num_hmrf_initialization_start : 0

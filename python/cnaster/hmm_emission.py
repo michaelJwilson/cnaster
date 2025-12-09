@@ -11,7 +11,7 @@ from scipy.special import loggamma
 from functools import partial
 from cnaster.config import get_global_config
 from cnaster.hmm_utils import convert_params_disp, get_solver
-from cnaster.priors import baf_prior_eval, rdr_prior_eval
+from cnaster.priors import rdr_prior_eval
 from dataclasses import dataclass, asdict
 from typing import Optional, Any
 import csv
@@ -177,7 +177,8 @@ def nloglikeobs_nb(
             tumor_prop * exog @ np.exp(params[:-1]) + (1.0 - tumor_prop)
         )
 
-    nb_std = np.sqrt(nb_mean + params[-1] * nb_mean**2)
+    # DEPRECATE
+    # nb_std = np.sqrt(nb_mean + params[-1] * nb_mean**2)
     n, p = convert_params_disp(nb_mean, params[-1])
 
     result = -scipy.stats.nbinom.logpmf(endog, n, p)
@@ -273,7 +274,7 @@ def run_mcmc_numba(
     samples = np.empty((n_samples, n_params))
     accepted = 0
     
-    target_acceptance = 0.45
+    target_acceptance = 0.60
     adaptation_window = 1_000
     batch_accepted = 0
 
@@ -911,7 +912,7 @@ class Weighted_BetaBinom_mix:
             f"params:\n{[xx for xx in optimize_result.params]}"
         )
 
-        chain = self.run_mcmc(optimize_result.params, n_samples=200_000, burn_in=20_000)
+        chain = self.run_mcmc(optimize_result.params, n_samples=400_000, burn_in=20_000)
         self.plot_mcmc(chain, optimum=optimize_result.params)
 
         exit(0)
@@ -971,15 +972,14 @@ class Weighted_BetaBinom_mix:
         fig = corner.corner(
             samples_plot,
             fig=fig,
-            truths=optimum_plot,
             labels=labels,
             show_titles=True,
             title_fmt=".3f",
             top_ticks=False,
             plot_datapoints=False,
             color="#A3C1AD",
-            label_kwargs={"fontsize": 8},
-            title_kwargs={"fontsize": 8},
+            label_kwargs={"fontsize": 9},
+            title_kwargs={"fontsize": 9},
         )
         plt.savefig("mcmc.pdf")
         exit(0)

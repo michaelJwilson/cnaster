@@ -260,7 +260,7 @@ class hmm_nophasing:
             log_mu: size of n_states. Log of mean/exposure/base_prob of each HMM state.
             alpha: size of n_states. Dispersioon parameter of each HMM state.
         """
-        n_obs, n_comp, n_spots = X.shape
+        _, n_comp, n_spots = X.shape
 
         assert n_comp == 2
 

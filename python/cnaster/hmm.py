@@ -44,7 +44,7 @@ def pipeline_baum_welch(
     )
 
     # NB this may be num_clones, or one clone for phasing.
-    n_spots = X.shape[2]
+    # n_spots = X.shape[2]
 
     if ((init_log_mu is None) and ("m" in params)) or (
         (init_p_binom is None) and ("p" in params)
@@ -228,24 +228,6 @@ def pipeline_baum_welch(
 
     # NB copy state only, lost phase.
     pred_cnv = pred % n_states
-
-    """
-    if output_prefix is not None:
-        tmp = np.log10(1. - t)
-
-        np.savez(
-            f"{output_prefix}_nstates{n_states}_{params}_{tmp:.0f}_seed{random_state}.npz",
-            new_log_mu=new_log_mu,
-            new_alphas=new_alphas,
-            new_p_binom=new_p_binom,
-            new_taus=new_taus,
-            new_log_startprob=new_log_startprob,
-            new_log_transmat=new_log_transmat,
-            log_gamma=log_gamma,
-            pred_cnv=pred_cnv,
-            llf=llf,
-        )
-    """
 
     logger.info(
         f"Solved HMM with LLF={llf:.6e} for new_log_mu.shape={new_log_mu.shape} given X.shape={X.shape}"

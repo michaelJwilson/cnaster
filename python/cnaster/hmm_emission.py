@@ -847,6 +847,7 @@ class Weighted_BetaBinom_mix:
             f"params:\n{[xx for xx in optimize_result.params]}"
         )
 
+        """
         # TODO n_states rather than start_params
         bounds = self.get_bounds(start_params)
         bounds = np.array(bounds, dtype=np.float64)
@@ -855,9 +856,8 @@ class Weighted_BetaBinom_mix:
         labels = [f"$p_{{{i}}}$" for i in range(len(optimize_result.params) - 1)] + [r"$\tau$ [$10^3$]"]
 
         plot_mcmc(chain, optimum=optimize_result.params, labels=labels)
-
-        exit(0)
-
+        """
+        
         return optimize_result
     
 

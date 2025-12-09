@@ -384,7 +384,7 @@ def run_cnaster(config_path, over_rides=None):
 
     fig_path = f"{plots_dir}/phasing_clones_spatial.pdf"
     write_fig(fig_path, phasing_clones_fig, transparent=True, bbox_inches="tight")
-        
+
     # TODO copy rename.
     prephasing_clones_genomic = plot_clones_genomic_simple(
         single_X,
@@ -404,7 +404,7 @@ def run_cnaster(config_path, over_rides=None):
 
     fig_path = f"{plots_dir}/prephasing_clones_genomic.pdf"
     write_fig(fig_path, prephasing_clones_genomic, transparent=True, bbox_inches="tight")
-
+    
     if config.run.legacy:
         logger.warning("Assuming (magic) five BAF states for phasing.")
         n_states_phasing = 5
@@ -576,32 +576,7 @@ def run_cnaster(config_path, over_rides=None):
             random_state=int(config.hmrf.random_state),
         )
         """
-    """
-    adj_list = cast_csr(adjacency_mat)
-    adj_spots, adj_neighbors, adj_weights = unpack_adjacency(adj_list)
 
-    single_llf = posterior = np.zeros((single_X.shape[-1], config.hmrf.n_clones))
-    
-    # NB high is exclusive.
-    clone_id = np.random.randint(0, high=config.hmrf.n_clones, size=single_X.shape[-1])
-
-    icm_sweep(
-        single_llf,
-        adj_spots,
-        adj_neighbors,
-        adj_weights,
-        clone_id,
-        config.hmrf.spatial_weight,
-        posterior,
-        tol=0.01,
-        log_persample_weights=None,
-        sample_ids=None,
-        cost_zeropoint=0.0,
-        temp=1.0,
-    )
-    
-    initial_clone_index_baf = [np.where(clone_id == i)[0] for i in range(config.hmrf.n_clones)]
-    """
     # NB trigger summary for initial clones, per single_X=1 etc.
     merge_pseudobulk_by_index_mix(
         single_X,
@@ -733,7 +708,7 @@ def run_cnaster(config_path, over_rides=None):
 
     fig_path = f"{output_dir}/plots/bafonly_clones_spatial.pdf"
     write_fig(fig_path, bafonly_clones_fig, transparent=True, bbox_inches="tight")
-
+    
     # TODO copy rename.
     bafonly_clones_genomic = plot_clones_genomic_simple(
         single_X,
@@ -757,7 +732,7 @@ def run_cnaster(config_path, over_rides=None):
 
     fig_path = f"{plots_dir}/bafonly_clones_genomic.pdf"
     write_fig(fig_path, bafonly_clones_genomic, transparent=True, bbox_inches="tight")
-
+    
     if config.hmrf.np_merge:
         # NB merge similar clones based on Neyman-Pearson
         _, merged_res = neyman_pearson_similarity(

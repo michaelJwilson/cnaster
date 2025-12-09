@@ -262,6 +262,9 @@ def nloglikeobs_bb(
                 f"Detected invalid ln. likelihood={reduced_result} for:\n{params}"
             )
 
+            nan_mask = np.isnan(weights)
+            nan_weights = weights[nan_mask]
+
             nan_mask = np.isnan(result)
             nan_endog = np.unique(endog[nan_mask])
             nan_exposure = np.unique(exposure[nan_mask])
@@ -270,6 +273,7 @@ def nloglikeobs_bb(
 
             logger.info(
                 f"NaN identified:\n"
+                f"  weights: {nan_weights}\n"
                 f"  endog: {nan_endog}\n"
                 f"  exposure: {nan_exposure}\n"
                 f"  alphas: {nan_alphas}\n"

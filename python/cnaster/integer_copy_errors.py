@@ -9,28 +9,14 @@ def filter_consistent_acn_states(
     new_p_binom,
     new_log_mu_errors,
     new_p_binom_errors,
-    pred_cnv,
     max_allele_copy=5,
     max_total_copy=6,
-    n_sigma=1.0,
-    min_prop_threshold=0.1,  # TODO
-    EPS_BAF=0.05,  # TODO
+    n_sigma=6.0,
 ):
-    n_states = len(new_log_mu)
+    n_states = len(new_log_mu) - 1
     mu = np.exp(new_log_mu)
 
-    """
-    idx_diploid_normal = find_diploid_balanced_state(
-        new_log_mu,
-        new_p_binom,
-        pred_cnv,
-        min_prop_threshold=min_prop_threshold,
-        EPS_BAF=EPS_BAF,
-    )
-
-    scalefactor = 2.0 / mu[idx_diploid_normal]
-    """
-    scalefactor = 1.0
+    scalefactor = 2.0
     candidates = np.array(
         [
             [i, j]
@@ -40,18 +26,19 @@ def filter_consistent_acn_states(
         ]
     )
 
+    candidate_details = "\n".join([
+        f"({A},{B})\tTot={A+B}\tBAF={A/(A+B):.2f}\tRDR={(A+B)/2:.2f}" for A, B in candidates
+    ])
     logger.info(
-        f"Filtering {len(candidates)} candidate ACN states for consistency with measurements"
+        f"Filtering candidate ACN states for consistency with measurements:\n{candidate_details}"
     )
 
     consistent_states_baf, consistent_states_both = {}, {}
 
     for s in range(n_states):
-        consistent_baf, consistent_both = [], []
         obs_baf, obs_rdr = new_p_binom[s], mu[s]
+        consistent_baf, consistent_both = [], []
 
-        # baf_std = np.sqrt(baf_var_per_state[s])
-        # rdr_std = np.sqrt(rdr_var_per_state[s])
         baf_std = new_p_binom_errors[s]
         rdr_std = mu[s] * new_log_mu_errors[s]
 
@@ -64,6 +51,13 @@ def filter_consistent_acn_states(
             baf_consistent = np.abs(obs_baf - exp_baf) <= n_sigma * baf_std
             rdr_consistent = np.abs(obs_rdr - exp_rdr) <= n_sigma * rdr_std
 
+            logger.debug(
+                f"State {s} ACN ({A},{B}): exp_baf={exp_baf:.3f} +- {n_sigma * baf_std:.3f}, exp_rdr={exp_rdr:.3f} +- {n_sigma * rdr_std:.3f} | "
+                f"obs_baf={obs_baf:.3f}, obs_rdr={obs_rdr:.3f} | "
+                f"baf_std={baf_std:.3f}, rdr_std={rdr_std:.3f} | "
+                f"baf_consistent={baf_consistent}, rdr_consistent={rdr_consistent}"
+            )
+
             if baf_consistent:
                 consistent_baf.append((A, B))
 
@@ -75,7 +69,7 @@ def filter_consistent_acn_states(
 
         logger.info(
             f"State {s}: obs_baf={obs_baf:.3f}±{baf_std:.3f}, obs_rdr={obs_rdr:.3f}±{rdr_std:.3f} "
-            f"-> BAF consistent={consistent_baf}, RDR-BAF consistent={consistent_both}"
+            f"-> BAF consistent={set(consistent_baf)}, RDR-BAF consistent={set(consistent_both)}"
         )
 
     return consistent_states_baf, consistent_states_both
@@ -124,19 +118,12 @@ def test_filter_consistent_acn_states():
         240.05274911055483
     ]
 
-    # Dummy pred_cnv
-    pred_cnv = [0] * len(log_mu)
-
     consistent_states_baf, consistent_states_both = filter_consistent_acn_states(
         np.array(log_mu),
         np.array(p_binom),
         np.array(log_mu_errors),
         np.array(p_binom_errors),
-        pred_cnv,
     )
-
-    print("Consistent states BAF:", consistent_states_baf)
-    print("Consistent states Both:", consistent_states_both)
 
 
 if __name__ == "__main__":

@@ -1,7 +1,6 @@
 import logging
 import time
 import warnings
-import corner
 
 import numpy as np
 import scipy.stats
@@ -195,10 +194,9 @@ def nloglikeobs_nb(
 
     return result
 
-
+# TODO
 def betabinom_logpmf_zp(endog, exposure):
     return loggamma(exposure + 1) - loggamma(endog + 1) - loggamma(exposure - endog + 1)
-
 
 @njit(nogil=True, cache=True, fastmath=False, error_model="numpy")
 def compute_bb_ab(exog, params, tumor_prop=None):
@@ -213,7 +211,6 @@ def compute_bb_ab(exog, params, tumor_prop=None):
         b = ((1.0 - p) * tumor_prop + 0.5 * (1.0 - tumor_prop)) * tau
 
     return a, b
-
 
 @njit(nogil=True, cache=True, fastmath=False, error_model="numpy")
 def betabinom_logpmf(endog, exposure, a, b, zero_point):
@@ -854,10 +851,10 @@ class Weighted_BetaBinom_mix:
         bounds = self.get_bounds(start_params)
         bounds = np.array(bounds, dtype=np.float64)
 
-        chain = self.run_mcmc(optimize_result.params, n_samples=400_000, burn_in=20_000, bounds=bounds)
-        labels = [f"$p_{{{i}}}$" for i in range(n_params - 1)] + [r"$\tau$ [$10^3$]"]
+        chain = self.run_mcmc(optimize_result.params, n_samples=40_000, burn_in=2_000, bounds=bounds)
+        labels = [f"$p_{{{i}}}$" for i in range(len(optimize_result.params) - 1)] + [r"$\tau$ [$10^3$]"]
 
-        self.plot_mcmc(chain, labels=labels, optimum=optimize_result.params)
+        plot_mcmc(chain, optimum=optimize_result.params, labels=labels)
 
         exit(0)
 

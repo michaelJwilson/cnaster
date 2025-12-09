@@ -170,12 +170,11 @@ def nloglikeobs_nb(
     prior=False,
     reduce=True,
 ):
-    if tumor_prop is None:
-        nb_mean = exog @ np.exp(params[:-1]) * exposure
-    else:
-        nb_mean = exposure * (
-            tumor_prop * exog @ np.exp(params[:-1]) + (1.0 - tumor_prop)
-        )
+    nb_mean = exog @ np.exp(params[:-1]) * exposure
+
+    # nb_mean = exposure * (
+    #     tumor_prop * exog @ np.exp(params[:-1]) + (1.0 - tumor_prop)
+    # )
 
     # DEPRECATE
     # nb_std = np.sqrt(nb_mean + params[-1] * nb_mean**2)
@@ -184,9 +183,9 @@ def nloglikeobs_nb(
     result = -scipy.stats.nbinom.logpmf(endog, n, p)
     result[np.isnan(result)] = np.inf
 
-    if prior:
-        # TODO tumor prop
-        result -= rdr_prior_eval(exog @ np.exp(params[:-1]), sigma=None)
+    # TODO tumor prop
+    # if prior:
+    #    result -= rdr_prior_eval(exog @ np.exp(params[:-1]), sigma=None)
 
     if reduce:
         result = result.dot(weights)
@@ -613,7 +612,7 @@ class Weighted_NegativeBinomial_mix:
             f"optimizer: {result.mle_settings.get('optimizer', 'Unknown')},\n"
             f"converged: {result.mle_retvals.get('converged', 'N/A')},\n"
             f"llf: {result.llf:.6e}\n"
-            f"params: {result.params}"
+            f"params:\n{[xx for xx in result.params]}"
         )
 
         fitted_rdr_mean = np.exp(result.params[:-1])
@@ -629,6 +628,19 @@ class Weighted_NegativeBinomial_mix:
                 ]
             )
         )
+
+        """
+        # TODO n_states rather than start_params
+        bounds = self.get_bounds(start_params)
+        bounds = np.array(bounds, dtype=np.float64)
+
+        chain = self.run_mcmc(optimize_result.params, n_samples=40_000, burn_in=2_000, bounds=bounds)
+        labels = [f"$p_{{{i}}}$" for i in range(len(optimize_result.params) - 1)] + [r"$\tau$ [$10^3$]"]
+
+        plot_mcmc(chain, optimum=optimize_result.params, labels=labels)
+        """
+
+        exit(0)
 
         return result
 

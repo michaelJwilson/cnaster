@@ -4,6 +4,48 @@ import matplotlib.pyplot as plt
 import corner
 from numba import njit
 from math import lgamma
+from cnaster.hmm_utils import convert_params_disp
+
+
+@njit(cache=True)
+def nloglikeobs_nb_numba(
+    endog,
+    exog,
+    weights,
+    exposure,
+    params,
+    reduce=True,
+):
+    coeffs = np.exp(params[:-1])
+    nb_mean = (exog @ coeffs) * exposure
+
+    n_val, p = convert_params_disp(nb_mean, params[-1])
+
+    result = np.empty_like(endog, dtype=np.float64)
+
+    for i in range(len(endog)):
+        k = endog[i]
+        pi = p[i]
+
+        # logpmf = lgamma(k + n) - lgamma(n) - lgamma(k + 1) + n * log(p) + k * log(1 - p)
+        log_pmf = (
+            lgamma(k + n_val)
+            - lgamma(n_val)
+            - lgamma(k + 1.0)
+            + n_val * np.log(pi)
+            + k * np.log(1.0 - pi)
+        )
+
+        if np.isnan(log_pmf):
+            result[i] = np.inf
+        else:
+            result[i] = -log_pmf
+
+    if reduce:
+        return result.dot(weights)
+
+    return result
+
 
 @njit(nogil=True, cache=True, fastmath=False, error_model="numpy")
 def betabinom_logpmf(endog, exposure, a, b, zero_point):
@@ -24,6 +66,7 @@ def betabinom_logpmf(endog, exposure, a, b, zero_point):
 
     return result_array
 
+
 @njit(nogil=True, cache=True, fastmath=False, error_model="numpy")
 def compute_bb_ab(exog, params, tumor_prop=None):
     p = np.dot(exog, params[:-1])
@@ -37,6 +80,7 @@ def compute_bb_ab(exog, params, tumor_prop=None):
         b = ((1.0 - p) * tumor_prop + 0.5 * (1.0 - tumor_prop)) * tau
 
     return a, b
+
 
 @njit(cache=True)
 def numba_nloglikeobs_bb(
@@ -56,6 +100,7 @@ def numba_nloglikeobs_bb(
 
 @njit(cache=True)
 def run_mcmc_numba(
+    nloglikeob,
     start_params,
     n_samples,
     burn_in,
@@ -71,13 +116,13 @@ def run_mcmc_numba(
     current_params = start_params.copy()
     n_params = len(current_params)
 
-    current_nloglikeobs = numba_nloglikeobs_bb(
+    current_nloglikeobs = nloglikeob(
         endog, exog, weights, exposure, current_params, tumor_prop, zero_point
     )
 
     samples = np.empty((n_samples, n_params))
     accepted = 0
-    
+
     target_acceptance = 0.60
     adaptation_window = 1_000
     batch_accepted = 0
@@ -97,7 +142,7 @@ def run_mcmc_numba(
                 samples[i - burn_in] = current_params
             continue
 
-        prop_nloglikeobs = numba_nloglikeobs_bb(
+        prop_nloglikeobs = nloglikeob(
             endog, exog, weights, exposure, proposal, tumor_prop, zero_point
         )
 
@@ -111,12 +156,12 @@ def run_mcmc_numba(
 
         if i < burn_in and (i + 1) % adaptation_window == 0:
             batch_acceptance_rate = batch_accepted / adaptation_window
-            
+
             if batch_acceptance_rate > target_acceptance:
                 step_scales *= 1.05
             else:
-                step_scales *= 0.95 
-            
+                step_scales *= 0.95
+
             batch_accepted = 0
 
         if i >= burn_in:
@@ -125,7 +170,7 @@ def run_mcmc_numba(
     return samples, accepted
 
 
-def plot_mcmc(samples, labels, optimum=None):
+def plot_mcmc(samples, labels, prefix, optimum=None):
     # means = np.mean(samples, axis=0)
     # errors = np.std(samples, axis=0)
 
@@ -154,5 +199,5 @@ def plot_mcmc(samples, labels, optimum=None):
         label_kwargs={"fontsize": 10},
         title_kwargs={"fontsize": 10},
     )
-    plt.savefig("mcmc.pdf")
+    plt.savefig(f"{prefix}_mcmc.pdf")
     sys.exit(0)

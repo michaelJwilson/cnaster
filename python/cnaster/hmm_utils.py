@@ -113,7 +113,7 @@ def convert_params(mean, std):
     return n, p
 """
 
-
+@njit
 def convert_params_disp(mean, overdisp):
     p = 1.0 / (1.0 + overdisp * mean)
 

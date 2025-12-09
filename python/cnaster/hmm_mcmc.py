@@ -195,8 +195,8 @@ def plot_mcmc(samples, labels, prefix, optimum=None):
         top_ticks=False,
         plot_datapoints=False,
         color="#A3C1AD",
-        label_kwargs={"fontsize": 10},
-        title_kwargs={"fontsize": 10},
+        label_kwargs={"fontsize": 11},
+        title_kwargs={"fontsize": 11},
     )
     plt.savefig(f"{prefix}_mcmc.pdf")
     sys.exit(0)

@@ -11,7 +11,7 @@ from functools import partial
 from cnaster.config import get_global_config
 from cnaster.hmm_utils import convert_params_disp, get_solver
 from cnaster.priors import rdr_prior_eval
-from cnaster.hmm_mcmc import run_mcmc_numba, plot_mcmc
+from cnaster.hmm_mcmc import run_mcmc_numba, plot_mcmc, numba_nloglikeobs_nb
 from dataclasses import dataclass, asdict
 from typing import Optional, Any
 import csv
@@ -415,6 +415,39 @@ class Weighted_NegativeBinomial_mix:
         bounds.append((EPSILON, 1e6))
 
         return bounds
+    
+    def run_mcmc(self, start_params, n_samples, burn_in, bounds):
+        rel_step = 5.e-3
+        step_scales = np.abs(start_params) * rel_step
+
+        # NB: zero_point is not used for NB calculation in this implementation
+        zero_point = np.zeros_like(self.endog)
+
+        samples, accepted = run_mcmc_numba(
+            numba_nloglikeobs_nb,
+            start_params,
+            n_samples,
+            burn_in,
+            self.endog,
+            self.exog,
+            self.weights,
+            self.exposure,
+            self.tumor_prop,
+            zero_point,
+            bounds,
+            step_scales,
+        )
+
+        acceptance_rate = accepted / n_samples
+
+        means = np.mean(samples, axis=0)
+        errors = np.std(samples, axis=0)
+
+        logger.info(
+            f"Found {acceptance_rate:.2%} acceptance rate for MCMC with means=\n{[xx for xx in means]}\nand errors=\n{[xx for xx in errors]}"
+        )
+
+        return samples
 
     def fit(
         self,
@@ -629,16 +662,14 @@ class Weighted_NegativeBinomial_mix:
             )
         )
 
-        """
         # TODO n_states rather than start_params
         bounds = self.get_bounds(start_params)
         bounds = np.array(bounds, dtype=np.float64)
 
-        chain = self.run_mcmc(optimize_result.params, n_samples=40_000, burn_in=2_000, bounds=bounds)
-        labels = [f"$p_{{{i}}}$" for i in range(len(optimize_result.params) - 1)] + [r"$\tau$ [$10^3$]"]
+        chain = self.run_mcmc(result.params, n_samples=400_000, burn_in=20_000, bounds=bounds)
+        labels = [f"$\ln \mu_{{{i}}}$" for i in range(len(result.params) - 1)] + [r"$\phi$"]
 
-        plot_mcmc(chain, optimum=optimize_result.params, labels=labels)
-        """
+        plot_mcmc(chain, labels, prefix="nb", optimum=result.params)
 
         exit(0)
 

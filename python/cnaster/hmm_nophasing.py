@@ -410,7 +410,7 @@ class hmm_nophasing:
                 np.exp(log_gamma)
             )
 
-            logger.info(f"State posterior breakdown:\n{contracted_log_gamma}")
+            logger.info(f"State posterior breakdown:\n{[xx for xx in contracted_log_gamma]}")
 
             # HACK MAGIC TODO
             if contracted_log_gamma.min() < 1.0e-6:

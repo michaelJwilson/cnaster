@@ -8,13 +8,14 @@ from cnaster.hmm_utils import convert_params_disp
 
 
 @njit(cache=True)
-def nloglikeobs_nb_numba(
+def numba_nloglikeobs_nb(
     endog,
     exog,
     weights,
     exposure,
     params,
-    reduce=True,
+    tumor_prop,
+    zero_point,
 ):
     coeffs = np.exp(params[:-1])
     nb_mean = (exog @ coeffs) * exposure
@@ -41,10 +42,7 @@ def nloglikeobs_nb_numba(
         else:
             result[i] = -log_pmf
 
-    if reduce:
-        return result.dot(weights)
-
-    return result
+    return result.dot(weights)
 
 
 @njit(nogil=True, cache=True, fastmath=False, error_model="numpy")
@@ -182,10 +180,11 @@ def plot_mcmc(samples, labels, prefix, optimum=None):
 
     optimum_plot = None
 
+    """
     if optimum is not None:
         optimum_plot = optimum.copy()
         optimum_plot[-1] /= 1.0e3
-
+    """
     fig = plt.figure(figsize=(2.5 * n_params, 2.5 * n_params))
     fig = corner.corner(
         samples_plot,

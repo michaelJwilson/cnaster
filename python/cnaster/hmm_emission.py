@@ -10,8 +10,7 @@ from scipy.special import loggamma
 from functools import partial
 from cnaster.config import get_global_config
 from cnaster.hmm_utils import convert_params_disp, get_solver
-from cnaster.priors import rdr_prior_eval
-from cnaster.hmm_mcmc import run_mcmc_numba, plot_mcmc, numba_nloglikeobs_nb
+from cnaster.hmm_mcmc import run_mcmc_numba, plot_mcmc, numba_nloglikeobs_nb, numba_nloglikeobs_bb
 from dataclasses import dataclass, asdict
 from typing import Optional, Any
 import csv
@@ -787,6 +786,7 @@ class Weighted_BetaBinom_mix:
         step_scales = np.abs(start_params) * rel_step
 
         samples, accepted = run_mcmc_numba(
+            numba_nloglikeobs_bb,
             start_params,
             n_samples,
             burn_in,
@@ -890,17 +890,19 @@ class Weighted_BetaBinom_mix:
             f"params:\n{[xx for xx in optimize_result.params]}"
         )
 
-        """
         # TODO n_states rather than start_params
         bounds = self.get_bounds(start_params)
         bounds = np.array(bounds, dtype=np.float64)
 
-        chain = self.run_mcmc(optimize_result.params, n_samples=40_000, burn_in=2_000, bounds=bounds)
+        chain = self.run_mcmc(optimize_result.params, n_samples=400_000, burn_in=20_000, bounds=bounds)
+        chain[:,-1] /= 1_000  # NB scale tau for plotting
+
         labels = [f"$p_{{{i}}}$" for i in range(len(optimize_result.params) - 1)] + [r"$\tau$ [$10^3$]"]
 
-        plot_mcmc(chain, optimum=optimize_result.params, labels=labels)
-        """
-        
+        plot_mcmc(chain, labels, prefix="bb", optimum=optimize_result.params)
+
+        exit(0)
+
         return optimize_result
     
 

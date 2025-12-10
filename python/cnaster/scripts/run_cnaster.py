@@ -353,6 +353,7 @@ def run_cnaster(config_path, over_rides=None):
             -1, 1
         ) @ spots_coverage.reshape(1, -1)
     else:
+        initial_clone_index_baf = None
         known_single_base_nb_mean = None
 
         # NB  rectangular partition across multiple slices.
@@ -363,8 +364,6 @@ def run_cnaster(config_path, over_rides=None):
             x_part=config.phasing.npart_phasing,
             y_part=config.phasing.npart_phasing,
         )
-
-        initial_clone_index_baf = initial_clone_for_phasing
 
     assignment = np.full(len(coords), -1, dtype=int)
 
@@ -561,7 +560,7 @@ def run_cnaster(config_path, over_rides=None):
         )
         """
         # TODO HACK
-        x_part = y_part = 2
+        x_part = y_part = 3
         initial_clone_index_baf, clone_id = fixed_rectangle_partition(
             coords, x_part, y_part, single_tumor_prop=None, threshold=0.5
         )

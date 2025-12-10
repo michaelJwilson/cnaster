@@ -368,8 +368,8 @@ def run_cnaster(config_path, over_rides=None):
 
     assignment = np.full(len(coords), -1, dtype=int)
 
-    for clone_id, indices in enumerate(initial_clone_for_phasing):
-        assignment[indices] = clone_id
+    for __clone_id, indices in enumerate(initial_clone_for_phasing):
+        assignment[indices] = __clone_id
 
     assignment = pd.Series([f"clone {x}" for x in assignment])
     phasing_clones_fig = plot_clones_spatial(
@@ -541,8 +541,6 @@ def run_cnaster(config_path, over_rides=None):
     fig_path = f"{plots_dir}/adjacency.pdf"
     write_fig(fig_path, adjacency_fig, transparent=True, bbox_inches="tight")
     # NB end run_parse_n_load::parse_visium.
-
-    exit(0)
     
     # NB by construction, require normal spots (based on BAF to determine baseline).
     assert np.all(single_base_nb_mean == 0)

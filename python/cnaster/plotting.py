@@ -904,11 +904,13 @@ def plot_clones_spatial(
     n_samples = 1 if sample_list is None else len(sample_list)
 
     # NB remove nan of single_tumor_prop; assumes 0.5(!)
-    if single_tumor_prop is not None:
-        logger.warning("Imputing NaN tumor proportion with 0.5")
-        
-        copy_single_tumor_prop = copy.copy(single_tumor_prop)
-        copy_single_tumor_prop[np.isnan(copy_single_tumor_prop)] = 0.5
+    if single_tumor_prop is not None:        
+        copy_single_tumor_prop = np.array(single_tumor_prop, dtype=float)
+        invalid = np.isnan(copy_single_tumor_prop)
+
+        if np.any(invalid):
+            logger.warning(f"Imputing {100. * np.mean(invalid):.3f} [%] of NaN tumor proportion with 0.5")
+            copy_single_tumor_prop[np.isnan(copy_single_tumor_prop)] = 0.5
 
     fig, axes = plt.subplots(
         1, 1, figsize=(base_width * n_samples, base_height), dpi=300, facecolor="white"
@@ -935,34 +937,20 @@ def plot_clones_spatial(
                 ax=axes,
             )
         else:
-            this_full_cmap = sns.color_palette(
-                f"blend:lightgrey,{colorlist[c]}", as_cmap=True
-            )
-            quantile_colors = this_full_cmap(
-                np.array(
-                    [
-                        0,
-                        np.min(copy_single_tumor_prop[idx]),
-                        np.max(copy_single_tumor_prop[idx]),
-                        1,
-                    ]
-                )
-            )
-            quantile_colors = [
-                matplotlib.colors.rgb2hex(x) for x in quantile_colors[1:-1]
-            ]
-            this_cmap = sns.color_palette(
-                f"blend:{quantile_colors[0]},{quantile_colors[-1]}", as_cmap=True
-            )
-            sns.scatterplot(
-                x=shifted_coords[idx, 0],
-                y=-shifted_coords[idx, 1],
+            vals = copy_single_tumor_prop[idx]
+            vals = np.clip(vals, 0., 1.)
+
+            base_rgb = mcolors.to_rgb(colorlist[c])
+            rgba_colors = np.zeros((len(vals), 4))
+            rgba_colors[:, :3] = base_rgb
+            rgba_colors[:, 3] = vals
+
+            axes.scatter(
+                shifted_coords[idx, 0],
+                -shifted_coords[idx, 1],
                 s=10,
-                hue=copy_single_tumor_prop[idx],
-                palette=this_cmap,
+                c=rgba_colors,
                 linewidth=0,
-                legend=None,
-                ax=axes,
             )
 
     legend_elements = [

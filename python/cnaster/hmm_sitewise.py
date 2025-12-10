@@ -48,35 +48,6 @@ class hmm_sitewise:
     def compute_emission_probability_nb_betabinom(
         X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus
     ):
-        """
-        Attributes
-        ----------
-        X : array, shape (n_observations, n_components, n_spots)
-            Observed expression UMI count and allele frequency UMI count.
-
-        base_nb_mean : array, shape (n_observations, n_spots)
-            Mean expression under diploid state.
-
-        log_mu : array, shape (n_states, n_spots)
-            Log of read depth change due to CNV. Mean of NB distributions in HMM per state per spot.
-
-        alphas : array, shape (n_states, n_spots)
-            Over-dispersion of NB distributions in HMM per state per spot.
-
-        total_bb_RD : array, shape (n_observations, n_spots)
-            SNP-covering reads for both REF and ALT across genes along genome.
-
-        p_binom : array, shape (n_states, n_spots)
-            BAF due to CNV. Mean of Beta Binomial distribution in HMM per state per spot.
-
-        taus : array, shape (n_states, n_spots)
-            Over-dispersion of Beta Binomial distribution in HMM per state per spot.
-
-        Returns
-        ----------
-        log_emission : array, shape (2*n_states, n_obs, n_spots)
-            Log emission probability for each gene each spot (or sample) under each state. There is a common bag of states across all spots.
-        """
         n_obs, _, n_spots = X.shape
 
         # NB HACK? previously log_mu, which is not defined before normal spot detection.
@@ -98,8 +69,6 @@ class hmm_sitewise:
                 # NB this is relied on to shut off RDR evalutation when base_nb_mean == 0.
                 if len(idx_nonzero_rdr) > 0:
                     nb_mean = base_nb_mean[idx_nonzero_rdr, s] * np.exp(log_mu[i, s])
-                    # nb_std = np.sqrt(nb_mean + alphas[i, s] * nb_mean**2)
-
                     n, p = convert_params_disp(nb_mean, alphas[i, s])
 
                     log_emission_rdr[i, idx_nonzero_rdr, s] = scipy.stats.nbinom.logpmf(
@@ -148,35 +117,6 @@ class hmm_sitewise:
         tumor_prop,
         **kwargs,
     ):
-        """
-        Attributes
-        ----------
-        X : array, shape (n_observations, n_components, n_spots)
-            Observed expression UMI count and allele frequency UMI count.
-
-        base_nb_mean : array, shape (n_observations, n_spots)
-            Mean expression under diploid state.
-
-        log_mu : array, shape (n_states, n_spots)
-            Log of read depth change due to CNV. Mean of NB distributions in HMM per state per spot.
-
-        alphas : array, shape (n_states, n_spots)
-            Over-dispersion of NB distributions in HMM per state per spot.
-
-        total_bb_RD : array, shape (n_observations, n_spots)
-            SNP-covering reads for both REF and ALT across genes along genome.
-
-        p_binom : array, shape (n_states, n_spots)
-            BAF due to CNV. Mean of Beta Binomial distribution in HMM per state per spot.
-
-        taus : array, shape (n_states, n_spots)
-            Over-dispersion of Beta Binomial distribution in HMM per state per spot.
-
-        Returns
-        ----------
-        log_emission : array, shape (2*n_states, n_obs, n_spots)
-            Log emission probability for each gene each spot (or sample) under each state. There is a common bag of states across all spots.
-        """
         n_obs, _, n_spots = X.shape
         n_states = log_mu.shape[0]
 

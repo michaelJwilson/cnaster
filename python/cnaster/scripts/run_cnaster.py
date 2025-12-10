@@ -403,8 +403,6 @@ def run_cnaster(config_path, over_rides=None):
 
     fig_path = f"{plots_dir}/prephasing_clones_genomic.pdf"
     write_fig(fig_path, prephasing_clones_genomic, transparent=True, bbox_inches="tight")
-    
-    exit(0)
 
     if config.run.legacy:
         logger.warning("Assuming (magic) five BAF states for phasing.")
@@ -444,6 +442,8 @@ def run_cnaster(config_path, over_rides=None):
     else:
         phase_indicator = np.zeros(single_X.shape[0])
         refined_lengths = lengths
+
+    exit(0)
 
     # NB phase is None for genes and otherwise True/False for the phase of each block.
     df_gene_snp["phase"] = np.where(

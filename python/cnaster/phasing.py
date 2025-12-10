@@ -9,7 +9,7 @@ from cnaster.config import get_global_config
 
 logger = logging.getLogger(__name__)
 
-
+# NB mirrors calicost.phasing.initial_phase_given_partition; 
 @cacher("initial_phase.hdf5")
 def initial_phase_given_partition(
     single_X,
@@ -75,6 +75,7 @@ def initial_phase_given_partition(
                 base_nb_mean[:, i : (i + 1)],
                 total_bb_RD[:, i : (i + 1)],
                 log_sitewise_transmat,
+                tumor_prop=tumor_prop, # NB calicost assumes tumor_prop is None
                 hmmclass=hmm_sitewise,
                 params=params,
                 t=t,
@@ -92,6 +93,8 @@ def initial_phase_given_partition(
                 max_iter=max_iter,
                 tol=tol,
             )
+
+            exit(0)
 
             if not np.all(res["new_p_binom"] <= 0.5 + EPS_BAF):
                 logger.warning(f"Found best-fit phased baf > 0.5 += eps.")

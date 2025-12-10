@@ -45,13 +45,16 @@ class hmm_sitewise:
         self.t = t
 
     @staticmethod
-    def compute_emission_probability_nb_betabinom(
-        X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus
+    def compute_emission_probability_nb_betabinom_mix(
+        X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus, tumor_prop=None,
     ):
         n_obs, _, n_spots = X.shape
 
         # NB HACK? previously log_mu, which is not defined before normal spot detection.
         n_states = p_binom.shape[0]
+
+        if tumor_prop is None:
+            tumor_prop = np.zeros((n_obs, n_spots))
 
         # NB twice as with/out phase switch.
         log_emission_rdr = np.zeros((2 * n_states, n_obs, n_spots))
@@ -68,7 +71,13 @@ class hmm_sitewise:
 
                 # NB this is relied on to shut off RDR evalutation when base_nb_mean == 0.
                 if len(idx_nonzero_rdr) > 0:
-                    nb_mean = base_nb_mean[idx_nonzero_rdr, s] * np.exp(log_mu[i, s])
+                    # nb_mean = base_nb_mean[idx_nonzero_rdr, s] * np.exp(log_mu[i, s])
+                    nb_mean = base_nb_mean[idx_nonzero_rdr, s] * (
+                        tumor_prop[idx_nonzero_rdr, s] * np.exp(log_mu[i, s])
+                        + 1.0
+                        - tumor_prop[idx_nonzero_rdr, s]
+                    )
+
                     n, p = convert_params_disp(nb_mean, alphas[i, s])
 
                     log_emission_rdr[i, idx_nonzero_rdr, s] = scipy.stats.nbinom.logpmf(
@@ -83,12 +92,17 @@ class hmm_sitewise:
                 idx_nonzero_baf = np.where(total_bb_RD[:, s] > 0)[0]
 
                 if len(idx_nonzero_baf) > 0:
+                    mix_p_A = p_binom[i, s] * tumor_prop[s] + 0.5 * (
+                        1. - tumor_prop[s]
+                    )
+                    mix_p_B = (1. - p_binom[i, s]) * tumor_prop[s] + 0.5 * (1. - tumor_prop[s])
+
                     log_emission_baf[i, idx_nonzero_baf, s] = (
                         scipy.stats.betabinom.logpmf(
                             X[idx_nonzero_baf, 1, s],
                             total_bb_RD[idx_nonzero_baf, s],
-                            p_binom[i, s] * taus[i, s],
-                            (1.0 - p_binom[i, s]) * taus[i, s],
+                            mix_p_A * taus[i, s],
+                            mix_p_B * taus[i, s],
                         )
                     )
 
@@ -98,80 +112,13 @@ class hmm_sitewise:
                             log_emission_baf[i, idx_nonzero_baf, s],
                             X[idx_nonzero_baf, 1, s],
                             total_bb_RD[idx_nonzero_baf, s],
-                            p_binom[i, s] * taus[i, s],
-                            (1.0 - p_binom[i, s]) * taus[i, s],
+                            mix_p_A * taus[i, s],
+                            mix_p_B * taus[i, s],
                         )
                     )
 
         return log_emission_rdr, log_emission_baf
 
-    @staticmethod
-    def compute_emission_probability_nb_betabinom_mix(
-        X,
-        base_nb_mean,
-        log_mu,
-        alphas,
-        total_bb_RD,
-        p_binom,
-        taus,
-        tumor_prop,
-        **kwargs,
-    ):
-        n_obs, _, n_spots = X.shape
-        n_states = log_mu.shape[0]
-
-        log_emission_rdr = np.zeros((2 * n_states, n_obs, n_spots))
-        log_emission_baf = np.zeros((2 * n_states, n_obs, n_spots))
-
-        for i in np.arange(n_states):
-            for s in np.arange(n_spots):
-                idx_nonzero_rdr = np.where(base_nb_mean[:, s] > 0)[0]
-
-                if len(idx_nonzero_rdr) > 0:
-                    nb_mean = base_nb_mean[idx_nonzero_rdr, s] * (
-                        tumor_prop[idx_nonzero_rdr, s] * np.exp(log_mu[i, s])
-                        + 1.0
-                        - tumor_prop[idx_nonzero_rdr, s]
-                    )
-                    nb_std = np.sqrt(nb_mean + alphas[i, s] * nb_mean**2)
-                    n, p = convert_params(nb_mean, nb_std)
-                    log_emission_rdr[i, idx_nonzero_rdr, s] = scipy.stats.nbinom.logpmf(
-                        X[idx_nonzero_rdr, 0, s], n, p
-                    )
-                    log_emission_rdr[i + n_states, idx_nonzero_rdr, s] = (
-                        log_emission_rdr[i, idx_nonzero_rdr, s]
-                    )
-
-                idx_nonzero_baf = np.where(total_bb_RD[:, s] > 0)[0]
-
-                if len(idx_nonzero_baf) > 0:
-                    mix_p_A = p_binom[i, s] * tumor_prop[idx_nonzero_baf, s] + 0.5 * (
-                        1 - tumor_prop[idx_nonzero_baf, s]
-                    )
-                    mix_p_B = (1 - p_binom[i, s]) * tumor_prop[
-                        idx_nonzero_baf, s
-                    ] + 0.5 * (1 - tumor_prop[idx_nonzero_baf, s])
-
-                    log_emission_baf[
-                        i, idx_nonzero_baf, s
-                    ] += scipy.stats.betabinom.logpmf(
-                        X[idx_nonzero_baf, 1, s],
-                        total_bb_RD[idx_nonzero_baf, s],
-                        mix_p_A * taus[i, s],
-                        mix_p_B * taus[i, s],
-                    )
-
-                    # TODO efficient evaluation given phase switch? phasing only run a few times.
-                    log_emission_baf[
-                        i + n_states, idx_nonzero_baf, s
-                    ] += scipy.stats.betabinom.logpmf(
-                        X[idx_nonzero_baf, 1, s],
-                        total_bb_RD[idx_nonzero_baf, s],
-                        mix_p_B * taus[i, s],
-                        mix_p_A * taus[i, s],
-                    )
-
-        return log_emission_rdr, log_emission_baf
 
     @staticmethod
     @njit
@@ -389,28 +336,19 @@ class hmm_sitewise:
             logger.info(
                 f"----  Solving for Baum-Welch iteration {r}/{max_iter} with NegBin+BetaBin emission  -----"
             )
-
-            if tumor_prop is None:
-                (
-                    log_emission_rdr,
-                    log_emission_baf,
-                ) = hmm_sitewise.compute_emission_probability_nb_betabinom(
-                    X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus
-                )
-            else:
-                (
-                    log_emission_rdr,
-                    log_emission_baf,
-                ) = hmm_sitewise.compute_emission_probability_nb_betabinom_mix(
-                    X,
-                    base_nb_mean,
-                    log_mu,
-                    alphas,
-                    total_bb_RD,
-                    p_binom,
-                    taus,
-                    tumor_prop,
-                )
+            (
+                log_emission_rdr,
+                log_emission_baf,
+            ) = hmm_sitewise.compute_emission_probability_nb_betabinom_mix(
+                X,
+                base_nb_mean,
+                log_mu,
+                alphas,
+                total_bb_RD,
+                p_binom,
+                taus,
+                tumor_prop,
+            )
 
             log_emission = log_emission_rdr + log_emission_baf
 

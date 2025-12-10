@@ -127,6 +127,10 @@ def plot_gene_snp_spatial(
     sampling=1.,
     max_genes=100,
 ):
+    logger.info(f"Plotting spatial distribution for {max_genes} genes to {plots_dir}/genes")
+
+    exit(0)
+    
     genes = df_gene_snp["gene"].unique()
 
     def get_gene_umi(g):
@@ -135,9 +139,6 @@ def plot_gene_snp_spatial(
         return -1.0
 
     genes = sorted(genes, key=get_gene_umi, reverse=True)
-
-    logger.info(f"Plotting spatial distribution for {len(genes)} genes")
-
     coords = adata.obsm["X_pos"]
 
     os.makedirs(f"{plots_dir}/genes", exist_ok=True)

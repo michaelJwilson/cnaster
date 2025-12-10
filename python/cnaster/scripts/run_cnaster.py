@@ -269,7 +269,6 @@ def run_cnaster(config_path, over_rides=None):
         unique_snp_ids, config.references.hgtable_file, adata
     )
 
-    """
     plot_gene_snp_spatial(
         adata,
         cell_snp_Aallele,
@@ -281,7 +280,8 @@ def run_cnaster(config_path, over_rides=None):
         cmap="viridis",
         base_height=4,
     )
-    """
+
+    exit(0)
 
     # NB parse_visium::create_haplotype_block_ranges
     df_gene_snp = assign_initial_blocks(
@@ -542,6 +542,8 @@ def run_cnaster(config_path, over_rides=None):
     write_fig(fig_path, adjacency_fig, transparent=True, bbox_inches="tight")
     # NB end run_parse_n_load::parse_visium.
 
+    exit(0)
+    
     # NB by construction, require normal spots (based on BAF to determine baseline).
     assert np.all(single_base_nb_mean == 0)
 

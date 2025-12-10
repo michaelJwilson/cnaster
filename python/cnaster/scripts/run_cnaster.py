@@ -383,8 +383,6 @@ def run_cnaster(config_path, over_rides=None):
 
     fig_path = f"{plots_dir}/phasing_clones_spatial.pdf"
     write_fig(fig_path, phasing_clones_fig, transparent=True, bbox_inches="tight")
-
-    exit(0)
     
     # TODO copy rename.
     prephasing_clones_genomic = plot_clones_genomic_simple(
@@ -393,7 +391,7 @@ def run_cnaster(config_path, over_rides=None):
         single_total_bb_RD,
         initial_clone_for_phasing,
         lengths,
-        single_tumor_prop=None,
+        single_tumor_prop=single_tumor_prop,
         sample_list=sample_list,
         remove_xticks=True,
         rdr_ylim=6,
@@ -406,6 +404,8 @@ def run_cnaster(config_path, over_rides=None):
     fig_path = f"{plots_dir}/prephasing_clones_genomic.pdf"
     write_fig(fig_path, prephasing_clones_genomic, transparent=True, bbox_inches="tight")
     
+    exit(0)
+
     if config.run.legacy:
         logger.warning("Assuming (magic) five BAF states for phasing.")
         n_states_phasing = 5

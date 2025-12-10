@@ -341,7 +341,7 @@ def plot_clones_genomic_simple(
     logger.info("Plotting simplified RDR & BAF scatter plots per clone.")
     
     # Create pseudobulk for each clone
-    X, base_nb_mean, total_bb_RD, _ = merge_pseudobulk_by_index_mix(
+    X, base_nb_mean, total_bb_RD, tumor_prop = merge_pseudobulk_by_index_mix(
         single_X,
         single_base_nb_mean,
         single_total_bb_RD,
@@ -447,10 +447,15 @@ def plot_clones_genomic_simple(
             transform=ax.transAxes,
         )
         
+        theta_text = ""
+
+        if single_tumor_prop is not None:
+            theta_text = f"$\\hat{{\\theta}}={tumor_prop[c]:.2f}$"
+
         ax.text(
             0.0,
             1.02,
-            f"{spots_per_clone[c]:_} spots; {int(np.sum(X[:, 0, c])):_} umis; {int(np.sum(total_bb_RD[:, c])):_} snp-umis",
+            f"{spots_per_clone[c]:_} spots; {int(np.sum(X[:, 0, c])):_} umis; {int(np.sum(total_bb_RD[:, c])):_} snp-umis; {theta_text}",
             ha="left",
             va="bottom",
             fontsize=12,

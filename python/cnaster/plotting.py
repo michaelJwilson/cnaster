@@ -129,8 +129,10 @@ def plot_gene_snp_spatial(
 ):
     logger.info(f"Plotting spatial distribution for {max_genes} genes to {plots_dir}/genes")
     
-    genes = df_gene_snp["gene"].unique()
-    genes = [g for g in genes if g in adata.var_names]
+    # genes = df_gene_snp["gene"].unique()
+    # genes = [g for g in genes if g in adata.var_names]
+
+    genes = list(adata.var_names)
     
     def get_gene_umi(g):
         if g in adata.var_names:

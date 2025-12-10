@@ -125,22 +125,26 @@ def plot_gene_snp_spatial(
     cmap="viridis",
     base_height=4,
     sampling=1.,
-    max_genes=100,
+    max_genes=10,
 ):
-    genes = df_gene_snp["gene"].unique()
+    logger.info(f"Plotting spatial distribution for max_genes={max_genes} to {plots_dir}/genes")
+    
+    # genes = df_gene_snp["gene"].unique()
+    # genes = [g for g in genes if g in adata.var_names]
 
+    genes = list(adata.var_names)
+    
     def get_gene_umi(g):
         if g in adata.var_names:
             return float(np.sum(adata[:, g].X))
         return -1.0
 
     genes = sorted(genes, key=get_gene_umi, reverse=True)
-
-    logger.info(f"Plotting spatial distribution for {len(genes)} genes")
-
     coords = adata.obsm["X_pos"]
 
-    os.makedirs(f"{plots_dir}/genes", exist_ok=True)
+    logger.info(f"Sorted input gene list.")
+    
+    # os.makedirs(f"{plots_dir}/genes", exist_ok=True)
 
     gene_count = 0
 
@@ -151,6 +155,8 @@ def plot_gene_snp_spatial(
         if gene_count >= max_genes:
             break
 
+        logger.info(f"Plotting gene={gene_name}")
+        
         gene_count += 1
 
         try:
@@ -899,6 +905,8 @@ def plot_clones_spatial(
 
     # NB remove nan of single_tumor_prop; assumes 0.5(!)
     if single_tumor_prop is not None:
+        logger.warning("Imputing NaN tumor proportion with 0.5")
+        
         copy_single_tumor_prop = copy.copy(single_tumor_prop)
         copy_single_tumor_prop[np.isnan(copy_single_tumor_prop)] = 0.5
 

@@ -1,9 +1,9 @@
 paths:
-  # sample_sheet : /u/mw9568/research/repos/cnaster/htan_annotated_sample_sheet.tsv
-  # output_dir : /n/fs/scratch/mw9568/cnaster/htan
+  sample_sheet : /u/mw9568/research/repos/cnaster/htan_annotated_sample_sheet.tsv
+  output_dir : /n/fs/scratch/mw9568/cnaster/htan
 
-  sample_sheet : /u/mw9568/research/repos/cnaster/vishd_sample_sheet.tsv
-  output_dir : /n/fs/scratch/mw9568/cnaster/vishd
+  # sample_sheet : /u/mw9568/research/repos/cnaster/vishd_sample_sheet.tsv
+  # output_dir : /n/fs/scratch/mw9568/cnaster/vishd
 
   perf_path : logs/cnaster.perf
 
@@ -31,6 +31,7 @@ references:
   annotation_file : /u/mw9568/scratch/annotation/gencode.v49.basic.annotation.gtf.gz
   filtergenelist_file : /u/mw9568/research/data/references/ig_gene_list.txt
   filterregion_file : /u/mw9568/research/data/references/HLA_regions.bed
+  centromeres : None
 
 # TODO HACK
 #           phasing_min_snp_umis : 15 -> 
@@ -60,7 +61,7 @@ phasing:
   run : True
   nu : 1.0
   logphase_shift : -2.0
-  npart_phasing : 2
+  npart_phasing : 3
   baf_change_threshold : 0.1
   min_new_segment_size : 10
 
@@ -117,8 +118,8 @@ hmm:
   max_workers : 2
   gmm_random_state : 0
   gmm_maxiter: 30
-  gmm_min_binom_prob: 0.0
-  gmm_max_binom_prob: 1.0
+  gmm_min_binom_prob: 0.1
+  gmm_max_binom_prob: 0.9
   np_threshold : 1.0
   np_eventminlen : 5
   em_maxiter: 1500

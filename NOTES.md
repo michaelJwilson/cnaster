@@ -23,6 +23,7 @@ RUNTIME
 - hmm_initialize.py:181
 
 KEY
+- betabinomial likelihood at p=0., 1.
 - Clone assignment swaps that re-calculates new parameters.
 - propagate BAF values from baf only run to RDR refinement.
 - transcript definition based on visium gene selection vs gencode coding regions!

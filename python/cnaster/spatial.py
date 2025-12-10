@@ -818,6 +818,7 @@ def multislice_adjacency(
             unit_ysquared=unit_ysquared,
         )
         """
+        
         tmpsmooth_mat, tmpadjacency_mat = choose_lattice_adjacency(
             this_coords,
             single_total_bb_RD[:, index],

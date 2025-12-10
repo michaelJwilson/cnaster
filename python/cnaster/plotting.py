@@ -905,6 +905,8 @@ def plot_clones_spatial(
 
     # NB remove nan of single_tumor_prop; assumes 0.5(!)
     if single_tumor_prop is not None:
+        logger.warning("Imputing NaN tumor proportion with 0.5")
+        
         copy_single_tumor_prop = copy.copy(single_tumor_prop)
         copy_single_tumor_prop[np.isnan(copy_single_tumor_prop)] = 0.5
 

@@ -253,7 +253,7 @@ def run_cnaster(config_path, over_rides=None):
         single_tumor_prop = adata.obs["tumor_proportion"]
     else:
         logger.info(f"No (pre-processed) tumorprop. file provided.")
-        single_tumor_prop = None
+        single_tumor_prop = np.zeros(len(adata.obs.index), dtype=float)
 
     recomb_rates = get_reference_recomb_rates(config.references.geneticmap_file)
     """
@@ -384,6 +384,8 @@ def run_cnaster(config_path, over_rides=None):
     fig_path = f"{plots_dir}/phasing_clones_spatial.pdf"
     write_fig(fig_path, phasing_clones_fig, transparent=True, bbox_inches="tight")
 
+    exit(0)
+    
     # TODO copy rename.
     prephasing_clones_genomic = plot_clones_genomic_simple(
         single_X,

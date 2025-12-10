@@ -268,7 +268,7 @@ def run_cnaster(config_path, over_rides=None):
     df_gene_snp = form_gene_snp_table(
         unique_snp_ids, config.references.hgtable_file, adata
     )
-
+    """
     plot_gene_snp_spatial(
         adata,
         cell_snp_Aallele,
@@ -280,8 +280,7 @@ def run_cnaster(config_path, over_rides=None):
         cmap="viridis",
         base_height=4,
     )
-
-    exit(0)
+    """
 
     # NB parse_visium::create_haplotype_block_ranges
     df_gene_snp = assign_initial_blocks(

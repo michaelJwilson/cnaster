@@ -54,7 +54,7 @@ class hmm_sitewise:
         n_states = p_binom.shape[0]
 
         if tumor_prop is None:
-            tumor_prop = np.zeros((n_obs, n_spots))
+            tumor_prop = np.ones((n_obs, n_spots))
 
         # NB twice as with/out phase switch.
         log_emission_rdr = np.zeros((2 * n_states, n_obs, n_spots))

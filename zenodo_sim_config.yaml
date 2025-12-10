@@ -17,7 +17,7 @@ annotation:
   true_cnv : None # /Users/mw9568/Work/ragr/sim/simulated_data_related/numcnas1.2_cnasize1e7_ploidy2_random0/truth_acn_profile.tsv
 
 run:
-  cache : True
+  cache : False
   legacy : False
   bafonly : False
 

@@ -1694,7 +1694,7 @@ def update_emission_params_bb_sitewise_uniqvalues_mix(
                 )
                 tmp = (scipy.sparse.csr_matrix(gamma) @ mapping_matrices[s]).toarray()
                 this_tp = np.tile(
-                    (mapping_matrices[s].T @ tumor_prop[:, s])[idx_nonzero]
+                    (mapping_matrices[s].T @ tumor_prop[:,s])[idx_nonzero]
                     / (mapping_matrices[s].T @ np.ones(tumor_prop.shape[0]))[
                         idx_nonzero
                     ],

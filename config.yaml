@@ -61,7 +61,7 @@ phasing:
   run : True
   nu : 1.0
   logphase_shift : -2.0
-  npart_phasing : 2
+  npart_phasing : 3
   baf_change_threshold : 0.1
   min_new_segment_size : 10
 

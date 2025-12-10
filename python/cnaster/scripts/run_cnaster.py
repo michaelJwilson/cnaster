@@ -353,17 +353,18 @@ def run_cnaster(config_path, over_rides=None):
             -1, 1
         ) @ spots_coverage.reshape(1, -1)
     else:
-        initial_clone_index_baf = None
         known_single_base_nb_mean = None
 
-        # NB equivalent to parse_visium::perform_partition
-        # TODO (requires paste).
+        # NB  rectangular partition across multiple slices.
+        #     equivalent to parse_visium::perform_partition
         initial_clone_for_phasing = initialize_clones(
             coords,
             sample_ids,  # NB for all spots in all slices.
             x_part=config.phasing.npart_phasing,
             y_part=config.phasing.npart_phasing,
         )
+
+        initial_clone_index_baf = initial_clone_for_phasing
 
     assignment = np.full(len(coords), -1, dtype=int)
 
@@ -378,7 +379,7 @@ def run_cnaster(config_path, over_rides=None):
         sample_list=sample_list,
         sample_ids=sample_ids,
         base_width=4,
-	    base_height=3,
+	base_height=3,
     )
 
     fig_path = f"{plots_dir}/phasing_clones_spatial.pdf"
@@ -809,6 +810,8 @@ def run_cnaster(config_path, over_rides=None):
 
     fig_path = f"{plots_dir}/merged_bafonly_clones_genomic.pdf"
     write_fig(fig_path, merged_bafonly_clones_genomic, transparent=True, bbox_inches="tight")
+
+    exit(0)
     
     # NB construct clone labels.
     df_clone_label = pd.DataFrame(

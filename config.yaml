@@ -31,6 +31,7 @@ references:
   annotation_file : /u/mw9568/scratch/annotation/gencode.v49.basic.annotation.gtf.gz
   filtergenelist_file : /u/mw9568/research/data/references/ig_gene_list.txt
   filterregion_file : /u/mw9568/research/data/references/HLA_regions.bed
+  centromeres : None
 
 # TODO HACK
 #           phasing_min_snp_umis : 15 -> 

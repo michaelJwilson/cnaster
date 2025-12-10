@@ -125,14 +125,13 @@ def plot_gene_snp_spatial(
     cmap="viridis",
     base_height=4,
     sampling=1.,
-    max_genes=100,
+    max_genes=10,
 ):
     logger.info(f"Plotting spatial distribution for {max_genes} genes to {plots_dir}/genes")
-
-    exit(0)
     
     genes = df_gene_snp["gene"].unique()
-
+    genes = [g for g in genes if g in adata.var_names]
+    
     def get_gene_umi(g):
         if g in adata.var_names:
             return float(np.sum(adata[:, g].X))
@@ -141,7 +140,9 @@ def plot_gene_snp_spatial(
     genes = sorted(genes, key=get_gene_umi, reverse=True)
     coords = adata.obsm["X_pos"]
 
-    os.makedirs(f"{plots_dir}/genes", exist_ok=True)
+    logger.info(f"Sorted input gene list.")
+    
+    # os.makedirs(f"{plots_dir}/genes", exist_ok=True)
 
     gene_count = 0
 
@@ -152,6 +153,8 @@ def plot_gene_snp_spatial(
         if gene_count >= max_genes:
             break
 
+        logger.info(f"Plotting gene={gene_name}")
+        
         gene_count += 1
 
         try:

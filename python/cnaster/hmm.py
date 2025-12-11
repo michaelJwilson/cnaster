@@ -129,8 +129,8 @@ def pipeline_baum_welch(
 
     if tumor_prop is None:
         (
-            log_emission_rdr,  # NB emission prob. for RDR.
-            log_emission_baf,  # NB emission prob. for BAF.
+            log_emission_rdr,
+            log_emission_baf,
         ) = hmmclass.compute_emission_probability_nb_betabinom(
             X, base_nb_mean, new_log_mu, new_alphas, total_bb_RD, new_p_binom, new_taus
         )

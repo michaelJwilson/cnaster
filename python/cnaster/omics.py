@@ -403,6 +403,8 @@ def assign_initial_blocks(
 
             # NB drop genes.
             involved_snps_ids = involved_snps_ids[~involved_snps_ids.isnull()]
+            
+            # TODO if x.
             involved_snp_idx = np.array([map_snp_index[x] for x in involved_snps_ids])
 
             # NB num. of snp-covering umis for initial block ids s to t.

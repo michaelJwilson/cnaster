@@ -86,10 +86,11 @@ def pool_hmrf_data(
     pooled_base_nb_mean = np.zeros((n_obs, N), dtype=single_base_nb_mean.dtype)
     pooled_total_bb_RD = np.zeros((n_obs, N), dtype=single_total_bb_RD.dtype)
 
-    n_clones = int(len(pred) / n_obs)
-    mean_tumor_prop = np.zeros(N, dtype=np.float64)
-    weighted_tumor_prop = np.zeros((n_obs, N), dtype=np.float64)   
+    # n_clones = int(len(pred) / n_obs)
+    # mean_tumor_prop = np.zeros(N, dtype=np.float64)
+    # weighted_tumor_prop = np.zeros((n_obs, N), dtype=np.float64)   
 
+    """
     # NB rename e.g. normalized mu.
     weighted_mu = np.zeros((n_obs, n_clones), dtype=np.float64)
 
@@ -102,11 +103,11 @@ def pool_hmrf_data(
             mu = np.exp(new_log_mu[state_idx, c])
             norm += mu * lambd[obs_idx]
 
-	for obs_idx in range(n_obs):
-	    state_idx = pred[c * n_obs + obs_idx] % n_states
-            mu = np.exp(res_new_log_mu[state_idx, c])            
+        for obs_idx in range(n_obs):
+            state_idx = pred[c * n_obs + obs_idx] % n_states
+            mu = np.exp(res_new_log_mu[state_idx, c])
             weighted_mu[obs_idx, c] = mu / norm    
-    
+    """
     for i in range(N):
         start_idx = smooth_indptr[i]
         end_idx = smooth_indptr[i + 1]
@@ -128,11 +129,12 @@ def pool_hmrf_data(
         if valid_count == 0:
             continue
 
+        """
         for neighbor_idx in valid_neighbors:
             mean_tumor_prop[i] += single_tumor_prop[neighbor_idx]
 
         mean_tumor_prop /= valid_count
-            
+        """ 
         for obs_idx in range(n_obs):
             for neighbor_idx in valid_neighbors:
                 pooled_X[obs_idx, 0, i] += single_X[obs_idx, 0, neighbor_idx]
@@ -146,6 +148,7 @@ def pool_hmrf_data(
                     obs_idx, neighbor_idx
                 ]
 
+    """
     # NB see https://github.com/raphael-group/CalicoST/blob/c1abcae3e3657e01e547ee4529e3b9d039221453/src/calicost/hmrf.py#L841
     for obs_idx in range(n_obs):        
         for i in range(N):
@@ -160,12 +163,12 @@ def pool_hmrf_data(
                     )
                 else:
                     weighted_tumor_prop[obs_idx, c, i] = mean_tumor_prop[i]
-
+    """
     return (
         pooled_X,
         pooled_base_nb_mean,
         pooled_total_bb_RD,
-        weighted_tumor_prop,
+        # weighted_tumor_prop,
     )
 
 
@@ -345,7 +348,7 @@ def aggr_hmrfmix_reassignment_concatenate(
 
     # NB pool data by smooth mat: reduces spots to calculate likelihood for, i.e. faster.
     #    see:  https://github.com/raphael-group/CalicoST/blob/c1abcae3e3657e01e547ee4529e3b9d039221453/src/calicost/hmrf.py#L841
-    pooled_X, pooled_base_nb_mean, pooled_total_bb_RD, weighted_tumor_prop = pool_hmrf_data(
+    pooled_X, pooled_base_nb_mean, pooled_total_bb_RD = pool_hmrf_data(
         single_X,
         single_base_nb_mean,
         single_total_bb_RD,

@@ -255,7 +255,7 @@ def run_cnaster(config_path, over_rides=None):
         single_tumor_prop = adata.obs["tumor_proportion"]
     else:
         logger.info(f"No (pre-processed) tumorprop. file provided.")
-        single_tumor_prop = np.ones(len(adata.obs.index), dtype=float)
+        single_tumor_prop = None # np.ones(len(adata.obs.index), dtype=float)
 
     recomb_rates = get_reference_recomb_rates(config.references.geneticmap_file)
     """
@@ -413,7 +413,7 @@ def run_cnaster(config_path, over_rides=None):
         n_states_phasing = config.hmm.n_states
 
     assert single_X.ndim == 3
-
+    
     if config.phasing.run:
         # NB single_base_nb_mean initialized to zero - requires normal spot. determination.
         phase_indicator, refined_lengths = initial_phase_given_partition(
@@ -444,8 +444,6 @@ def run_cnaster(config_path, over_rides=None):
     else:
         phase_indicator = np.zeros(single_X.shape[0])
         refined_lengths = lengths
-
-    exit(0)
 
     # NB phase is None for genes and otherwise True/False for the phase of each block.
     df_gene_snp["phase"] = np.where(
@@ -632,7 +630,7 @@ def run_cnaster(config_path, over_rides=None):
 
     fig_path = f"{plots_dir}/initial_clones_spatial.pdf"
     write_fig(fig_path, initial_clones_fig, transparent=True, bbox_inches="tight")
-
+    
     logger.info(
         "Solving HMM & HMRF for copy states and clone assignment with BAF only."
     )
@@ -672,6 +670,8 @@ def run_cnaster(config_path, over_rides=None):
         spatial_weight=config.hmrf.spatial_weight,
         tumorprop_threshold=config.hmrf.tumorprop_threshold,
     )
+
+    exit(0)
 
     # NB number of bins/segments/blocks
     n_obs = single_X.shape[0]
@@ -812,8 +812,6 @@ def run_cnaster(config_path, over_rides=None):
 
     fig_path = f"{plots_dir}/merged_bafonly_clones_genomic.pdf"
     write_fig(fig_path, merged_bafonly_clones_genomic, transparent=True, bbox_inches="tight")
-
-    exit(0)
     
     # NB construct clone labels.
     df_clone_label = pd.DataFrame(

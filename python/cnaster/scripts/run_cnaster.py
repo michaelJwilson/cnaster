@@ -255,7 +255,7 @@ def run_cnaster(config_path, over_rides=None):
         single_tumor_prop = adata.obs["tumor_proportion"]
     else:
         logger.info(f"No (pre-processed) tumorprop. file provided.")
-        single_tumor_prop = None # np.ones(len(adata.obs.index), dtype=float)
+        single_tumor_prop = np.ones(len(adata.obs.index), dtype=float)
 
     recomb_rates = get_reference_recomb_rates(config.references.geneticmap_file)
     """
@@ -376,7 +376,7 @@ def run_cnaster(config_path, over_rides=None):
     phasing_clones_fig = plot_clones_spatial(
     	coords,
         assignment,
-        single_tumor_prop=single_tumor_prop,
+        # single_tumor_prop=single_tumor_prop,
         sample_list=sample_list,
         sample_ids=sample_ids,
         base_width=4,
@@ -393,7 +393,7 @@ def run_cnaster(config_path, over_rides=None):
         single_total_bb_RD,
         initial_clone_for_phasing,
         lengths,
-        single_tumor_prop=single_tumor_prop,
+        # single_tumor_prop=single_tumor_prop,
         sample_list=sample_list,
         remove_xticks=True,
         rdr_ylim=6,
@@ -421,7 +421,7 @@ def run_cnaster(config_path, over_rides=None):
             lengths,
             single_base_nb_mean,
             single_total_bb_RD,
-            single_tumor_prop,
+            single_tumor_prop, # NB utilized only for clone average baf profile, not hmm fitting.
             initial_clone_for_phasing,
             n_states_phasing,
             log_sitewise_transmat,
@@ -444,7 +444,7 @@ def run_cnaster(config_path, over_rides=None):
     else:
         phase_indicator = np.zeros(single_X.shape[0])
         refined_lengths = lengths
-
+        
     # NB phase is None for genes and otherwise True/False for the phase of each block.
     df_gene_snp["phase"] = np.where(
         df_gene_snp.snp_id.isnull(),

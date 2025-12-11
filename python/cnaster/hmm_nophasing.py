@@ -36,8 +36,8 @@ class hmm_nophasing:
         self.t = t
 
     @staticmethod
-    def compute_emission_probability_nb_betabinom(
-        X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus
+    def compute_emission_probability_nb_betabinom_mix(
+        X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus, tumor_prop, logmu_shift=None,
     ):
         logger.debug(
             f"Evaluating HMRF NB+BB emission likelihood for X.shape={X.shape} and log_mu.shape={log_mu.shape}."
@@ -47,87 +47,21 @@ class hmm_nophasing:
         # return compute_emission_probability_nb_betabinom(
         #       X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus
         # )
+
+        # TODO
+        if logmu_shift is not None:
+            logger.warning(f"Ignoring clone-specific shift of copy state mus.")
+
+        # TODO define clone weighted tumor prop, if necessary.
+        # NB see eqn. (8) of CalicoST supplementary information, i.e. theta_n * mu_gm.
+        num_obs, _, num_spots = X.shape        
+        mu_weighted_tumor_prop = np.tile(tumor_prop, num_spots).reshape(-1, num_spots)
+
+        logger.warning(f"Assuming mu=1 for mu_weighted_tumor_prop.")
+        
         return compute_emissions(
-            X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus
+            X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus, tumor_prop, mu_weighted_tumor_prop
         )
-
-    @staticmethod
-    def compute_emission_probability_nb_betabinom_mix(
-        X,
-        base_nb_mean,
-        log_mu,
-        alphas,
-        total_bb_RD,
-        p_binom,
-        taus,
-        tumor_prop,
-        **kwargs,
-    ):
-        n_obs, _, n_spots = X.shape
-        n_states = log_mu.shape[0]
-
-        log_emission_rdr = np.zeros((n_states, n_obs, n_spots))
-        log_emission_baf = np.zeros((n_states, n_obs, n_spots))
-
-        for i in np.arange(n_states):
-            for s in np.arange(n_spots):
-                idx_nonzero_rdr = np.where(base_nb_mean[:, s] > 0)[0]
-
-                if len(idx_nonzero_rdr) > 0:
-                    nb_mean = base_nb_mean[idx_nonzero_rdr, s] * (
-                        tumor_prop[idx_nonzero_rdr, s] * np.exp(log_mu[i, s])
-                        + 1.
-                        - tumor_prop[idx_nonzero_rdr, s]
-                    )
-                    nb_std = np.sqrt(nb_mean + alphas[i, s] * nb_mean**2)
-                    n, p = convert_params_disp(nb_mean, alphas[i, s])
-                    log_emission_rdr[i, idx_nonzero_rdr, s] = scipy.stats.nbinom.logpmf(
-                        X[idx_nonzero_rdr, 0, s], n, p
-                    )
-
-                if ("logmu_shift" in kwargs) and ("sample_length" in kwargs):
-                    this_weighted_tp = []
-
-                    for c in range(len(kwargs["sample_length"])):
-                        range_s = np.sum(kwargs["sample_length"][:c])
-                        range_t = np.sum(kwargs["sample_length"][: (c + 1)])
-
-                        this_weighted_tp.append(
-                            tumor_prop[range_s:range_t, s]
-                            * np.exp(log_mu[i, s] - kwargs["logmu_shift"][c, s])
-                            / (
-                                tumor_prop[range_s:range_t, s]
-                                * np.exp(log_mu[i, s] - kwargs["logmu_shift"][c, s])
-                                + 1
-                                - tumor_prop[range_s:range_t, s]
-                            )
-                        )
-
-                    this_weighted_tp = np.concatenate(this_weighted_tp)
-                else:
-                    this_weighted_tp = tumor_prop[:, s]
-
-                idx_nonzero_baf = np.where(total_bb_RD[:, s] > 0)[0]
-
-                if len(idx_nonzero_baf) > 0:
-                    mix_p_A = p_binom[i, s] * this_weighted_tp[
-                        idx_nonzero_baf
-                    ] + 0.5 * (1.0 - this_weighted_tp[idx_nonzero_baf])
-
-                    mix_p_B = (1.0 - p_binom[i, s]) * this_weighted_tp[
-                        idx_nonzero_baf
-                    ] + 0.5 * (1.0 - this_weighted_tp[idx_nonzero_baf])
-
-                    log_emission_baf[
-                        i, idx_nonzero_baf, s
-                    ] += scipy.stats.betabinom.logpmf(
-                        X[idx_nonzero_baf, 1, s],
-                        total_bb_RD[idx_nonzero_baf, s],
-                        mix_p_A * taus[i, s],
-                        mix_p_B * taus[i, s],
-                    )
-
-        return log_emission_rdr, log_emission_baf
 
     @staticmethod
     @njit
@@ -315,7 +249,7 @@ class hmm_nophasing:
                 f"----  Solving for Baum-Welch iteration {r}/{max_iter} with NegBin+BetaBin emission  -----"
             )
 
-            # E step
+            # E-step
             if tumor_prop is None:
                 (
                     log_emission_rdr,
@@ -325,7 +259,10 @@ class hmm_nophasing:
                 )
             else:
                 # NB adjust copy-number state mu for RDR adjusted normalization.
-                if ((log_gamma is not None) or (r > 0)) and ("m" in self.params):
+                if (log_gamma is not None) and ("m" in self.params):
+                    logger.info(f"Solving for clone-specific RDR state values.")
+
+                    # NB clone-specific shift of logmu state values, (nobs, nclones); 
                     logmu_shift = []
 
                     for c in range(len(kwargs["sample_length"])):
@@ -385,7 +322,7 @@ class hmm_nophasing:
                         taus,
                         tumor_prop,
                     )
-
+                    
             log_emission = log_emission_rdr + log_emission_baf
 
             log_alpha = self.forward_lattice(

@@ -541,16 +541,15 @@ def clone_stack_obs(
     clone_stack_lengths = np.tile(lengths, X.shape[2])
     clone_stack_sitewise_transmat = np.tile(log_sitewise_transmat, X.shape[2])
 
-    # NB per-clone tumor prop. repeated num_obs times.
-    stack_tumor_prop = (
-        np.repeat(tumor_prop, X.shape[0]).reshape(-1, 1)
-        if tumor_prop is not None
-        else None
-    )
+    # NB pseudobulk led to mean. tumor_proportion per clone here, i.e. concatenate 1-element.
+    clone_stack_tumor_prop = tumor_prop.copy() if tumor_prop is not None else None
 
     logger.info(f"Stacked X from shape {X.shape} to {clone_stack_X.shape}.")
     logger.info(
         f"Stacked total_bb_RD from shape {total_bb_RD.shape} to {clone_stack_total_bb_RD.shape}."
+    )
+    logger.info(
+        f"Stacked tumor_prop from shape {tumor_prop.shape} to {clone_stack_tumor_prop.shape}."
     )
 
     return (
@@ -559,7 +558,7 @@ def clone_stack_obs(
         clone_stack_total_bb_RD,
         clone_stack_lengths,
         clone_stack_sitewise_transmat,
-        stack_tumor_prop,
+        clone_stack_tumor_prop,
     )
 
 
@@ -688,7 +687,7 @@ def hmrfmix_concatenate_pipeline(
     with np.errstate(divide="ignore", invalid="ignore"):
         lambd = np.sum(single_base_nb_mean, axis=1) / norm
 
-    # NB aggregation to pseudobulk based on current clone assignment of spots.
+    # NB aggregation to pseudobulk based on current clone assignment of spots; tumor prop is mean per-clone.
     X, base_nb_mean, total_bb_RD, tumor_prop = merge_pseudobulk_by_index_mix(
         single_X,
         single_base_nb_mean,
@@ -708,7 +707,7 @@ def hmrfmix_concatenate_pipeline(
         clone_stack_total_bb_RD,
         clone_stack_lengths,
         clone_stack_sitewise_transmat,
-        stack_tumor_prop,
+        clone_stack_tumor_prop,
     ) = clone_stack_obs(
         X, base_nb_mean, total_bb_RD, lengths, log_sitewise_transmat, tumor_prop
     )
@@ -754,8 +753,6 @@ def hmrfmix_concatenate_pipeline(
         logger.info(
             f"Plotting initial copy state mixture for instance {hmrfmix_concatenate_pipeline.call_count-1} with X.shape={X.shape}."
         )
-
-        # X, base_nb_mean, total_bb_RD, tumor_prop
 
         n_states = init_p_binom.shape[0]
 
@@ -824,16 +821,14 @@ def hmrfmix_concatenate_pipeline(
             f"----****  Solving iteration {r}/{max_iter_outer} of copy number state fitting & clone assignment (HMM + HMRF) ****----"
         )
 
-        # NB segments for each clone stacked.
-        sample_length = np.ones(X.shape[2], dtype=int) * X.shape[0]
+        # NB i.e. (num_obs, num_obs, ...)
+        sample_length = X.shape[0] * np.ones(X.shape[2], dtype=int)
         remain_kwargs = {"sample_length": sample_length, "lambd": lambd}
 
-        """
-        # TODO HACK BUG?
-        # NB utilize last state posterior. 
+        # NB utilize last state posterior to determine clone-specific RDR values & for speed.
         if "log_gamma" in res:
             remain_kwargs["log_gamma"] = res["log_gamma"]
-        """
+        
         res = pipeline_baum_welch(
             None,
             clone_stack_X,
@@ -842,7 +837,7 @@ def hmrfmix_concatenate_pipeline(
             clone_stack_base_nb_mean,
             clone_stack_total_bb_RD,
             clone_stack_sitewise_transmat,
-            stack_tumor_prop,
+            clone_stack_tumor_prop,
             hmmclass=hmmclass,
             params=params,
             t=t,

@@ -77,8 +77,8 @@ def pipeline_baum_welch(
 
     hmm_model = hmmclass(params=params, t=t)
 
-    # TODO HACK "log_gamma" utilizes last determined posterior for speed.
-    remain_kwargs = {k: v for k, v in kwargs.items() if k in ["lambd", "sample_length"]}
+    # NB log_gamma utilized to determine clone specific RDR ('log_mu_shift') & for speed.
+    remain_kwargs = {k: v for k, v in kwargs.items() if k in ["lambd", "sample_length", "log_gamma"]}
 
     logger.info(f"Assuming kwargs={remain_kwargs.keys()}")
 

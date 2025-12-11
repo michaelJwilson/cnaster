@@ -76,7 +76,7 @@ def initial_phase_given_partition(
                 base_nb_mean[:, i : (i + 1)],
                 total_bb_RD[:, i : (i + 1)],
                 log_sitewise_transmat,
-                tumor_prop=tumor_prop, # NB calicost assumes tumor_prop is None
+                tumor_prop=None, # NB calicost assumes tumor_prop is None
                 hmmclass=hmm_sitewise,
                 params=params,
                 t=t,

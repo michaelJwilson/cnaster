@@ -41,6 +41,7 @@ def betabinom_logpmf_numba(k, n, alpha, beta):
 def compute_emissions_nb(
     X,
     base_nb_mean,
+    tumor_prop,
     log_mu,
     alphas,
     n_states,
@@ -57,7 +58,12 @@ def compute_emissions_nb(
         for obs in range(n_obs):
             for s in range(n_spots):
                 if base_nb_mean[obs, s] > 0:
-                    nb_mean = base_nb_mean[obs, s] * exp(log_mu[i, 0])
+                    nb_mean = base_nb_mean[obs, s] * (
+                        tumor_prop[s] * np.exp(log_mu[i, 0])
+                        + 1.
+                        - tumor_prop[s]
+                    )
+
                     nb_var = nb_mean + alphas[i, 0] * nb_mean * nb_mean
                     nb_std = sqrt(nb_var)
 
@@ -74,6 +80,8 @@ def compute_emissions_nb(
 def compute_emissions_bb(
     X,
     total_bb_RD,
+    tumor_prop,
+    mu_weighted_tumor_prop,
     p_binom,
     taus,
     n_states,
@@ -86,13 +94,16 @@ def compute_emissions_bb(
     # TODO
     assert p_binom.shape[1] == 1
 
+    # NB no phasing
     for i in numba.prange(n_states):
         for obs in range(n_obs):
             for s in range(n_spots):
                 if total_bb_RD[obs, s] > 0:
-                    alpha = p_binom[i, 0] * taus[i, 0]
-                    beta = (1.0 - p_binom[i, 0]) * taus[i, 0]
+                    pA = (p_binom[i, 0] * mu_weighted_tumor_prop[obs, s] + 0.5 * (1.0 - tumor_prop[s])) / (mu_weighted_tumor_prop[obs, s] + 1. - tumor_prop[s])
 
+                    alpha = pA * taus[i, 0]
+                    beta = (1. - pA) * taus[i, 0]
+                    
                     log_emission_baf[i, obs, s] = betabinom_logpmf_numba(
                         X[obs, 1, s], total_bb_RD[obs, s], alpha, beta
                     )
@@ -100,21 +111,25 @@ def compute_emissions_bb(
     return log_emission_baf
 
 
-def compute_emissions(X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus):
+def compute_emissions(X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus, tumor_prop, mu_weighted_tumor_prop):
     n_obs, _, n_spots = X.shape
     n_states = log_mu.shape[0]
 
+    X = np.ascontiguousarray(X, dtype=np.int32)
     base_nb_mean = np.ascontiguousarray(base_nb_mean, dtype=np.float64)
     log_mu = np.ascontiguousarray(log_mu, dtype=np.float64)
     alphas = np.ascontiguousarray(alphas, dtype=np.float64)
     total_bb_RD = np.ascontiguousarray(total_bb_RD, dtype=np.int32)
     p_binom = np.ascontiguousarray(p_binom, dtype=np.float64)
     taus = np.ascontiguousarray(taus, dtype=np.float64)
-    X = np.ascontiguousarray(X, dtype=np.int32)
-
+    
+    tumor_prop = np.ascontiguousarray(tumor_prop, dtype=np.float64)
+    mu_weighted_tumor_prop = np.ascontiguousarray(mu_weighted_tumor_prop, dtype=np.float64)
+    
     log_emission_rdr = compute_emissions_nb(
         X,
         base_nb_mean,
+        tumor_prop,
         log_mu,
         alphas,
         n_states,
@@ -124,6 +139,8 @@ def compute_emissions(X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, tau
     log_emission_baf = compute_emissions_bb(
         X,
         total_bb_RD,
+        tumor_prop,
+        mu_weighted_tumor_prop,
         p_binom,
         taus,
         n_states,

@@ -35,8 +35,7 @@ def pool_hmrf_data(
     smooth_indices,
     smooth_indptr,
     single_tumor_prop=None,
-    use_mixture=False,
-    res_new_log_mu=None,
+    new_log_mu=None,
     pred=None,
     n_states=None,
     lambd=None,
@@ -86,34 +85,28 @@ def pool_hmrf_data(
     pooled_X = np.zeros((n_obs, n_comp, N), dtype=single_X.dtype)
     pooled_base_nb_mean = np.zeros((n_obs, N), dtype=single_base_nb_mean.dtype)
     pooled_total_bb_RD = np.zeros((n_obs, N), dtype=single_total_bb_RD.dtype)
-    mean_tumor_prop, weighted_tp = None, None
-    """
-    # TODO HACK BUG  
-    if use_mixture:
-        n_clones = int(len(pred) / n_obs)
-        
-        assert res_new_log_mu.shape[-1] == n_clones
 
-        mean_tumor_prop = np.zeros(N, dtype=np.float64)
-        
-        weighted_mu = np.zeros((n_obs, n_clones), dtype=np.float64)
-        weighted_tp = np.zeros((n_obs, n_clones, N), dtype=np.float64)
-        
-        for c in range(n_clones):
-            norm = 0.0
+    n_clones = int(len(pred) / n_obs)
+    mean_tumor_prop = np.zeros(N, dtype=np.float64)
+    weighted_tumor_prop = np.zeros((n_obs, N), dtype=np.float64)   
 
-            for obs_idx in range(n_obs):
-                # NB modulo phasing.
-                state_idx = pred[c * n_obs + obs_idx] % n_states
-                mu = np.exp(res_new_log_mu[state_idx, c])
-                norm += mu * lambd[obs_idx]
-                
-            for obs_idx in range(n_obs):
-                state_idx = pred[c * n_obs + obs_idx] % n_states
-                mu = np.exp(res_new_log_mu[state_idx, c])
-            
-                weighted_mu[obs_idx, c] = mu / norm
-    """
+    # NB rename e.g. normalized mu.
+    weighted_mu = np.zeros((n_obs, n_clones), dtype=np.float64)
+
+    for c in range(n_clones):
+        norm = 0.0
+
+        for obs_idx in range(n_obs):
+            # NB modulo phasing.                                                                                                                             
+            state_idx = pred[c * n_obs + obs_idx] % n_states
+            mu = np.exp(new_log_mu[state_idx, c])
+            norm += mu * lambd[obs_idx]
+
+	for obs_idx in range(n_obs):
+	    state_idx = pred[c * n_obs + obs_idx] % n_states
+            mu = np.exp(res_new_log_mu[state_idx, c])            
+            weighted_mu[obs_idx, c] = mu / norm    
+    
     for i in range(N):
         start_idx = smooth_indptr[i]
         end_idx = smooth_indptr[i + 1]
@@ -123,7 +116,7 @@ def pool_hmrf_data(
         for k in range(start_idx, end_idx):
             col = smooth_indices[k]
 
-            if use_mixture and single_tumor_prop is not None:
+            if single_tumor_prop is not None:
                 if not np.isnan(single_tumor_prop[col]):
                     valid_neighbors.append(col)
             else:
@@ -135,48 +128,43 @@ def pool_hmrf_data(
         if valid_count == 0:
             continue
 
+        for neighbor_idx in valid_neighbors:
+            mean_tumor_prop[i] += single_tumor_prop[neighbor_idx]
+
+        mean_tumor_prop /= valid_count
+            
         for obs_idx in range(n_obs):
             for neighbor_idx in valid_neighbors:
                 pooled_X[obs_idx, 0, i] += single_X[obs_idx, 0, neighbor_idx]
                 pooled_X[obs_idx, 1, i] += single_X[obs_idx, 1, neighbor_idx]
 
+                pooled_total_bb_RD[obs_idx, i] += single_total_bb_RD[
+                    obs_idx, neighbor_idx
+                ]
+
                 pooled_base_nb_mean[obs_idx, i] += single_base_nb_mean[
                     obs_idx, neighbor_idx
                 ]
 
-                pooled_total_bb_RD[obs_idx, i] += single_total_bb_RD[
-                    obs_idx, neighbor_idx
-                ]
-        """
-        # TODO HACK BUG
-        if use_mixture:
-            tumor_prop_sum = 0.0
-
-            for neighbor_idx in valid_neighbors:
-                tumor_prop_sum += single_tumor_prop[neighbor_idx]
-
-            # NB input to compute_emission_probability_nb_betabinom_mix
-            mean_tumor_prop[i] = tumor_prop_sum / valid_count
-
-            if np.sum(pooled_base_nb_mean[:, i]) > 0:
-                for c in range(n_clones):
-                    for obs_idx in range(n_obs):
-                        weighted_tp[obs_idx, c, i] = (
-                            mean_tumor_prop[i] * weighted_mu[obs_idx, c]
-                        ) / (
-                            mean_tumor_prop[i] * weighted_mu[obs_idx, c]
-                            + 1.0
-                            - mean_tumor_prop[i]
-                        )
-            else:
-                for obs_idx in range(n_obs):
+    # NB see https://github.com/raphael-group/CalicoST/blob/c1abcae3e3657e01e547ee4529e3b9d039221453/src/calicost/hmrf.py#L841
+    for obs_idx in range(n_obs):        
+        for i in range(N):
+            for c in range(n_clones):
+                if pooled_base_nb_mean[obs_idx, i] > 0:
+                    weighted_tumor_prop[obs_idx, c, i] = (
+                        mean_tumor_prop[i] * weighted_mu[obs_idx, c]
+                    ) / (
+                        mean_tumor_prop[i] * weighted_mu[obs_idx, c]
+                        + 1.0
+                        - mean_tumor_prop[i]
+                    )
+                else:
                     weighted_tp[obs_idx, c, i] = mean_tumor_prop[i]
-        """
+
     return (
         pooled_X,
         pooled_base_nb_mean,
         pooled_total_bb_RD,
-        mean_tumor_prop,
         weighted_tp,
     )
 
@@ -766,7 +754,7 @@ def hmrfmix_concatenate_pipeline(
             f"Plotting initial copy state mixture for instance {hmrfmix_concatenate_pipeline.call_count-1} with X.shape={X.shape}."
         )
 
-        X, base_nb_mean, total_bb_RD, tumor_prop
+        # X, base_nb_mean, total_bb_RD, tumor_prop
 
         n_states = init_p_binom.shape[0]
 

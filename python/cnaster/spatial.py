@@ -390,6 +390,7 @@ def sufficient_umis_initial_clone(
 
 # TODO!! spatially contigous clones?
 def rectangle_initialize_initial_clone(coords, n_clones, random_state=0):
+    # NB see https://github.com/raphael-group/CalicoST/blob/c1abcae3e3657e01e547ee4529e3b9d039221453/src/calicost/utils_hmrf.py#L271
     # TODO
     np.random.seed(random_state)
 
@@ -399,11 +400,11 @@ def rectangle_initialize_initial_clone(coords, n_clones, random_state=0):
 
     # NB partition x and y range into ~n_clones based on Dirichlet sampling.
     p = int(np.ceil(np.sqrt(n_clones)))
-
+        
     if n_clones > 1:
         # NB e.g. [0.22, 0.28, 0.25, 0.25], non-negative, sum to unity, Dirichlet sampled.
         px = np.random.dirichlet(np.ones(p) * 10)
-        px[-1] += 1e-4
+        px[-1] += 1.e-4
 
         # NB set xrange as from 5% to 95% percentile of input coords (all slices).
         xrange = [np.percentile(coords[:, 0], 5), np.percentile(coords[:, 0], 95)]

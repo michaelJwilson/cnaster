@@ -548,6 +548,7 @@ def run_cnaster(config_path, over_rides=None):
     # NB by construction, require normal spots (based on BAF to determine baseline).
     assert np.all(single_base_nb_mean == 0)
 
+    # NB see https://github.com/raphael-group/CalicoST/blob/c1abcae3e3657e01e547ee4529e3b9d039221453/src/calicost/calicost_main.py#L41
     # TODO
     copy_single_X_rdr = copy.copy(single_X[:, 0, :])
 

@@ -11,6 +11,7 @@ paths:
 preprocessing:
   normalidx_file : None
   tumorprop_file : None
+  alignment_files : None
 
 visium:
   filtered_feature_name : "filtered_feature_bc_matrix"
@@ -54,7 +55,7 @@ quality:
   normal_allele_specific_confidence : (0.01, 0.99)
   min_normal_count_perbin : 100
 
-# TODO HACK npart_phasing : 3 -> 1
+# TODO HACK npart_phasing : 3 ->
 #           baf_change_threshold : 0.1 ->
 #           min_new_segment_size : 10 ->
 phasing:
@@ -72,6 +73,7 @@ phasing:
 #           maxspots_pooling 7 ->
 #           unit_xsquared 9 ->
 #           unit_ysquared 3 ->
+#           nodepotential -> weighted_sum
 hmrf:
   n_clones : 4
   n_clones_rdr : 2
@@ -97,6 +99,7 @@ hmrf:
 # TODO HACK max_iter : 30 ->
 #           solver: nm ->
 #           t: 0.99999 ->
+#           t_phaseing : 0.9999 -> 
 #           tol: 0.0001 ->
 #           n_states: 7 ->
 #           np_eventminlen : 10 ->
@@ -107,7 +110,7 @@ hmm:
   n_states : 7
   params : smp
   t : 0.99999
-  t_phaseing : 0.99999
+  t_phaseing : 0.9999
   fix_NB_dispersion : False
   shared_NB_dispersion : True
   fix_BB_dispersion : False

@@ -206,6 +206,8 @@ def run_cnaster(config_path, over_rides=None):
     
     # NB e.g. 'AAACAAGTATCTCCCA-1_HT112C1-U1' currently.
     barcodes = adata.obs.index
+
+    # NB see https://github.com/raphael-group/CalicoST/blob/c1abcae3e3657e01e547ee4529e3b9d039221453/src/calicost/parse_input.py#L65
     sample_list = [adata.obs["sample"].iloc[0]]
 
     # NB loop through rows (barcodes x samples) and collect sample names;

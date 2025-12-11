@@ -348,6 +348,7 @@ def load_input_data(
     min_snp_umis=50,
     min_percent_expressed_spots=5.0e-3,  # BUG actually a fraction.
 ):
+    # NB see https://github.com/raphael-group/CalicoST/blob/c1abcae3e3657e01e547ee4529e3b9d039221453/src/calicost/utils_IO.py#L127
     if alignment_files is None:
         logger.warning(f"Alignment files not provided")
     elif len(alignment_files) + 1 != df_meta.shape[0]:

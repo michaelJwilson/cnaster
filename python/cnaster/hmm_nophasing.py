@@ -76,7 +76,7 @@ class hmm_nophasing:
                 if len(idx_nonzero_rdr) > 0:
                     nb_mean = base_nb_mean[idx_nonzero_rdr, s] * (
                         tumor_prop[idx_nonzero_rdr, s] * np.exp(log_mu[i, s])
-                        + 1
+                        + 1.
                         - tumor_prop[idx_nonzero_rdr, s]
                     )
                     nb_std = np.sqrt(nb_mean + alphas[i, s] * nb_mean**2)

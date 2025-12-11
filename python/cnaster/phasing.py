@@ -9,7 +9,6 @@ from cnaster.config import get_global_config
 
 logger = logging.getLogger(__name__)
 
-# NB mirrors calicost.phasing.initial_phase_given_partition; 
 @cacher("initial_phase.hdf5")
 def initial_phase_given_partition(
     single_X,
@@ -32,6 +31,8 @@ def initial_phase_given_partition(
     threshold,
     min_snpumi=2e3,
 ):
+    # NB see https://github.com/raphael-group/CalicoST/blob/c1abcae3e3657e01e547ee4529e3b9d039221453/src/calicost/phasing.py#L50
+    #    utilizes tumor_prop for baf_profile weighting only; not in hmm fitting.
     assert np.all(single_base_nb_mean == 0)
 
     # NB TODO attractor to 0.5 if sufficiently close, independent of coverage.

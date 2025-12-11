@@ -457,7 +457,7 @@ def aggr_hmrfmix_reassignment_concatenate(
     adj_list = cast_csr(adjacency_mat)
     adj_spots, adj_neighbors, adj_weights = unpack_adjacency(adj_list)
 
-    # NB Posterior probabilities if return_posterior=True.
+    # TODO see https://github.com/raphael-group/CalicoST/blob/c1abcae3e3657e01e547ee4529e3b9d039221453/src/calicost/hmrf.py#L862
     posterior = np.zeros((N, n_clones))
 
     if get_global_config().hmrf.fixed_assignment:

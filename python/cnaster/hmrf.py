@@ -1212,8 +1212,9 @@ def aggr_hmrfmix_reassignment(
         idx = idx[~np.isnan(single_tumor_prop[idx])]
         for c in range(n_clones):
             if np.sum(single_base_nb_mean[:, idx] > 0) > 0:
-                mu = np.exp(res["new_log_mu"][(pred % n_states), :]) / np.sum(
-                    np.exp(res["new_log_mu"][(pred % n_states), :]) * lambd
+                # NB pred is (n_obs, n_clones).
+                mu = np.exp(res["new_log_mu"][pred[:, c] % n_states, c]) / np.sum(
+                    np.exp(res["new_log_mu"][pred[:, c] % n_states, c]) * lambd
                 )
                 weighted_tp = (np.mean(single_tumor_prop[idx]) * mu) / (
                     np.mean(single_tumor_prop[idx]) * mu
@@ -1224,6 +1225,8 @@ def aggr_hmrfmix_reassignment(
                 weighted_tp = np.repeat(
                     np.mean(single_tumor_prop[idx]), single_X.shape[0]
                 )
+
+            # NB single clone eval.
             (
                 tmp_log_emission_rdr,
                 tmp_log_emission_baf,

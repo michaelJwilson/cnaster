@@ -3,7 +3,6 @@ import logging
 import numpy as np
 import scipy.special
 from cnaster.hmm_update import (
-    update_emission_params_bb_nophasing_uniqvalues,
     update_emission_params_bb_nophasing_uniqvalues_mix,
     update_emission_params_nb_nophasing_uniqvalues,
     update_emission_params_nb_nophasing_uniqvalues_mix,

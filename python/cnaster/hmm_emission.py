@@ -792,7 +792,7 @@ class Weighted_BetaBinom_mix:
         start_time = time.time()
 
         logger.info(
-            f"Weighted_BetaBinom_mix (compress={self.compress}, num_states={self.num_states}, endog_shape={self.endog.shape}) initial likelihood={self.nloglikeobs(start_params):.6e} @ start_params:\n{[xx for xx in start_params]}"
+            f"Weighted_BetaBinom_mix (num_states={self.num_states}, endog_shape={self.endog.shape}) initial likelihood={self.nloglikeobs(start_params):.6e} @ start_params:\n{[xx for xx in start_params]}"
         )
 
         bounds = self.get_bounds(start_params)

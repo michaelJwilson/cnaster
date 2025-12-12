@@ -699,7 +699,7 @@ class Weighted_BetaBinom_mix:
     """
 
     def __init__(
-        self, endog, exog, weights, exposure, tumor_prop=None, compress=False, **kwargs
+        self, endog, exog, weights, exposure, tumor_prop=None, compress=False,
     ):
         exog = exog.copy()
 
@@ -712,52 +712,8 @@ class Weighted_BetaBinom_mix:
         self.weights = np.asarray(weights, dtype=np.float64)
         self.exposure = np.asarray(exposure, dtype=np.float64)
         self.tumor_prop = tumor_prop
-        self.compress = False
         self.num_states = self.exog.shape[-1]
         self.zero_point = None
-
-        if tumor_prop is not None:
-            logger.warning(
-                f"{self.__class__.__name__} compression is not supported for tumor_prop != None."
-            )
-            return
-
-        # TODO HACK
-        cls = np.argmax(self.exog, axis=-1)
-        counts = np.vstack([self.endog, self.exposure, cls]).T
-
-        # TODO HACK decimals
-        if counts.dtype != int:
-            counts = counts.round(decimals=4)
-
-        # NB see https://numpy.org/doc/stable/reference/generated/numpy.unique.html
-        unique_pairs, unique_idx, unique_inv = np.unique(
-            counts, return_index=True, return_inverse=True, axis=0
-        )
-
-        mean_compression = 1.0 - len(unique_pairs) / len(self.endog)
-
-        logger.warning(
-            f"{self.__class__.__name__} has further achievable compression: {100. * mean_compression:.4f}%"
-        )
-
-        if compress and mean_compression > 0.0:
-            # TODO HACK
-            # NB sum self.weights - relies on original self.endog length
-            transfer = np.zeros((len(unique_pairs), len(self.endog)), dtype=int)
-
-            for i in range(len(unique_pairs)):
-                transfer[i, unique_inv == i] = 1
-
-            self.weights = transfer @ self.weights
-
-            # NB update self.endog, self.exposure, self.exog, self.weights for unique_pairs compression:
-            self.endog = unique_pairs[:, 0]
-            self.exposure = unique_pairs[:, 1]
-
-            # NB one-hot encoded design matrix of class labels
-            self.exog = self.exog[unique_idx, :]
-            self.compress = True
 
     def nloglikeobs(self, params, reduce=True):
         return nloglikeobs_bb(

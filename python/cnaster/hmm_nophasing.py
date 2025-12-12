@@ -55,10 +55,11 @@ class hmm_nophasing:
         # TODO define clone weighted tumor prop, if necessary.
         # NB see eqn. (8) of CalicoST supplementary information, i.e. theta_n * mu_gm.
         num_obs, _, num_spots = X.shape        
+
         mu_weighted_tumor_prop = np.tile(tumor_prop, num_spots).reshape(-1, num_spots)
 
-        logger.warning(f"Assuming mu=1 for mu_weighted_tumor_prop.")
-        
+        logger.warning(f"Assuming mu=1 for mu_weighted_tumor_prop.  Shape={mu_weighted_tumor_prop.shape}.")
+
         return compute_emissions(
             X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus, tumor_prop, mu_weighted_tumor_prop
         )
@@ -249,79 +250,64 @@ class hmm_nophasing:
                 f"----  Solving for Baum-Welch iteration {r}/{max_iter} with NegBin + BetaBin emission  -----"
             )
 
-            # E-step
-            if tumor_prop is None:
-                (
-                    log_emission_rdr,
-                    log_emission_baf,
-                ) = self.compute_emission_probability_nb_betabinom(
-                    X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus
+            # -----  E-step  -----
+            # NB adjust copy-number state mu for RDR adjusted normalization.
+            if (log_gamma is not None) and ("m" in self.params):
+                logger.info(f"Solving for clone-specific rdr state values.")
+
+                # NB clone-specific shift of logmu state values, (nobs, nclones); 
+                logmu_shift = []
+
+                for c in range(len(kwargs["sample_length"])):
+                    this_pred_cnv = (
+                        np.argmax(
+                            log_gamma[
+                                :,
+                                np.sum(kwargs["sample_length"][:c]) : np.sum(
+                                    kwargs["sample_length"][: (c + 1)]
+                                ),
+                            ],
+                            axis=0,
+                        )
+                        % n_states
+                    )
+
+                    logmu_shift.append(
+                        scipy.special.logsumexp(
+                            log_mu[this_pred_cnv, :]
+                            + np.log(kwargs["lambd"]).reshape(-1, 1),
+                            axis=0,
+                        )
+                    )
+
+                # NB shape = (n_obs, n_clones).
+                logmu_shift = np.vstack(logmu_shift)
+
+                logger.info(
+                    f"Applying logmu_shift (shape={logmu_shift.shape}) with median={np.median(logmu_shift)} and max={logmu_shift.max()}"
                 )
             else:
-                # NB adjust copy-number state mu for RDR adjusted normalization.
-                if (log_gamma is not None) and ("m" in self.params):
-                    logger.info(f"Solving for clone-specific RDR state values.")
+                logmu_shift = None
 
-                    # NB clone-specific shift of logmu state values, (nobs, nclones); 
-                    logmu_shift = []
+            (
+                log_emission_rdr,
+                log_emission_baf,
+            ) = self.compute_emission_probability_nb_betabinom_mix(
+                X,
+                base_nb_mean,
+                log_mu,
+                alphas,
+                total_bb_RD,
+                p_binom,
+                taus,
+                tumor_prop,
+                logmu_shift=logmu_shift,
+                # sample_length=kwargs["sample_length"],
+            )
 
-                    for c in range(len(kwargs["sample_length"])):
-                        this_pred_cnv = (
-                            np.argmax(
-                                log_gamma[
-                                    :,
-                                    np.sum(kwargs["sample_length"][:c]) : np.sum(
-                                        kwargs["sample_length"][: (c + 1)]
-                                    ),
-                                ],
-                                axis=0,
-                            )
-                            % n_states
-                        )
+            print(log_emission_baf)
 
-                        logmu_shift.append(
-                            scipy.special.logsumexp(
-                                log_mu[this_pred_cnv, :]
-                                + np.log(kwargs["lambd"]).reshape(-1, 1),
-                                axis=0,
-                            )
-                        )
-
-                    logmu_shift = np.vstack(logmu_shift)
-
-                    logger.info(
-                        f"Applying logmu_shift with median={np.median(logmu_shift)} and max={logmu_shift.max()}"
-                    )
-
-                    (
-                        log_emission_rdr,
-                        log_emission_baf,
-                    ) = self.compute_emission_probability_nb_betabinom_mix(
-                        X,
-                        base_nb_mean,
-                        log_mu,
-                        alphas,
-                        total_bb_RD,
-                        p_binom,
-                        taus,
-                        tumor_prop,
-                        logmu_shift=logmu_shift,
-                        sample_length=kwargs["sample_length"],
-                    )
-                else:
-                    (
-                        log_emission_rdr,
-                        log_emission_baf,
-                    ) = self.compute_emission_probability_nb_betabinom_mix(
-                        X,
-                        base_nb_mean,
-                        log_mu,
-                        alphas,
-                        total_bb_RD,
-                        p_binom,
-                        taus,
-                        tumor_prop,
-                    )
+            exit(0)
                     
             log_emission = log_emission_rdr + log_emission_baf
 
@@ -357,7 +343,9 @@ class hmm_nophasing:
             #     log_alpha, log_beta, log_transmat, log_emission
             # )
 
-            # M-step
+            exit(0)
+
+            # -----  M-step  -----
             if "s" in self.params:
                 new_log_startprob = update_startprob_nophasing(lengths, log_gamma)
                 new_log_startprob = new_log_startprob.flatten()
@@ -441,11 +429,11 @@ class hmm_nophasing:
                     mu = np.vstack(mu)
 
                     # NB requires tumor_prop to be shape (n_obs, n_clones). 
-                    weighted_tp = (tumor_prop * mu) / (
+                    mu_weighted_tp = (tumor_prop * mu) / (
                         tumor_prop * mu + 1. - tumor_prop
                     )
                 else:
-                    weighted_tp = tumor_prop
+                    mu_weighted_tp = np.tile(tumor_prop, n_spots).reshape(-1, n_spots)
 
                 (
                     new_p_binom,
@@ -455,7 +443,8 @@ class hmm_nophasing:
                     mapping_matrices_bb,
                     log_gamma,
                     taus,
-                    tumor_prop=weighted_tp,
+                    tumor_prop=tumor_prop,
+                    mu_weighted_tumor_prop=mu_weighted_tumor_prop,
                     start_p_binom=p_binom,
                     fix_BB_dispersion=fix_BB_dispersion,
                     shared_BB_dispersion=shared_BB_dispersion,

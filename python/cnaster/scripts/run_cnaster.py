@@ -495,7 +495,7 @@ def run_cnaster(config_path, over_rides=None):
         single_total_bb_RD,
         initial_clone_for_phasing,
         lengths,
-        single_tumor_prop=None,
+        # single_tumor_prop=None,
         sample_list=sample_list,
         remove_xticks=True,
         rdr_ylim=6,
@@ -630,7 +630,7 @@ def run_cnaster(config_path, over_rides=None):
 
     fig_path = f"{plots_dir}/initial_clones_spatial.pdf"
     write_fig(fig_path, initial_clones_fig, transparent=True, bbox_inches="tight")
-    
+
     logger.info(
         "Solving HMM & HMRF for copy states and clone assignment with BAF only."
     )
@@ -736,6 +736,8 @@ def run_cnaster(config_path, over_rides=None):
     fig_path = f"{plots_dir}/bafonly_clones_genomic.pdf"
     write_fig(fig_path, bafonly_clones_genomic, transparent=True, bbox_inches="tight")
     
+    exit(0)
+
     if config.hmrf.np_merge:
         # NB merge similar clones based on Neyman-Pearson
         _, merged_res = neyman_pearson_similarity(

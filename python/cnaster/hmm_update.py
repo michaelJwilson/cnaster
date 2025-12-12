@@ -1301,32 +1301,18 @@ def update_emission_params_bb_sitewise_uniqvalues(
     return new_p_binom, new_taus
 
 
-def update_emission_params_bb_nophasing_uniqvalues(
+def update_emission_params_bb_nophasing_uniqvalues_mix(
     unique_values,
     mapping_matrices,
     log_gamma,
     taus,
     tumor_prop=None,
+    mu_weighted_tumor_prop=None,
     start_p_binom=None,
-    fix_BB_dispersion=False,
-    shared_BB_dispersion=False,
-    percent_threshold=0.99,
     min_binom_prob=0.01,
     max_binom_prob=0.99,
     state_weight_threshold=0.0,
 ):
-    """
-    Attributes
-    ----------
-    X : array, shape (n_observations, n_components, n_spots)
-        Observed expression UMI count and allele frequency UMI count.
-
-    log_gamma : array, (n_states, n_observations)
-        Posterior probability of observing each state at each observation time.
-
-    total_bb_RD : array, shape (n_observations, n_spots)
-        SNP-covering reads for both REF and ALT across genes along genome.
-    """
     n_spots = len(unique_values)
     n_states = log_gamma.shape[0]
     gamma = np.exp(log_gamma)
@@ -1339,11 +1325,17 @@ def update_emission_params_bb_nophasing_uniqvalues(
     new_taus = copy.copy(taus)
     settings = get_em_solver_params()
 
-    logger.info(
-        "Updating (no phasing) BB emission parameters with shared dispersion."
-    )
+    logger.info("Updating (no phasing) BB emission parameters with shared dispersion.")
 
-    exposure, y, weights, features, state_posweights, tp = [], [], [], [], [], []
+    exposure, y, weights, features, state_posweights, tp, mu_weighted_tp = (
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+    )
     config = get_global_config()
 
     for s in np.arange(len(unique_values)):
@@ -1353,14 +1345,10 @@ def update_emission_params_bb_nophasing_uniqvalues(
         this_y = np.tile(unique_values[s][idx_nonzero, 0], n_states)
         tmp = (scipy.sparse.csr_matrix(gamma) @ mapping_matrices[s]).toarray()
 
-        this_weights = np.concatenate(
-            [tmp[i, idx_nonzero] for i in range(n_states)]
-        )
+        this_weights = np.concatenate([tmp[i, idx_nonzero] for i in range(n_states)])
         this_features = np.zeros((n_states * len(idx_nonzero), n_states))
         for i in np.arange(n_states):
-            this_features[
-                (i * len(idx_nonzero)) : ((i + 1) * len(idx_nonzero)), i
-            ] = 1
+            this_features[(i * len(idx_nonzero)) : ((i + 1) * len(idx_nonzero)), i] = 1
         # NB only optimize for states where at least 1 SNP belongs to
         idx_state_posweight = np.array(
             [
@@ -1383,30 +1371,45 @@ def update_emission_params_bb_nophasing_uniqvalues(
         y.append(this_y[idx_row_posweight])
         exposure.append(this_exposure[idx_row_posweight])
         weights.append(this_weights[idx_row_posweight])
-        features.append(
-            this_features[idx_row_posweight, :][:, idx_state_posweight]
-        )
+        features.append(this_features[idx_row_posweight, :][:, idx_state_posweight])
         state_posweights.append(idx_state_posweight)
 
         if tumor_prop is not None:
             this_tp = np.tile(
                 (mapping_matrices[s].T @ tumor_prop[:, s])[idx_nonzero]
-                / (mapping_matrices[s].T @ np.ones(tumor_prop.shape[0]))[
+                / (mapping_matrices[s].T @ np.ones(tumor_prop.shape[0]))[idx_nonzero],
+                n_states,
+            )
+            # assert np.all(this_tp < 1. + 1e-4)
+
+            this_mu_weighted_tp = np.tile(
+                (mapping_matrices[s].T @ mu_weighted_tumor_proptumor_prop[:, s])[
+                    idx_nonzero
+                ]
+                / (mapping_matrices[s].T @ np.ones(mu_weighted_tumor_prop.shape[0]))[
                     idx_nonzero
                 ],
                 n_states,
             )
-            # assert np.all(this_tp < 1. + 1e-4)
+
             tp.append(this_tp[idx_row_posweight])
+            mu_weighted_tp.append(this_mu_weighted_tp[idx_row_posweight])
 
     exposure = np.concatenate(exposure)
     y = np.concatenate(y)
     tp = np.concatenate(tp) if tumor_prop is not None else None
+    mu_weighted_tp = np.concatenate(mu_weighted_tp) if tumor_prop is not None else None
     weights = np.concatenate(weights)
     features = scipy.linalg.block_diag(*features)
 
-    model = Weighted_BetaBinom_mix(y, features, weights=weights, exposure=exposure, tumor_prop=tp)
-
+    model = Weighted_BetaBinom_mix(
+        y,
+        features,
+        weights=weights,
+        exposure=exposure,
+        tumor_prop=tp,
+        mu_weighted_tumor_prop=mu_weighted_tp,
+    )
     if config.betabinom.run_default:
         res = model.fit(**settings)
 
@@ -1467,18 +1470,6 @@ def update_emission_params_bb_sitewise_uniqvalues_mix(
     min_binom_prob=0.01,
     max_binom_prob=0.99,
 ):
-    """
-    Attributes
-    ----------
-    X : array, shape (n_observations, n_components, n_spots)
-        Observed expression UMI count and allele frequency UMI count.
-
-    log_gamma : array, (2*n_states, n_observations)
-        Posterior probability of observing each state at each observation time.
-
-    total_bb_RD : array, shape (n_observations, n_spots)
-        SNP-covering reads for both REF and ALT across genes along genome.
-    """
     n_spots = len(unique_values)
     n_states = int(log_gamma.shape[0] / 2)
     gamma = np.exp(log_gamma)
@@ -1636,7 +1627,7 @@ def update_emission_params_bb_sitewise_uniqvalues_mix(
                 )
                 tmp = (scipy.sparse.csr_matrix(gamma) @ mapping_matrices[s]).toarray()
                 this_tp = np.tile(
-                    (mapping_matrices[s].T @ tumor_prop[:,s])[idx_nonzero]
+                    (mapping_matrices[s].T @ tumor_prop[:, s])[idx_nonzero]
                     / (mapping_matrices[s].T @ np.ones(tumor_prop.shape[0]))[
                         idx_nonzero
                     ],
@@ -1708,136 +1699,6 @@ def update_emission_params_bb_sitewise_uniqvalues_mix(
                     if res2.params[-1] > 0:
                         new_taus[:, :] = res2.params[-1]
 
-    new_p_binom[new_p_binom < min_binom_prob] = min_binom_prob
-    new_p_binom[new_p_binom > max_binom_prob] = max_binom_prob
-
-    return new_p_binom, new_taus
-
-
-def update_emission_params_bb_nophasing_uniqvalues_mix(
-    unique_values,
-    mapping_matrices,
-    log_gamma,
-    taus,
-    tumor_prop,
-    start_p_binom=None,
-    fix_BB_dispersion=False,
-    shared_BB_dispersion=False,
-    percent_threshold=0.99,
-    min_binom_prob=0.01,
-    max_binom_prob=0.99,
-):
-    """
-    Attributes
-    ----------
-    X : array, shape (n_observations, n_components, n_spots)
-        Observed expression UMI count and allele frequency UMI count.
-
-    log_gamma : array, (n_states, n_observations)
-        Posterior probability of observing each state at each observation time.
-
-    total_bb_RD : array, shape (n_observations, n_spots)
-        SNP-covering reads for both REF and ALT across genes along genome.
-    """
-    n_spots = len(unique_values)
-    n_states = log_gamma.shape[0]
-    gamma = np.exp(log_gamma)
-    # initialization
-    new_p_binom = (
-        copy.copy(start_p_binom)
-        if start_p_binom is not None
-        else np.ones((n_states, n_spots)) * 0.5
-    )
-    new_taus = copy.copy(taus)
-    settings = get_em_solver_params()
-
-    logger.info(
-        "Updating (no phasing, tumor mix) BAF emission parameters with shared dispersion."
-    )
-
-    exposure, y, weights, features, state_posweights, tp = (
-        [],
-        [],
-        [],
-        [],
-        [],
-        [],
-    )
-
-    for s in np.arange(n_spots):
-        idx_nonzero = np.where(unique_values[s][:, 1] > 0)[0]
-        this_exposure = np.tile(unique_values[s][idx_nonzero, 1], n_states)
-        this_y = np.tile(unique_values[s][idx_nonzero, 0], n_states)
-        tmp = (scipy.sparse.csr_matrix(gamma) @ mapping_matrices[s]).toarray()
-        this_tp = np.tile(
-            (mapping_matrices[s].T @ tumor_prop[:, s])[idx_nonzero]
-            / (mapping_matrices[s].T @ np.ones(tumor_prop.shape[0]))[
-                idx_nonzero
-            ],
-            n_states,
-        )
-        assert np.all(this_tp < 1 + 1e-4)
-        this_weights = np.concatenate(
-            [tmp[i, idx_nonzero] for i in range(n_states)]
-        )
-        this_features = np.zeros((n_states * len(idx_nonzero), n_states))
-        for i in np.arange(n_states):
-            this_features[
-                (i * len(idx_nonzero)) : ((i + 1) * len(idx_nonzero)), i
-            ] = 1
-        # only optimize for states where at least 1 SNP belongs to
-        idx_state_posweight = np.array(
-            [
-                i
-                for i in range(this_features.shape[1])
-                if np.sum(this_weights[this_features[:, i] == 1]) >= 0.1
-            ]
-        )
-        idx_row_posweight = np.concatenate(
-            [np.where(this_features[:, k] == 1)[0] for k in idx_state_posweight]
-        )
-        y.append(this_y[idx_row_posweight])
-        exposure.append(this_exposure[idx_row_posweight])
-        weights.append(this_weights[idx_row_posweight])
-        features.append(
-            this_features[idx_row_posweight, :][:, idx_state_posweight]
-        )
-        state_posweights.append(idx_state_posweight)
-        tp.append(this_tp[idx_row_posweight])
-
-    exposure = np.concatenate(exposure)
-    y = np.concatenate(y)
-    weights = np.concatenate(weights)
-    features = scipy.linalg.block_diag(*features)
-    tp = np.concatenate(tp)
-    model = Weighted_BetaBinom_mix(
-        y, features, weights=weights, exposure=exposure, tumor_prop=tp
-    )
-    res = model.fit(**settings)
-    for s, idx_state_posweight in enumerate(state_posweights):
-        l1 = int(np.sum([len(x) for x in state_posweights[:s]]))
-        l2 = int(np.sum([len(x) for x in state_posweights[: (s + 1)]]))
-        new_p_binom[idx_state_posweight, s] = res.params[l1:l2]
-    if res.params[-1] > 0:
-        new_taus[:, :] = res.params[-1]
-    if start_p_binom is not None:
-        res2 = model.fit(
-            **settings,
-            start_params=np.concatenate(
-                [
-                    start_p_binom[idx_state_posweight, s]
-                    for s, idx_state_posweight in enumerate(state_posweights)
-                ]
-                + [np.ones(1) * taus[0, s]]
-            ),
-        )
-        if model.nloglikeobs(res2.params) < model.nloglikeobs(res.params):
-            for s, idx_state_posweight in enumerate(state_posweights):
-                l1 = int(np.sum([len(x) for x in state_posweights[:s]]))
-                l2 = int(np.sum([len(x) for x in state_posweights[: (s + 1)]]))
-                new_p_binom[idx_state_posweight, s] = res2.params[l1:l2]
-            if res2.params[-1] > 0:
-                new_taus[:, :] = res2.params[-1]
     new_p_binom[new_p_binom < min_binom_prob] = min_binom_prob
     new_p_binom[new_p_binom > max_binom_prob] = max_binom_prob
 

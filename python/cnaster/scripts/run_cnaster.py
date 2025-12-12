@@ -1250,9 +1250,9 @@ def run_cnaster(config_path, over_rides=None):
             init_log_mu=None,  # np.zeros_like(merged_res["new_p_binom"]),  # HACK? BAF states known from BAF-only run.  # TODO init mus conditioned on known baf.
         )
 
-        exit(0)
-
         clone_res[prefix] = merge_dicts(clone_res[prefix], new_clone_res)
+
+    exit(0)
 
     logger.info(f"Combining results across clones.")
 

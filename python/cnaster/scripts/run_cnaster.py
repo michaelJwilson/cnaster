@@ -15,10 +15,7 @@ from cnaster.hmm_nophasing import hmm_nophasing
 from cnaster.hmrf import (
     hmrfmix_concatenate_pipeline,
     merge_by_minspots,
-    aggr_hmrf_reassignment,
-    hmrf_reassignment_posterior,
     aggr_hmrfmix_reassignment,
-    hmrfmix_reassignment_posterior,
     reindex_clones,
     clone_stack_obs
 )

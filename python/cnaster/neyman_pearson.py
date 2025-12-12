@@ -456,7 +456,6 @@ def combine_similar_states_across_clones(
     tumor_prop=None,
     hmmclass=hmm_sitewise,
     merge_threshold=0.1,
-    **kwargs,
 ):
     n_obs, _, n_clones = X.shape
     n_states = res["new_p_binom"].shape[0]
@@ -492,6 +491,6 @@ def combine_similar_states_across_clones(
                         bidx
                     ]
                     logger.info(
-                        f"Merging states {[p1,p2]} in clone {c1} and clone {c2}. NP statistics = {t_neymanpearson}"
+                        f"Merging states {[p1,p2]} in clone {c1} and clone {c2} given NP statistic = {t_neymanpearson}"
                     )
     return res

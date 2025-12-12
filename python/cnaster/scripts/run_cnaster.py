@@ -20,6 +20,7 @@ from cnaster.hmrf import (
     aggr_hmrfmix_reassignment,
     hmrfmix_reassignment_posterior,
     reindex_clones,
+    clone_stack_obs
 )
 from cnaster.icm import icm_sweep, unpack_adjacency
 from cnaster.hmrf_utils import cast_csr
@@ -1252,8 +1253,6 @@ def run_cnaster(config_path, over_rides=None):
 
         clone_res[prefix] = merge_dicts(clone_res[prefix], new_clone_res)
 
-    exit(0)
-
     logger.info(f"Combining results across clones.")
 
     # NB combined assignment for all spots.
@@ -1302,9 +1301,6 @@ def run_cnaster(config_path, over_rides=None):
                 threshold=config.hmrf.tumorprop_threshold,
             )
 
-            if tumor_prop is not None:
-                tumor_prop = np.repeat(tumor_prop, X.shape[0]).reshape(-1, 1)
-
             if config.hmrf.np_merge:
                 # NB merge rdr split clones (within baf clone) based on Neyman-Pearson similarity;
                 #    does not account for similarity across baf-clones.
@@ -1316,9 +1312,10 @@ def run_cnaster(config_path, over_rides=None):
                     threshold=config.hmm.np_threshold,
                     minlength=config.hmm.np_eventminlen,
                     params="smp",
-                    tumor_prop=tumor_prop,
+                    tumor_prop=np.tile(tumor_prop, (X.shape[0], 1)) if tumor_prop is not None else None,
                     hmmclass=hmm_nophasing,
                 )
+
             else:
                 logger.warning(
                     "No Neyman-Pearson merging applied to RDR identified clones."
@@ -1357,23 +1354,28 @@ def run_cnaster(config_path, over_rides=None):
                 threshold=config.hmrf.tumorprop_threshold,
             )
 
+            (
+                clone_stack_X,
+                clone_stack_base_nb_mean,
+                clone_stack_total_bb_RD,
+                clone_stack_lengths,
+                clone_stack_sitewise_transmat,
+                clone_stack_tumor_prop,
+            ) = clone_stack_obs(
+                X, base_nb_mean, total_bb_RD, lengths, log_sitewise_transmat, tumor_prop
+            )
+            
             # NB recompute copy states and clone profiles based on new pseudobulk.
             # TODO clone stack.
             merged_res = pipeline_baum_welch(
                 None,
-                np.vstack([X[:, 0, :].flatten("F"), X[:, 1, :].flatten("F")]).T.reshape(
-                    -1, 2, 1
-                ),
-                np.tile(lengths, X.shape[2]),
+                clone_stack_X,
+                clone_stack_lengths,
                 config.hmm.n_states,
-                base_nb_mean.flatten("F").reshape(-1, 1),
-                total_bb_RD.flatten("F").reshape(-1, 1),
-                np.tile(log_sitewise_transmat, X.shape[2]),
-                (
-                    np.repeat(tumor_prop, X.shape[0]).reshape(-1, 1)
-                    if not tumor_prop is None
-                    else None
-                ),
+                clone_stack_base_nb_mean,
+                clone_stack_total_bb_RD,
+                clone_stack_sitewise_transmat,
+                clone_stack_tumor_prop,
                 hmmclass=hmm_nophasing,
                 params="smp",
                 t=config.hmm.t,
@@ -1396,6 +1398,9 @@ def run_cnaster(config_path, over_rides=None):
             # NB assignment has been fixed, but emission states updated; retain previous assignment.
             merged_res["new_assignment"] = copy.copy(fixed_assignment)
 
+            logger.warning("Skipping combining similar states across rdr-split clones.")
+
+            """    
             # NB combined only between similar states in the RDR split clones by updating res["pred_cnv"]
             merged_res = combine_similar_states_across_clones(
                 X,
@@ -1403,14 +1408,11 @@ def run_cnaster(config_path, over_rides=None):
                 total_bb_RD,
                 merged_res,
                 params="smp",
-                tumor_prop=(
-                    np.repeat(tumor_prop, X.shape[0]).reshape(-1, 1)
-                    if not tumor_prop is None
-                    else None
-                ),
+                tumor_prop=np.tile(tumor_prop, (X.shape[0], 1)) if tumor_prop is not None else None,
                 hmmclass=hmm_nophasing,
                 merge_threshold=config.hmm.np_merge_threshold,  # MAGIC 0.1
             )
+            """
 
             log_gamma = np.stack(
                 [
@@ -1522,44 +1524,29 @@ def run_cnaster(config_path, over_rides=None):
     #    does not conserve original e.g. baf clone assignments, or normal spots.
     #
     # TODO can generate small clones.
-    if config.preprocessing.tumorprop_file is None:
-        new_assignment, _, total_llf, posterior = aggr_hmrf_reassignment(
-            single_X,
-            single_base_nb_mean,
-            single_total_bb_RD,
-            res_combine,
-            pred,
-            smooth_mat,
-            adjacency_mat,
-            res_combine["prev_assignment"],
-            copy.copy(sample_ids),
-            log_persample_weights,
-            spatial_weight=config.hmrf.spatial_weight,
-            hmmclass=hmm_nophasing,
-            return_posterior=True,
-        )
-    else:
-        (
-            new_assignment,
-            _,
-            total_llf,
-            posterior,
-        ) = aggr_hmrfmix_reassignment(
-            single_X,
-            single_base_nb_mean,
-            single_total_bb_RD,
-            single_tumor_prop,
-            res_combine,
-            pred,
-            smooth_mat,
-            adjacency_mat,
-            res_combine["prev_assignment"],
-            copy.copy(sample_ids),
-            log_persample_weights,
-            spatial_weight=config.hmrf.spatial_weight,
-            hmmclass=hmm_nophasing,
-            return_posterior=True,
-        )
+    (
+        new_assignment,
+        _,
+        total_llf,
+        posterior,
+    ) = aggr_hmrfmix_reassignment(
+        single_X,
+        single_base_nb_mean,
+        single_total_bb_RD,
+        single_tumor_prop,
+        res_combine,
+        pred,
+        smooth_mat,
+        adjacency_mat,
+        res_combine["prev_assignment"],
+        copy.copy(sample_ids),
+        log_persample_weights,
+        spatial_weight=config.hmrf.spatial_weight,
+        hmmclass=hmm_nophasing,
+        return_posterior=True,
+    )
+
+    exit(0)
 
     # NB total Potts likelihood given final copy states and clone assignment.
     res_combine["total_llf"] = total_llf

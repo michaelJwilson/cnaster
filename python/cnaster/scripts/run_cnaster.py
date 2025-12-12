@@ -810,8 +810,6 @@ def run_cnaster(config_path, over_rides=None):
 
     fig_path = f"{plots_dir}/merged_bafonly_clones_genomic.pdf"
     write_fig(fig_path, merged_bafonly_clones_genomic, transparent=True, bbox_inches="tight")
-
-    exit(0)
     
     # NB construct clone labels.
     df_clone_label = pd.DataFrame(
@@ -1142,6 +1140,8 @@ def run_cnaster(config_path, over_rides=None):
     n_obs = single_X.shape[0]
     # <<<<<
     
+    exit(0)
+
     logger.info(
         f"Refinining {n_baf_clones} BAF identified clones with RDR data assuming n_clones_rdr={config.hmrf.n_clones_rdr}"
     )

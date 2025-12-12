@@ -166,14 +166,12 @@ def nloglikeobs_nb(
     exposure,
     params,
     tumor_prop=None,
-    prior=False,
     reduce=True,
 ):
-    nb_mean = exog @ np.exp(params[:-1]) * exposure
-
-    # nb_mean = exposure * (
-    #     tumor_prop * exog @ np.exp(params[:-1]) + (1.0 - tumor_prop)
-    # )
+    # nb_mean = exog @ np.exp(params[:-1]) * exposure
+    nb_mean = exposure * (
+         tumor_prop * (exog @ np.exp(params[:-1])) + (1.0 - tumor_prop)
+    )
 
     # DEPRECATE
     # nb_std = np.sqrt(nb_mean + params[-1] * nb_mean**2)
@@ -181,11 +179,7 @@ def nloglikeobs_nb(
 
     result = -scipy.stats.nbinom.logpmf(endog, n, p)
     result[np.isnan(result)] = np.inf
-
-    # TODO tumor prop
-    # if prior:
-    #    result -= rdr_prior_eval(exog @ np.exp(params[:-1]), sigma=None)
-
+    
     if reduce:
         result = result.dot(weights)
         assert not np.isnan(result), f"{params}: {result}"
@@ -314,10 +308,8 @@ class Weighted_NegativeBinomial_mix:
         weights,
         exposure,
         tumor_prop=None,
-        compress=True,
         seed=0,
         max_rdr=5.0,  # TODO HACK MAGIC
-        **kwargs,
     ):
         exog = exog.copy()
 
@@ -331,7 +323,6 @@ class Weighted_NegativeBinomial_mix:
         self.exposure = np.asarray(exposure, dtype=np.float64)
         self.seed = seed
         self.tumor_prop = tumor_prop
-        self.compress = False
         self.num_states = self.exog.shape[-1]
 
         # TODO HACK
@@ -351,12 +342,6 @@ class Weighted_NegativeBinomial_mix:
 
             # TODO HACK renormalize?
             self.weights[endog > max_rdr * exposure] = 0.0
-
-        if tumor_prop is not None:
-            logger.warning(
-                f"{self.__class__.__name__} compression is not supported for tumor_prop != None."
-            )
-            return
 
     def nloglikeobs(self, params, reduce=True):
         return nloglikeobs_nb(

@@ -96,8 +96,8 @@ def compute_emissions_bb(
     assert p_binom.shape[1] == 1
 
     # TODO HACK
-    assert np.all(mu_weighted_tumor_prop == 1.0)
-    assert np.all(tumor_prop == 1.0)
+    # assert np.all(mu_weighted_tumor_prop == 1.0)
+    # assert np.all(tumor_prop == 1.0)
 
     # NB no phasing
     for i in numba.prange(n_states):

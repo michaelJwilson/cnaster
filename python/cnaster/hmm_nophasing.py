@@ -4,7 +4,6 @@ import numpy as np
 import scipy.special
 from cnaster.hmm_update import (
     update_emission_params_bb_nophasing_uniqvalues_mix,
-    update_emission_params_nb_nophasing_uniqvalues,
     update_emission_params_nb_nophasing_uniqvalues_mix,
     update_startprob_nophasing,
     update_transition_nophasing,
@@ -355,36 +354,18 @@ class hmm_nophasing:
             else:
                 new_log_transmat = log_transmat
 
-            if "m" in self.params:
-                exit(0)
-                
-                if tumor_prop is None:
-                    (
-                        new_log_mu,
-                        new_alphas,
-                    ) = update_emission_params_nb_nophasing_uniqvalues(
-                        unique_values_nb,
-                        mapping_matrices_nb,
-                        log_gamma,
-                        alphas,
-                        start_log_mu=log_mu,
-                        fix_NB_dispersion=fix_NB_dispersion,
-                        shared_NB_dispersion=shared_NB_dispersion,
-                    )
-                else:
-                    (
-                        new_log_mu,
-                        new_alphas,
-                    ) = update_emission_params_nb_nophasing_uniqvalues_mix(
-                        unique_values_nb,
-                        mapping_matrices_nb,
-                        log_gamma,
-                        alphas,
-                        tumor_prop,
-                        start_log_mu=log_mu,
-                        fix_NB_dispersion=fix_NB_dispersion,
-                        shared_NB_dispersion=shared_NB_dispersion,
-                    )
+            if "m" in self.params:                
+                (
+                    new_log_mu,
+                    new_alphas,
+                ) = update_emission_params_nb_nophasing_uniqvalues_mix(
+                    unique_values_nb,
+                    mapping_matrices_nb,
+                    log_gamma,
+                    alphas,
+                    tumor_prop=tumor_prop,
+                    start_log_mu=log_mu,
+                )
             else:
                 new_log_mu = log_mu
                 new_alphas = alphas
@@ -418,7 +399,6 @@ class hmm_nophasing:
                             )
                         )
 
-                    # NB includes log_mu_shift. shape = (n_obs, n_clones).
                     mu = np.vstack(mu)
 
                     # NB requires tumor_prop to be shape (n_obs, n_clones). 

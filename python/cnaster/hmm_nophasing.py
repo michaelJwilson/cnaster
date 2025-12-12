@@ -246,7 +246,7 @@ class hmm_nophasing:
 
         for r in range(max_iter):
             logger.info(
-                f"----  Solving for Baum-Welch iteration {r}/{max_iter} with NegBin+BetaBin emission  -----"
+                f"----  Solving for Baum-Welch iteration {r}/{max_iter} with NegBin + BetaBin emission  -----"
             )
 
             # E-step
@@ -426,6 +426,8 @@ class hmm_nophasing:
                     # NB compute mu as adjusted RDR
                     if "m" in self.params:
                         mu = []
+
+                        # NB loop over clones.
                         for c in range(len(kwargs["sample_length"])):
                             this_pred_cnv = (
                                 np.argmax(
@@ -448,9 +450,13 @@ class hmm_nophasing:
                                     keepdims=True,
                                 )
                             )
+
+                        # NB includes log_mu_shift. shape = (n_obs, n_clones).
                         mu = np.vstack(mu)
+
+                        # NB requires tumor_prop to be shape (n_obs, n_clones). 
                         weighted_tp = (tumor_prop * mu) / (
-                            tumor_prop * mu + 1 - tumor_prop
+                            tumor_prop * mu + 1. - tumor_prop
                         )
                     else:
                         weighted_tp = tumor_prop

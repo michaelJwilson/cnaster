@@ -1140,8 +1140,6 @@ def run_cnaster(config_path, over_rides=None):
     n_obs = single_X.shape[0]
     # <<<<<
     
-    exit(0)
-
     logger.info(
         f"Refinining {n_baf_clones} BAF identified clones with RDR data assuming n_clones_rdr={config.hmrf.n_clones_rdr}"
     )
@@ -1251,6 +1249,8 @@ def run_cnaster(config_path, over_rides=None):
             init_p_binom=None,  # merged_res["new_p_binom"],  # HACK? BAF states known from BAF-only run. # TODO init mus conditioned on known baf.
             init_log_mu=None,  # np.zeros_like(merged_res["new_p_binom"]),  # HACK? BAF states known from BAF-only run.  # TODO init mus conditioned on known baf.
         )
+
+        exit(0)
 
         clone_res[prefix] = merge_dicts(clone_res[prefix], new_clone_res)
 

@@ -95,6 +95,7 @@ hmrf:
   unit_xsquared : 1
   unit_ysquared : 1
   random_state : 0
+  assignment_ari_tolerance : 1.0
 
 # TODO HACK max_iter : 30 ->
 #           solver: nm ->

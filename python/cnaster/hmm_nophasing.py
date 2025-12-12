@@ -356,6 +356,8 @@ class hmm_nophasing:
                 new_log_transmat = log_transmat
 
             if "m" in self.params:
+                exit(0)
+                
                 if tumor_prop is None:
                     (
                         new_log_mu,
@@ -419,12 +421,8 @@ class hmm_nophasing:
                     # NB includes log_mu_shift. shape = (n_obs, n_clones).
                     mu = np.vstack(mu)
 
-                    raise NotImplementedError()
-
                     # NB requires tumor_prop to be shape (n_obs, n_clones). 
-                    mu_weighted_tumor_prop = (tumor_prop * mu) / (
-                        tumor_prop * mu + 1. - tumor_prop
-                    )
+                    mu_weighted_tumor_prop = tumor_prop * mu
                 else:
                     mu_weighted_tumor_prop = tumor_prop.copy()
 

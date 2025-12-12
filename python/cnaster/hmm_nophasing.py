@@ -409,70 +409,57 @@ class hmm_nophasing:
                 new_alphas = alphas
 
             if "p" in self.params:
-                if tumor_prop is None:
-                    (
-                        new_p_binom,
-                        new_taus,
-                    ) = update_emission_params_bb_nophasing_uniqvalues(
-                        unique_values_bb,
-                        mapping_matrices_bb,
-                        log_gamma,
-                        taus,
-                        start_p_binom=p_binom,
-                        fix_BB_dispersion=fix_BB_dispersion,
-                        shared_BB_dispersion=shared_BB_dispersion,
+                # NB compute mu as adjusted RDR
+                if "m" in self.params:
+                    mu = []
+
+                    # NB loop over clones.
+                    for c in range(len(kwargs["sample_length"])):
+                        this_pred_cnv = (
+                            np.argmax(
+                                log_gamma[
+                                    :,
+                                    np.sum(kwargs["sample_length"][:c]) : np.sum(
+                                        kwargs["sample_length"][: (c + 1)]
+                                    ),
+                                ],
+                                axis=0,
+                            )
+                            % n_states
+                        )
+                        mu.append(
+                            np.exp(new_log_mu[this_pred_cnv, :])
+                            / np.sum(
+                                np.exp(new_log_mu[this_pred_cnv, :])
+                                * kwargs["lambd"].reshape(-1, 1),
+                                axis=0,
+                                keepdims=True,
+                            )
+                        )
+
+                    # NB includes log_mu_shift. shape = (n_obs, n_clones).
+                    mu = np.vstack(mu)
+
+                    # NB requires tumor_prop to be shape (n_obs, n_clones). 
+                    weighted_tp = (tumor_prop * mu) / (
+                        tumor_prop * mu + 1. - tumor_prop
                     )
                 else:
-                    # NB compute mu as adjusted RDR
-                    if "m" in self.params:
-                        mu = []
+                    weighted_tp = tumor_prop
 
-                        # NB loop over clones.
-                        for c in range(len(kwargs["sample_length"])):
-                            this_pred_cnv = (
-                                np.argmax(
-                                    log_gamma[
-                                        :,
-                                        np.sum(kwargs["sample_length"][:c]) : np.sum(
-                                            kwargs["sample_length"][: (c + 1)]
-                                        ),
-                                    ],
-                                    axis=0,
-                                )
-                                % n_states
-                            )
-                            mu.append(
-                                np.exp(new_log_mu[this_pred_cnv, :])
-                                / np.sum(
-                                    np.exp(new_log_mu[this_pred_cnv, :])
-                                    * kwargs["lambd"].reshape(-1, 1),
-                                    axis=0,
-                                    keepdims=True,
-                                )
-                            )
-
-                        # NB includes log_mu_shift. shape = (n_obs, n_clones).
-                        mu = np.vstack(mu)
-
-                        # NB requires tumor_prop to be shape (n_obs, n_clones). 
-                        weighted_tp = (tumor_prop * mu) / (
-                            tumor_prop * mu + 1. - tumor_prop
-                        )
-                    else:
-                        weighted_tp = tumor_prop
-                    (
-                        new_p_binom,
-                        new_taus,
-                    ) = update_emission_params_bb_nophasing_uniqvalues_mix(
-                        unique_values_bb,
-                        mapping_matrices_bb,
-                        log_gamma,
-                        taus,
-                        weighted_tp,
-                        start_p_binom=p_binom,
-                        fix_BB_dispersion=fix_BB_dispersion,
-                        shared_BB_dispersion=shared_BB_dispersion,
-                    )
+                (
+                    new_p_binom,
+                    new_taus,
+                ) = update_emission_params_bb_nophasing_uniqvalues_mix(
+                    unique_values_bb,
+                    mapping_matrices_bb,
+                    log_gamma,
+                    taus,
+                    tumor_prop=weighted_tp,
+                    start_p_binom=p_binom,
+                    fix_BB_dispersion=fix_BB_dispersion,
+                    shared_BB_dispersion=shared_BB_dispersion,
+                )
             else:
                 new_p_binom = p_binom
                 new_taus = taus

@@ -1,6 +1,7 @@
 import numpy as np
-from math import lgamma, log, exp, sqrt
+from math import lgamma, log, sqrt
 import numba
+import logging
 from numba import njit
 
 
@@ -37,7 +38,7 @@ def betabinom_logpmf_numba(k, n, alpha, beta):
 
 
 # error_model="numpy"
-@njit(nogil=True, cache=True, fastmath=False, parallel=True)
+@njit(nogil=True, cache=False, fastmath=False, parallel=False)
 def compute_emissions_nb(
     X,
     base_nb_mean,
@@ -48,7 +49,7 @@ def compute_emissions_nb(
     n_obs,
     n_spots,
 ):
-    # TODO zeros? -np.inf
+    # NB Solves either (num_states, num_obs, num_spots) for num_spot = 1 or concatenate of num_clones along obs axis.
     log_emission_rdr = np.full((n_states, n_obs, n_spots), 0.0)
 
     # TODO
@@ -59,9 +60,9 @@ def compute_emissions_nb(
             for s in range(n_spots):
                 if base_nb_mean[obs, s] > 0:
                     nb_mean = base_nb_mean[obs, s] * (
-                        tumor_prop[s] * np.exp(log_mu[i, 0])
+                        tumor_prop[obs, s] * np.exp(log_mu[i, 0])
                         + 1.
-                        - tumor_prop[s]
+                        - tumor_prop[obs, s]
                     )
 
                     nb_var = nb_mean + alphas[i, 0] * nb_mean * nb_mean
@@ -76,7 +77,7 @@ def compute_emissions_nb(
 
 
 # error_model="numpy"
-@njit(nogil=True, cache=True, fastmath=False, parallel=True)
+@njit(nogil=False, cache=False, fastmath=False, parallel=False)
 def compute_emissions_bb(
     X,
     total_bb_RD,
@@ -88,18 +89,22 @@ def compute_emissions_bb(
     n_obs,
     n_spots,
 ):
-    # TODO zeros? -np.inf
+    # NB Solves either (num_states, num_obs, num_spots) for num_spot = 1 or concatenate of num_clones along obs axis.
     log_emission_baf = np.full((n_states, n_obs, n_spots), 0.0)
 
     # TODO
     assert p_binom.shape[1] == 1
+
+    # TODO HACK
+    assert np.all(mu_weighted_tumor_prop == 1.0)
+    assert np.all(tumor_prop == 1.0)
 
     # NB no phasing
     for i in numba.prange(n_states):
         for obs in range(n_obs):
             for s in range(n_spots):
                 if total_bb_RD[obs, s] > 0:
-                    pA = (p_binom[i, 0] * mu_weighted_tumor_prop[obs, s] + 0.5 * (1.0 - tumor_prop[s])) / (mu_weighted_tumor_prop[obs, s] + 1. - tumor_prop[s])
+                    pA = (p_binom[i, 0] * mu_weighted_tumor_prop[obs, s] + 0.5 * (1.0 - tumor_prop[obs, s])) / (mu_weighted_tumor_prop[obs, s] + 1. - tumor_prop[obs, s])
 
                     alpha = pA * taus[i, 0]
                     beta = (1. - pA) * taus[i, 0]
@@ -126,6 +131,9 @@ def compute_emissions(X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, tau
     tumor_prop = np.ascontiguousarray(tumor_prop, dtype=np.float64)
     mu_weighted_tumor_prop = np.ascontiguousarray(mu_weighted_tumor_prop, dtype=np.float64)
     
+    logging.info(f"Computing emission probabilities for known normal baseline={np.any(base_nb_mean > 0)}.")
+    
+    # NB defaults to zero if normal baseline is not defined.
     log_emission_rdr = compute_emissions_nb(
         X,
         base_nb_mean,
@@ -136,6 +144,7 @@ def compute_emissions(X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, tau
         n_obs,
         n_spots,
     )
+
     log_emission_baf = compute_emissions_bb(
         X,
         total_bb_RD,

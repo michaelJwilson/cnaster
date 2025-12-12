@@ -35,9 +35,11 @@ def pool_hmrf_data(
     smooth_indices,
     smooth_indptr,
     single_tumor_prop=None,
+    prev_assignment=None, 
     new_log_mu=None,
     pred=None,
     n_states=None,
+    n_clones=None,
     lambd=None,
 ):
     """
@@ -57,7 +59,7 @@ def pool_hmrf_data(
         Tumor proportion for each spot.
     use_mixture : bool
         Whether to use mixture model.
-    res_new_log_mu : array, shape (n_states, n_clones), optional
+    new_log_mu : array, shape (n_states, n_clones), optional
         Log mu parameters for mixture model.
     pred : array, shape (n_obs * n_clones,), optional
         Predicted states for mixture model.
@@ -86,13 +88,10 @@ def pool_hmrf_data(
     pooled_base_nb_mean = np.zeros((n_obs, N), dtype=single_base_nb_mean.dtype)
     pooled_total_bb_RD = np.zeros((n_obs, N), dtype=single_total_bb_RD.dtype)
 
-    # n_clones = int(len(pred) / n_obs)
-    # mean_tumor_prop = np.zeros(N, dtype=np.float64)
-    # weighted_tumor_prop = np.zeros((n_obs, N), dtype=np.float64)   
+    mean_tumor_prop = np.zeros(N, dtype=np.float64)
+    mu_weighted_tumor_prop = np.zeros((n_obs, N), dtype=np.float64)   
 
-    """
-    # NB rename e.g. normalized mu.
-    weighted_mu = np.zeros((n_obs, n_clones), dtype=np.float64)
+    shifted_mu = np.zeros((n_obs, n_clones), dtype=np.float64)
 
     for c in range(n_clones):
         norm = 0.0
@@ -105,9 +104,9 @@ def pool_hmrf_data(
 
         for obs_idx in range(n_obs):
             state_idx = pred[c * n_obs + obs_idx] % n_states
-            mu = np.exp(res_new_log_mu[state_idx, c])
-            weighted_mu[obs_idx, c] = mu / norm    
-    """
+            mu = np.exp(new_log_mu[state_idx, c])
+            shifted_mu[obs_idx, c] = mu / norm    
+
     for i in range(N):
         start_idx = smooth_indptr[i]
         end_idx = smooth_indptr[i + 1]
@@ -129,12 +128,11 @@ def pool_hmrf_data(
         if valid_count == 0:
             continue
 
-        """
         for neighbor_idx in valid_neighbors:
             mean_tumor_prop[i] += single_tumor_prop[neighbor_idx]
 
-        mean_tumor_prop /= valid_count
-        """ 
+        mean_tumor_prop[i] /= valid_count
+
         for obs_idx in range(n_obs):
             for neighbor_idx in valid_neighbors:
                 pooled_X[obs_idx, 0, i] += single_X[obs_idx, 0, neighbor_idx]
@@ -148,27 +146,19 @@ def pool_hmrf_data(
                     obs_idx, neighbor_idx
                 ]
 
-    """
     # NB see https://github.com/raphael-group/CalicoST/blob/c1abcae3e3657e01e547ee4529e3b9d039221453/src/calicost/hmrf.py#L841
-    for obs_idx in range(n_obs):        
+    for obs_idx in range(n_obs):
         for i in range(N):
-            for c in range(n_clones):
-                if pooled_base_nb_mean[obs_idx, i] > 0:
-                    weighted_tumor_prop[obs_idx, c, i] = (
-                        mean_tumor_prop[i] * weighted_mu[obs_idx, c]
-                    ) / (
-                        mean_tumor_prop[i] * weighted_mu[obs_idx, c]
-                        + 1.0
-                        - mean_tumor_prop[i]
-                    )
-                else:
-                    weighted_tumor_prop[obs_idx, c, i] = mean_tumor_prop[i]
-    """
+            if pooled_base_nb_mean[obs_idx, i] > 0:
+                mu_weighted_tumor_prop[obs_idx, i] = mean_tumor_prop[i] * shifted_mu[obs_idx, prev_assignment[i]]
+            else:
+                mu_weighted_tumor_prop[obs_idx, i] = mean_tumor_prop[i]
+                
     return (
         pooled_X,
         pooled_base_nb_mean,
         pooled_total_bb_RD,
-        # weighted_tumor_prop,
+        mu_weighted_tumor_prop,
     )
 
 
@@ -340,56 +330,43 @@ def aggr_hmrfmix_reassignment_concatenate(
         else None  # TODO BUG?
     )
 
-    logger.info(
-        f"Solving (pooled) emission likelihood for X.shape={single_X.shape}, n_states={n_states} and {n_clones} clones with {hmmclass.__name__} and use_mixture={use_mixture}."
-    )
-
     logger.info("Pooling hmrf data by smooth mat. (reduces necessary computation).")
 
     # NB pool data by smooth mat: reduces spots to calculate likelihood for, i.e. faster.
     #    see:  https://github.com/raphael-group/CalicoST/blob/c1abcae3e3657e01e547ee4529e3b9d039221453/src/calicost/hmrf.py#L841
-    pooled_X, pooled_base_nb_mean, pooled_total_bb_RD = pool_hmrf_data(
+    pooled_X, pooled_base_nb_mean, pooled_total_bb_RD, weighted_tumor_prop = pool_hmrf_data(
         single_X,
         single_base_nb_mean,
         single_total_bb_RD,
         smooth_mat.indices,
         smooth_mat.indptr,
         single_tumor_prop,
+        prev_assignment if use_mixture else None,
         res["new_log_mu"] if use_mixture else None,
         pred if use_mixture else None,
-        n_states if use_mixture else None,
-        lambd,
+        n_states=n_states if use_mixture else None,
+        n_clones=n_clones if use_mixture else None,
+        lambd=lambd,
+    )
+    
+    logger.info(
+        f"Solving (pooled) emission likelihood for single_X.shape={single_X.shape}, n_states={n_states} and {n_clones} clones with {hmmclass.__name__} and use_mixture={use_mixture}."
     )
 
-    # NB emission shape: (n_states, n_obs, n_spots)
-    if use_mixture:
-        (
-            tmp_log_emission_rdr,
-            tmp_log_emission_baf,
-        ) = hmmclass.compute_emission_probability_nb_betabinom_mix(
-            pooled_X,
-            pooled_base_nb_mean,
-            res["new_log_mu"],
-            res["new_alphas"],
-            pooled_total_bb_RD,
-            res["new_p_binom"],
-            res["new_taus"],
-            weighted_tp.reshape(-1, 1),  # NB cast (n_obs,) to (n_obs, 1).
-        )
-    else:
-        (
-            tmp_log_emission_rdr,
-            tmp_log_emission_baf,
-        ) = hmmclass.compute_emission_probability_nb_betabinom(
-            pooled_X,
-            pooled_base_nb_mean,
-            res["new_log_mu"],
-            res["new_alphas"],
-            pooled_total_bb_RD,
-            res["new_p_binom"],
-            res["new_taus"],
-        )
-
+    (
+        tmp_log_emission_rdr,
+        tmp_log_emission_baf,
+    ) = hmmclass.compute_emission_probability_nb_betabinom_mix(
+        pooled_X,
+        pooled_base_nb_mean,
+        res["new_log_mu"],
+        res["new_alphas"],
+        pooled_total_bb_RD,
+        res["new_p_binom"],
+        res["new_taus"],
+        weighted_tumor_prop.reshape(-1, 1) if use_mixture else None,
+    )
+        
     """
     # NB log likelihood of each spot given that its label is each clone, i.e. unary Potts term.
     single_llf = np.zeros((N, n_clones))
@@ -527,6 +504,8 @@ def clone_stack_obs(
     from (n_obs, 2, n_clones) format to (n_obs * n_clones, 2, 1) format where each
     clone is treated as a separate observation sequence.
     """
+    num_obs, _, n_clones = X.shape
+
     # NB vertical stacking of X, base_nb_mean, total_bb_RD, tumor_prop across clones,
     # i.e. reshape observation data from (n_obs, 2, n_clones) to (n_obs * n_clones, 2, 1)
     clone_stack_X = np.vstack(
@@ -542,7 +521,7 @@ def clone_stack_obs(
     clone_stack_sitewise_transmat = np.tile(log_sitewise_transmat, X.shape[2])
 
     # NB pseudobulk led to mean. tumor_proportion per clone here, i.e. concatenate 1-element.
-    clone_stack_tumor_prop = tumor_prop.copy() if tumor_prop is not None else None
+    clone_stack_tumor_prop = np.concatenate([num_obs * [xx] for xx in tumor_prop]).reshape(-1,1) if tumor_prop is not None else None
 
     logger.info(f"Stacked X from shape {X.shape} to {clone_stack_X.shape}.")
     logger.info(
@@ -650,8 +629,8 @@ def hmrfmix_concatenate_pipeline(
     is_diag=True,
     max_iter=100,
     tol=1e-4,
-    unit_xsquared=9,
-    unit_ysquared=3,
+    # unit_xsquared=9,
+    # unit_ysquared=3,
     spatial_weight=1.0 / 6.0,
     tumorprop_threshold=0.5,
 ):
@@ -755,7 +734,7 @@ def hmrfmix_concatenate_pipeline(
         )
 
         n_states = init_p_binom.shape[0]
-
+        """
         plot_cna_mixture(
             (
                 np.tile(init_log_mu, n_clones).reshape(n_states, n_clones)
@@ -783,7 +762,8 @@ def hmrfmix_concatenate_pipeline(
             width=10,
             prefix=f"instance{hmrfmix_concatenate_pipeline.call_count-1}",
         )
-
+        """
+        """
         plot_cna_mixture(
             init_log_mu,
             init_alphas,
@@ -795,6 +775,7 @@ def hmrfmix_concatenate_pipeline(
             width=10,
             prefix=f"instance{hmrfmix_concatenate_pipeline.call_count-1}_clone",
         )
+        """
 
     last_log_mu = init_log_mu if "m" in params else None
     last_p_binom = init_p_binom if "p" in params else None
@@ -822,7 +803,7 @@ def hmrfmix_concatenate_pipeline(
         )
 
         # NB i.e. (num_obs, num_obs, ...)
-        sample_length = X.shape[0] * np.ones(X.shape[2], dtype=int)
+        sample_length = X.shape[0] * np.ones(n_clones, dtype=int)
         remain_kwargs = {"sample_length": sample_length, "lambd": lambd}
 
         # NB utilize last state posterior to determine clone-specific RDR values & for speed.
@@ -860,7 +841,7 @@ def hmrfmix_concatenate_pipeline(
         pred = np.argmax(res["log_gamma"], axis=0)
 
         # NB TODO 'max' clone assignment.
-        new_assignment, single_llf, total_llf = aggr_hmrfmix_reassignment_concatenate(
+        new_assignment, _, total_llf = aggr_hmrfmix_reassignment_concatenate(
             single_X,
             single_base_nb_mean,
             single_total_bb_RD,
@@ -970,7 +951,11 @@ def hmrfmix_concatenate_pipeline(
                 log_persample_weights[:, sidx] = log_persample_weights[
                     :, sidx
                 ] - scipy.special.logsumexp(log_persample_weights[:, sidx])
-
+    else:
+        logger.warning("Copy state & clone assignment did not converge.")
+                
+    logger.info("hmrfmix_concatenate_pipeline complete.")
+                
     return res
 
 

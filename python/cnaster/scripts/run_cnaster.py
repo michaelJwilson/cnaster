@@ -671,8 +671,6 @@ def run_cnaster(config_path, over_rides=None):
         tumorprop_threshold=config.hmrf.tumorprop_threshold,
     )
 
-    exit(0)
-
     # NB number of bins/segments/blocks
     n_obs = single_X.shape[0]
 

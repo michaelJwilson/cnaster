@@ -53,10 +53,9 @@ class hmm_nophasing:
 
         # TODO define clone weighted tumor prop, if necessary.
         # NB see eqn. (8) of CalicoST supplementary information, i.e. theta_n * mu_gm.
-        num_obs, _, num_spots = X.shape        
 
-        mu_weighted_tumor_prop = np.tile(tumor_prop, num_spots).reshape(-1, num_spots)
-
+        # Assuming mu=1 for mu_weighted_tumor_prop.  Shape=(16218, 81).
+        mu_weighted_tumor_prop = tumor_prop.copy()
         logger.warning(f"Assuming mu=1 for mu_weighted_tumor_prop.  Shape={mu_weighted_tumor_prop.shape}.")
 
         return compute_emissions(
@@ -301,12 +300,7 @@ class hmm_nophasing:
                 taus,
                 tumor_prop,
                 logmu_shift=logmu_shift,
-                # sample_length=kwargs["sample_length"],
             )
-
-            print(log_emission_baf)
-
-            exit(0)
                     
             log_emission = log_emission_rdr + log_emission_baf
 
@@ -341,8 +335,6 @@ class hmm_nophasing:
             # log_xi = compute_posterior_transition_nophasing(
             #     log_alpha, log_beta, log_transmat, log_emission
             # )
-
-            exit(0)
 
             # -----  M-step  -----
             if "s" in self.params:
@@ -400,7 +392,7 @@ class hmm_nophasing:
                 if "m" in self.params:
                     mu = []
 
-                    # NB loop over clones.
+                    # NB loop over contig + clone stack.
                     for c in range(len(kwargs["sample_length"])):
                         this_pred_cnv = (
                             np.argmax(
@@ -427,12 +419,14 @@ class hmm_nophasing:
                     # NB includes log_mu_shift. shape = (n_obs, n_clones).
                     mu = np.vstack(mu)
 
+                    raise NotImplementedError()
+
                     # NB requires tumor_prop to be shape (n_obs, n_clones). 
-                    mu_weighted_tp = (tumor_prop * mu) / (
+                    mu_weighted_tumor_prop = (tumor_prop * mu) / (
                         tumor_prop * mu + 1. - tumor_prop
                     )
                 else:
-                    mu_weighted_tp = np.tile(tumor_prop, n_spots).reshape(-1, n_spots)
+                    mu_weighted_tumor_prop = tumor_prop.copy()
 
                 (
                     new_p_binom,
@@ -445,8 +439,6 @@ class hmm_nophasing:
                     tumor_prop=tumor_prop,
                     mu_weighted_tumor_prop=mu_weighted_tumor_prop,
                     start_p_binom=p_binom,
-                    fix_BB_dispersion=fix_BB_dispersion,
-                    shared_BB_dispersion=shared_BB_dispersion,
                 )
             else:
                 new_p_binom = p_binom

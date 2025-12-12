@@ -141,6 +141,7 @@ def pipeline_baum_welch(
             logger.warning(
                 f"Applying logmu_shift to renormalized total expect read count according to current CNA profile."
             )
+            
             logmu_shift = []
 
             # NB presumably one per contig.
@@ -167,36 +168,23 @@ def pipeline_baum_welch(
                 )
 
             logmu_shift = np.vstack(logmu_shift)
-
-            (
-                log_emission_rdr,
-                log_emission_baf,
-            ) = hmmclass.compute_emission_probability_nb_betabinom_mix(
-                X,
-                base_nb_mean,
-                new_log_mu,
-                new_alphas,
-                total_bb_RD,
-                new_p_binom,
-                new_taus,
-                tumor_prop,
-                logmu_shift=logmu_shift,
-                sample_length=kwargs["sample_length"],
-            )
         else:
-            (
-                log_emission_rdr,
-                log_emission_baf,
-            ) = hmmclass.compute_emission_probability_nb_betabinom_mix(
-                X,
-                base_nb_mean,
-                new_log_mu,
-                new_alphas,
-                total_bb_RD,
-                new_p_binom,
-                new_taus,
-                tumor_prop,
-            )
+            logmu_shift = None
+            
+        (
+            log_emission_rdr,
+            log_emission_baf,
+        ) = hmmclass.compute_emission_probability_nb_betabinom_mix(
+            X,
+            base_nb_mean,
+            new_log_mu,
+            new_alphas,
+            total_bb_RD,
+            new_p_binom,
+            new_taus,
+            tumor_prop,
+            logmu_shift=logmu_shift,
+        )
 
     # NB assumed independent.
     log_emission = log_emission_rdr + log_emission_baf

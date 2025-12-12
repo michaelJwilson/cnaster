@@ -1383,7 +1383,7 @@ def update_emission_params_bb_nophasing_uniqvalues_mix(
             # assert np.all(this_tp < 1. + 1e-4)
 
             this_mu_weighted_tp = np.tile(
-                (mapping_matrices[s].T @ mu_weighted_tumor_proptumor_prop[:, s])[
+                (mapping_matrices[s].T @ mu_weighted_tumor_prop[:, s])[
                     idx_nonzero
                 ]
                 / (mapping_matrices[s].T @ np.ones(mu_weighted_tumor_prop.shape[0]))[

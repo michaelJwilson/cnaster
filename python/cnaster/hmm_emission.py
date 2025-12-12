@@ -196,19 +196,20 @@ def nloglikeobs_nb(
 def betabinom_logpmf_zp(endog, exposure):
     return loggamma(exposure + 1) - loggamma(endog + 1) - loggamma(exposure - endog + 1)
 
-@njit(nogil=True, cache=True, fastmath=False, error_model="numpy")
-def compute_bb_ab(exog, params, tumor_prop=None):
+@njit(nogil=True, cache=False, fastmath=False, error_model="numpy")
+def compute_bb_ab(exog, params, tumor_prop=None, mu_weighted_tumor_prop=None):
     p = np.dot(exog, params[:-1])
     tau = params[-1]
-
+    
     if tumor_prop is None:
-        a = p * tau
-        b = (1.0 - p) * tau
+        pa = p
+        pb = 1.0 - p
     else:
-        a = (p * tumor_prop + 0.5 * (1.0 - tumor_prop)) * tau
-        b = ((1.0 - p) * tumor_prop + 0.5 * (1.0 - tumor_prop)) * tau
+        # NB assumes an appropriate 1D array.
+        pa = (p * mu_weighted_tumor_prop + 0.5 * (1.0 - tumor_prop)) / (mu_weighted_tumor_prop + 1. - tumor_prop)
+        pb = 1.0 - pa
 
-    return a, b
+    return tau * pa, tau * pb
 
 @njit(nogil=True, cache=True, fastmath=False, error_model="numpy")
 def betabinom_logpmf(endog, exposure, a, b, zero_point):
@@ -237,10 +238,11 @@ def nloglikeobs_bb(
     exposure,
     params,
     tumor_prop=None,
+    mu_weighted_tumor_prop=None, 
     zero_point=None,
     reduce=True,
 ):
-    a, b = compute_bb_ab(exog, params, tumor_prop)
+    a, b = compute_bb_ab(exog, params, tumor_prop, mu_weighted_tumor_prop)
 
     if zero_point is not None:
         result = -betabinom_logpmf(endog, exposure, a, b, zero_point)
@@ -355,40 +357,6 @@ class Weighted_NegativeBinomial_mix:
                 f"{self.__class__.__name__} compression is not supported for tumor_prop != None."
             )
             return
-
-        # NB instigate compression of likelihood: do not repeat evaluation of probabilities given
-        #    'same' counts (up to decimals definition below).
-        cls = np.argmax(self.exog, axis=-1)
-        counts = np.vstack([self.endog, self.exposure, cls]).T
-
-        # TODO HACK decimals
-        if counts.dtype != int:
-            counts = counts.round(decimals=4)
-
-        # NB see https://numpy.org/doc/stable/reference/generated/numpy.unique.html
-        unique_pairs, unique_idx, unique_inv = np.unique(
-            counts, return_index=True, return_inverse=True, axis=0
-        )
-
-        mean_compression = 1.0 - len(unique_pairs) / len(self.endog)
-
-        logger.warning(
-            f"{self.__class__.__name__} has further achievable compression: {100. * mean_compression:.4f}%"
-        )
-
-        if compress and mean_compression > 0.0:
-            transfer = np.zeros((len(unique_pairs), len(self.endog)), dtype=int)
-
-            for i in range(len(unique_pairs)):
-                transfer[i, unique_inv == i] = 1
-
-            self.weights = transfer @ self.weights
-
-            self.endog = unique_pairs[:, 0]
-            self.exposure = unique_pairs[:, 1]
-
-            self.exog = self.exog[unique_idx, :]
-            self.compress = True
 
     def nloglikeobs(self, params, reduce=True):
         return nloglikeobs_nb(
@@ -508,7 +476,7 @@ class Weighted_NegativeBinomial_mix:
         start_time = time.time()
 
         logger.info(
-            f"Weighted_NegativeBinomial_mix (compress={self.compress}, num_states={self.num_states}, endog_shape={self.endog.shape}) initial -ln likelihood={self.nloglikeobs(start_params):.6e} @ start_params:\n{[xx for xx in start_params]}"
+            f"Weighted_NegativeBinomial_mix (num_states={self.num_states}, endog_shape={self.endog.shape}) initial -ln likelihood={self.nloglikeobs(start_params):.6e} @ start_params:\n{[xx for xx in start_params]}"
         )
 
         bounds = self.get_bounds(start_params)
@@ -699,7 +667,7 @@ class Weighted_BetaBinom_mix:
     """
 
     def __init__(
-        self, endog, exog, weights, exposure, tumor_prop=None, compress=False,
+        self, endog, exog, weights, exposure, tumor_prop=None, mu_weighted_tumor_prop=None,
     ):
         exog = exog.copy()
 
@@ -712,6 +680,7 @@ class Weighted_BetaBinom_mix:
         self.weights = np.asarray(weights, dtype=np.float64)
         self.exposure = np.asarray(exposure, dtype=np.float64)
         self.tumor_prop = tumor_prop
+        self.mu_weighted_tumor_prop = mu_weighted_tumor_prop
         self.num_states = self.exog.shape[-1]
         self.zero_point = None
 
@@ -723,6 +692,7 @@ class Weighted_BetaBinom_mix:
             self.exposure,
             params,
             tumor_prop=self.tumor_prop,
+            mu_weighted_tumor_prop=self.mu_weighted_tumor_prop,
             zero_point=self.zero_point,
             reduce=reduce,
         )

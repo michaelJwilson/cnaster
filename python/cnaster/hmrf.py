@@ -1047,9 +1047,12 @@ def merge_by_minspots(
     # NB genomic axis is concatenated across clones.
     n_obs = int(len(res["pred_cnv"]) / n_clones)
     new_assignment = copy.copy(assignment)
+
     if single_tumor_prop is None:
         tmp_single_tumor_prop = np.array([1] * len(assignment))
     else:
+        assert single_tumor_prop.shape == assignment.shape
+
         tmp_single_tumor_prop = single_tumor_prop
 
     unique_assignment = np.unique(new_assignment)

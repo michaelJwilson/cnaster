@@ -4,6 +4,7 @@ import networkx as nx
 import copy
 import scipy
 
+from cnaster.hmm_nophasing import hmm_nophasing
 from cnaster.hmm_sitewise import hmm_sitewise
 
 logger = logging.getLogger(__name__)
@@ -109,90 +110,44 @@ def neyman_pearson_similarity(
     n_obs, _, n_clones = X.shape
     n_states = res["new_p_binom"].shape[0]
 
-    # NB one node per clone.
-    G = nx.Graph()
-    G.add_nodes_from(np.arange(n_clones))
-
     # NB normalized baseline expression.
     lambd = np.sum(base_nb_mean, axis=1) / np.sum(base_nb_mean)
 
-    # TODO clone stack.
-    if tumor_prop is None:
-        (
-            log_emission_rdr,
-            log_emission_baf,
-        ) = hmmclass.compute_emission_probability_nb_betabinom(
-            np.vstack([X[:, 0, :].flatten("F"), X[:, 1, :].flatten("F")]).T.reshape(
-                -1, 2, 1
-            ),
-            base_nb_mean.flatten("F").reshape(-1, 1),
-            res["new_log_mu"],
-            res["new_alphas"],
-            total_bb_RD.flatten("F").reshape(-1, 1),
-            res["new_p_binom"],
-            res["new_taus"],
-        )
+    if "m" in params:
+        logmu_shift = []
+
+        for c in range(n_clones):
+            this_pred_cnv = (
+                np.argmax(
+                    res["log_gamma"][:, (c * n_obs) : (c * n_obs + n_obs)], axis=0
+                )
+                % n_states
+            )
+            logmu_shift.append(
+                scipy.special.logsumexp(
+                    res["new_log_mu"][this_pred_cnv, :]
+                    + np.log(lambd).reshape(-1, 1),
+                    axis=0,
+                )
+            )
+            
+        logmu_shift = np.vstack(logmu_shift)    
     else:
-        if "m" in params:
-            logmu_shift = []
+        logmu_shift = None
 
-            for c in range(n_clones):
-                this_pred_cnv = (
-                    np.argmax(
-                        res["log_gamma"][:, (c * n_obs) : (c * n_obs + n_obs)], axis=0
-                    )
-                    % n_states
-                )
-                logmu_shift.append(
-                    scipy.special.logsumexp(
-                        res["new_log_mu"][this_pred_cnv, :]
-                        + np.log(lambd).reshape(-1, 1),
-                        axis=0,
-                    )
-                )
-            logmu_shift = np.vstack(logmu_shift)
-
-            # TODO clone stack.
-            (
-                log_emission_rdr,
-                log_emission_baf,
-            ) = hmmclass.compute_emission_probability_nb_betabinom_mix(
-                np.vstack([X[:, 0, :].flatten("F"), X[:, 1, :].flatten("F")]).T.reshape(
-                    -1, 2, 1
-                ),
-                base_nb_mean.flatten("F").reshape(-1, 1),
-                res["new_log_mu"],
-                res["new_alphas"],
-                total_bb_RD.flatten("F").reshape(-1, 1),
-                res["new_p_binom"],
-                res["new_taus"],
-                tumor_prop,
-                logmu_shift=logmu_shift,
-                sample_length=np.ones(n_clones, dtype=int) * n_obs,
-            )
-        else:
-            (
-                log_emission_rdr,
-                log_emission_baf,
-            ) = hmmclass.compute_emission_probability_nb_betabinom_mix(
-                np.vstack([X[:, 0, :].flatten("F"), X[:, 1, :].flatten("F")]).T.reshape(
-                    -1, 2, 1
-                ),
-                base_nb_mean.flatten("F").reshape(-1, 1),
-                res["new_log_mu"],
-                res["new_alphas"],
-                total_bb_RD.flatten("F").reshape(-1, 1),
-                res["new_p_binom"],
-                res["new_taus"],
-                tumor_prop,
-            )
-
-    log_emission_rdr = log_emission_rdr.reshape(
-        (log_emission_rdr.shape[0], n_obs, n_clones), order="F"
-    )
-
-    log_emission_baf = log_emission_baf.reshape(
-        (log_emission_baf.shape[0], n_obs, n_clones), order="F"
+    (
+        log_emission_rdr,
+        log_emission_baf,
+    ) = hmm_nophasing.compute_emission_probability_nb_betabinom_mix(
+        X,
+        base_nb_mean,
+        res["new_log_mu"],
+        res["new_alphas"],
+        total_bb_RD,
+        res["new_p_binom"],
+        res["new_taus"],
+        tumor_prop,
+        logmu_shift=logmu_shift,
     )
 
     reshaped_pred = np.argmax(res["log_gamma"], axis=0).reshape((X.shape[2], -1))
@@ -200,6 +155,10 @@ def neyman_pearson_similarity(
     # NB MAP copy number state.
     reshaped_pred_cnv = reshaped_pred % n_states
 
+    # NB one node per clone.                                                                                                                                                                                          
+    G = nx.Graph()
+    G.add_nodes_from(np.arange(n_clones))
+    
     all_test_statistics = []
 
     # NB all distinct clone pairs.
@@ -250,7 +209,7 @@ def neyman_pearson_similarity(
                     )
 
                 logger.info(
-                    f"Evaluated NP statistic={t_neymanpearson:+.4f} for clone pair ({c1},{c2}) & copy state pair p={p}"
+                    f"Evaluated NP statistic={t_neymanpearson:+4.4f} for clone pair ({c1},{c2}) & copy state pair p={p}"
                 )
 
                 all_test_statistics.append([c1, c2, p, t_neymanpearson])
@@ -281,7 +240,7 @@ def neyman_pearson_similarity(
                 )
             else:
                 logger.warning(
-                    f"Candidate clone pair found to be distinct with max_t={np.max(list_t_neymanpearson)} vs threshold={threshold}."
+                    f"Candidate clone pair ({c1},{c2}) found to be distinct with max_t={np.max(list_t_neymanpearson)} vs threshold={threshold}."
                 )
 
     # NB  cliques: set of nodes that are all neighbors.

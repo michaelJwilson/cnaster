@@ -669,12 +669,10 @@ class Weighted_NegativeBinomial_mix:
         bounds = self.get_bounds(start_params)
         bounds = np.array(bounds, dtype=np.float64)
 
-        chain = self.run_mcmc(result.params, n_samples=400_000, burn_in=20_000, bounds=bounds)
-        labels = [f"$\ln \mu_{{{i}}}$" for i in range(len(result.params) - 1)] + [r"$\phi$"]
+        # chain = self.run_mcmc(result.params, n_samples=400_000, burn_in=20_000, bounds=bounds)
+        # labels = [f"$\ln \mu_{{{i}}}$" for i in range(len(result.params) - 1)] + [r"$\phi$"]
 
-        plot_mcmc(chain, labels, prefix="nb", optimum=result.params)
-
-        exit(0)
+        # plot_mcmc(chain, labels, prefix="nb", optimum=result.params)
 
         return result
 
@@ -895,6 +893,7 @@ class Weighted_BetaBinom_mix:
             f"params:\n{[xx for xx in optimize_result.params]}"
         )
 
+        """
         # TODO n_states rather than start_params
         bounds = self.get_bounds(start_params)
         bounds = np.array(bounds, dtype=np.float64)
@@ -905,8 +904,7 @@ class Weighted_BetaBinom_mix:
         labels = [f"$p_{{{i}}}$" for i in range(len(optimize_result.params) - 1)] + [r"$\tau$ [$10^3$]"]
 
         plot_mcmc(chain, labels, prefix="bb", optimum=optimize_result.params)
-
-        exit(0)
+        """
 
         return optimize_result
     

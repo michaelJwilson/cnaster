@@ -394,7 +394,7 @@ def wolff_sweep(
         temp=1.0,
         iteration=0,
         nedit=np.count_nonzero(new_assignment != original_assignment),
-        clone_split=get_clone_split(new_assignment),
+        # clone_split=get_clone_split(new_assignment),
     ).log()
 
     logger.info(f"Found an initial Potts cost={cost_zeropoint:.6e}.")
@@ -421,7 +421,7 @@ def wolff_sweep(
         temp=1.0,
         iteration=0,
         nedit=np.count_nonzero(new_assignment != original_assignment),
-        clone_split=get_clone_split(new_assignment),
+        # clone_split=get_clone_split(new_assignment),
     ).log()
 
     logger.info(
@@ -446,7 +446,7 @@ def wolff_sweep(
         temp=np.inf,
         iteration=0,
         nedit=np.count_nonzero(new_assignment != original_assignment),
-        clone_split=get_clone_split(new_assignment),
+        # clone_split=get_clone_split(new_assignment),
     ).log()
 
     # NB unpacks adjaceny_list into arrays processble by numba.
@@ -511,7 +511,7 @@ def wolff_sweep(
                     acceptance=acceptance,
                     ncluster=len(new_cluster) if new_cluster is not None else 0,
                     nedit=np.count_nonzero(new_assignment != original_assignment),
-                    clone_split=get_clone_split(new_assignment),
+                    # clone_split=get_clone_split(new_assignment),
                 ).log()
 
     # NB re-assign with the best found assignment.
@@ -540,7 +540,7 @@ def wolff_sweep(
         acceptance=1.0,
         ncluster=0,
         nedit=np.count_nonzero(new_assignment != original_assignment),
-        clone_split=get_clone_split(new_assignment),
+        # clone_split=get_clone_split(new_assignment),
     ).log()
 
     return max_iter, best_cost

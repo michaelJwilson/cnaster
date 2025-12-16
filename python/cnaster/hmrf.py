@@ -479,6 +479,7 @@ def aggr_hmrfmix_reassignment_concatenate(
     else:
         logger.info(f"Solving for updated clone labels.")
 
+        """
         # NB updates new_assignment and posterior in place given log emission likelihood.
         niter, new_cost = icm_sweep(
             single_llf,
@@ -504,7 +505,7 @@ def aggr_hmrfmix_reassignment_concatenate(
         log_persample_weights=log_persample_weights,
         sample_ids=sample_ids,
         )
-        """
+        
         _, cnts = np.unique(new_assignment, return_counts=True)
 
         logger.info(
@@ -955,7 +956,7 @@ def hmrfmix_concatenate_pipeline(
 
         if (
             # TODO config.hmrf.assignment_ari_tolerance: 0.9?
-            adjusted_rand_score(last_assignment, res["new_assignment"]) > 0.99
+            adjusted_rand_score(last_assignment, res["new_assignment"]) > get_global_config().hmrf.ari_tolerance
             or len(np.unique(res["new_assignment"])) == 1  # NB single clone assigned.
         ):
             break

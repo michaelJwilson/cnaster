@@ -94,8 +94,6 @@ def initial_phase_given_partition(
                 tol=tol,
             )
 
-            exit(0)
-
             if not np.all(res["new_p_binom"] <= 0.5 + EPS_BAF):
                 logger.warning(f"Found best-fit phased baf > 0.5 += eps.")
 

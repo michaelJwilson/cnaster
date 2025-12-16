@@ -253,7 +253,7 @@ def run_cnaster(config_path, over_rides=None):
         single_tumor_prop = adata.obs["tumor_proportion"]
     else:
         logger.info(f"No (pre-processed) tumorprop. file provided.")
-        single_tumor_prop = np.ones(len(adata.obs.index), dtype=float)
+        single_tumor_prop = None # np.ones(len(adata.obs.index), dtype=float)
 
     recomb_rates = get_reference_recomb_rates(config.references.geneticmap_file)
     """
@@ -442,8 +442,6 @@ def run_cnaster(config_path, over_rides=None):
     else:
         phase_indicator = np.zeros(single_X.shape[0])
         refined_lengths = lengths
-
-    exit(0)
 
     # NB phase is None for genes and otherwise True/False for the phase of each block.
     df_gene_snp["phase"] = np.where(
@@ -809,8 +807,6 @@ def run_cnaster(config_path, over_rides=None):
 
     fig_path = f"{plots_dir}/merged_bafonly_clones_genomic.pdf"
     write_fig(fig_path, merged_bafonly_clones_genomic, transparent=True, bbox_inches="tight")
-
-    exit(0)
     
     # NB construct clone labels.
     df_clone_label = pd.DataFrame(

@@ -17,7 +17,7 @@ annotation:
   true_cnv : None # /Users/mw9568/Work/ragr/sim/simulated_data_related/numcnas1.2_cnasize1e7_ploidy2_random0/truth_acn_profile.tsv
 
 run:
-  cache : True
+  cache : False
   legacy : False
   bafonly : False
 
@@ -66,6 +66,7 @@ phasing:
 #           maxspots_pooling 7 ->
 #           unit_xsquared 9 ->
 #           unit_ysquared 3 ->
+#           ari_tolerance 0.99 ->
 hmrf:
   n_clones : 3
   n_clones_rdr : 2
@@ -75,6 +76,7 @@ hmrf:
   tumorprop_threshold : 0.5
   max_iter_outer : 20
   nodepotential : max
+  ari_tolerance : 1.0
   initialization_method : rectangle
   num_hmrf_initialization_start : 0
   num_hmrf_initialization_end : 1

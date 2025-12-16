@@ -55,19 +55,19 @@ class hmrf_perf_entry:
             writer.writerow(perf_dict)
 
 
-def get_clone_split(assignment, num_clones=5):
+def get_clone_split(assignment):
     """
     Return an array of clone proportion given an assignment.
     """
-    # NB assignment is zero-indexed; guard against missing entries.
-    counts = np.bincount(assignment.astype(int), minlength=num_clones)
-    fracs = counts / len(assignment)
-
-    # NB can be bigger if there are more than {num_clones} clones in
-    #    assignment
-    assert len(counts) == num_clones
-
-    return fracs
+    unique_ids, counts = np.unique(assignment.astype(int), return_counts=True)
+    
+    max_id = unique_ids.max()
+    size = 1 + max_id
+    
+    full_counts = np.zeros(size, dtype=int)
+    full_counts[unique_ids] = counts
+    
+    return full_counts / full_counts.sum()
 
 
 def unpack_adjacency(adj_list):

@@ -588,6 +588,9 @@ class hmm_nophasing:
             alphas = new_alphas
             p_binom = new_p_binom
             taus = new_taus
+        else:
+            logger.warning(f"hmm_nophasing did not converge.")
+            
         return (
             new_log_mu,
             new_alphas,
@@ -597,3 +600,5 @@ class hmm_nophasing:
             new_log_transmat,
             log_gamma,
         )
+
+    

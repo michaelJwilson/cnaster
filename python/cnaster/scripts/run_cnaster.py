@@ -188,22 +188,19 @@ def run_cnaster(config_path, over_rides=None):
     #    cell_snp_Ballele: haplotype H1 counts (barcode x snp).
     #    unique_snp_ids: {contig}_{pos}_{ref}_{alt} for all snps.
     #    across_slice_adjacency_mat: ...    
-    input_data = load_input_data(
-        config,
-        filter_gene_file=config.references.filtergenelist_file,
-        filter_range_file=config.references.filterregion_file,
-        min_snp_umis=config.quality.spot_min_snp_umis,
-        min_percent_expressed_spots=config.quality.min_percent_expressed_spots,
-    )
-    
     (
         adata,
         cell_snp_Aallele,
         cell_snp_Ballele,
         unique_snp_ids,
         across_slice_adjacency_mat,
-    ) = input_data
-    
+    ) = load_input_data(
+        config,
+        filter_gene_file=config.references.filtergenelist_file,
+        filter_range_file=config.references.filterregion_file,
+        min_snp_umis=config.quality.spot_min_snp_umis,
+        min_percent_expressed_spots=config.quality.min_percent_expressed_spots,
+    )
     # NB e.g. 'AAACAAGTATCTCCCA-1_HT112C1-U1' currently.
     barcodes = adata.obs.index
     sample_list = [adata.obs["sample"].iloc[0]]
@@ -783,7 +780,7 @@ def run_cnaster(config_path, over_rides=None):
     write_fig(
         fig_path, merged_bafonly_clones_fig, transparent=True, bbox_inches="tight"
     )
-   
+    
     # TODO copy rename.
     merged_bafonly_clones_genomic = plot_clones_genomic_simple(
         single_X,
@@ -807,6 +804,8 @@ def run_cnaster(config_path, over_rides=None):
 
     fig_path = f"{plots_dir}/merged_bafonly_clones_genomic.pdf"
     write_fig(fig_path, merged_bafonly_clones_genomic, transparent=True, bbox_inches="tight")
+
+    exit(0)
     
     # NB construct clone labels.
     df_clone_label = pd.DataFrame(

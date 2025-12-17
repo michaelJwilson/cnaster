@@ -21,7 +21,7 @@ pl.Config.set_tbl_cols(-1)
 
 
 def get_sample_sheet(sample_sheet_path):
-    df_meta = pd.read_csv(sample_sheet_path, sep=r"\s+")
+    df_meta = pd.read_csv(sample_sheet_path, sep=r"\s+", comment="#")
 
     required_columns = {"bam", "sample_id", "spaceranger_dir", "snp_dir"}
 

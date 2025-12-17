@@ -61,7 +61,7 @@ phasing:
   run : True
   nu : 1.0
   logphase_shift : -2.0
-  npart_phasing : 3
+  npart_phasing : 2
   baf_change_threshold : 0.1
   min_new_segment_size : 10
 
@@ -93,6 +93,7 @@ hmrf:
   unit_xsquared : 1
   unit_ysquared : 1
   random_state : 0
+  ari_tolerance : 1.0
 
 # TODO HACK max_iter : 30 ->
 #           solver: nm ->

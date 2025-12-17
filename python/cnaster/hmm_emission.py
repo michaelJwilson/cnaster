@@ -10,7 +10,7 @@ from scipy.special import loggamma
 from functools import partial
 from cnaster.config import get_global_config
 from cnaster.hmm_utils import convert_params_disp, get_solver
-from cnaster.hmm_mcmc import run_mcmc_numba, plot_mcmc, numba_nloglikeobs_nb, numba_nloglikeobs_bb
+# from cnaster.hmm_mcmc import run_mcmc_numba, plot_mcmc, numba_nloglikeobs_nb, numba_nloglikeobs_bb
 from dataclasses import dataclass, asdict
 from typing import Optional, Any
 import csv

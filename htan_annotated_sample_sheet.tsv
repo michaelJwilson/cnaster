@@ -1,2 +1,3 @@
+# HT306P1, HT265B1
 bam	sample_id	spaceranger_dir	snp_dir
-NULL	HT306P1-U1	/u/mw9568/data/HT306P1/U1	/u/mw9568/data/HTAN_preprocessing_07082025/HT306P1
+NULL	HT265B1-U1	/u/mw9568/data/HT265B1/U1	/u/mw9568/data/HTAN_preprocessing_07082025/HT265B1/

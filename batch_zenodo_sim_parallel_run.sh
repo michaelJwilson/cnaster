@@ -5,15 +5,16 @@ set -o pipefail
 ROOT="/Users/mw9568/Work/ragr/sim/"
 
 SEED=12345
+# RANDOM_STATES=(0)
 RANDOM_STATES=(0 1 2 3 4)
 USE_EXISTING=false
-MAX_JOBS=4
+MAX_JOBS=3
 
 # SAMPLE_IDS=("numcnas1.2_cnasize1e7_ploidy2_random0")
 # SAMPLE_IDS=("numcnas3.3_cnasize3e7_ploidy2_random0")
 
-rm -f cnaster.log
-rm -f cnaster.perf
+# rm -f cnaster.log
+# rm -f cnaster.perf
 
 SAMPLE_IDS=()
 
@@ -36,15 +37,15 @@ run_single_job() {
     local OUT_BASE="${ROOT}/nomixing_cnaster_related/${SAMPLE_ID}"
     local OUT_PATTERN="${OUT_BASE}/clone?_rectangle${RANDOM_STATE}_w1.0/rdrbaf_final_nstates?_smp.npz"
     
+    local LOG_PATH="logs/cnaster_${SAMPLE_ID}_${RANDOM_STATE}.log"
+    local PERF_PATH="logs/cnaster_${SAMPLE_ID}_${RANDOM_STATE}.perf"
+
     if [[ "$USE_EXISTING" == "true" ]]; then
         if compgen -G "$OUT_PATTERN" > /dev/null 2>&1; then
             echo "Utilizing existing results for SAMPLE_ID=${SAMPLE_ID}; RANDOM_STATE=${RANDOM_STATE}."
             return 0
         fi
     fi
-    
-    local LOG_PATH="logs/cnaster_${SAMPLE_ID}_${RANDOM_STATE}.log"
-    local PERF_PATH="logs/cnaster_${SAMPLE_ID}_${RANDOM_STATE}.perf"
 
     rm -f "${LOG_PATH}"
     rm -f "${PERF_PATH}"
@@ -57,13 +58,13 @@ run_single_job() {
         -o "paths.output_dir=${ROOT}/nomixing_cnaster_related/${SAMPLE_ID}/" \
         -o "paths.perf_path=${PERF_PATH}" \
         2>&1 | tee "$LOG_PATH"
-    
+     
     rc=${PIPESTATUS[0]}
     
     if [[ $rc -ne 0 ]]; then
         echo "run_cnaster failed for SAMPLE_ID=${SAMPLE_ID}, RANDOM_STATE=${RANDOM_STATE} (rc=${rc})" >&2
         mv "$LOG_PATH" "errors/cnaster_${SAMPLE_ID}_${RANDOM_STATE}.err"
-
+    
         return $rc
     fi
     
@@ -79,6 +80,8 @@ for SAMPLE_ID in "${SAMPLE_IDS[@]}"; do
     sed "s|numcnas1.2_cnasize1e7_ploidy2_random0|${SAMPLE_ID}|g; s|Z001-U1|${SAMPLE_ID}|g" \
         ./zenodo_sample_sheet.tsv > "zenodo_sample_sheets/zenodo_${SAMPLE_ID}_sheet.tsv"
 done
+
+echo "cnaster prep completed."
 
 JOBS=()
 for SAMPLE_ID in "${SAMPLE_IDS[@]}"; do

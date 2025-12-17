@@ -479,7 +479,7 @@ def aggr_hmrfmix_reassignment_concatenate(
     else:
         logger.info(f"Solving for updated clone labels.")
 
-        """
+
         # NB updates new_assignment and posterior in place given log emission likelihood.
         niter, new_cost = icm_sweep(
             single_llf,
@@ -505,7 +505,7 @@ def aggr_hmrfmix_reassignment_concatenate(
         log_persample_weights=log_persample_weights,
         sample_ids=sample_ids,
         )
-        
+        """
         _, cnts = np.unique(new_assignment, return_counts=True)
 
         logger.info(

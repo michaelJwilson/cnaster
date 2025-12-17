@@ -1,4 +1,5 @@
 from cnaster.utils import write_fig
+import re
 import yaml
 import glob
 import time
@@ -769,12 +770,14 @@ def get_sample_estimate(root, sample_id, method, rectangle, cna_only=False):
     ).rename({"CHR": "Chromosome", "START": "Start", "END": "End"})
 
     copy_num_columns = [
-        c for c in calls.columns if c not in ["Chromosome", "Start", "End"]
+        c for c in calls.columns if re.match(r"clone.* [AB]$", c)
     ]
 
     logger.info(f"Found copy num. columns: {copy_num_columns}")
-
+    
     if cna_only:
+        logger.warning("Retaining only segments with CNA in at least one clone.")
+
         mask = pl.any_horizontal([pl.col(c) != 1 for c in copy_num_columns])
         calls = calls.filter(mask)
 
@@ -786,11 +789,12 @@ def get_sample_estimate(root, sample_id, method, rectangle, cna_only=False):
 
     if col_rename:
         logger.info(f"Renaming columns: {col_rename}")
-
         calls = calls.rename(col_rename)
+    
+    logger.info(f"Creating table of estimated CNAs for all spots and segments given sample calls=\n{calls}.")
 
-    logger.info(f"Creating table of estimated CNAs for all spots and segments.")
-
+    exit(0)
+    
     # NB cross join: all segments × all spots, i.e. replicates each segment for all spots.
     spot_cna = calls.join(clones, how="cross")
 

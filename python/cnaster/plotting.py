@@ -836,11 +836,14 @@ def plot_clones_genomic(
         )
 
     for i in range(len(lengths)):
-        median_len = np.sum(lengths[:(i)]) * 0.55 + np.sum(lengths[: (i + 1)]) * 0.45
+        # median_len = np.sum(lengths[:(i)]) * 0.55 + np.sum(lengths[: (i + 1)]) * 0.45
+        start_len = np.sum(lengths[:(i)])
+
         axes[-1].text(
-            median_len - 7.5,
+            start_len,
             chrtext_shift,
             f"chr{unique_chrs[i]}",
+            rotation=45,
             transform=axes[-1].get_xaxis_transform(),
             fontsize=9,
             ha="left",

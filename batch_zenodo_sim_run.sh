@@ -6,7 +6,7 @@ ROOT="/Users/mw9568/Work/ragr/sim/"
 
 SEED=12345
 RANDOM_STATES=(0 1 2 3 4) 
-USE_EXISTING=true
+USE_EXISTING=false
 
 SAMPLE_IDS=()
 
@@ -17,7 +17,7 @@ done
 SAMPLE_IDS=($(printf "%s\n" "${SAMPLE_IDS[@]}" | gshuf --random-source=<(yes $SEED)))
 
 # DEBUGGING
-USE_EXISTING=false
+# USE_EXISTING=false
 # SAMPLE_IDS=("numcnas1.2_cnasize1e7_ploidy2_random0")
 # SAMPLE_IDS=("numcnas3.3_cnasize3e7_ploidy2_random0")
 
@@ -31,7 +31,7 @@ USE_EXISTING=false
 # SAMPLE_IDS=("numcnas6.3_cnasize3e7_ploidy2_random4")
 
 # RANDOM_STATES=(0)
-SAMPLE_IDS=("numcnas6.3_cnasize5e7_ploidy2_random6")
+# SAMPLE_IDS=("numcnas6.3_cnasize5e7_ploidy2_random6")
 
 # echo "${SAMPLE_IDS[@]}"
 echo "Found ${#SAMPLE_IDS[@]} sample ids @ ${ROOT}"

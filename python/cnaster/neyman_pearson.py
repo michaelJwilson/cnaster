@@ -94,7 +94,7 @@ def neyman_pearson_similarity(
     base_nb_mean,
     total_bb_RD,
     res,
-    threshold=2.0,
+    threshold=None,
     minlength=10,  # MAGIC
     topk=10,
     params="smp",
@@ -102,8 +102,11 @@ def neyman_pearson_similarity(
     hmmclass=hmm_sitewise,
     **kwargs,
 ):
+    if threshold is None:
+        threshold = get_global_config().hmrf.np_threshold
+    
     logger.info(
-        f"Solving for Neyman-Pearson similiarity with np. threshold={threshold} and {hmmclass.__name__} instance with:\nnew_log_mu=\n{res['new_log_mu']}\nnew_p_binom=\n{res['new_p_binom']}"
+        f"Solving for Neyman-Pearson similiarity with threshold={threshold} and {hmmclass.__name__} instance with:\nnew_log_mu=\n{res['new_log_mu']}\nnew_p_binom=\n{res['new_p_binom']}"
     )
 
     n_obs, _, n_clones = X.shape

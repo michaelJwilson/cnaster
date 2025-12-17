@@ -67,6 +67,7 @@ phasing:
 #           unit_xsquared 9 ->
 #           unit_ysquared 3 ->
 #           ari_tolerance 0.99 ->
+#           np_threshold 2.0 -> 
 hmrf:
   n_clones : 3
   n_clones_rdr : 2
@@ -85,6 +86,7 @@ hmrf:
   construct_adjacency_method : hexagon
   construct_adjacency_w : 1.0
   np_merge : True
+  np_threshold : 2.0
   fixed_assignment : False
   unit_xsquared : 1
   unit_ysquared : 1

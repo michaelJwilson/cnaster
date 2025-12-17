@@ -211,21 +211,30 @@ def compute_bb_ab(exog, params, tumor_prop=None):
     return a, b
 
 @njit(nogil=True, cache=True, fastmath=False, error_model="numpy")
-def betabinom_logpmf(endog, exposure, a, b, zero_point):
+def betabinom_logpmf(endog, exposure, a, b, zero_point, EPS=1.0e-10):
     result_array = np.empty_like(endog, dtype=np.float64)
 
     for i in range(len(endog)):
+        ai = a[i]
+        bi = b[i]
+
+        # NB guard against numerical instability at 0
+        if ai < EPS:
+            ai = EPS
+        if bi < EPS:
+            bi = EPS
+
         result_array[i] = (
             zero_point[i]
-            + lgamma(endog[i] + a[i])
-            + lgamma(exposure[i] - endog[i] + b[i])
-            + lgamma(a[i] + b[i])
-            - lgamma(exposure[i] + a[i] + b[i])
-            - lgamma(a[i])
-            - lgamma(b[i])
+            + lgamma(endog[i] + ai)
+            + lgamma(exposure[i] - endog[i] + bi)
+            + lgamma(ai + bi)
+            - lgamma(exposure[i] + ai + bi)
+            - lgamma(ai)
+            - lgamma(bi)
         )
         if np.isnan(result_array[i]):
-            result_array[i] = np.inf
+            result_array[i] = -np.inf 
 
     return result_array
 

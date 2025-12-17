@@ -792,8 +792,6 @@ def get_sample_estimate(root, sample_id, method, rectangle, cna_only=False):
         calls = calls.rename(col_rename)
     
     logger.info(f"Creating table of estimated CNAs for all spots and segments given sample calls=\n{calls}.")
-
-    exit(0)
     
     # NB cross join: all segments × all spots, i.e. replicates each segment for all spots.
     spot_cna = calls.join(clones, how="cross")

@@ -745,7 +745,7 @@ def get_sample_estimate(root, sample_id, method, rectangle, cna_only=False):
 
     logger.info(f"Solving for clone estimate: {parent}/clone_labels.tsv")
 
-    # Render copy states table as PDF
+    # NB render copy states table as PDF
     perstate_tsv_path = Path(parent) / "cnv_diploid_perstate.tsv"
     plots_dir = Path(parent) / "plots"
     output_pdf = plots_dir / f"{sample_id}_rectangle{rectangle}_copy_states.pdf"

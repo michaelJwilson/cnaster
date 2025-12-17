@@ -142,7 +142,6 @@ def hill_climbing_integer_copynumber_oneclone(
         # TODO HACK
         # frac_rdr = total_copies / denom
         frac_rdr = total_copies / 2.0
-
         frac_baf = params[:, 0] / total_copies
 
         # DEPRECATE

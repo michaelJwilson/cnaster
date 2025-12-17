@@ -602,7 +602,7 @@ def icm_sweep(
     new_assignment,
     spatial_weight,
     posterior,
-    tol=0.01,
+    tol=0.0,
     log_persample_weights=None,
     sample_ids=None,
     cost_zeropoint=0.0,
@@ -670,7 +670,7 @@ def icm_sweep(
         # logger.info(f"Found ICM edit_rate={edit_rate:.6f} for iteration {niter}.")
         # logger.info(f"Found ICM inferred clone proportions: {cnts / n_spots}")
 
-        if edit_rate < tol:
+        if edit_rate <= tol:
             break
 
     return niter, cost

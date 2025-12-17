@@ -73,7 +73,7 @@ hmrf:
   n_clones_rdr : 2
   min_spots_per_clone : 100
   min_avgumi_per_clone : 10
-  maxspots_pooling : 7
+  maxspots_pooling : 1
   tumorprop_threshold : 0.5
   max_iter_outer : 20
   nodepotential : max
@@ -81,12 +81,11 @@ hmrf:
   initialization_method : rectangle
   num_hmrf_initialization_start : 0
   num_hmrf_initialization_end : 1
-  spatial_weight : 100.0
+  spatial_weight : 1.0
   inertia : 0
   construct_adjacency_method : hexagon
   construct_adjacency_w : 1.0
   np_merge : True
-  np_threshold : 2.0
   fixed_assignment : False
   unit_xsquared : 1
   unit_ysquared : 1
@@ -118,7 +117,7 @@ hmm:
   gmm_maxiter: 30
   gmm_min_binom_prob: 0.0
   gmm_max_binom_prob: 1.0
-  np_threshold : 1.0
+  np_threshold : 4.0
   np_eventminlen : 5
   em_maxiter: 1500
   em_xtol: 1e-4

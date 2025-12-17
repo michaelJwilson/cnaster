@@ -104,7 +104,7 @@ def neyman_pearson_similarity(
 ):
     # TODO hmm config clash?
     if threshold is None:
-        threshold = get_global_config().hmrf.np_threshold
+        threshold = get_global_config().hmm.np_threshold
     
     logger.info(
         f"Solving for Neyman-Pearson similiarity with threshold={threshold} and {hmmclass.__name__} instance with:\nnew_log_mu=\n{res['new_log_mu']}\nnew_p_binom=\n{res['new_p_binom']}"
@@ -254,7 +254,7 @@ def neyman_pearson_similarity(
                     )
 
                 logger.info(
-                    f"Evaluated NP statistic={t_neymanpearson:+.4f} for clone pair ({c1},{c2}) & copy state pair p={p}"
+                    f"Evaluated NP statistic={t_neymanpearson:+.4f} for clone pair ({c1},{c2}) & copy state pair p={p} of {len(bidx)} segments."
                 )
 
                 all_test_statistics.append([c1, c2, p, t_neymanpearson])

@@ -96,12 +96,13 @@ def neyman_pearson_similarity(
     res,
     threshold=None,
     minlength=10,  # MAGIC
-    topk=10,
+    # topk=10,
     params="smp",
     tumor_prop=None,
     hmmclass=hmm_sitewise,
-    **kwargs,
+    # **kwargs,
 ):
+    # TODO hmm config clash?
     if threshold is None:
         threshold = get_global_config().hmrf.np_threshold
     
@@ -456,7 +457,7 @@ def compute_neymanpearson_stats(
                 for x in np.unique(reshaped_pred_cnv[np.array([c1, c2]), :], axis=1).T
                 if x[0] != x[1]
             ]
-            list_t_neymanpearson = []
+            # list_t_neymanpearson = []
             for p in unique_pair_states:
                 bidx = np.where(
                     (reshaped_pred_cnv[c1, :] == p[0])

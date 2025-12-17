@@ -766,10 +766,9 @@ def hmrfmix_concatenate_pipeline(
             f"Plotting initial copy state mixture for instance {hmrfmix_concatenate_pipeline.call_count-1} with X.shape={X.shape}."
         )
 
-        X, base_nb_mean, total_bb_RD, tumor_prop
-
         n_states = init_p_binom.shape[0]
 
+        """
         plot_cna_mixture(
             (
                 np.tile(init_log_mu, n_clones).reshape(n_states, n_clones)
@@ -797,7 +796,8 @@ def hmrfmix_concatenate_pipeline(
             width=10,
             prefix=f"instance{hmrfmix_concatenate_pipeline.call_count-1}",
         )
-
+        """
+        """
         plot_cna_mixture(
             init_log_mu,
             init_alphas,
@@ -809,6 +809,7 @@ def hmrfmix_concatenate_pipeline(
             width=10,
             prefix=f"instance{hmrfmix_concatenate_pipeline.call_count-1}_clone",
         )
+        """
 
     last_log_mu = init_log_mu if "m" in params else None
     last_p_binom = init_p_binom if "p" in params else None

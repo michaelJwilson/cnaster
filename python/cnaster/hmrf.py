@@ -956,7 +956,7 @@ def hmrfmix_concatenate_pipeline(
 
         if (
             # TODO config.hmrf.assignment_ari_tolerance: 0.9?
-            adjusted_rand_score(last_assignment, res["new_assignment"]) > get_global_config().hmrf.ari_tolerance
+            adjusted_rand_score(last_assignment, res["new_assignment"]) >= get_global_config().hmrf.ari_tolerance
             or len(np.unique(res["new_assignment"])) == 1  # NB single clone assigned.
         ):
             break

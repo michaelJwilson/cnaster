@@ -365,6 +365,27 @@ def run_cnaster(config_path, over_rides=None):
             y_part=config.phasing.npart_phasing,
         )
 
+    pseudobulk_clones_genomic = plot_clones_genomic_simple(
+	single_X,
+        single_base_nb_mean,
+        single_total_bb_RD,
+        [[ii] for ii in range(len(coords))],
+        lengths,
+        single_tumor_prop=single_tumor_prop,
+        sample_list=sample_list,
+        remove_xticks=True,
+        rdr_ylim=6,
+        chrtext_shift=-0.2,
+        base_height=3.2,
+        pointsize=5,
+        linewidth=1,
+    )
+
+    fig_path = f"{plots_dir}/pseudobulk_clones_genomic.pdf"
+    write_fig(fig_path, pseudobulk_clones_genomic, transparent=True, bbox_inches="tight")
+
+    exit(0)
+    
     assignment = np.full(len(coords), -1, dtype=int)
 
     for __clone_id, indices in enumerate(initial_clone_for_phasing):
@@ -403,7 +424,7 @@ def run_cnaster(config_path, over_rides=None):
 
     fig_path = f"{plots_dir}/prephasing_clones_genomic.pdf"
     write_fig(fig_path, prephasing_clones_genomic, transparent=True, bbox_inches="tight")
-
+    
     if config.run.legacy:
         logger.warning("Assuming (magic) five BAF states for phasing.")
         n_states_phasing = 5

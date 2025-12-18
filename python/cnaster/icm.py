@@ -593,6 +593,79 @@ def calc_assignment_cost(
     return cost
 
 
+# TODO
+@njit(cache=True)
+def calc_merge_cost(
+    single_llf,
+    adj_spots,
+    adj_neighbors,
+    adj_weights,
+    assignment,
+    spatial_weight,
+    log_persample_weights=None,
+    sample_ids=None,
+):
+    n_spots, n_clones = single_llf.shape
+
+    # NB unary_sum[u, k] stores the sum of likelihoods for label k
+    #    for all spots currently assigned to label u.
+    unary_sum = np.zeros((n_clones, n_clones), dtype=np.float64)
+
+    # NB boundary_gain[u, v] stores the potential spatial gain if u and v are merged.
+    boundary_gain = np.zeros((n_clones, n_clones), dtype=np.float64)
+
+    current_spatial_cost = 0.0
+
+    for i in range(n_spots):
+        u = assignment[i]
+
+        # NB accumulate unary terms for this spot across all potential labels.
+        for k in range(n_clones):
+            val = single_llf[i, k]
+            if log_persample_weights is not None:
+                val += log_persample_weights[k, sample_ids[i]]
+
+            unary_sum[u, k] += val
+
+        mask = adj_spots == i
+        neighbors = adj_neighbors[mask]
+        weights = adj_weights[mask]
+
+        for neighbor, edge_weight in zip(neighbors, weights):
+            v = assignment[neighbor]
+
+            if u == v:
+                current_spatial_cost += spatial_weight * edge_weight / 2.0
+            else:
+                boundary_gain[u, v] += spatial_weight * edge_weight / 2.0
+
+    current_unary_cost = 0.0
+
+    for c in range(n_clones):
+        current_unary_cost += unary_sum[c, c]
+
+    current_total_cost = current_unary_cost + current_spatial_cost
+
+    best_merge_cost = -np.inf
+    best_merge_pair = (-1, -1)
+
+    for u in range(n_clones):
+        for v in range(n_clones):
+            if u == v:
+                continue
+
+            if boundary_gain[u, v] > 0:
+                # NB Option: Merge u into v (spots of u become v).
+                #    Delta = (unary of u becoming v) - (unary of u being u) + boundary gain.
+                delta_u_to_v = (unary_sum[u, v] - unary_sum[u, u]) + boundary_gain[u, v]
+
+                if current_total_cost + delta_u_to_v > best_merge_cost:
+                    best_merge_cost = current_total_cost + delta_u_to_v
+                    best_merge_pair = (u, v)
+
+    return best_merge_cost, best_merge_pair
+
+
 @njit(cache=True)
 def icm_sweep(
     single_llf,

@@ -46,7 +46,7 @@ run_single_job() {
         if [[ -n "$existing_files" ]]; then
             # Check if any of the files were modified in the last 24 hours (-mtime -1)
             # -maxdepth 0 ensures we check the file itself, not contents if it were a dir
-            if find $existing_files -maxdepth 0 -mtime -1 2>/dev/null | grep -q .; then
+            if find $existing_files -maxdepth 0 -mmin 60 2>/dev/null | grep -q .; then
                 echo "Utilizing existing results (modified < 24h) for SAMPLE_ID=${SAMPLE_ID}; RANDOM_STATE=${RANDOM_STATE}."
                 return 0
             fi

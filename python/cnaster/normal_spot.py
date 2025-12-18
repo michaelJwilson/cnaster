@@ -223,7 +223,6 @@ def normal_baf_bin_filter(
 
     # LEGACY
     settings = get_em_solver_params()
-
     tmpres = model.fit(**settings)
 
     logger.info(

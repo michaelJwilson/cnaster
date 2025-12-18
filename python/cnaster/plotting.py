@@ -333,7 +333,7 @@ def plot_clones_genomic_simple(
     sample_list=None,
     remove_xticks=True,
     rdr_ylim=6,
-    chrtext_shift=-0.25,
+    chrtext_shift=-0.3,
     base_height=3.2,
     pointsize=5,
     linewidth=1,

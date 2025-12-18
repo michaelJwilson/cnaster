@@ -514,13 +514,11 @@ def aggr_hmrfmix_reassignment_concatenate(
                         new_assignment[i] = v
                         num_merged_spots += 1
 
-                logger.info(f"Merged {num_merged_spots} spots from clone {u} into clone {v} with new cost {best_merge_cost:.6e} given initial cost={cost:.6e}.")
+                logger.info(f"Merged {num_merged_spots} spots from clone {u} into clone {v} with dC={best_merge_cost - new_cost:.6e}")
                 new_cost = best_merge_cost
             else:
                 logger.info(f"No more beneficial merges available (latest dC={best_merge_cost - new_cost:.6e}).")
                 break
-
-        exit(0)
 
         """
         niter, new_cost = wolff_sweep(

@@ -566,7 +566,7 @@ def calc_assignment_cost(
     log_persample_weights=None,
     sample_ids=None,
 ):
-    n_spots, n_clones = single_llf.shape
+    n_spots, _ = single_llf.shape
     cost = 0.0
 
     for i in range(n_spots):
@@ -680,6 +680,7 @@ def icm_sweep(
     sample_ids=None,
     cost_zeropoint=0.0,
     temp=1.0,
+    merge=False,
 ):
     # NB ICM is guranteed to converge to a local (maximum).
     n_spots, n_clones = single_llf.shape
@@ -746,4 +747,26 @@ def icm_sweep(
         if edit_rate <= tol:
             break
 
+    if merge:
+        while True:
+            best_merge_cost, best_merge_pair = calc_merge_cost(
+                single_llf,
+                adj_spots,
+                adj_neighbors,
+                adj_weights,
+                new_assignment,
+                spatial_weight,
+                log_persample_weights=log_persample_weights,
+                sample_ids=sample_ids,
+            )
+
+            if best_merge_cost > cost:
+                u, v = best_merge_pair
+
+                for i in range(n_spots):
+                    if new_assignment[i] == u:
+                        new_assignment[i] = v
+                cost = best_merge_cost
+            else:
+                break
     return niter, cost

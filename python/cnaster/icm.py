@@ -683,7 +683,7 @@ def icm_sweep(
     sample_ids=None,
     cost_zeropoint=0.0,
     temp=1.0,
-    min_clone_spots=100,
+    min_clone_spots=200,
     max_iter=10,
 ):
     # NB ICM is guranteed to converge to a local (maximum).

@@ -254,6 +254,7 @@ def aggr_hmrfmix_reassignment_concatenate(
     single_tumor_prop=None,
     hmmclass=hmm_sitewise,
     return_posterior=False,
+    merge=False,
 ):
     n_obs, _, N = single_X.shape
 
@@ -420,7 +421,7 @@ def aggr_hmrfmix_reassignment_concatenate(
             sample_ids=sample_ids,
         )
 
-        while True:
+        while merge:
             new_cost, best_merge_cost, best_merge_pair = merge_assignment(
                 single_llf,
                 adj_spots,
@@ -739,8 +740,10 @@ def hmrfmix_concatenate_pipeline(
 
     # NB required for remain_kwargs construction.
     res = {}
+    r = 0
+    merge = False
 
-    for r in range(max_iter_outer):
+    while r <= max_iter_outer:
         logger.info(
             f"----****  Solving iteration {r}/{max_iter_outer} of copy number state fitting & clone assignment (HMM + HMRF) ****----"
         )
@@ -800,6 +803,7 @@ def hmrfmix_concatenate_pipeline(
             log_persample_weights=log_persample_weights,
             single_tumor_prop=single_tumor_prop,
             hmmclass=hmmclass,
+            merge=merge,
         )
 
         # NB handle the case when one clone has zero spots.
@@ -822,7 +826,6 @@ def hmrfmix_concatenate_pipeline(
             res["log_gamma"] = res["log_gamma"][:, concat_idx]
             res["pred_cnv"] = res["pred_cnv"][concat_idx]
 
-        # NB add to results.
         res["prev_assignment"] = last_assignment
         res["new_assignment"] = new_assignment
         res["total_llf"] = total_llf
@@ -868,8 +871,11 @@ def hmrfmix_concatenate_pipeline(
             adjusted_rand_score(last_assignment, res["new_assignment"]) >= get_global_config().hmrf.ari_tolerance
             or len(np.unique(res["new_assignment"])) == 1  # NB single clone assigned.
         ):
-            break
-
+            if not merge:
+                # NB next round we merge; and the one after fit parameters to the merged clone.
+                r = max_iter_outer - 1
+                merge = True
+                     
         last_log_mu = res["new_log_mu"]
         last_p_binom = res["new_p_binom"]
         last_alphas = res["new_alphas"]
@@ -896,6 +902,8 @@ def hmrfmix_concatenate_pipeline(
                 log_persample_weights[:, sidx] = log_persample_weights[
                     :, sidx
                 ] - scipy.special.logsumexp(log_persample_weights[:, sidx])
+
+        r += 1
 
     return res
 

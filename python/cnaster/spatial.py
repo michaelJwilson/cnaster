@@ -15,39 +15,22 @@ logger = logging.getLogger(__name__)
 
 # TODO respect alignment.
 def fixed_rectangle_partition(
-    coords, x_part, y_part, single_tumor_prop=None, threshold=0.5
+    coords, x_part, y_part, single_tumor_prop=None, threshold=0.5, random_state=None
 ):
-    """
-    Initialize rectangular grid partitioning of coordinates.
-
-    Parameters:
-    -----------
-    coords : array-like, shape (n, 2)
-        Coordinate array with x, y positions
-    x_part : int
-        Number of partitions in x direction
-    y_part : int
-        Number of partitions in y direction
-    single_tumor_prop : array-like, optional
-        Tumor proportion values. If provided, only coordinates with
-        tumor_prop > threshold are used to determine the coordinate ranges
-    threshold : float, default=0.5
-        Threshold for tumor proportion filtering
-
-    Returns:
-    --------
-    initial_clone_index : list
-        List of arrays containing indices for each grid cell
-    """
     if single_tumor_prop is not None:
         idx_tumor = np.where(single_tumor_prop >= threshold)[0]
         range_coords = coords[idx_tumor]
     else:
         range_coords = coords
 
-    px = np.linspace(0, 1, 1 + x_part)
-    px[-1] += 0.01
-    px = px[1:]
+    if random_state is not None:
+        rng = np.random.default_rng(random_state)
+        px = np.sort(rng.uniform(0, 1, x_part))
+        px[-1] = 1.01
+    else:
+        px = np.linspace(0, 1, 1 + x_part)
+        px[-1] += 0.01
+        px = px[1:]
 
     # NB min. to max. x values of all spots (meeting tumor threshold).
     xrange = [np.min(range_coords[:, 0]), np.max(range_coords[:, 0])]
@@ -58,9 +41,13 @@ def fixed_rectangle_partition(
     )
 
     # NB same for y.
-    py = np.linspace(0, 1, y_part + 1)
-    py[-1] += 0.01
-    py = py[1:]
+    if random_state is not None:
+        py = np.sort(rng.uniform(0, 1, y_part))
+        py[-1] = 1.01
+    else:
+        py = np.linspace(0, 1, y_part + 1)
+        py[-1] += 0.01
+        py = py[1:]
 
     yrange = [np.min(range_coords[:, 1]), np.max(range_coords[:, 1])]
     ydigit = np.digitize(
@@ -90,7 +77,7 @@ def fixed_rectangle_partition(
 
 
 def initialize_clones(
-    coords, sample_ids, x_part, y_part, single_tumor_prop=None, threshold=None
+    coords, sample_ids, x_part, y_part, single_tumor_prop=None, threshold=None, random_state=None
 ):
     logger.info(
         f"Initializing clones given fixed grid partitions and max. sample_id={np.max(sample_ids)}"
@@ -120,6 +107,7 @@ def initialize_clones(
             y_part,
             this_tumor_prop,
             threshold=threshold,
+            random_state=random_state,
         )
 
         for x in tmp_clone_index:

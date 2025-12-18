@@ -562,7 +562,7 @@ def run_cnaster(config_path, over_rides=None):
         # TODO HACK
         x_part = y_part = 3
         initial_clone_index_baf, clone_id = fixed_rectangle_partition(
-            coords, x_part, y_part, single_tumor_prop=None, threshold=0.5
+            coords, x_part, y_part, single_tumor_prop=None, threshold=0.5, random_state=int(config.hmrf.random_state,)
         )
         """
         initial_clone_index_baf, clone_id, _ = sufficient_umis_initial_clone(

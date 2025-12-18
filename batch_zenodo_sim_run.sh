@@ -76,5 +76,6 @@ for SAMPLE_ID in "${SAMPLE_IDS[@]}"; do
             echo "run_cnaster failed for SAMPLE_ID=${SAMPLE_ID}, RANDOM_STATE=${RANDOM_STATE} (rc=${rc})" >&2
             mv "logs/cnaster_${SAMPLE_ID}_${RANDOM_STATE}.log" "errors/cnaster_${SAMPLE_ID}_${RANDOM_STATE}.err"
         fi
-    done    
+    done
+    break
 done

@@ -8,7 +8,7 @@ from numba import njit, prange
 from cnaster.icm import icm_sweep, wolff_sweep, unpack_adjacency, merge_assignment
 from cnaster.hmm import gmm_init, pipeline_baum_welch
 from cnaster.hmm_sitewise import hmm_sitewise
-from cnaster.hmrf_utils import cast_csr
+from cnaster.hmrf_utils import cast_csr, clone_stack_obs
 from cnaster.utils import count_calls
 from cnaster.hmm_initialize import plot_cna_mixture, cna_mixture_init
 from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
@@ -556,52 +556,6 @@ def aggr_hmrfmix_reassignment_concatenate(
         return new_assignment, single_llf, total_llf
 
 
-def clone_stack_obs(
-    X, base_nb_mean, total_bb_RD, lengths, log_sitewise_transmat, tumor_prop
-):
-    """
-    Reshape observation data from clone-wise format to stacked format for HMM processing.
-
-    Transforms multi-clone observation data by vertically stacking clones, converting
-    from (n_obs, 2, n_clones) format to (n_obs * n_clones, 2, 1) format where each
-    clone is treated as a separate observation sequence.
-    """
-    # NB vertical stacking of X, base_nb_mean, total_bb_RD, tumor_prop across clones,
-    # i.e. reshape observation data from (n_obs, 2, n_clones) to (n_obs * n_clones, 2, 1)
-    clone_stack_X = np.vstack(
-        [X[:, 0, :].flatten("F"), X[:, 1, :].flatten("F")]
-    ).T.reshape(-1, 2, 1)
-
-    # NB vertical stacking by clone, cast to column.
-    clone_stack_base_nb_mean = base_nb_mean.flatten("F").reshape(-1, 1)
-    clone_stack_total_bb_RD = total_bb_RD.flatten("F").reshape(-1, 1)
-
-    # NB replicate lengths N clone times, as derived from X - clone num. may change.
-    clone_stack_lengths = np.tile(lengths, X.shape[2])
-    clone_stack_sitewise_transmat = np.tile(log_sitewise_transmat, X.shape[2])
-
-    # NB per-clone tumor prop. repeated num_obs times.
-    stack_tumor_prop = (
-        np.repeat(tumor_prop, X.shape[0]).reshape(-1, 1)
-        if tumor_prop is not None
-        else None
-    )
-
-    logger.info(f"Stacked X from shape {X.shape} to {clone_stack_X.shape}.")
-    logger.info(
-        f"Stacked total_bb_RD from shape {total_bb_RD.shape} to {clone_stack_total_bb_RD.shape}."
-    )
-
-    return (
-        clone_stack_X,
-        clone_stack_base_nb_mean,
-        clone_stack_total_bb_RD,
-        clone_stack_lengths,
-        clone_stack_sitewise_transmat,
-        stack_tumor_prop,
-    )
-
-
 def validation_summary(
     lengths,
     X,
@@ -794,10 +748,9 @@ def hmrfmix_concatenate_pipeline(
             f"Plotting initial copy state mixture for instance {hmrfmix_concatenate_pipeline.call_count-1} with X.shape={X.shape}."
         )
 
-        X, base_nb_mean, total_bb_RD, tumor_prop
-
         n_states = init_p_binom.shape[0]
 
+        """
         plot_cna_mixture(
             (
                 np.tile(init_log_mu, n_clones).reshape(n_states, n_clones)
@@ -825,7 +778,8 @@ def hmrfmix_concatenate_pipeline(
             width=10,
             prefix=f"instance{hmrfmix_concatenate_pipeline.call_count-1}",
         )
-
+        """
+        """
         plot_cna_mixture(
             init_log_mu,
             init_alphas,
@@ -837,6 +791,7 @@ def hmrfmix_concatenate_pipeline(
             width=10,
             prefix=f"instance{hmrfmix_concatenate_pipeline.call_count-1}_clone",
         )
+        """
 
     last_log_mu = init_log_mu if "m" in params else None
     last_p_binom = init_p_binom if "p" in params else None

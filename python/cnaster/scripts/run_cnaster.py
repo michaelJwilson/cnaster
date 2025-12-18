@@ -3,9 +3,12 @@ import copy
 import time
 import logging
 import random
+import scipy
+import pylab as pl
 
 from networkx import config
 import numpy as np
+import matplotlib.pyplot as plt
 import pandas as pd
 import scipy
 import functools
@@ -75,6 +78,8 @@ from cnaster.plotting import (
 )
 from cnaster.reference import get_reference_recomb_rates
 from cnaster.perturb import perturb_phase
+from cnaster.hmm_emission import Weighted_BetaBinom
+from cnaster.hmm_utils import get_em_solver_params
 
 
 start_time = time.time()
@@ -216,10 +221,11 @@ def run_cnaster(config_path, over_rides=None):
         min_snp_umis=config.quality.spot_min_snp_umis,
         min_percent_expressed_spots=config.quality.min_percent_expressed_spots,
     )
-
+    """
     cell_snp_Aallele, cell_snp_Ballele = perturb_phase(
         cell_snp_Aallele, cell_snp_Ballele, 0.1
     )
+    """
 
     # NB e.g. 'AAACAAGTATCTCCCA-1_HT112C1-U1' currently.
     barcodes = adata.obs.index
@@ -371,7 +377,6 @@ def run_cnaster(config_path, over_rides=None):
             -1, 1
         ) @ spots_coverage.reshape(1, -1)
     else:
-        initial_clone_index_baf = None
         known_single_base_nb_mean = None
 
         # NB  rectangular partition across multiple slices.
@@ -383,11 +388,15 @@ def run_cnaster(config_path, over_rides=None):
             y_part=config.phasing.npart_phasing,
         )
 
+        # NB reference assignment, not a copy.
+        initial_clone_index_baf = initial_clone_for_phasing
+
+    initial_clone_pseudobulk = [[ii for ii in range(len(coords))]]
     pseudobulk_clones_genomic = plot_clones_genomic_simple(
         single_X,
         single_base_nb_mean,
         single_total_bb_RD,
-        [[ii for ii in range(len(coords))]],
+        initial_clone_pseudobulk,
         lengths,
         single_tumor_prop=single_tumor_prop,
         sample_list=sample_list,
@@ -397,6 +406,65 @@ def run_cnaster(config_path, over_rides=None):
     write_fig(
         fig_path, pseudobulk_clones_genomic, transparent=True, bbox_inches="tight"
     )
+
+    X, base_nb_mean, total_bb_RD, _ =  merge_pseudobulk_by_index_mix(
+        single_X,
+        single_base_nb_mean,
+        single_total_bb_RD,
+        initial_clone_pseudobulk,
+        single_tumor_prop,
+    )
+
+    mask = single_total_bb_RD > 0
+    model = Weighted_BetaBinom(
+        X[:, 1, :].flatten(), np.ones(len(X[:, 1, :].flatten())), weights=np.ones(len(X[:, 1, :].flatten())), exposure=total_bb_RD.flatten()
+    )
+
+    # LEGACY
+    settings = get_em_solver_params()
+    res = model.fit(**settings)
+
+    ln_pbetabinom = scipy.stats.betabinom.logpmf(
+        X[:, 1, :],
+        total_bb_RD,
+        res.params[0] * res.params[1],
+        (1.0 - res.params[0]) * res.params[1],
+    ).sum(axis=-1)
+
+    outlier_mask = ln_pbetabinom < np.percentile(ln_pbetabinom, 30)
+    initial_clone_fine_partition, _ = fixed_rectangle_partition(
+        coords,
+        5,
+        5,
+        single_tumor_prop=None,
+    )
+
+    X, base_nb_mean, total_bb_RD, _ =  merge_pseudobulk_by_index_mix(
+        single_X,
+        single_base_nb_mean,
+        single_total_bb_RD,
+        initial_clone_fine_partition,
+        single_tumor_prop,
+    )
+
+    # NB Calculate prob. per spot using only informative segments
+    spot_ln_pbinom = scipy.stats.betabinom.logpmf(
+        X[outlier_mask, 1, :], 
+        total_bb_RD[outlier_mask, :], 
+        res.params[0] * res.params[1],
+        (1.0 - res.params[0]) * res.params[1],
+    ).sum(axis=0)
+
+    normal_candidates = np.where(spot_ln_pbinom > np.percentile(spot_ln_pbinom, 80))[0]
+    normal_candidates = np.concatenate([initial_clone_fine_partition[i] for i in normal_candidates]).tolist()
+
+    updated_clones = [normal_candidates]
+    for indices in initial_clone_for_phasing:
+        filtered_indices = np.setdiff1d(indices, normal_candidates)
+        if len(filtered_indices) > 0:
+            updated_clones.append(filtered_indices)
+    
+    initial_clone_for_phasing = updated_clones
 
     assignment = np.full(len(coords), -1, dtype=int)
 
@@ -531,6 +599,8 @@ def run_cnaster(config_path, over_rides=None):
         fig_path, postphasing_clones_genomic, transparent=True, bbox_inches="tight"
     )
 
+    exit(0)
+
     # NB sparse transcript counts (spot, gene).
     exp_counts = pd.DataFrame.sparse.from_spmatrix(
         scipy.sparse.csc_matrix(adata.layers["count"]),
@@ -603,6 +673,13 @@ def run_cnaster(config_path, over_rides=None):
             random_state=int(config.hmrf.random_state),
         )
         """
+    else:
+        n_spots = sum(len(indices) for indices in initial_clone_index_baf)
+
+        clone_id = np.full(n_spots, -1, dtype=int)
+
+        for idx, indices in enumerate(initial_clone_index_baf):
+            clone_id[indices] = idx
 
     # NB trigger summary for initial clones, per single_X=1 etc.
     merge_pseudobulk_by_index_mix(
@@ -759,6 +836,8 @@ def run_cnaster(config_path, over_rides=None):
 
     fig_path = f"{plots_dir}/bafonly_clones_genomic.pdf"
     write_fig(fig_path, bafonly_clones_genomic, transparent=True, bbox_inches="tight")
+
+    exit(0)
 
     if config.hmrf.np_merge:
         # NB merge similar clones based on Neyman-Pearson

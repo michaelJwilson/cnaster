@@ -683,6 +683,7 @@ def icm_sweep(
     sample_ids=None,
     cost_zeropoint=0.0,
     temp=1.0,
+    min_clone_spots=300,
 ):
     # NB ICM is guranteed to converge to a local (maximum).
     n_spots, n_clones = single_llf.shape
@@ -737,14 +738,36 @@ def icm_sweep(
             norm = logsumexp(assignment_cost)
             posterior[i, :] = np.exp(assignment_cost - norm)
 
+        if min_clone_spots > 0:
+            clone_counts = np.zeros(n_clones, dtype=np.int32)
+
+            for i in range(n_spots):
+                clone_counts[new_assignment[i]] += 1
+
+            # NB calculate eligible re-assignments.
+            eligible = []
+            
+            for k in range(n_clones):
+                if clone_counts[k] >= min_clone_spots:
+                    eligible.append(k)
+
+            eligible = np.array(eligible, dtype=np.int32)
+
+            for c in range(n_clones):
+                if clone_counts[c] < min_clone_spots and clone_counts[c] > 0:
+                    for i in range(n_spots):
+                        if new_assignment[i] == c:
+                            if len(eligible) > 0:
+                                new_label = eligible[np.random.randint(len(eligible))]
+                                new_assignment[i] = new_label
+
+                                clone_counts[c] -= 1
+                                clone_counts[new_label] += 1
+
+                                edit += 1
+
         edit_rate = edits / n_spots
         niter += 1
-
-        # TODO not njit friendly.
-        # unique_assignment, cnts = np.unique(new_assignment, return_counts=True)
-
-        # logger.info(f"Found ICM edit_rate={edit_rate:.6f} for iteration {niter}.")
-        # logger.info(f"Found ICM inferred clone proportions: {cnts / n_spots}")
 
         if edit_rate <= tol:
             break

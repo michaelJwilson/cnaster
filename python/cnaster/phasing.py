@@ -53,23 +53,35 @@ def initial_phase_given_partition(
         threshold=threshold,
     )
 
+    # NB force baf < 0.5 by taking (1. - single_X[:,1,:]) where single_X[:,1,:]) / single_total_bb_RD > 0.5
+    baf = X[:, 1, :] / total_bb_RD
+    minor_counts = np.where(
+        baf > 0.5,
+        total_bb_RD - X[:, 1, :],
+        X[:, 1, :]
+    )
+
+    minor_X = np.zeros_like(X)
+    minor_X[:, 0, :] = X[:, 0, :]
+    minor_X[:, 1, :] = minor_counts
+
     # NB (initial clones, segments).
     n_clones = X.shape[2]
 
     (
-        clone_stack_X,
+        clone_stack_minor_X,
         clone_stack_base_nb_mean,
         clone_stack_total_bb_RD,
         clone_stack_lengths,
         clone_stack_sitewise_transmat,
-        stack_tumor_prop,
+        clone_stack_tumor_prop,
     ) = clone_stack_obs(
-        X, base_nb_mean, total_bb_RD, lengths, log_sitewise_transmat, tumor_prop
+        minor_X, base_nb_mean, total_bb_RD, lengths, log_sitewise_transmat, tumor_prop
     )
 
     init_log_mu, init_p_binom = gmm_init(
         n_states,
-        clone_stack_X,
+        clone_stack_minor_X,               
         clone_stack_base_nb_mean,
         clone_stack_total_bb_RD,
         params,
@@ -80,13 +92,13 @@ def initial_phase_given_partition(
 
     res = pipeline_baum_welch(
         None,
-        clone_stack_X,
+        clone_stack_minor_X,
         clone_stack_lengths,
         n_states,
         clone_stack_base_nb_mean,
         clone_stack_total_bb_RD,
         clone_stack_sitewise_transmat,
-        stack_tumor_prop,
+        clone_stack_tumor_prop,
         hmmclass=hmm_nophasing,
         params=params,
         t=t,

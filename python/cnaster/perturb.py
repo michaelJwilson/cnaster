@@ -1,6 +1,6 @@
 import numpy as np
 
-def perturb_phase(cell_snp_Aallele, cell_snp_Ballele):
+def perturb_phase(cell_snp_Aallele, cell_snp_Ballele, switch_rate):
     n_snps = cell_snp_Aallele.shape[1]
 
     # Generate random switches: True means a switch occurs at this SNP

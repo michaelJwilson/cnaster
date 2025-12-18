@@ -391,20 +391,12 @@ def run_cnaster(config_path, over_rides=None):
         lengths,
         single_tumor_prop=single_tumor_prop,
         sample_list=sample_list,
-        remove_xticks=True,
-        rdr_ylim=6,
-        chrtext_shift=-0.2,
-        base_height=3.2,
-        pointsize=5,
-        linewidth=1,
     )
 
     fig_path = f"{plots_dir}/pseudobulk_clones_genomic.pdf"
     write_fig(
         fig_path, pseudobulk_clones_genomic, transparent=True, bbox_inches="tight"
     )
-
-    exit(0)
 
     assignment = np.full(len(coords), -1, dtype=int)
 
@@ -434,12 +426,6 @@ def run_cnaster(config_path, over_rides=None):
         lengths,
         single_tumor_prop=single_tumor_prop,
         sample_list=sample_list,
-        remove_xticks=True,
-        rdr_ylim=6,
-        chrtext_shift=-0.2,
-        base_height=3.2,
-        pointsize=5,
-        linewidth=1,
     )
 
     fig_path = f"{plots_dir}/prephasing_clones_genomic.pdf"
@@ -538,12 +524,6 @@ def run_cnaster(config_path, over_rides=None):
         lengths,
         single_tumor_prop=None,
         sample_list=sample_list,
-        remove_xticks=True,
-        rdr_ylim=6,
-        chrtext_shift=-0.2,
-        base_height=3.2,
-        pointsize=5,
-        linewidth=1,
     )
 
     fig_path = f"{plots_dir}/postphasing_clones_genomic.pdf"

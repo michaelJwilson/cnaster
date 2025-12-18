@@ -188,21 +188,19 @@ def run_cnaster(config_path, over_rides=None):
     #    cell_snp_Ballele: haplotype H1 counts (barcode x snp).
     #    unique_snp_ids: {contig}_{pos}_{ref}_{alt} for all snps.
     #    across_slice_adjacency_mat: ...    
-    input_data = load_input_data(
-        config,
-        filter_gene_file=config.references.filtergenelist_file,
-        filter_range_file=config.references.filterregion_file,
-        min_snp_umis=config.quality.spot_min_snp_umis,
-        min_percent_expressed_spots=config.quality.min_percent_expressed_spots,
-    )
-    
     (
         adata,
         cell_snp_Aallele,
         cell_snp_Ballele,
         unique_snp_ids,
         across_slice_adjacency_mat,
-    ) = input_data
+    ) = load_input_data(
+        config,
+	filter_gene_file=config.references.filtergenelist_file,
+        filter_range_file=config.references.filterregion_file,
+	min_snp_umis=config.quality.spot_min_snp_umis,
+        min_percent_expressed_spots=config.quality.min_percent_expressed_spots,
+    )
     
     # NB e.g. 'AAACAAGTATCTCCCA-1_HT112C1-U1' currently.
     barcodes = adata.obs.index
@@ -369,7 +367,7 @@ def run_cnaster(config_path, over_rides=None):
 	single_X,
         single_base_nb_mean,
         single_total_bb_RD,
-        [[ii] for ii in range(len(coords))],
+        [ii for ii in range(len(coords))],
         lengths,
         single_tumor_prop=single_tumor_prop,
         sample_list=sample_list,

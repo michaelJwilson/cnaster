@@ -389,7 +389,8 @@ def run_cnaster(config_path, over_rides=None):
         )
 
         # NB reference assignment, not a copy.
-        initial_clone_index_baf = initial_clone_for_phasing
+        # initial_clone_index_baf = initial_clone_for_phasing
+        initial_clone_index_baf = None
 
     initial_clone_pseudobulk = [[ii for ii in range(len(coords))]]
     pseudobulk_clones_genomic = plot_clones_genomic_simple(
@@ -652,17 +653,17 @@ def run_cnaster(config_path, over_rides=None):
             coords, config.hmrf.n_clones, random_state=0
         )
         """
-        # TODO HACK
         x_part = y_part = 3
-        initial_clone_index_baf, clone_id = fixed_rectangle_partition(
+        initial_clone_index_baf, _ = fixed_rectangle_partition(
             coords,
             x_part,
             y_part,
             single_tumor_prop=None,
             threshold=0.5,  # random_state=int(config.hmrf.random_state,)
         )
+
         """
-        initial_clone_index_baf, clone_id, _ = sufficient_umis_initial_clone(
+        initial_clone_index_baf, _, _ = sufficient_umis_initial_clone(
             coords,
             single_X[:,0,:],
             sample_list,
@@ -671,13 +672,22 @@ def run_cnaster(config_path, over_rides=None):
             random_state=int(config.hmrf.random_state),
         )
         """
-    else:
-        n_spots = sum(len(indices) for indices in initial_clone_index_baf)
 
-        clone_id = np.full(n_spots, -1, dtype=int)
+        updated_clones = [normal_candidates]
 
-        for idx, indices in enumerate(initial_clone_index_baf):
-            clone_id[indices] = idx
+        for indices in initial_clone_index_baf:
+            filtered_indices = np.setdiff1d(indices, normal_candidates)
+
+            if len(filtered_indices) > 0:
+                updated_clones.append(filtered_indices)
+    
+        initial_clone_index_baf = updated_clones
+
+    n_spots = sum(len(indices) for indices in initial_clone_index_baf)    
+    clone_id = np.full(n_spots, -1, dtype=int)
+
+    for idx, indices in enumerate(initial_clone_index_baf):
+        clone_id[indices] = idx
 
     # NB trigger summary for initial clones, per single_X=1 etc.
     merge_pseudobulk_by_index_mix(
@@ -834,8 +844,6 @@ def run_cnaster(config_path, over_rides=None):
 
     fig_path = f"{plots_dir}/bafonly_clones_genomic.pdf"
     write_fig(fig_path, bafonly_clones_genomic, transparent=True, bbox_inches="tight")
-
-    exit(0)
 
     if config.hmrf.np_merge:
         # NB merge similar clones based on Neyman-Pearson

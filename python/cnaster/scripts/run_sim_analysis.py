@@ -850,8 +850,11 @@ def get_sample_estimate(root, sample_id, method, rectangle, cna_only=False):
 def get_best_sample_estimate(root, sample_id, method, cna_only=False):
     best_rectangle, best_loglike = None, -np.inf
 
+    loglikes = []
+    
     for rectangle in range(10):
         loglike = get_sample_loglike(root, sample_id, method, rectangle)
+        loglikes.append(loglike)
 
         if loglike is None:
             if rectangle < 5:
@@ -863,7 +866,7 @@ def get_best_sample_estimate(root, sample_id, method, cna_only=False):
             best_loglike = loglike
 
     logger.info(
-        f"Found best {method} initialization={best_rectangle} with loglike={best_loglike:.6e}"
+        f"Found best {method} initialization={best_rectangle} with loglike={best_loglike:.6e} and likelihoods=\n{loglikes}"
     )
 
     best_spot_cna = get_sample_estimate(
@@ -1174,8 +1177,9 @@ def main():
     # "numcnas1.2_cnasize1e7_ploidy2_random0",
     # "numcnas3.3_cnasize3e7_ploidy2_random0",
     # "numcnas3.3_cnasize5e7_ploidy2_random0",
-
-    sample_ids = ["numcnas6.3_cnasize5e7_ploidy2_random6"]
+    # "numcnas6.3_cnasize5e7_ploidy2_random6"
+    
+    sample_ids = ["numcnas3.3_cnasize3e7_ploidy2_random9"]
     """
     sample_ids = [
         xx.split("/")[-1]

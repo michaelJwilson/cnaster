@@ -562,7 +562,7 @@ def run_cnaster(config_path, over_rides=None):
         # TODO HACK
         x_part = y_part = 3
         initial_clone_index_baf, clone_id = fixed_rectangle_partition(
-            coords, x_part, y_part, single_tumor_prop=None, threshold=0.5, random_state=int(config.hmrf.random_state,)
+            coords, x_part, y_part, single_tumor_prop=None, threshold=0.5, # random_state=int(config.hmrf.random_state,)
         )
         """
         initial_clone_index_baf, clone_id, _ = sufficient_umis_initial_clone(
@@ -730,6 +730,8 @@ def run_cnaster(config_path, over_rides=None):
 
     fig_path = f"{plots_dir}/bafonly_clones_genomic.pdf"
     write_fig(fig_path, bafonly_clones_genomic, transparent=True, bbox_inches="tight")
+
+    exit(0)
     
     if config.hmrf.np_merge:
         # NB merge similar clones based on Neyman-Pearson

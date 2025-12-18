@@ -594,8 +594,8 @@ def calc_assignment_cost(
 
 
 # TODO
-@njit(cache=True)
-def calc_merge_cost(
+# @njit(cache=True)
+def merge_assignment(
     single_llf,
     adj_spots,
     adj_neighbors,
@@ -644,6 +644,7 @@ def calc_merge_cost(
     for c in range(n_clones):
         current_unary_cost += unary_sum[c, c]
 
+    # NB meets validation of cost given by calc_assignment_cost.
     current_total_cost = current_unary_cost + current_spatial_cost
 
     best_merge_cost = -np.inf
@@ -663,7 +664,9 @@ def calc_merge_cost(
                     best_merge_cost = current_total_cost + delta_u_to_v
                     best_merge_pair = (u, v)
 
-    return best_merge_cost, best_merge_pair
+    logger.info(f"Found best merge pair {best_merge_pair} with dC={best_merge_cost - current_total_cost:.6e}.")
+
+    return current_total_cost, best_merge_cost, best_merge_pair
 
 
 @njit(cache=True)
@@ -680,7 +683,6 @@ def icm_sweep(
     sample_ids=None,
     cost_zeropoint=0.0,
     temp=1.0,
-    merge=False,
 ):
     # NB ICM is guranteed to converge to a local (maximum).
     n_spots, n_clones = single_llf.shape
@@ -747,26 +749,5 @@ def icm_sweep(
         if edit_rate <= tol:
             break
 
-    if merge:
-        while True:
-            best_merge_cost, best_merge_pair = calc_merge_cost(
-                single_llf,
-                adj_spots,
-                adj_neighbors,
-                adj_weights,
-                new_assignment,
-                spatial_weight,
-                log_persample_weights=log_persample_weights,
-                sample_ids=sample_ids,
-            )
-
-            if best_merge_cost > cost:
-                u, v = best_merge_pair
-
-                for i in range(n_spots):
-                    if new_assignment[i] == u:
-                        new_assignment[i] = v
-                cost = best_merge_cost
-            else:
-                break
     return niter, cost
+

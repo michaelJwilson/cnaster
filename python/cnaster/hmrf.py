@@ -5,7 +5,7 @@ import time
 import numpy as np
 import scipy.special
 from numba import njit, prange
-from cnaster.icm import icm_sweep, wolff_sweep, unpack_adjacency
+from cnaster.icm import icm_sweep, wolff_sweep, unpack_adjacency, merge_assignment
 from cnaster.hmm import gmm_init, pipeline_baum_welch
 from cnaster.hmm_sitewise import hmm_sitewise
 from cnaster.hmrf_utils import cast_csr
@@ -488,10 +488,40 @@ def aggr_hmrfmix_reassignment_concatenate(
             new_assignment,
             spatial_weight,
             posterior,
-            tol=0.1,  # MAGIC TODO
+            # tol=0.1,  # MAGIC TODO
             log_persample_weights=log_persample_weights,
             sample_ids=sample_ids,
         )
+
+        while True:
+            new_cost, best_merge_cost, best_merge_pair = merge_assignment(
+                single_llf,
+                adj_spots,
+                adj_neighbors,
+                adj_weights,
+                new_assignment,
+                spatial_weight,
+                log_persample_weights=log_persample_weights,
+                sample_ids=sample_ids,
+            )
+
+            if best_merge_cost > new_cost:
+                u, v = best_merge_pair
+                num_merged_spots = 0
+
+                for i in range(len(new_assignment)):
+                    if new_assignment[i] == u:
+                        new_assignment[i] = v
+                        num_merged_spots += 1
+
+                logger.info(f"Merged {num_merged_spots} spots from clone {u} into clone {v} with new cost {best_merge_cost:.6e} given initial cost={cost:.6e}.")
+                new_cost = best_merge_cost
+            else:
+                logger.info(f"No more beneficial merges available (latest dC={best_merge_cost - new_cost:.6e}).")
+                break
+
+        exit(0)
+
         """
         niter, new_cost = wolff_sweep(
         single_llf,
@@ -508,7 +538,7 @@ def aggr_hmrfmix_reassignment_concatenate(
         _, cnts = np.unique(new_assignment, return_counts=True)
 
         logger.info(
-            f"Solved for updated clone labels with new cost {new_cost:.6e} and clone breakdown={cnts} in {niter} iterations (took {time.time() - start_time:.2f} seconds)."
+            f"Solved for updated clone labels with new cost {new_cost:.6e} in {niter} iterations (took {time.time() - start_time:.2f} seconds with clone breakdown=\n{cnts})."
         )
 
     # NB compute total ln likelihood.

@@ -17,7 +17,7 @@ def form_gene_snp_table(
     hgtable_file,
     adata,
     verbose=False,
-    num_preceeding_rows=1_000,  # MAGIC
+    num_preceeding_rows=100,  # MAGIC
 ):
     logger.info(f"Forming gene & snp meta data.")
 

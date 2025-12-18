@@ -8,7 +8,7 @@ SEED=12345
 # RANDOM_STATES=(0)
 RANDOM_STATES=(0 1 2 3 4)
 USE_EXISTING=false
-MAX_JOBS=3
+MAX_JOBS=2
 
 # SAMPLE_IDS=("numcnas1.2_cnasize1e7_ploidy2_random0")
 # SAMPLE_IDS=("numcnas3.3_cnasize3e7_ploidy2_random0")

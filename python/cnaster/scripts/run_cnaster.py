@@ -599,8 +599,6 @@ def run_cnaster(config_path, over_rides=None):
         fig_path, postphasing_clones_genomic, transparent=True, bbox_inches="tight"
     )
 
-    exit(0)
-
     # NB sparse transcript counts (spot, gene).
     exp_counts = pd.DataFrame.sparse.from_spmatrix(
         scipy.sparse.csc_matrix(adata.layers["count"]),

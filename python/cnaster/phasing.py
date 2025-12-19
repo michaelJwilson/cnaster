@@ -33,6 +33,7 @@ def initial_phase_given_partition(
     max_iter,
     tol,
     threshold,
+    known_normal=False,
     # min_snpumi=2e3,
 ):
     assert np.all(single_base_nb_mean == 0)
@@ -170,7 +171,7 @@ def initial_phase_given_partition(
 
     # NB phase_indicator is the majority vote across clones; assuming normal is clone 0.
     phase_indicator = np.zeros(X.shape[0], dtype=int)
-    phase_votes = phase_profiles[1:, :]
+    phase_votes = phase_profiles[1:, :] if known_normal else phase_profiles[:,:]
 
     for idx in range(X.shape[0]):
         valid_votes = phase_votes[:, idx][phase_votes[:, idx] != -1]

@@ -435,8 +435,8 @@ def run_cnaster(config_path, over_rides=None):
     outlier_mask = ln_pbetabinom < np.percentile(ln_pbetabinom, 30)
     initial_clone_fine_partition, _ = fixed_rectangle_partition(
         coords,
-        5,
-        5,
+        10, # TODO 
+        10, # TODO
         single_tumor_prop=None,
     )
 
@@ -600,6 +600,21 @@ def run_cnaster(config_path, over_rides=None):
     fig_path = f"{plots_dir}/postphasing_clones_genomic.pdf"
     write_fig(
         fig_path, postphasing_clones_genomic, transparent=True, bbox_inches="tight"
+    )
+
+    pseudobulk_clones_genomic = plot_clones_genomic_simple(
+        single_X,
+        single_base_nb_mean,
+        single_total_bb_RD,
+        initial_clone_pseudobulk,
+        lengths,
+        single_tumor_prop=single_tumor_prop,
+        sample_list=sample_list,
+    )
+
+    fig_path = f"{plots_dir}/postphasing_pseudobulk_clones_genomic.pdf"
+    write_fig(
+        fig_path, pseudobulk_clones_genomic, transparent=True, bbox_inches="tight"
     )
     
     # NB sparse transcript counts (spot, gene).
@@ -925,6 +940,8 @@ def run_cnaster(config_path, over_rides=None):
     write_fig(
         fig_path, merged_bafonly_clones_genomic, transparent=True, bbox_inches="tight"
     )
+
+    exit(0)
 
     # NB construct clone labels.
     df_clone_label = pd.DataFrame(

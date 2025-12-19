@@ -465,7 +465,7 @@ def plot_clones_genomic_simple(
         if res is not None:
             # NB for all clones
             max_pred = np.argmax(res["log_gamma"], axis=0)
-            this_pred = max_pred[(c * n_obs) : (c * n_obs + n_obs)]
+            this_pred = max_pred[(c * n_obs) : (c * n_obs + n_obs)] % res["n_states"]
 
             segments, labs = get_intervals(this_pred)
                 
@@ -474,7 +474,7 @@ def plot_clones_genomic_simple(
 
             for i, (seg, state) in enumerate(zip(segments, labs)):
                 if has_rdr:
-                    ax.plot(
+                    axes[ax_idx].plot(
                         seg, 
                         [mus[state], mus[state]], 
                         c="k", 

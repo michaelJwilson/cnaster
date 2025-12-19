@@ -243,4 +243,5 @@ def pipeline_baum_welch(
         "log_gamma": log_gamma,
         "pred_cnv": pred_cnv,
         "llf": llf,
+        "n_states" : n_states
     }

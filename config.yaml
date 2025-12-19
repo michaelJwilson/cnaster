@@ -64,7 +64,7 @@ phasing:
   npart_phasing : 2
   baf_change_threshold : 0.05
   min_new_segment_size : 10
-  min_prob : 1.0e-2
+  min_prob : 1.0e-1
 
 # TODO HACK max_iter_outer : 20 ->
 #           spatial_weight : 1.0 ->

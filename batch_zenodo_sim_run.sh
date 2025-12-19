@@ -30,7 +30,7 @@ SAMPLE_IDS=($(printf "%s\n" "${SAMPLE_IDS[@]}" | gshuf --random-source=<(yes $SE
 # RANDOM_STATES=(3)
 # SAMPLE_IDS=("numcnas6.3_cnasize3e7_ploidy2_random4")
 
-# RANDOM_STATES=(0)
+RANDOM_STATES=(0)
 SAMPLE_IDS=("numcnas6.3_cnasize5e7_ploidy2_random6")
 
 # echo "${SAMPLE_IDS[@]}"

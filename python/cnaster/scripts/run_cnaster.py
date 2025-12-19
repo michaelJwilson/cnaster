@@ -1686,18 +1686,6 @@ def run_cnaster(config_path, over_rides=None):
         f"Inferred final clones=\n{final_clones}\nwith fractions=\n{final_clone_counts/np.sum(final_clone_counts)}."
     )
 
-    """
-    # UGH HACK? merge small clones ... again
-    _, res_combine = merge_by_minspots(
-        res_combine["new_assignment"],
-        res_combine,
-        single_total_bb_RD,
-        min_spots_thresholds=config.hmrf.min_spots_per_clone,
-        min_umicount_thresholds=n_obs * config.hmrf.min_avgumi_per_clone, # MAGIC 31_420 SNP UMIs
-        single_tumor_prop=single_tumor_prop,
-        threshold=config.hmrf.tumorprop_threshold,
-    )
-    """
     # NB re-order clones such that the normal clone is always 0.
     res_combine, posterior = reindex_clones(res_combine, posterior, single_tumor_prop)
 

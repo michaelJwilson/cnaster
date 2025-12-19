@@ -1137,6 +1137,7 @@ def aggr_hmrf_reassignment(
     merge=True,
 ):
     # LEGACY single ICM move per spot, i.e. likely to be ill converged.
+    #        assumes parameters are a stack across clones.
     n_spots = single_X.shape[2]
     n_obs = single_X.shape[0]
 

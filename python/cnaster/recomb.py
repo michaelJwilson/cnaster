@@ -1,12 +1,13 @@
 import logging
 
 import numpy as np
+from cnaster.config import get_global_config
 
 logger = logging.getLogger(__name__)
 
 
 def compute_numbat_phase_switch_prob(
-    position_cM, chr_pos_vector, nu=1.0, min_prob=1.0e-20
+    position_cM, chr_pos_vector, nu=1.0, min_prob=None
 ):
     """
     Attributes
@@ -17,6 +18,9 @@ def compute_numbat_phase_switch_prob(
     chr_pos_vector : list of pairs
         list of (chr, pos) pairs of SNPs. It is used to identify start of a new chr.
     """
+    if min_prob is None:
+        min_prob = get_global_config().phasing.min_prob
+    
     logger.info(f"Computing numbat phase switch probabilities assuming nu={nu}.")
     logger.info(
         f"position_cM has {100. * np.mean(np.isnan(position_cM))}% NAN content."
@@ -42,6 +46,8 @@ def compute_numbat_phase_switch_prob(
         # NB numbat definition;
         phase_switch_prob[i] = (1.0 - np.exp(-2.0 * nu * d)) / 2.0
 
+    logger.info(f"Solved for max phase switch prob. = {np.max(phase_switch_prob)}")
+        
     under_flowed = phase_switch_prob < min_prob
 
     logger.info(

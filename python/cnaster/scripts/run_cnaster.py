@@ -592,7 +592,7 @@ def run_cnaster(config_path, over_rides=None):
         single_total_bb_RD,
         initial_clone_for_phasing,
         lengths,
-        res=phase_res,
+        res=None, # TODO
         single_tumor_prop=None,
         sample_list=sample_list,
     )
@@ -601,8 +601,6 @@ def run_cnaster(config_path, over_rides=None):
     write_fig(
         fig_path, postphasing_clones_genomic, transparent=True, bbox_inches="tight"
     )
-
-    exit(0)
     
     # NB sparse transcript counts (spot, gene).
     exp_counts = pd.DataFrame.sparse.from_spmatrix(

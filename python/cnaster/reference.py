@@ -47,7 +47,7 @@ def get_reference_genes(hgtable_file, legacy=False):
         )
     else:
         # TODO rename_attr=True
-        df_hgtable = pr.read_gtf(config.references.annotation_file)
+        df_hgtable = pr.read_gtf(config.references.annotation_file, full=True)
         df_hgtable = df_hgtable.query("Feature == 'gene'").drop_duplicates(
             "gene_id", keep="first"
         )

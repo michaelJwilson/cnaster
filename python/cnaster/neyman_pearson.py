@@ -501,7 +501,7 @@ def combine_similar_states_across_clones(
     tumor_prop=None,
     hmmclass=hmm_sitewise,
     merge_threshold=0.1,
-    **kwargs,
+    # **kwargs,
 ):
     n_obs, _, n_clones = X.shape
     n_states = res["new_p_binom"].shape[0]

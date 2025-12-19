@@ -1591,11 +1591,24 @@ def run_cnaster(config_path, over_rides=None):
 
         offset_clone += n_merged_clones
 
+    # TODO BUG?? prev_assignment or new_assignment?
+    n_final_clones = len(np.unique(res_combine["prev_assignment"]))
+
+    logger.info(f"Inferred {n_final_clones} clones given RDR & BAF data.")
+
     logger.info(
-        f"Assuming max. alpha dispersion between clones given current:\n{res_combine['new_alphas']}"
+        f"Found rdr-split clone rdrs:\n{np.exp(res_combine['new_log_mu'])}."
+    )
+
+    logger.info(
+        f"Found rdr-split clone bafs:\n{res_combine['new_p_binom']}."
+    )
+
+    logger.info(
+        f"Assuming max. alpha dispersion={np.max(res_combine['new_alphas']):.4f} between clones given current:\n{res_combine['new_alphas']}"
     )
     logger.info(
-        f"Assuming min. tau dispersion between clones given current:\n{res_combine['new_taus']}"
+        f"Assuming min. tau dispersion={np.min(res_combine['new_taus']):.4f} between clones given current:\n{res_combine['new_taus']}"
     )
 
     # HACK broadcast max. dispersion - parameters assumed to be shared across rdr-split clones only.
@@ -1604,11 +1617,6 @@ def run_cnaster(config_path, over_rides=None):
     # HACK broadcast min. dispersion across all clones; tau is total pseduocounts for BAF
     #      min. is least significant.
     res_combine["new_taus"][:, :] = np.min(res_combine["new_taus"])
-
-    # TODO BUG?? prev_assignment or new_assignment?
-    n_final_clones = len(np.unique(res_combine["prev_assignment"]))
-
-    logger.info(f"Inferred {n_final_clones} clones given RDR & BAF data.")
 
     log_persample_weights = np.zeros((n_final_clones, len(sample_list)))
 
@@ -1687,7 +1695,7 @@ def run_cnaster(config_path, over_rides=None):
     )
 
     # NB re-order clones such that the normal clone is always 0.
-    res_combine, posterior = reindex_clones(res_combine, posterior, single_tumor_prop)
+    res_combine, _ = reindex_clones(res_combine, posterior=None, single_tumor_prop=None)
 
     # TODO new_log_startprob - add to res_combine above.
     for key in [

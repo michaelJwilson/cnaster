@@ -908,13 +908,12 @@ def hmrfmix_concatenate_pipeline(
     return res
 
 
-def reindex_clones(res_combine, posterior, single_tumor_prop):
+def reindex_clones(res_combine, posterior=None, single_tumor_prop=None):
     EPS_BAF = 0.05  # MAGIC
-    n_spots = posterior.shape[0]
+    n_spots = len(res_combine["new_assignment"])
     n_obs = res_combine["pred_cnv"].shape[0]
     n_states, n_clones = res_combine["new_p_binom"].shape
     new_res_combine = copy.copy(res_combine)
-    new_posterior = copy.copy(posterior)
 
     if single_tumor_prop is None:
         # NB select 'near-normal' clone and set to clone 0
@@ -944,7 +943,12 @@ def reindex_clones(res_combine, posterior, single_tumor_prop):
         new_res_combine["new_taus"] = res_combine["new_taus"][:, reidx]
         new_res_combine["log_gamma"] = res_combine["log_gamma"][:, :, reidx]
         new_res_combine["pred_cnv"] = res_combine["pred_cnv"][:, reidx]
-        new_posterior = new_posterior[:, reidx]
+
+        if posterior is not None:
+            new_posterior = copy.copy(posterior)
+            new_posterior = new_posterior[:, reidx]
+        else:
+            new_posterior = None
     else:
         # LEGACY BUG?
         raise RuntimeError()
@@ -1130,79 +1134,132 @@ def aggr_hmrf_reassignment(
     spatial_weight,
     hmmclass=hmm_sitewise,
     return_posterior=False,
+    merge=True,
 ):
-    N = single_X.shape[2]
+    # LEGACY single ICM move per spot, i.e. likely to be ill converged.
+    n_spots = single_X.shape[2]
     n_obs = single_X.shape[0]
+
+    # NB clone stack of emission states.
     n_clones = res["new_log_mu"].shape[1]
+    # n_states = res["new_p_binom"].shape[0]
+    single_llf = np.zeros((n_spots, n_clones))
+    new_assignment = copy.copy(prev_assignment)
 
-    # Pool data by smooth mat (no mixture)
-    pooled_X, pooled_base_nb_mean, pooled_total_bb_RD, _, _ = pool_hmrf_data(
-        single_X,
-        single_base_nb_mean,
-        single_total_bb_RD,
-        smooth_mat.indices,
-        smooth_mat.indptr,
-        single_tumor_prop=None,
-        use_mixture=False,
-    )
+    posterior = np.zeros((n_spots, n_clones))
 
-    tmp_log_emission_rdr, tmp_log_emission_baf = hmmclass.compute_emission_probability_nb_betabinom(
-        pooled_X,
-        pooled_base_nb_mean,
-        res["new_log_mu"], 
-        res["new_alphas"],
-        pooled_total_bb_RD,
-        res["new_p_binom"],
-        res["new_taus"],
-    )
+    # UGH 
+    for i in range(n_spots):
+        idx = smooth_mat[i, :].nonzero()[1]
 
-    # Number of non-zero nb_base and bb_total per spot
-    nz_nb_base = (single_base_nb_mean > 0).sum(axis=0)
-    nz_bb_total = (single_total_bb_RD > 0).sum(axis=0)
+        for c in range(n_clones):
+            (
+                tmp_log_emission_rdr,
+                tmp_log_emission_baf,
+            ) = hmmclass.compute_emission_probability_nb_betabinom(
+                np.sum(single_X[:, :, idx], axis=2, keepdims=True),
+                np.sum(single_base_nb_mean[:, idx], axis=1, keepdims=True),
+                res["new_log_mu"][:, c : (c + 1)],
+                res["new_alphas"][:, c : (c + 1)],
+                np.sum(single_total_bb_RD[:, idx], axis=1, keepdims=True),
+                res["new_p_binom"][:, c : (c + 1)],
+                res["new_taus"][:, c : (c + 1)],
+            )
+            if (
+                np.sum(single_base_nb_mean[:, idx] > 0) > 0
+                and np.sum(single_total_bb_RD[:, idx] > 0) > 0
+            ):
+                ratio_nonzeros = (
+                    1.0
+                    * np.sum(single_total_bb_RD[:, idx] > 0)
+                    / np.sum(single_base_nb_mean[:, idx] > 0)
+                )
 
-    single_llf = compute_single_llf(
-        N,
-        smooth_mat.indices,
-        smooth_mat.indptr,
-        nz_nb_base,
-        nz_bb_total,
-        np.empty(0),  # no tumor_prop
-        False,        # use_mixture
-        tmp_log_emission_rdr,
-        tmp_log_emission_baf,
-        pred,
-        n_obs,
-        n_clones,
-    )
+                single_llf[i, c] = ratio_nonzeros * np.sum(
+                    tmp_log_emission_rdr[pred[:, c], np.arange(n_obs), 0]
+                ) + np.sum(tmp_log_emission_baf[pred[:, c], np.arange(n_obs), 0])
+            else:
+                single_llf[i, c] = np.sum(
+                    tmp_log_emission_rdr[pred[:, c], np.arange(n_obs), 0]
+                ) + np.sum(tmp_log_emission_baf[pred[:, c], np.arange(n_obs), 0])
+
+        """
+        w_node = single_llf[i, :]
+        w_node += log_persample_weights[:, sample_ids[i]]
+        w_edge = np.zeros(n_clones)
+        for j in adjacency_mat[i, :].nonzero()[1]:
+            if new_assignment[j] >= 0:
+                w_edge[new_assignment[j]] += adjacency_mat[i, j]
+        new_assignment[i] = np.argmax(w_node + spatial_weight * w_edge)
+
+        posterior[i, :] = np.exp(
+            w_node
+            + spatial_weight * w_edge
+            - scipy.special.logsumexp(w_node + spatial_weight * w_edge)
+        )
+        """
 
     adj_list = cast_csr(adjacency_mat)
     adj_spots, adj_neighbors, adj_weights = unpack_adjacency(adj_list)
 
-    posterior = np.zeros((N, n_clones))
-    new_assignment = copy.copy(prev_assignment)
+    # NB Posterior probabilities if return_posterior=True.
+    posterior = np.zeros((n_spots, n_clones))
 
-    niter, new_cost = icm_sweep(
-        single_llf,
-        adj_spots,
-        adj_neighbors,
-        adj_weights,
-        new_assignment,
-        spatial_weight,
-        posterior,
-        log_persample_weights=log_persample_weights,
-        sample_ids=sample_ids,
-    )
+    if get_global_config().hmrf.fixed_assignment:
+        logger.warning(f"Assuming a fixed clone assignment")
+    else:
+        logger.info(f"Solving for updated clone labels.")
 
-    # Compute total log likelihood: log P(X | Z) + log P(Z)
-    total_llf = np.sum(single_llf[np.arange(N), new_assignment])
-    for i in range(N):
+        # NB updates new_assignment and posterior in place given log emission likelihood.
+        niter, new_cost = icm_sweep(
+            single_llf,
+            adj_spots,
+            adj_neighbors,
+            adj_weights,
+            new_assignment,
+            spatial_weight,
+            posterior,
+            # tol=0.1,  # MAGIC TODO
+            log_persample_weights=log_persample_weights,
+            sample_ids=sample_ids,
+        )
+
+        while merge:
+            new_cost, best_merge_cost, best_merge_pair = merge_assignment(
+                single_llf,
+                adj_spots,
+                adj_neighbors,
+                adj_weights,
+                new_assignment,
+                spatial_weight,
+                log_persample_weights=log_persample_weights,
+                sample_ids=sample_ids,
+            )
+
+            if best_merge_cost > new_cost:
+                u, v = best_merge_pair
+                num_merged_spots = 0
+
+                for i in range(len(new_assignment)):
+                    if new_assignment[i] == u:
+                        new_assignment[i] = v
+                        num_merged_spots += 1
+
+                logger.info(f"Merged {num_merged_spots} spots from clone {u} into clone {v} with dC={best_merge_cost - new_cost:.6e}")
+                new_cost = best_merge_cost
+            else:
+                logger.info(f"No more beneficial merges available (latest dC={best_merge_cost - new_cost:.6e}).")
+                break
+
+    # NB compute total log likelihood: log P(X | Z) + log P(Z)
+    total_llf = np.sum(single_llf[np.arange(n_spots), new_assignment])
+    for i in range(n_spots):
         total_llf += np.sum(
             spatial_weight
             * np.sum(
                 new_assignment[adjacency_mat[i, :].nonzero()[1]] == new_assignment[i]
             )
         )
-
     if return_posterior:
         return new_assignment, single_llf, total_llf, posterior
     else:

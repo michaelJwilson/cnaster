@@ -1149,7 +1149,7 @@ def aggr_hmrf_reassignment(
     tmp_log_emission_rdr, tmp_log_emission_baf = hmmclass.compute_emission_probability_nb_betabinom(
         pooled_X,
         pooled_base_nb_mean,
-        res["new_log_mu"],
+        res["new_log_mu"], 
         res["new_alphas"],
         pooled_total_bb_RD,
         res["new_p_binom"],

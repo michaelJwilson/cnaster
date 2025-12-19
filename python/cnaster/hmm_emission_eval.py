@@ -50,15 +50,12 @@ def compute_emissions_nb(
     # TODO zeros? -np.inf
     log_emission_rdr = np.full((n_states, n_obs, n_spots), 0.0)
 
-    # TODO
-    assert log_mu.shape[1] == 1
-
     for i in numba.prange(n_states):
         for obs in range(n_obs):
             for s in range(n_spots):
                 if base_nb_mean[obs, s] > 0:
-                    nb_mean = base_nb_mean[obs, s] * exp(log_mu[i, 0])
-                    nb_var = nb_mean + alphas[i, 0] * nb_mean * nb_mean
+                    nb_mean = base_nb_mean[obs, s] * exp(log_mu[i, s])
+                    nb_var = nb_mean + alphas[i, s] * nb_mean * nb_mean
                     nb_std = sqrt(nb_var)
 
                     n, p = convert_params_numba(nb_mean, nb_std)
@@ -83,15 +80,12 @@ def compute_emissions_bb(
     # TODO zeros? -np.inf
     log_emission_baf = np.full((n_states, n_obs, n_spots), 0.0)
 
-    # TODO
-    assert p_binom.shape[1] == 1
-
     for i in numba.prange(n_states):
         for obs in range(n_obs):
             for s in range(n_spots):
                 if total_bb_RD[obs, s] > 0:
-                    alpha = p_binom[i, 0] * taus[i, 0]
-                    beta = (1.0 - p_binom[i, 0]) * taus[i, 0]
+                    alpha = p_binom[i, s] * taus[i, s]
+                    beta = (1.0 - p_binom[i, s]) * taus[i, s]
 
                     log_emission_baf[i, obs, s] = betabinom_logpmf_numba(
                         X[obs, 1, s], total_bb_RD[obs, s], alpha, beta

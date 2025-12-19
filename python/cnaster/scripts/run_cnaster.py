@@ -512,7 +512,7 @@ def run_cnaster(config_path, over_rides=None):
 
     if config.phasing.run:
         # NB single_base_nb_mean initialized to zero - requires normal spot. determination.
-        phase_indicator, refined_lengths = initial_phase_given_partition(
+        phase_res, phase_indicator, refined_lengths = initial_phase_given_partition(
             single_X,
             lengths,
             single_base_nb_mean,
@@ -591,6 +591,7 @@ def run_cnaster(config_path, over_rides=None):
         single_total_bb_RD,
         initial_clone_for_phasing,
         lengths,
+        res=phase_res,
         single_tumor_prop=None,
         sample_list=sample_list,
     )

@@ -219,7 +219,9 @@ def initial_phase_given_partition(
         f"Solved for {len(refined_lengths)} phase-refined lengths given {len(lengths)} input lengths with sum={sum(lengths)}."
     )
 
+    return res, phase_indicator, refined_lengths
+    
     # NB return named tuple PhaseSummary
-    PhaseSummary = namedtuple("PhaseSummary", ["phase_indicator", "refined_lengths"])
+    # PhaseSummary = namedtuple("PhaseSummary", ["phase_indicator", "refined_lengths"])
 
-    return PhaseSummary(phase_indicator=phase_indicator, refined_lengths=refined_lengths)
+    # return PhaseSummary(phase_indicator=phase_indicator, refined_lengths=refined_lengths)

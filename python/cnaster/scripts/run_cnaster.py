@@ -3,9 +3,12 @@ import copy
 import time
 import logging
 import random
+import scipy
+import pylab as pl
 
 from networkx import config
 import numpy as np
+import matplotlib.pyplot as plt
 import pandas as pd
 import scipy
 import functools
@@ -63,8 +66,20 @@ from cnaster.integer_copy import (
     hill_climbing_integer_copynumber_oneclone,
     hill_climbing_integer_copynumber_fixdiploid,
 )
-from cnaster.plotting import plot_clones_genomic, plot_clones_spatial, plot_clones_genomic_simple, plot_gene_snp_spatial, plot_gene_snp_spatial, plot_adjacency, plot_recombination_rates, plot_copy_states
+from cnaster.plotting import (
+    plot_clones_genomic,
+    plot_clones_spatial,
+    plot_clones_genomic_simple,
+    plot_gene_snp_spatial,
+    plot_gene_snp_spatial,
+    plot_adjacency,
+    plot_recombination_rates,
+    plot_copy_states,
+)
 from cnaster.reference import get_reference_recomb_rates
+from cnaster.perturb import perturb_phase
+from cnaster.hmm_emission import Weighted_BetaBinom
+from cnaster.hmm_utils import get_em_solver_params
 
 
 start_time = time.time()
@@ -75,22 +90,25 @@ class RuntimeFormatter(logging.Formatter):
         runtime_minutes = (time.time() - start_time) / 60.0
         record.runtime = f"{runtime_minutes:.2f}m"
         return super().format(record)
-    
+
+
 def warning_once(self, msg, *args, **kwargs):
     if not hasattr(warning_once, "_seen"):
         warning_once._seen = set()
-    
+
     if msg not in warning_once._seen:
         self.warning(msg, *args, **kwargs)
         warning_once._seen.add(msg)
 
+
 def info_once(self, msg, *args, **kwargs):
     if not hasattr(info_once, "_seen"):
         info_once._seen = set()
-    
+
     if msg not in info_once._seen:
         self.info(msg, *args, **kwargs)
         info_once._seen.add(msg)
+
 
 formatter = RuntimeFormatter(
     fmt="%(asctime)s - %(runtime)s - %(name)s - %(levelname)-7s - %(filename)s:%(lineno)d - %(message)s",
@@ -112,9 +130,11 @@ logger = logging.getLogger(__name__)
 logging.Logger.warning_once = warning_once
 logging.Logger.info_once = info_once
 
+
 @njit
 def set_numba_seed(value):
     np.random.seed(value)
+
 
 def run_cnaster(config_path, over_rides=None):
     logger.info("----  Welcome to cnaster  ----")
@@ -126,7 +146,7 @@ def run_cnaster(config_path, over_rides=None):
     logger.info(f"Read configuration:\n{config}")
 
     set_global_config(config)
-    
+
     # {config.hmrf.n_clones_rdr}
     output_dir = f"{config.paths.output_dir}/clone{config.hmrf.n_clones}_rectangle{config.hmrf.random_state}_w{config.hmrf.spatial_weight:.1f}/"
 
@@ -187,7 +207,6 @@ def run_cnaster(config_path, over_rides=None):
     #    cell_snp_Aallele: haplotype H0 counts (barcode x snp).
     #    cell_snp_Ballele: haplotype H1 counts (barcode x snp).
     #    unique_snp_ids: {contig}_{pos}_{ref}_{alt} for all snps.
-    #    across_slice_adjacency_mat: ...    
     (
         adata,
         cell_snp_Aallele,
@@ -201,6 +220,13 @@ def run_cnaster(config_path, over_rides=None):
         min_snp_umis=config.quality.spot_min_snp_umis,
         min_percent_expressed_spots=config.quality.min_percent_expressed_spots,
     )
+    
+    """
+    cell_snp_Aallele, cell_snp_Ballele = perturb_phase(
+        cell_snp_Aallele, cell_snp_Ballele, 0.1
+    )
+    """
+
     # NB e.g. 'AAACAAGTATCTCCCA-1_HT112C1-U1' currently.
     barcodes = adata.obs.index
     sample_list = [adata.obs["sample"].iloc[0]]
@@ -250,10 +276,11 @@ def run_cnaster(config_path, over_rides=None):
         single_tumor_prop = adata.obs["tumor_proportion"]
     else:
         logger.info(f"No (pre-processed) tumorprop. file provided.")
-        single_tumor_prop = None # np.ones(len(adata.obs.index), dtype=float)
+        single_tumor_prop = None  # np.ones(len(adata.obs.index), dtype=float)
 
-    recomb_rates = get_reference_recomb_rates(config.references.geneticmap_file)
     """
+    recomb_rates = get_reference_recomb_rates(config.references.geneticmap_file)
+ 
     recomb_fig = plot_recombination_rates(recomb_rates)
     write_fig(
         f"{plots_dir}/recombination_rates.pdf", recomb_fig, transparent=True, bbox_inches="tight"
@@ -350,7 +377,6 @@ def run_cnaster(config_path, over_rides=None):
             -1, 1
         ) @ spots_coverage.reshape(1, -1)
     else:
-        initial_clone_index_baf = None
         known_single_base_nb_mean = None
 
         # NB  rectangular partition across multiple slices.
@@ -362,6 +388,85 @@ def run_cnaster(config_path, over_rides=None):
             y_part=config.phasing.npart_phasing,
         )
 
+        # NB reference assignment, not a copy.
+        # initial_clone_index_baf = initial_clone_for_phasing
+        initial_clone_index_baf = None
+
+    initial_clone_pseudobulk = [[ii for ii in range(len(coords))]]
+    pseudobulk_clones_genomic = plot_clones_genomic_simple(
+        single_X,
+        single_base_nb_mean,
+        single_total_bb_RD,
+        initial_clone_pseudobulk,
+        lengths,
+        single_tumor_prop=single_tumor_prop,
+        sample_list=sample_list,
+    )
+
+    fig_path = f"{plots_dir}/pseudobulk_clones_genomic.pdf"
+    write_fig(
+        fig_path, pseudobulk_clones_genomic, transparent=True, bbox_inches="tight"
+    )
+
+    X, base_nb_mean, total_bb_RD, _ =  merge_pseudobulk_by_index_mix(
+        single_X,
+        single_base_nb_mean,
+        single_total_bb_RD,
+        initial_clone_pseudobulk,
+        single_tumor_prop,
+    )
+
+    mask = single_total_bb_RD > 0
+    model = Weighted_BetaBinom(
+        X[:, 1, :].flatten(), np.ones(len(X[:, 1, :].flatten())), weights=np.ones(len(X[:, 1, :].flatten())), exposure=total_bb_RD.flatten()
+    )
+
+    # LEGACY
+    settings = get_em_solver_params()
+    res = model.fit(**settings)
+
+    ln_pbetabinom = scipy.stats.betabinom.logpmf(
+        X[:, 1, :],
+        total_bb_RD,
+        res.params[0] * res.params[1],
+        (1.0 - res.params[0]) * res.params[1],
+    ).sum(axis=-1)
+
+    outlier_mask = ln_pbetabinom < np.percentile(ln_pbetabinom, 30)
+    initial_clone_fine_partition, _ = fixed_rectangle_partition(
+        coords,
+        5,
+        5,
+        single_tumor_prop=None,
+    )
+
+    X, base_nb_mean, total_bb_RD, _ =  merge_pseudobulk_by_index_mix(
+        single_X,
+        single_base_nb_mean,
+        single_total_bb_RD,
+        initial_clone_fine_partition,
+        single_tumor_prop,
+    )
+
+    # NB Calculate prob. per spot using only informative segments
+    spot_ln_pbinom = scipy.stats.betabinom.logpmf(
+        X[outlier_mask, 1, :], 
+        total_bb_RD[outlier_mask, :], 
+        res.params[0] * res.params[1],
+        (1.0 - res.params[0]) * res.params[1],
+    ).sum(axis=0)
+
+    normal_candidates = np.where(spot_ln_pbinom > np.percentile(spot_ln_pbinom, 80))[0]
+    normal_candidates = np.concatenate([initial_clone_fine_partition[i] for i in normal_candidates]).tolist()
+
+    updated_clones = [normal_candidates]
+    for indices in initial_clone_for_phasing:
+        filtered_indices = np.setdiff1d(indices, normal_candidates)
+        if len(filtered_indices) > 0:
+            updated_clones.append(filtered_indices)
+    
+    initial_clone_for_phasing = updated_clones
+
     assignment = np.full(len(coords), -1, dtype=int)
 
     for __clone_id, indices in enumerate(initial_clone_for_phasing):
@@ -369,18 +474,18 @@ def run_cnaster(config_path, over_rides=None):
 
     assignment = pd.Series([f"clone {x}" for x in assignment])
     phasing_clones_fig = plot_clones_spatial(
-    	coords,
+        coords,
         assignment,
         single_tumor_prop=single_tumor_prop,
         sample_list=sample_list,
         sample_ids=sample_ids,
         base_width=4,
-	base_height=3,
+        base_height=3,
     )
 
     fig_path = f"{plots_dir}/phasing_clones_spatial.pdf"
     write_fig(fig_path, phasing_clones_fig, transparent=True, bbox_inches="tight")
-    
+
     # TODO copy rename.
     prephasing_clones_genomic = plot_clones_genomic_simple(
         single_X,
@@ -390,16 +495,12 @@ def run_cnaster(config_path, over_rides=None):
         lengths,
         single_tumor_prop=single_tumor_prop,
         sample_list=sample_list,
-        remove_xticks=True,
-        rdr_ylim=6,
-        chrtext_shift=-0.2,
-        base_height=3.2,
-        pointsize=5,
-        linewidth=1,
     )
 
     fig_path = f"{plots_dir}/prephasing_clones_genomic.pdf"
-    write_fig(fig_path, prephasing_clones_genomic, transparent=True, bbox_inches="tight")
+    write_fig(
+        fig_path, prephasing_clones_genomic, transparent=True, bbox_inches="tight"
+    )
 
     if config.run.legacy:
         logger.warning("Assuming (magic) five BAF states for phasing.")
@@ -492,17 +593,13 @@ def run_cnaster(config_path, over_rides=None):
         lengths,
         single_tumor_prop=None,
         sample_list=sample_list,
-        remove_xticks=True,
-        rdr_ylim=6,
-        chrtext_shift=-0.2,
-        base_height=3.2,
-        pointsize=5,
-        linewidth=1,
     )
 
     fig_path = f"{plots_dir}/postphasing_clones_genomic.pdf"
-    write_fig(fig_path, postphasing_clones_genomic, transparent=True, bbox_inches="tight")
-    
+    write_fig(
+        fig_path, postphasing_clones_genomic, transparent=True, bbox_inches="tight"
+    )
+
     # NB sparse transcript counts (spot, gene).
     exp_counts = pd.DataFrame.sparse.from_spmatrix(
         scipy.sparse.csc_matrix(adata.layers["count"]),
@@ -537,7 +634,7 @@ def run_cnaster(config_path, over_rides=None):
     fig_path = f"{plots_dir}/adjacency.pdf"
     write_fig(fig_path, adjacency_fig, transparent=True, bbox_inches="tight")
     # NB end run_parse_n_load::parse_visium.
-    
+
     # NB by construction, require normal spots (based on BAF to determine baseline).
     assert np.all(single_base_nb_mean == 0)
 
@@ -556,13 +653,17 @@ def run_cnaster(config_path, over_rides=None):
             coords, config.hmrf.n_clones, random_state=0
         )
         """
-        # TODO HACK
         x_part = y_part = 3
-        initial_clone_index_baf, clone_id = fixed_rectangle_partition(
-            coords, x_part, y_part, single_tumor_prop=None, threshold=0.5
+        initial_clone_index_baf, _ = fixed_rectangle_partition(
+            coords,
+            x_part,
+            y_part,
+            single_tumor_prop=None,
+            threshold=0.5,  # random_state=int(config.hmrf.random_state,)
         )
+
         """
-        initial_clone_index_baf, clone_id, _ = sufficient_umis_initial_clone(
+        initial_clone_index_baf, _, _ = sufficient_umis_initial_clone(
             coords,
             single_X[:,0,:],
             sample_list,
@@ -571,6 +672,22 @@ def run_cnaster(config_path, over_rides=None):
             random_state=int(config.hmrf.random_state),
         )
         """
+
+        updated_clones = [normal_candidates]
+
+        for indices in initial_clone_index_baf:
+            filtered_indices = np.setdiff1d(indices, normal_candidates)
+
+            if len(filtered_indices) > 0:
+                updated_clones.append(filtered_indices)
+    
+        initial_clone_index_baf = updated_clones
+
+    n_spots = sum(len(indices) for indices in initial_clone_index_baf)    
+    clone_id = np.full(n_spots, -1, dtype=int)
+
+    for idx, indices in enumerate(initial_clone_index_baf):
+        clone_id[indices] = idx
 
     # NB trigger summary for initial clones, per single_X=1 etc.
     merge_pseudobulk_by_index_mix(
@@ -703,7 +820,7 @@ def run_cnaster(config_path, over_rides=None):
 
     fig_path = f"{output_dir}/plots/bafonly_clones_spatial.pdf"
     write_fig(fig_path, bafonly_clones_fig, transparent=True, bbox_inches="tight")
-    
+
     # TODO copy rename.
     bafonly_clones_genomic = plot_clones_genomic_simple(
         single_X,
@@ -727,7 +844,7 @@ def run_cnaster(config_path, over_rides=None):
 
     fig_path = f"{plots_dir}/bafonly_clones_genomic.pdf"
     write_fig(fig_path, bafonly_clones_genomic, transparent=True, bbox_inches="tight")
-    
+
     if config.hmrf.np_merge:
         # NB merge similar clones based on Neyman-Pearson
         _, merged_res = neyman_pearson_similarity(
@@ -780,7 +897,7 @@ def run_cnaster(config_path, over_rides=None):
     write_fig(
         fig_path, merged_bafonly_clones_fig, transparent=True, bbox_inches="tight"
     )
-    
+
     # TODO copy rename.
     merged_bafonly_clones_genomic = plot_clones_genomic_simple(
         single_X,
@@ -803,8 +920,10 @@ def run_cnaster(config_path, over_rides=None):
     )
 
     fig_path = f"{plots_dir}/merged_bafonly_clones_genomic.pdf"
-    write_fig(fig_path, merged_bafonly_clones_genomic, transparent=True, bbox_inches="tight")
-    
+    write_fig(
+        fig_path, merged_bafonly_clones_genomic, transparent=True, bbox_inches="tight"
+    )
+
     # NB construct clone labels.
     df_clone_label = pd.DataFrame(
         {"x": coords[:, 0], "y": coords[:, 1]}, index=barcodes
@@ -1133,7 +1252,7 @@ def run_cnaster(config_path, over_rides=None):
     single_base_nb_mean = copy_single_base_nb_mean
     n_obs = single_X.shape[0]
     # <<<<<
-    
+
     logger.info(
         f"Refinining {n_baf_clones} BAF identified clones with RDR data assuming n_clones_rdr={config.hmrf.n_clones_rdr}"
     )

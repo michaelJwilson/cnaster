@@ -566,7 +566,7 @@ def calc_assignment_cost(
     log_persample_weights=None,
     sample_ids=None,
 ):
-    n_spots, n_clones = single_llf.shape
+    n_spots, _ = single_llf.shape
     cost = 0.0
 
     for i in range(n_spots):
@@ -593,6 +593,82 @@ def calc_assignment_cost(
     return cost
 
 
+# TODO
+# @njit(cache=True)
+def merge_assignment(
+    single_llf,
+    adj_spots,
+    adj_neighbors,
+    adj_weights,
+    assignment,
+    spatial_weight,
+    log_persample_weights=None,
+    sample_ids=None,
+):
+    n_spots, n_clones = single_llf.shape
+
+    # NB unary_sum[u, k] stores the sum of likelihoods for label k
+    #    for all spots currently assigned to label u.
+    unary_sum = np.zeros((n_clones, n_clones), dtype=np.float64)
+
+    # NB boundary_gain[u, v] stores the potential spatial gain if u and v are merged.
+    boundary_gain = np.zeros((n_clones, n_clones), dtype=np.float64)
+
+    current_spatial_cost = 0.0
+
+    for i in range(n_spots):
+        u = assignment[i]
+
+        # NB accumulate unary terms for this spot across all potential labels.
+        for k in range(n_clones):
+            val = single_llf[i, k]
+            if log_persample_weights is not None:
+                val += log_persample_weights[k, sample_ids[i]]
+
+            unary_sum[u, k] += val
+
+        mask = adj_spots == i
+        neighbors = adj_neighbors[mask]
+        weights = adj_weights[mask]
+
+        for neighbor, edge_weight in zip(neighbors, weights):
+            v = assignment[neighbor]
+
+            if u == v:
+                current_spatial_cost += spatial_weight * edge_weight / 2.0
+            else:
+                boundary_gain[u, v] += spatial_weight * edge_weight / 2.0
+
+    current_unary_cost = 0.0
+
+    for c in range(n_clones):
+        current_unary_cost += unary_sum[c, c]
+
+    # NB meets validation of cost given by calc_assignment_cost.
+    current_total_cost = current_unary_cost + current_spatial_cost
+
+    best_merge_cost = -np.inf
+    best_merge_pair = (-1, -1)
+
+    for u in range(n_clones):
+        for v in range(n_clones):
+            if u == v:
+                continue
+
+            if boundary_gain[u, v] > 0:
+                # NB Option: Merge u into v (spots of u become v).
+                #    Delta = (unary of u becoming v) - (unary of u being u) + boundary gain.
+                delta_u_to_v = (unary_sum[u, v] - unary_sum[u, u]) + boundary_gain[u, v]
+
+                if current_total_cost + delta_u_to_v > best_merge_cost:
+                    best_merge_cost = current_total_cost + delta_u_to_v
+                    best_merge_pair = (u, v)
+
+    logger.info(f"Found best merge pair {best_merge_pair} with dC={best_merge_cost - current_total_cost:.6e}.")
+
+    return current_total_cost, best_merge_cost, best_merge_pair
+
+
 @njit(cache=True)
 def icm_sweep(
     single_llf,
@@ -607,6 +683,8 @@ def icm_sweep(
     sample_ids=None,
     cost_zeropoint=0.0,
     temp=1.0,
+    min_clone_spots=200,
+    max_iter=10,
 ):
     # NB ICM is guranteed to converge to a local (maximum).
     n_spots, n_clones = single_llf.shape
@@ -615,9 +693,10 @@ def icm_sweep(
 
     cost = cost_zeropoint
 
-    while True:
+    while niter < max_iter:
         # NB number edits in this sweep.
         edits = 0
+        clone_counts = np.zeros(n_clones, dtype=np.int32)
 
         for i in range(n_spots):
             # NB emission likelihood for all clones for this spot; (1, n_clone).
@@ -656,21 +735,33 @@ def icm_sweep(
             cost += assignment_cost[label] - assignment_cost[new_assignment[i]]
 
             new_assignment[i] = label
+            clone_counts[new_assignment[i]] += 1
 
             # TODO
             norm = logsumexp(assignment_cost)
             posterior[i, :] = np.exp(assignment_cost - norm)
 
         edit_rate = edits / n_spots
+
+        if min_clone_spots > 0 and clone_counts.min() < min_clone_spots:
+            eligible = np.where(clone_counts >= min_clone_spots)[0]
+
+            for c in range(n_clones):
+                if len(eligible) > 0 and clone_counts[c] < min_clone_spots and clone_counts[c] > 0:                    
+                    spot_indices = np.where(new_assignment == c)[0]
+                    new_labels = eligible[np.random.randint(0, len(eligible), size=len(spot_indices))]
+
+                    for idx, new_label in zip(spot_indices, new_labels):
+                        new_assignment[idx] = new_label
+                        clone_counts[c] -= 1
+                        clone_counts[new_label] += 1
+
+            edit_rate = np.inf
+
         niter += 1
-
-        # TODO not njit friendly.
-        # unique_assignment, cnts = np.unique(new_assignment, return_counts=True)
-
-        # logger.info(f"Found ICM edit_rate={edit_rate:.6f} for iteration {niter}.")
-        # logger.info(f"Found ICM inferred clone proportions: {cnts / n_spots}")
 
         if edit_rate <= tol:
             break
 
     return niter, cost
+

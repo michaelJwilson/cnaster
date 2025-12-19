@@ -31,7 +31,7 @@ SAMPLE_IDS=($(printf "%s\n" "${SAMPLE_IDS[@]}" | gshuf --random-source=<(yes $SE
 # SAMPLE_IDS=("numcnas6.3_cnasize3e7_ploidy2_random4")
 
 # RANDOM_STATES=(0)
-# SAMPLE_IDS=("numcnas6.3_cnasize5e7_ploidy2_random6")
+SAMPLE_IDS=("numcnas6.3_cnasize5e7_ploidy2_random6")
 
 # echo "${SAMPLE_IDS[@]}"
 echo "Found ${#SAMPLE_IDS[@]} sample ids @ ${ROOT}"
@@ -76,5 +76,6 @@ for SAMPLE_ID in "${SAMPLE_IDS[@]}"; do
             echo "run_cnaster failed for SAMPLE_ID=${SAMPLE_ID}, RANDOM_STATE=${RANDOM_STATE} (rc=${rc})" >&2
             mv "logs/cnaster_${SAMPLE_ID}_${RANDOM_STATE}.log" "errors/cnaster_${SAMPLE_ID}_${RANDOM_STATE}.err"
         fi
-    done    
+    done
+    break
 done

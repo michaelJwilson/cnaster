@@ -7,8 +7,8 @@ ROOT="/Users/mw9568/Work/ragr/sim/"
 SEED=12345
 # RANDOM_STATES=(0)
 RANDOM_STATES=(0 1 2 3 4)
-USE_EXISTING=false
-MAX_JOBS=3
+USE_EXISTING=true
+MAX_JOBS=2
 
 # SAMPLE_IDS=("numcnas1.2_cnasize1e7_ploidy2_random0")
 # SAMPLE_IDS=("numcnas3.3_cnasize3e7_ploidy2_random0")
@@ -41,12 +41,18 @@ run_single_job() {
     local PERF_PATH="logs/cnaster_${SAMPLE_ID}_${RANDOM_STATE}.perf"
 
     if [[ "$USE_EXISTING" == "true" ]]; then
-        if compgen -G "$OUT_PATTERN" > /dev/null 2>&1; then
-            echo "Utilizing existing results for SAMPLE_ID=${SAMPLE_ID}; RANDOM_STATE=${RANDOM_STATE}."
-            return 0
+        local existing_files=$(compgen -G "$OUT_PATTERN")
+        
+        if [[ -n "$existing_files" ]]; then
+            # Check if any of the files were modified in the last 24 hours (-mtime -1)
+            # -maxdepth 0 ensures we check the file itself, not contents if it were a dir
+            if find $existing_files -maxdepth 0 -mmin 60 2>/dev/null | grep -q .; then
+                echo "Utilizing existing results (modified < 24h) for SAMPLE_ID=${SAMPLE_ID}; RANDOM_STATE=${RANDOM_STATE}."
+                return 0
+            fi
         fi
     fi
-
+    
     rm -f "${LOG_PATH}"
     rm -f "${PERF_PATH}"
 

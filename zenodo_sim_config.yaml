@@ -56,7 +56,7 @@ phasing:
   nu : 1.0
   logphase_shift : -2.0
   npart_phasing : 2
-  baf_change_threshold : 0.1
+  baf_change_threshold : 0.05
   min_new_segment_size : 10
 
 # TODO HACK max_iter_outer : 20 ->
@@ -85,7 +85,7 @@ hmrf:
   inertia : 0
   construct_adjacency_method : hexagon
   construct_adjacency_w : 1.0
-  np_merge : True
+  np_merge : False
   fixed_assignment : False
   unit_xsquared : 1
   unit_ysquared : 1

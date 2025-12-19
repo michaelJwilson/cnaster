@@ -5,10 +5,10 @@ import time
 import numpy as np
 import scipy.special
 from numba import njit, prange
-from cnaster.icm import icm_sweep, wolff_sweep, unpack_adjacency
+from cnaster.icm import icm_sweep, wolff_sweep, unpack_adjacency, merge_assignment
 from cnaster.hmm import gmm_init, pipeline_baum_welch
 from cnaster.hmm_sitewise import hmm_sitewise
-from cnaster.hmrf_utils import cast_csr
+from cnaster.hmrf_utils import cast_csr, clone_stack_obs
 from cnaster.utils import count_calls
 from cnaster.hmm_initialize import plot_cna_mixture, cna_mixture_init
 from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
@@ -254,80 +254,8 @@ def aggr_hmrfmix_reassignment_concatenate(
     single_tumor_prop=None,
     hmmclass=hmm_sitewise,
     return_posterior=False,
+    merge=False,
 ):
-    """
-    HMRF assign spots to tumor clones with optional mixture modeling.
-
-    Parameters
-    ----------
-    single_X : array, shape (n_bins, 2, n_spots)
-        BAF and RD count matrix for all bins in all spots.
-
-    single_base_nb_mean : array, shape (n_bins, n_spots)
-        Diploid baseline of gene expression matrix.
-
-    single_total_bb_RD : array, shape (n_obs, n_spots)
-        Total allele UMI count matrix.
-
-    res : dictionary
-        Dictionary of estimated HMM parameters.
-
-    pred : array, shape (n_bins * n_clones)
-        HMM states for all bins and all clones. (Derived from forward-backward algorithm)
-
-    smooth_mat : array, shape (n_spots, n_spots)
-        Matrix used for feature propagation for computing log likelihood.
-
-    adjacency_mat : array, shape (n_spots, n_spots)
-        Adjacency matrix used to evaluate label consistency in HMRF.
-
-    prev_assignment : array, shape (n_spots,)
-        Clone assignment of the previous iteration.
-
-    spatial_weight : float
-        Scaling factor for HMRF label consistency between adjacent spots.
-
-    single_tumor_prop : array, shape (n_spots,), optional
-        Tumor proportion for each spot. If provided, uses mixture model.
-
-    hmmclass : class, default=hmm_sitewise
-        HMM class with emission probability computation methods.
-
-    return_posterior : bool, default=False
-        Whether to return posterior probabilities.
-
-    Returns
-    -------
-    new_assignment : array, shape (n_spots,)
-        Clone assignment of this new iteration.
-
-    single_llf : array, shape (n_spots, n_clones)
-        Log likelihood of each spot given that its label is each clone.
-
-    total_llf : float
-        The HMRF objective, which is the sum of log likelihood under the optimal labels plus the sum of edge potentials.
-
-    posterior : array, shape (n_spots, n_clones), optional
-        Posterior probabilities if return_posterior=True.
-    """
-    """
-    return dep_aggr_hmrfmix_reassignment_concatenate(
-        single_X,
-        single_base_nb_mean,
-        single_total_bb_RD,
-        res,
-        pred,
-        smooth_mat,
-        adjacency_mat,
-        prev_assignment,
-        sample_ids,
-        spatial_weight,
-        log_persample_weights=log_persample_weights,
-        single_tumor_prop=single_tumor_prop,
-        hmmclass=hmmclass,
-        return_posterior=return_posterior,
-    )
-    """
     n_obs, _, N = single_X.shape
 
     # NB pred is the argmax posterior by genome, concatenated across clones.
@@ -488,10 +416,38 @@ def aggr_hmrfmix_reassignment_concatenate(
             new_assignment,
             spatial_weight,
             posterior,
-            tol=0.1,  # MAGIC TODO
+            # tol=0.1,  # MAGIC TODO
             log_persample_weights=log_persample_weights,
             sample_ids=sample_ids,
         )
+
+        while merge:
+            new_cost, best_merge_cost, best_merge_pair = merge_assignment(
+                single_llf,
+                adj_spots,
+                adj_neighbors,
+                adj_weights,
+                new_assignment,
+                spatial_weight,
+                log_persample_weights=log_persample_weights,
+                sample_ids=sample_ids,
+            )
+
+            if best_merge_cost > new_cost:
+                u, v = best_merge_pair
+                num_merged_spots = 0
+
+                for i in range(len(new_assignment)):
+                    if new_assignment[i] == u:
+                        new_assignment[i] = v
+                        num_merged_spots += 1
+
+                logger.info(f"Merged {num_merged_spots} spots from clone {u} into clone {v} with dC={best_merge_cost - new_cost:.6e}")
+                new_cost = best_merge_cost
+            else:
+                logger.info(f"No more beneficial merges available (latest dC={best_merge_cost - new_cost:.6e}).")
+                break
+
         """
         niter, new_cost = wolff_sweep(
         single_llf,
@@ -508,7 +464,7 @@ def aggr_hmrfmix_reassignment_concatenate(
         _, cnts = np.unique(new_assignment, return_counts=True)
 
         logger.info(
-            f"Solved for updated clone labels with new cost {new_cost:.6e} and clone breakdown={cnts} in {niter} iterations (took {time.time() - start_time:.2f} seconds)."
+            f"Solved for updated clone labels with new cost {new_cost:.6e} in {niter} iterations (took {time.time() - start_time:.2f} seconds with clone breakdown=\n{cnts})."
         )
 
     # NB compute total ln likelihood.
@@ -526,52 +482,6 @@ def aggr_hmrfmix_reassignment_concatenate(
         return new_assignment, single_llf, total_llf, posterior
     else:
         return new_assignment, single_llf, total_llf
-
-
-def clone_stack_obs(
-    X, base_nb_mean, total_bb_RD, lengths, log_sitewise_transmat, tumor_prop
-):
-    """
-    Reshape observation data from clone-wise format to stacked format for HMM processing.
-
-    Transforms multi-clone observation data by vertically stacking clones, converting
-    from (n_obs, 2, n_clones) format to (n_obs * n_clones, 2, 1) format where each
-    clone is treated as a separate observation sequence.
-    """
-    # NB vertical stacking of X, base_nb_mean, total_bb_RD, tumor_prop across clones,
-    # i.e. reshape observation data from (n_obs, 2, n_clones) to (n_obs * n_clones, 2, 1)
-    clone_stack_X = np.vstack(
-        [X[:, 0, :].flatten("F"), X[:, 1, :].flatten("F")]
-    ).T.reshape(-1, 2, 1)
-
-    # NB vertical stacking by clone, cast to column.
-    clone_stack_base_nb_mean = base_nb_mean.flatten("F").reshape(-1, 1)
-    clone_stack_total_bb_RD = total_bb_RD.flatten("F").reshape(-1, 1)
-
-    # NB replicate lengths N clone times, as derived from X - clone num. may change.
-    clone_stack_lengths = np.tile(lengths, X.shape[2])
-    clone_stack_sitewise_transmat = np.tile(log_sitewise_transmat, X.shape[2])
-
-    # NB per-clone tumor prop. repeated num_obs times.
-    stack_tumor_prop = (
-        np.repeat(tumor_prop, X.shape[0]).reshape(-1, 1)
-        if tumor_prop is not None
-        else None
-    )
-
-    logger.info(f"Stacked X from shape {X.shape} to {clone_stack_X.shape}.")
-    logger.info(
-        f"Stacked total_bb_RD from shape {total_bb_RD.shape} to {clone_stack_total_bb_RD.shape}."
-    )
-
-    return (
-        clone_stack_X,
-        clone_stack_base_nb_mean,
-        clone_stack_total_bb_RD,
-        clone_stack_lengths,
-        clone_stack_sitewise_transmat,
-        stack_tumor_prop,
-    )
 
 
 def validation_summary(
@@ -830,8 +740,10 @@ def hmrfmix_concatenate_pipeline(
 
     # NB required for remain_kwargs construction.
     res = {}
+    r = 0
+    merge = False
 
-    for r in range(max_iter_outer):
+    while r <= max_iter_outer:
         logger.info(
             f"----****  Solving iteration {r}/{max_iter_outer} of copy number state fitting & clone assignment (HMM + HMRF) ****----"
         )
@@ -891,6 +803,7 @@ def hmrfmix_concatenate_pipeline(
             log_persample_weights=log_persample_weights,
             single_tumor_prop=single_tumor_prop,
             hmmclass=hmmclass,
+            merge=merge,
         )
 
         # NB handle the case when one clone has zero spots.
@@ -913,7 +826,6 @@ def hmrfmix_concatenate_pipeline(
             res["log_gamma"] = res["log_gamma"][:, concat_idx]
             res["pred_cnv"] = res["pred_cnv"][concat_idx]
 
-        # NB add to results.
         res["prev_assignment"] = last_assignment
         res["new_assignment"] = new_assignment
         res["total_llf"] = total_llf
@@ -959,8 +871,11 @@ def hmrfmix_concatenate_pipeline(
             adjusted_rand_score(last_assignment, res["new_assignment"]) >= get_global_config().hmrf.ari_tolerance
             or len(np.unique(res["new_assignment"])) == 1  # NB single clone assigned.
         ):
-            break
-
+            if not merge:
+                # NB next round we merge; and the one after fit parameters to the merged clone.
+                r = max_iter_outer - 1
+                merge = True
+                     
         last_log_mu = res["new_log_mu"]
         last_p_binom = res["new_p_binom"]
         last_alphas = res["new_alphas"]
@@ -987,6 +902,8 @@ def hmrfmix_concatenate_pipeline(
                 log_persample_weights[:, sidx] = log_persample_weights[
                     :, sidx
                 ] - scipy.special.logsumexp(log_persample_weights[:, sidx])
+
+        r += 1
 
     return res
 

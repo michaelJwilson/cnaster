@@ -551,7 +551,7 @@ def hmrfmix_concatenate_pipeline(
     initial_clone_index,
     n_states,
     log_sitewise_transmat,
-    prefix="",
+    prefix="clones",
     coords=None,
     smooth_mat=None,
     adjacency_mat=None,
@@ -930,7 +930,7 @@ def hmrfmix_concatenate_pipeline(
                 base_height=3,
             )
 
-            fig_path = f"{progress_dir}/{prefix}clones_spatial_iter{r}.pdf"
+            fig_path = f"{progress_dir}/{prefix}_spatial_iter{r}.pdf"
             write_fig(fig_path, clones_fig, transparent=True, bbox_inches="tight")
 
             # TODO copy rename.                                                                                                                                                                                                                                 
@@ -954,7 +954,7 @@ def hmrfmix_concatenate_pipeline(
                 linewidth=1,
             )
 
-            fig_path = f"{progress_dir}/{prefix}clones_genomic_iter{r}.pdf"
+            fig_path = f"{progress_dir}/{prefix}_genomic_iter{r}.pdf"
             write_fig(fig_path, clones_genomic, transparent=True, bbox_inches="tight")
 
     return res

@@ -3,17 +3,19 @@ import logging
 import time
 
 import numpy as np
+import pandas as pd
 import scipy.special
 from numba import njit, prange
+from pathlib import Path
 from cnaster.icm import icm_sweep, wolff_sweep, unpack_adjacency, merge_assignment
 from cnaster.hmm import gmm_init, pipeline_baum_welch
 from cnaster.hmm_sitewise import hmm_sitewise
 from cnaster.hmrf_utils import cast_csr, clone_stack_obs
-from cnaster.utils import count_calls, get_output_dir
+from cnaster.utils import count_calls, get_output_dir, write_fig
 from cnaster.hmm_initialize import plot_cna_mixture, cna_mixture_init
 from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
 from cnaster.config import get_global_config
-from cnaster.plotting import plot_clones_spatial, plot_clones_genomic
+from cnaster.plotting import plot_clones_spatial, plot_clones_genomic, plot_clones_genomic_simple
 from cnaster.deprecated.hmrf import (
     aggr_hmrfmix_reassignment_concatenate as dep_aggr_hmrfmix_reassignment_concatenate,
 )
@@ -407,7 +409,7 @@ def aggr_hmrfmix_reassignment_concatenate(
         logger.warning(f"Assuming a fixed clone assignment")
     else:
         logger.info(f"Solving for updated clone labels.")
-
+        
         # NB updates new_assignment and posterior in place given log emission likelihood.
         niter, new_cost = icm_sweep(
             single_llf,
@@ -421,7 +423,19 @@ def aggr_hmrfmix_reassignment_concatenate(
             log_persample_weights=log_persample_weights,
             sample_ids=sample_ids,
         )
-
+        """
+        niter, new_cost = wolff_sweep(                                                                                                                                                   
+            single_llf,                                                                                                                                                                  
+            adj_spots,                                                                                                                                                                   
+            adj_neighbors,                                                                                                                                                              
+            adj_weights,                                                                                                                                                                
+            new_assignment,                                                                                                                                                              
+            spatial_weight,                                                                                                                                                             
+            posterior,                                                                                                                                                                   
+            log_persample_weights=log_persample_weights,                                                                                                                                 
+            sample_ids=sample_ids,                                                                                                                                                       
+        )   
+        """
         while merge:
             new_cost, best_merge_cost, best_merge_pair = merge_assignment(
                 single_llf,
@@ -449,19 +463,6 @@ def aggr_hmrfmix_reassignment_concatenate(
                 logger.info(f"No more beneficial merges available (latest dC={best_merge_cost - new_cost:.6e}).")
                 break
 
-        """
-        niter, new_cost = wolff_sweep(
-        single_llf,
-        adj_spots,
-        adj_neighbors,
-        adj_weights,
-        new_assignment,
-        spatial_weight,
-        posterior,
-        log_persample_weights=log_persample_weights,
-        sample_ids=sample_ids,
-        )
-        """
         _, cnts = np.unique(new_assignment, return_counts=True)
 
         logger.info(
@@ -556,6 +557,7 @@ def hmrfmix_concatenate_pipeline(
     smooth_mat=None,
     adjacency_mat=None,
     sample_ids=None,
+    sample_list=None,
     max_iter_outer=5,
     nodepotential="max",
     hmmclass=hmm_sitewise,
@@ -909,8 +911,13 @@ def hmrfmix_concatenate_pipeline(
 
         if plot_progress:
             logger.info(f"Plotting progress for interation {r}.")
-            
+
             output_dir = get_output_dir()
+            progress_dir = f"{output_dir}/plots/progress/"
+            
+            if not (pprogress_dir := Path(progress_dir)).exists():
+                logger.info(f"Creating {progress_dir}")
+                pprogress_dir.mkdir(exist_ok=True)
             
             # TODO HACK                                                                                                                                                                                                                                          
             assignment = pd.Series([f"clone {x}" for x in res["new_assignment"]])
@@ -924,7 +931,7 @@ def hmrfmix_concatenate_pipeline(
                 base_height=3,
             )
 
-            fig_path = f"{output_dir}/plots/bafonly_clones_spatial_iter{r}.pdf"
+            fig_path = f"{progress_dir}/bafonly_clones_spatial_iter{r}.pdf"
             write_fig(fig_path, bafonly_clones_fig, transparent=True, bbox_inches="tight")
 
             # TODO copy rename.                                                                                                                                                                                                                                 
@@ -948,10 +955,8 @@ def hmrfmix_concatenate_pipeline(
                 linewidth=1,
             )
 
-            fig_path = f"{plots_dir}/bafonly_clones_genomic_iter{r}.pdf"
+            fig_path = f"{progress_dir}/bafonly_clones_genomic_iter{r}.pdf"
             write_fig(fig_path, bafonly_clones_genomic, transparent=True, bbox_inches="tight")
-
-            exit(0)
 
     return res
 

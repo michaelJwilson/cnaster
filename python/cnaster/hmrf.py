@@ -999,6 +999,7 @@ def reindex_clones(res_combine, posterior=None, single_tumor_prop=None):
             np.sum(np.maximum(np.abs(baf_profiles - 0.5) - EPS_BAF, 0), axis=1)
         )
 
+        # TODO HACK WARN discrepant clone ids [c for c in range(n_clones).
         cid_rest = np.array([c for c in np.unique(res_combine["new_assignment"]) if c != cid_normal]).astype(int)
         reidx = np.append(cid_normal, cid_rest)
         map_reidx = {cid: i for i, cid in enumerate(reidx)}

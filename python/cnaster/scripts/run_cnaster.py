@@ -329,7 +329,7 @@ def run_cnaster(config_path, over_rides=None):
         cell_snp_Ballele,
         unique_snp_ids,
     )
-
+    
     # NB 1D array of expected phase error rate.
     log_sitewise_transmat = get_sitewise_transmat(
         df_gene_snp,
@@ -601,7 +601,7 @@ def run_cnaster(config_path, over_rides=None):
     write_fig(
         fig_path, postphasing_clones_genomic, transparent=True, bbox_inches="tight"
     )
-
+    
     pseudobulk_clones_genomic = plot_clones_genomic_simple(
         single_X,
         single_base_nb_mean,

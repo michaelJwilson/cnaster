@@ -29,6 +29,18 @@ def logsumexp(x):
     x_max = np.max(x)
     return x_max + np.log(np.sum(np.exp(x - x_max)))
 
+def validate_clone_ids(assignments):
+    unique_ids = np.unique(assignments)
+    expected = np.arange(len(unique_ids))
+
+    if not np.array_equal(unique_ids, expected):
+        logger.error(
+            f"Found invalid clone ids (e.g. not contiguous): {unique_ids}."
+        )
+        raise RuntimeError()
+
+    return True
+
 
 @njit(cache=True)
 def pool_hmrf_data(
@@ -975,7 +987,6 @@ def reindex_clones(res_combine, posterior=None, single_tumor_prop=None):
     
     # NB assumes not concatenated
     n_obs = res_combine["pred_cnv"].shape[0]
-
     new_res_combine = copy.copy(res_combine)
 
     if single_tumor_prop is None:
@@ -988,7 +999,7 @@ def reindex_clones(res_combine, posterior=None, single_tumor_prop=None):
             np.sum(np.maximum(np.abs(baf_profiles - 0.5) - EPS_BAF, 0), axis=1)
         )
 
-        cid_rest = np.array([c for c in range(n_clones) if c != cid_normal]).astype(int)
+        cid_rest = np.array([c for c in np.unique(res_combine["new_assignment"]) if c != cid_normal]).astype(int)
         reidx = np.append(cid_normal, cid_rest)
         map_reidx = {cid: i for i, cid in enumerate(reidx)}
 
@@ -1312,7 +1323,7 @@ def aggr_hmrf_reassignment(
                 logger.info(f"Merged {num_merged_spots} spots from clone {u} into clone {v} with dC={best_merge_cost - new_cost:.6e}")
                 new_cost = best_merge_cost
             else:
-                logger.info(f"No more beneficial merges available (latest dC={best_merge_cost - new_cost:.6e}).")
+                logger.info(f"Exhausted beneficial merges (latest dC={best_merge_cost - new_cost:.6e}).")
                 break
 
     # NB compute total log likelihood: log P(X | Z) + log P(Z)

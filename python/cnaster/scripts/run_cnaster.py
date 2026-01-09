@@ -58,7 +58,7 @@ from numba import njit
 from cnaster.sim import load_tables_to_matrices
 from cnaster.hmm import pipeline_baum_welch
 from cnaster.hmm_initialize import plot_cna_mixture
-from cnaster.utils import merge_dicts, write_tsv, write_fig, get_output_dir
+from cnaster.utils import merge_dicts, write_tsv, write_fig, get_output_dir, pause
 from cnaster.integer_copy import (
     hill_climbing_integer_copynumber_oneclone,
     hill_climbing_integer_copynumber_fixdiploid,
@@ -939,6 +939,7 @@ def run_cnaster(config_path, over_rides=None):
         fig_path, merged_bafonly_clones_genomic, transparent=True, bbox_inches="tight"
     )
 
+    pause()
 
     # NB construct clone labels.
     df_clone_label = pd.DataFrame(
@@ -998,6 +999,8 @@ def run_cnaster(config_path, over_rides=None):
         ]
     )
 
+    pause()
+    
     logger.info(f"Determining normal spots based on BAF-only clones.")
 
     # NB no input files for barcodes of normal spots, or tumor proportion per spot.
@@ -1089,6 +1092,8 @@ def run_cnaster(config_path, over_rides=None):
                 f"Failed to determine normal spots with sufficient UMIs based on input tumor proportion."
             )
 
+    pause()
+            
     index_normal = np.where(normal_candidate)[0]
 
     # TODO HACK
@@ -1269,6 +1274,8 @@ def run_cnaster(config_path, over_rides=None):
     n_obs = single_X.shape[0]
     # <<<<<
 
+    pause()
+    
     logger.info(
         f"Refinining {n_baf_clones} BAF identified clones with RDR data assuming n_clones_rdr={config.hmrf.n_clones_rdr}"
     )
@@ -1384,6 +1391,8 @@ def run_cnaster(config_path, over_rides=None):
 
         clone_res[prefix] = merge_dicts(clone_res[prefix], new_clone_res)
 
+        pause()
+        
     logger.info(f"Combining results across clones.")
 
     # NB combined assignment for all spots.
@@ -1608,6 +1617,8 @@ def run_cnaster(config_path, over_rides=None):
 
         offset_clone += n_merged_clones
 
+        pause()
+        
     # TODO BUG?? prev_assignment or new_assignment?
     n_final_clones = len(np.unique(res_combine["prev_assignment"]))
 
@@ -1635,6 +1646,8 @@ def run_cnaster(config_path, over_rides=None):
     #      min. is least significant.
     res_combine["new_taus"][:, :] = np.min(res_combine["new_taus"])
 
+    pause()
+    
     log_persample_weights = np.zeros((n_final_clones, len(sample_list)))
 
     for sidx in range(len(sample_list)):
@@ -1703,6 +1716,9 @@ def run_cnaster(config_path, over_rides=None):
     res_combine["total_llf"] = total_llf
     res_combine["new_assignment"] = new_assignment
 
+    # NB re-order clones such that the normal clone is always 0.
+    res_combine, _ = reindex_clones(res_combine, posterior=None, single_tumor_prop=None)
+
     final_clones, final_clone_counts = np.unique(
         res_combine["new_assignment"], return_counts=True
     )
@@ -1711,9 +1727,8 @@ def run_cnaster(config_path, over_rides=None):
         f"Inferred final clones=\n{final_clones}\nwith fractions=\n{final_clone_counts/np.sum(final_clone_counts)}."
     )
 
-    # NB re-order clones such that the normal clone is always 0.
-    res_combine, _ = reindex_clones(res_combine, posterior=None, single_tumor_prop=None)
-
+    pause()
+    
     # TODO new_log_startprob - add to res_combine above.
     for key in [
         "new_log_mu",
@@ -1730,6 +1745,8 @@ def run_cnaster(config_path, over_rides=None):
         f"{output_dir}/rdrbaf_final_nstates{config.hmm.n_states}_smp.npz", **res_combine
     )
 
+    pause()
+    
     # NB infer integer allele-specific copy numbers
     final_clone_ids = np.sort(np.unique(res_combine["new_assignment"]))
 
@@ -1740,6 +1757,10 @@ def run_cnaster(config_path, over_rides=None):
         logger.error(f"Missing normal clones - prepended as 0 to final clone ids.")
         raise RuntimeError()
 
+    logger.info(f"Utilizing final clone ids={final_clone_ids}")
+    
+    pause()
+    
     # NB assumed ploidy for integer copy number problem
     medfix = [""] + [f"_{pp}" for pp in config.int_copy_num.ploidy.split(",")]
 

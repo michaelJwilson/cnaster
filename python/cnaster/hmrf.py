@@ -480,6 +480,13 @@ def aggr_hmrfmix_reassignment_concatenate(
             )
         )
 
+
+    # TODO HACK?
+    # NB reindex new_assignment to contiguous clone ids.
+    unique_ids = np.unique(new_assignment)
+    id_map = {old: new for new, old in enumerate(unique_ids)}
+    new_assignment = np.array([id_map[x] for x in new_assignment])
+
     if return_posterior:
         return new_assignment, single_llf, total_llf, posterior
     else:
@@ -962,9 +969,13 @@ def hmrfmix_concatenate_pipeline(
 
 def reindex_clones(res_combine, posterior=None, single_tumor_prop=None):
     EPS_BAF = 0.05  # MAGIC
+    
     n_spots = len(res_combine["new_assignment"])
-    n_obs = res_combine["pred_cnv"].shape[0]
     n_states, n_clones = res_combine["new_p_binom"].shape
+    
+    # NB assumes not concatenated
+    n_obs = res_combine["pred_cnv"].shape[0]
+
     new_res_combine = copy.copy(res_combine)
 
     if single_tumor_prop is None:

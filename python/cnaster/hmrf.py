@@ -543,8 +543,6 @@ def validation_summary(
 
 @count_calls
 def hmrfmix_concatenate_pipeline(
-    outdir,
-    prefix,
     single_X,
     lengths,
     single_base_nb_mean,
@@ -553,13 +551,14 @@ def hmrfmix_concatenate_pipeline(
     initial_clone_index,
     n_states,
     log_sitewise_transmat,
+    prefix="",
     coords=None,
     smooth_mat=None,
     adjacency_mat=None,
     sample_ids=None,
     sample_list=None,
     max_iter_outer=5,
-    nodepotential="max",
+    # nodepotential="max",
     hmmclass=hmm_sitewise,
     params="stmp",
     t=1 - 1e-6,
@@ -575,8 +574,8 @@ def hmrfmix_concatenate_pipeline(
     is_diag=True,
     max_iter=100,
     tol=1e-4,
-    unit_xsquared=9,
-    unit_ysquared=3,
+    # unit_xsquared=9,
+    # unit_ysquared=3,
     spatial_weight=1.0 / 6.0,
     tumorprop_threshold=0.5,
     plot_progress=True,
@@ -921,7 +920,7 @@ def hmrfmix_concatenate_pipeline(
             
             # TODO HACK                                                                                                                                                                                                                                          
             assignment = pd.Series([f"clone {x}" for x in res["new_assignment"]])
-            bafonly_clones_fig = plot_clones_spatial(
+            clones_fig = plot_clones_spatial(
                 coords,
                 assignment,
                 single_tumor_prop=single_tumor_prop,
@@ -931,11 +930,11 @@ def hmrfmix_concatenate_pipeline(
                 base_height=3,
             )
 
-            fig_path = f"{progress_dir}/bafonly_clones_spatial_iter{r}.pdf"
-            write_fig(fig_path, bafonly_clones_fig, transparent=True, bbox_inches="tight")
+            fig_path = f"{progress_dir}/{prefix}clones_spatial_iter{r}.pdf"
+            write_fig(fig_path, clones_fig, transparent=True, bbox_inches="tight")
 
             # TODO copy rename.                                                                                                                                                                                                                                 
-            bafonly_clones_genomic = plot_clones_genomic_simple(
+            clones_genomic = plot_clones_genomic_simple(
                 single_X,
                 single_base_nb_mean,
                 single_total_bb_RD,
@@ -955,8 +954,8 @@ def hmrfmix_concatenate_pipeline(
                 linewidth=1,
             )
 
-            fig_path = f"{progress_dir}/bafonly_clones_genomic_iter{r}.pdf"
-            write_fig(fig_path, bafonly_clones_genomic, transparent=True, bbox_inches="tight")
+            fig_path = f"{progress_dir}/{prefix}clones_genomic_iter{r}.pdf"
+            write_fig(fig_path, clones_genomic, transparent=True, bbox_inches="tight")
 
     return res
 

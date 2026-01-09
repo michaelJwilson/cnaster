@@ -4,11 +4,8 @@ import time
 import logging
 import random
 import scipy
-import pylab as pl
 
-from networkx import config
 import numpy as np
-import matplotlib.pyplot as plt
 import pandas as pd
 import scipy
 import functools
@@ -770,8 +767,6 @@ def run_cnaster(config_path, over_rides=None):
     single_base_nb_mean[:, :] = 0
 
     res = hmrfmix_concatenate_pipeline(
-        None,
-        None,
         single_X,
         lengths,
         single_base_nb_mean,
@@ -780,13 +775,13 @@ def run_cnaster(config_path, over_rides=None):
         initial_clone_index_baf,
         config.hmm.n_states,
         log_sitewise_transmat,
+        prefix="bafonly",
         coords=coords,
         smooth_mat=smooth_mat,
         adjacency_mat=adjacency_mat,
         sample_ids=sample_ids,
         sample_list=sample_list,
         max_iter_outer=config.hmrf.max_iter_outer,
-        nodepotential=config.hmrf.nodepotential,
         hmmclass=hmm_nophasing,
         params="sp",
         t=config.hmm.t,
@@ -864,8 +859,6 @@ def run_cnaster(config_path, over_rides=None):
 
     fig_path = f"{plots_dir}/bafonly_clones_genomic.pdf"
     write_fig(fig_path, bafonly_clones_genomic, transparent=True, bbox_inches="tight")
-
-    exit(0)
     
     if config.hmrf.np_merge:
         # NB merge similar clones based on Neyman-Pearson
@@ -946,7 +939,6 @@ def run_cnaster(config_path, over_rides=None):
         fig_path, merged_bafonly_clones_genomic, transparent=True, bbox_inches="tight"
     )
 
-    exit(0)
 
     # NB construct clone labels.
     df_clone_label = pd.DataFrame(
@@ -1351,10 +1343,11 @@ def run_cnaster(config_path, over_rides=None):
         # NB slice ids for each spot in this clone.
         copy_slice_sample_ids = copy.copy(sample_ids[idx_spots])
 
+        # TODO HACK
+        copy_slice_sample_list = list(np.unique(np.array(sample_list)[sample_ids[idx_spots]]))
+        
         # NB hmrf + hmm with RDR data.
         new_clone_res = hmrfmix_concatenate_pipeline(
-            None,  # NB outdir
-            None,  # NB prefix
             single_X[:, :, idx_spots],
             lengths,
             single_base_nb_mean[
@@ -1364,12 +1357,14 @@ def run_cnaster(config_path, over_rides=None):
             single_tumor_prop[idx_spots] if single_tumor_prop is not None else None,
             initial_clone_index,  # NB
             n_states=config.hmm.n_states,
+            prefix=prefix,
+            coords=coords[idx_spots],
             log_sitewise_transmat=log_sitewise_transmat,
             smooth_mat=smooth_mat[np.ix_(idx_spots, idx_spots)],
             adjacency_mat=adjacency_mat[np.ix_(idx_spots, idx_spots)],
             sample_ids=copy_slice_sample_ids,
+            sample_list=copy_slice_sample_list,
             max_iter_outer=config.hmrf.max_iter_outer,
-            nodepotential=config.hmrf.nodepotential,
             hmmclass=hmm_nophasing,
             params="smp",
             t=config.hmm.t,
@@ -1618,6 +1613,8 @@ def run_cnaster(config_path, over_rides=None):
 
     logger.info(f"Inferred {n_final_clones} clones given RDR & BAF data.")
 
+    exit(0)
+    
     logger.info(
         f"Found rdr-split clone rdrs:\n{np.exp(res_combine['new_log_mu'])}."
     )

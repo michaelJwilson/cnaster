@@ -18,12 +18,13 @@ from cnaster.config import get_global_config
 
 logger = logging.getLogger(__name__)
 
+
 def cacher(filename):
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
             config = get_global_config()
-            
+
             output_dir = config.paths.output_dir
             filepath = os.path.join(output_dir, "cache", filename)
 
@@ -31,15 +32,15 @@ def cacher(filename):
 
             # TODO
             def write_h5(d, p):
-                with h5py.File(p, 'w') as f:
-                    if hasattr(d, '_fields'):
-                        f.attrs['fields'] = d._fields
+                with h5py.File(p, "w") as f:
+                    if hasattr(d, "_fields"):
+                        f.attrs["fields"] = d._fields
                         d = d._asdict()
-                    
+
                     for k, v in d.items():
                         if v is None:
-                            ds = f.create_dataset(k, dtype='i1', data=h5py.Empty('i1'))
-                            ds.attrs['is_none'] = True
+                            ds = f.create_dataset(k, dtype="i1", data=h5py.Empty("i1"))
+                            ds.attrs["is_none"] = True
                             continue
 
                         if isinstance(v, anndata.AnnData):
@@ -49,109 +50,128 @@ def cacher(filename):
                         if scipy.sparse.issparse(v):
                             v_csr = v.tocsr()
                             g = f.create_group(k)
-                            g.attrs['type'] = 'scipy.sparse.csr_matrix'
-                            g.attrs['shape'] = v_csr.shape
-                            g.create_dataset('data', data=v_csr.data)
-                            g.create_dataset('indices', data=v_csr.indices)
-                            g.create_dataset('indptr', data=v_csr.indptr)
+                            g.attrs["type"] = "scipy.sparse.csr_matrix"
+                            g.attrs["shape"] = v_csr.shape
+                            g.create_dataset("data", data=v_csr.data)
+                            g.create_dataset("indices", data=v_csr.indices)
+                            g.create_dataset("indptr", data=v_csr.indptr)
                         else:
                             f.create_dataset(k, data=v)
-                
+
             def load_h5(p):
-                with h5py.File(p, 'r') as f:
+                with h5py.File(p, "r") as f:
                     data = {}
                     for k in f.keys():
                         item = f[k]
 
-                        if item.attrs.get('is_none'):
+                        if item.attrs.get("is_none"):
                             data[k] = None
                             continue
 
-                        if isinstance(item, h5py.Group) and item.attrs.get("encoding-type") == "anndata":
+                        if (
+                            isinstance(item, h5py.Group)
+                            and item.attrs.get("encoding-type") == "anndata"
+                        ):
                             data[k] = read_elem(item)
                             continue
 
-                        if isinstance(item, h5py.Group) and item.attrs.get('type') == 'scipy.sparse.csr_matrix':
-                            shape = tuple(item.attrs['shape'])
+                        if (
+                            isinstance(item, h5py.Group)
+                            and item.attrs.get("type") == "scipy.sparse.csr_matrix"
+                        ):
+                            shape = tuple(item.attrs["shape"])
                             data[k] = scipy.sparse.csr_matrix(
-                                (item['data'][()], item['indices'][()], item['indptr'][()]),
-                                shape=shape
+                                (
+                                    item["data"][()],
+                                    item["indices"][()],
+                                    item["indptr"][()],
+                                ),
+                                shape=shape,
                             )
                         else:
                             val = item[()]
                             # NB decode bytes to strings for object arrays, e.g. pandas string cols.
-                            if isinstance(val, np.ndarray) and val.dtype.kind == 'O':
+                            if isinstance(val, np.ndarray) and val.dtype.kind == "O":
                                 try:
                                     if val.size > 0 and isinstance(val.flat[0], bytes):
-                                        val = np.array([x.decode('utf-8') for x in val.flat]).reshape(val.shape)
+                                        val = np.array(
+                                            [x.decode("utf-8") for x in val.flat]
+                                        ).reshape(val.shape)
                                 except Exception:
                                     pass
-                            elif isinstance(val, np.ndarray) and val.dtype.kind == 'S':
-                                 val = val.astype(str)
-                                 
+                            elif isinstance(val, np.ndarray) and val.dtype.kind == "S":
+                                val = val.astype(str)
+
                             data[k] = val
-                    
-                    if 'fields' in f.attrs:
-                        fields = f.attrs['fields']
+
+                    if "fields" in f.attrs:
+                        fields = f.attrs["fields"]
                         if isinstance(fields, np.ndarray):
-                            fields = [x.decode('utf-8') if isinstance(x, bytes) else x for x in fields]
-                        
+                            fields = [
+                                x.decode("utf-8") if isinstance(x, bytes) else x
+                                for x in fields
+                            ]
+
                         GenericTuple = namedtuple("GenericTuple", fields)
                         return GenericTuple(**data)
-                    
+
                     return data
-            
+
             def synopsis_h5(d):
-                if hasattr(d, '_fields'):
+                if hasattr(d, "_fields"):
                     return f"\tfields={d._fields}"
                 return f"keys={list(d.keys())}"
 
             strategies = {
-                '.tsv': (
-                    lambda p: pd.read_csv(p, sep='\t', keep_default_na=False), 
-                    lambda d, p: d.to_csv(p, sep='\t', index=False, na_rep=''),
-                    lambda d: f"\n{d.head()}"
+                ".tsv": (
+                    lambda p: pd.read_csv(p, sep="\t", keep_default_na=False),
+                    lambda d, p: d.to_csv(p, sep="\t", index=False, na_rep=""),
+                    lambda d: f"\n{d.head()}",
                 ),
-                '.csv': (
-                    lambda p: pd.read_csv(p, keep_default_na=False), 
-                    lambda d, p: d.to_csv(p, index=False, na_rep=''),
-                    lambda d: f"\n{d.head()}"
+                ".csv": (
+                    lambda p: pd.read_csv(p, keep_default_na=False),
+                    lambda d, p: d.to_csv(p, index=False, na_rep=""),
+                    lambda d: f"\n{d.head()}",
                 ),
-                '.pkl': (
-                    lambda p: pickle.load(open(p, "rb")), 
+                ".pkl": (
+                    lambda p: pickle.load(open(p, "rb")),
                     lambda d, p: pickle.dump(d, open(p, "wb")),
-                    lambda d: f"type={type(d)}"
+                    lambda d: f"type={type(d)}",
                 ),
-                '.npy': (
-                    lambda p: np.load(p), 
+                ".npy": (
+                    lambda p: np.load(p),
                     lambda d, p: np.save(p, d),
-                    lambda d: f"\n{d}"
+                    lambda d: f"\n{d}",
                 ),
-                '.hdf5': (
-                    load_h5, 
-                    write_h5,
-                    synopsis_h5
-                ),
+                ".hdf5": (load_h5, write_h5, synopsis_h5),
             }
 
             if ext not in strategies:
-                logger.warning(f"Skipping unknown extension '{ext}' for caching:\n'{filepath}'.")
+                logger.warning(
+                    f"Skipping unknown extension '{ext}' for caching:\n'{filepath}'."
+                )
                 return func(*args, **kwargs)
 
-            loader, writer, synopsis = strategies.get(ext, strategies['.pkl'])
+            loader, writer, synopsis = strategies.get(ext, strategies[".pkl"])
 
             if config.run.cache and os.path.exists(filepath):
                 mtime = os.path.getmtime(filepath)
-                last_modified = datetime.datetime.fromtimestamp(mtime).strftime('%Y-%m-%d %H:%M:%S')
+                last_modified = datetime.datetime.fromtimestamp(mtime).strftime(
+                    "%Y-%m-%d %H:%M:%S"
+                )
 
                 try:
                     result = loader(filepath)
 
-                    logger.warning(f"Loading cached result (last modified: {last_modified}) from:\n{filepath}\nwith result:  {synopsis(result)}")
+                    logger.warning(
+                        f"Loading cached result (last modified: {last_modified}) from:\n{filepath}\nwith result:  {synopsis(result)}"
+                    )
 
                     return result
                 except Exception as e:
-                    logger.warning(f"Failed to load cached file=\n{filepath}\n with error=\n{e}")
+                    logger.warning(
+                        f"Failed to load cached file=\n{filepath}\n with error=\n{e}"
+                    )
 
             result = func(*args, **kwargs)
 
@@ -166,7 +186,7 @@ def cacher(filename):
                     os.replace(tmp_filepath, filepath)
                 except Exception as e:
                     logger.error(f"Failed to write cache file: {e}")
-                    
+
                     if os.path.exists(tmp_filepath):
                         os.remove(tmp_filepath)
 
@@ -178,6 +198,7 @@ def cacher(filename):
         return wrapper
 
     return decorator
+
 
 def count_calls(func):
     """Decorator: increments func.call_count each time func is called."""
@@ -212,6 +233,13 @@ def merge_dicts(first, second):
         logger.info(f"Safely merged dictionaries with no collisions.")
 
     return merged
+
+
+def get_output_dir(config=None):
+    if config is None:
+        config = get_global_config()
+
+    return f"{config.paths.output_dir}/clone{config.hmrf.n_clones}_rectangle{config.hmrf.random_state}_w{config.hmrf.spatial_weight:.1f}/"
 
 
 def write_tsv(opath, df=None, header=True, index=False, index_label=None):

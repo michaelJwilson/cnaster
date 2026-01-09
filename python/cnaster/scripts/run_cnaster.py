@@ -61,7 +61,7 @@ from numba import njit
 from cnaster.sim import load_tables_to_matrices
 from cnaster.hmm import pipeline_baum_welch
 from cnaster.hmm_initialize import plot_cna_mixture
-from cnaster.utils import merge_dicts, write_tsv, write_fig
+from cnaster.utils import merge_dicts, write_tsv, write_fig, get_output_dir
 from cnaster.integer_copy import (
     hill_climbing_integer_copynumber_oneclone,
     hill_climbing_integer_copynumber_fixdiploid,
@@ -148,8 +148,9 @@ def run_cnaster(config_path, over_rides=None):
     set_global_config(config)
 
     # {config.hmrf.n_clones_rdr}
-    output_dir = f"{config.paths.output_dir}/clone{config.hmrf.n_clones}_rectangle{config.hmrf.random_state}_w{config.hmrf.spatial_weight:.1f}/"
-
+    # output_dir = f"{config.paths.output_dir}/clone{config.hmrf.n_clones}_rectangle{config.hmrf.random_state}_w{config.hmrf.spatial_weight:.1f}/"
+    output_dir = get_output_dir(config)
+    
     if not (poutput_dir := Path(output_dir)).exists():
         logger.info(f"Creating {output_dir}")
 

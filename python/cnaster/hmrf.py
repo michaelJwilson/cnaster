@@ -9,10 +9,11 @@ from cnaster.icm import icm_sweep, wolff_sweep, unpack_adjacency, merge_assignme
 from cnaster.hmm import gmm_init, pipeline_baum_welch
 from cnaster.hmm_sitewise import hmm_sitewise
 from cnaster.hmrf_utils import cast_csr, clone_stack_obs
-from cnaster.utils import count_calls
+from cnaster.utils import count_calls, get_output_dir
 from cnaster.hmm_initialize import plot_cna_mixture, cna_mixture_init
 from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
 from cnaster.config import get_global_config
+from cnaster.plotting import plot_clones_spatial, plot_clones_genomic
 from cnaster.deprecated.hmrf import (
     aggr_hmrfmix_reassignment_concatenate as dep_aggr_hmrfmix_reassignment_concatenate,
 )
@@ -576,6 +577,7 @@ def hmrfmix_concatenate_pipeline(
     unit_ysquared=3,
     spatial_weight=1.0 / 6.0,
     tumorprop_threshold=0.5,
+    plot_progress=True,
 ):
     # NB num. of genomic bins, num. pseudobulk (clones, spots, ...)
     n_obs, _, _ = single_X.shape
@@ -904,6 +906,52 @@ def hmrfmix_concatenate_pipeline(
                 ] - scipy.special.logsumexp(log_persample_weights[:, sidx])
 
         r += 1
+
+        if plot_progress:
+            logger.info(f"Plotting progress for interation {r}.")
+            
+            output_dir = get_output_dir()
+            
+            # TODO HACK                                                                                                                                                                                                                                          
+            assignment = pd.Series([f"clone {x}" for x in res["new_assignment"]])
+            bafonly_clones_fig = plot_clones_spatial(
+                coords,
+                assignment,
+                single_tumor_prop=single_tumor_prop,
+                sample_list=sample_list,
+                sample_ids=sample_ids,
+                base_width=4,
+                base_height=3,
+            )
+
+            fig_path = f"{output_dir}/plots/bafonly_clones_spatial_iter{r}.pdf"
+            write_fig(fig_path, bafonly_clones_fig, transparent=True, bbox_inches="tight")
+
+            # TODO copy rename.                                                                                                                                                                                                                                 
+            bafonly_clones_genomic = plot_clones_genomic_simple(
+                single_X,
+                single_base_nb_mean,
+                single_total_bb_RD,
+                [
+                    np.where(res["new_assignment"] == c)[0]
+                    for c in np.sort(np.unique(res["new_assignment"]))
+                ],
+                lengths,
+                res=res,
+                single_tumor_prop=None,
+                sample_list=sample_list,
+                remove_xticks=True,
+                rdr_ylim=6,
+                chrtext_shift=-0.2,
+                base_height=3.2,
+                pointsize=5,
+                linewidth=1,
+            )
+
+            fig_path = f"{plots_dir}/bafonly_clones_genomic_iter{r}.pdf"
+            write_fig(fig_path, bafonly_clones_genomic, transparent=True, bbox_inches="tight")
+
+            exit(0)
 
     return res
 

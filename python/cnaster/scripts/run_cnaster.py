@@ -405,7 +405,8 @@ def run_cnaster(config_path, over_rides=None):
     write_fig(
         fig_path, pseudobulk_clones_genomic, transparent=True, bbox_inches="tight"
     )
-
+    """
+    # NB identify informative segments for filtering based on pseudobulk likelihood.
     X, base_nb_mean, total_bb_RD, _ =  merge_pseudobulk_by_index_mix(
         single_X,
         single_base_nb_mean,
@@ -415,14 +416,15 @@ def run_cnaster(config_path, over_rides=None):
     )
 
     mask = single_total_bb_RD > 0
-    model = Weighted_BetaBinom(
-        X[:, 1, :].flatten(), np.ones(len(X[:, 1, :].flatten())), weights=np.ones(len(X[:, 1, :].flatten())), exposure=total_bb_RD.flatten()
-    )
 
     # LEGACY
     settings = get_em_solver_params()
-    res = model.fit(**settings)
 
+    res = Weighted_BetaBinom(
+        X[:, 1, :].flatten(), np.ones(len(X[:, 1, :].flatten())), weights=np.ones(len(X[:, 1, :].flatten())), exposure=total_bb_RD.flatten()
+    ).fit(**settings)
+
+    # NB sum over spots conditioned on segment.
     ln_pbetabinom = scipy.stats.betabinom.logpmf(
         X[:, 1, :],
         total_bb_RD,
@@ -430,7 +432,12 @@ def run_cnaster(config_path, over_rides=None):
         (1.0 - res.params[0]) * res.params[1],
     ).sum(axis=-1)
 
-    outlier_mask = ln_pbetabinom < np.percentile(ln_pbetabinom, 30)
+    # NB 30% least likely segments filtered as outliers.
+    segment_retention_mask = ln_pbetabinom < np.percentile(ln_pbetabinom, 30)
+
+    logger.info(f"Filtered {np.mean(~segment_retention_mask)*100:.2f}% segments as outliers based on pseudobulk BAF likelihood.")
+
+    # NB identify 'normal' spots based on informative segments only.
     initial_clone_fine_partition, _ = fixed_rectangle_partition(
         coords,
         10, # TODO 
@@ -446,14 +453,20 @@ def run_cnaster(config_path, over_rides=None):
         single_tumor_prop,
     )
 
-    # NB Calculate prob. per spot using only informative segments
+    # NB best-fit dispersion depends on spot segmentation - do not limit to informative segments.
+    res = Weighted_BetaBinom(
+        X[:, 1, :].flatten(), np.ones(len(X[:, 1, :].flatten())), weights=np.ones(len(X[:, 1, :].flatten())), exposure=total_bb_RD.flatten()
+    ).fit(**settings)
+
+    # NB calculate prob. per spot using only informative segments
     spot_ln_pbinom = scipy.stats.betabinom.logpmf(
-        X[outlier_mask, 1, :], 
-        total_bb_RD[outlier_mask, :], 
+        X[segment_retention_mask, 1, :], 
+        total_bb_RD[segment_retention_mask, :], 
         res.params[0] * res.params[1],
         (1.0 - res.params[0]) * res.params[1],
     ).sum(axis=0)
 
+    # NB 
     normal_candidates = np.where(spot_ln_pbinom > np.percentile(spot_ln_pbinom, 80))[0]
     normal_candidates = np.concatenate([initial_clone_fine_partition[i] for i in normal_candidates]).tolist()
 
@@ -462,10 +475,10 @@ def run_cnaster(config_path, over_rides=None):
         filtered_indices = np.setdiff1d(indices, normal_candidates)
         if len(filtered_indices) > 0:
             updated_clones.append(filtered_indices)
-
+    
     # TODO HACK
     initial_clone_for_phasing = updated_clones
-
+    """
     assignment = np.full(len(coords), -1, dtype=int)
 
     for __clone_id, indices in enumerate(initial_clone_for_phasing):

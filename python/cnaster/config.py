@@ -100,10 +100,10 @@ class YAMLConfig:
 
                 if hasattr(obj, final_key):
                     setattr(obj, final_key, value)
-                    logger.info(f"Config over ride: {key_path} = {value}")
+                    logger.info(f"Config override: {key_path} = {value}")
                 elif isinstance(obj, dict):
                     obj[final_key] = value
-                    logger.info(f"Config over ride: {key_path} = {value}")
+                    logger.info(f"Config override: {key_path} = {value}")
                 else:
                     logger.warning(f"Cannot set config.{key_path}, skipping override.")
 
@@ -115,7 +115,7 @@ class YAMLConfig:
         if int(self.hmrf.n_clones_rdr) == 1:
             logger.warning(f"Assuming no rdr-based clone identification")
         if not self.hmrf.np_merge:
-            logger.warning(f"Assuming no Neyman-Pearson model testing")
+            logger.warning(f"Excluding Neyman-Pearson model testing")
         if self.hmrf.fixed_assignment:
             logger.warning(f"Assuming fixed assignment")
 

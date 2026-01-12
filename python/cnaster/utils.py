@@ -323,6 +323,7 @@ def cast_clone_label(label, with_normal=False):
                 num -= value
 
         return f"Clone {roman_numeral}"
-    
+
+
 def pause():
-    input("Hit <Enter> to continue...")
+    input("<Enter> to continue ...")

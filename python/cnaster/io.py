@@ -772,3 +772,32 @@ def load_input_data(
     )
 
     return result
+
+
+def get_sample_list(adata):
+    sample_list = [adata.obs["sample"].iloc[0]]
+
+    # NB loop through rows (barcodes x samples) and collect sample names;
+    #    assumes sorted by sample and is unique in this case.
+    for i in range(1, adata.shape[0]):
+        if adata.obs["sample"].iloc[i] != sample_list[-1]:
+            logger.warning(
+                f"Appending sample_id={adata.obs['sample'].iloc[i]} to sample list."
+            )
+            sample_list.append(adata.obs["sample"].iloc[i])
+
+    # NB e.g. HT112C1-U1.
+    logger.info(f"Found {len(sample_list)} unique samples:\n{sample_list}")
+
+    # NB array: assigns to each transcript row (barcode x sample) unique index according to sample names.
+    sample_ids = -np.ones(adata.shape[0], dtype=int)
+
+    for s, sname in enumerate(sample_list):
+        index = np.where(adata.obs["sample"] == sname)[0]
+        sample_ids[index] = s
+
+    assert np.all(
+        sample_ids >= 0
+    ), f"Failed to assign unique integer to all samples in list. Bug?"
+
+    return sample_list, sample_ids

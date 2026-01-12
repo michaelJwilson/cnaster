@@ -1,7 +1,6 @@
 import argparse
 import copy
 import time
-import logging
 import random
 import scipy
 
@@ -48,10 +47,18 @@ from cnaster.normal_spot import (
     binned_gene_snp,
 )
 from numba import njit
+
 # from cnaster.sim import load_tables_to_matrices
 from cnaster.hmm import pipeline_baum_welch
 from cnaster.hmm_initialize import plot_cna_mixture
-from cnaster.utils import configure_output_dir, merge_dicts, write_tsv, write_fig, get_output_dir, pause
+from cnaster.utils import (
+    configure_output_dir,
+    merge_dicts,
+    write_tsv,
+    write_fig,
+    get_output_dir,
+    pause,
+)
 from cnaster.integer_copy import (
     hill_climbing_integer_copynumber_oneclone,
     hill_climbing_integer_copynumber_fixdiploid,
@@ -67,16 +74,20 @@ from cnaster.plotting import (
     # plot_recombination_rates,
     plot_copy_states,
 )
+
 # from cnaster.reference import get_reference_recomb_rates
 # from cnaster.perturb import perturb_phase
 # from cnaster.hmm_emission import Weighted_BetaBinom
 # from cnaster.hmm_utils import get_em_solver_params
 
+
 @njit
 def set_numba_seed(value):
     np.random.seed(value)
 
+
 logger = get_logger(__name__)
+
 
 def run_cnaster(config_path, over_rides=None):
     logger.info("----  Welcome to cnaster  ----")
@@ -116,7 +127,7 @@ def run_cnaster(config_path, over_rides=None):
     # ) = load_tables_to_matrices()
 
     # original_single_X = single_X.copy()
-    
+
     # # TODO HACK check against above.
     # smooth_mat, adjacency_mat = choose_adjacency_by_readcounts(
     #     coords, single_total_bb_RD
@@ -147,7 +158,7 @@ def run_cnaster(config_path, over_rides=None):
         min_snp_umis=config.quality.spot_min_snp_umis,
         min_percent_expressed_spots=config.quality.min_percent_expressed_spots,
     )
-    
+
     # cell_snp_Aallele, cell_snp_Ballele = perturb_phase(
     #     cell_snp_Aallele, cell_snp_Ballele, 0.1
     # )
@@ -181,7 +192,7 @@ def run_cnaster(config_path, over_rides=None):
         single_tumor_prop = None  # np.ones(len(adata.obs.index), dtype=float)
 
     # recomb_rates = get_reference_recomb_rates(config.references.geneticmap_file)
-    # 
+    #
     # write_fig(
     #     f"{plots_dir}/recombination_rates.pdf",
     #     plot_recombination_rates(recomb_rates),
@@ -193,7 +204,7 @@ def run_cnaster(config_path, over_rides=None):
     df_gene_snp = form_gene_snp_table(
         unique_snp_ids, config.references.hgtable_file, adata
     )
-    
+
     # plot_gene_snp_spatial(
     #     adata,
     #     cell_snp_Aallele,
@@ -229,7 +240,7 @@ def run_cnaster(config_path, over_rides=None):
         cell_snp_Ballele,
         unique_snp_ids,
     )
-    
+
     # NB 1D array of expected phase error rate.
     log_sitewise_transmat = get_sitewise_transmat(
         df_gene_snp,
@@ -342,7 +353,7 @@ def run_cnaster(config_path, over_rides=None):
     # # NB identify 'normal' spots based on informative segments only.
     # initial_clone_fine_partition, _ = fixed_rectangle_partition(
     #     coords,
-    #     10, # TODO 
+    #     10, # TODO
     #     10, # TODO
     #     single_tumor_prop=None,
     # )
@@ -362,13 +373,13 @@ def run_cnaster(config_path, over_rides=None):
 
     # # NB calculate prob. per spot using only informative segments
     # spot_ln_pbinom = scipy.stats.betabinom.logpmf(
-    #     X[segment_retention_mask, 1, :], 
-    #     total_bb_RD[segment_retention_mask, :], 
+    #     X[segment_retention_mask, 1, :],
+    #     total_bb_RD[segment_retention_mask, :],
     #     res.params[0] * res.params[1],
     #     (1.0 - res.params[0]) * res.params[1],
     # ).sum(axis=0)
 
-    # # NB 
+    # # NB
     # normal_candidates = np.where(spot_ln_pbinom > np.percentile(spot_ln_pbinom, 80))[0]
     # normal_candidates = np.concatenate([initial_clone_fine_partition[i] for i in normal_candidates]).tolist()
 
@@ -377,7 +388,7 @@ def run_cnaster(config_path, over_rides=None):
     #     filtered_indices = np.setdiff1d(indices, normal_candidates)
     #     if len(filtered_indices) > 0:
     #         updated_clones.append(filtered_indices)
-    
+
     # # TODO HACK
     # initial_clone_for_phasing = updated_clones
 
@@ -505,7 +516,7 @@ def run_cnaster(config_path, over_rides=None):
         single_total_bb_RD,
         initial_clone_for_phasing,
         lengths,
-        res=None, # TODO
+        res=None,  # TODO
         single_tumor_prop=None,
         sample_list=sample_list,
     )
@@ -514,7 +525,7 @@ def run_cnaster(config_path, over_rides=None):
     write_fig(
         fig_path, postphasing_clones_genomic, transparent=True, bbox_inches="tight"
     )
-    
+
     pseudobulk_clones_genomic = plot_clones_genomic_simple(
         single_X,
         single_base_nb_mean,
@@ -529,7 +540,7 @@ def run_cnaster(config_path, over_rides=None):
     write_fig(
         fig_path, pseudobulk_clones_genomic, transparent=True, bbox_inches="tight"
     )
-    
+
     # NB sparse transcript counts (spot, gene).
     exp_counts = pd.DataFrame.sparse.from_spmatrix(
         scipy.sparse.csc_matrix(adata.layers["count"]),
@@ -606,8 +617,8 @@ def run_cnaster(config_path, over_rides=None):
         #     if len(filtered_indices) > 0:
         #         updated_clones.append(filtered_indices)
         # initial_clone_index_baf = updated_clones
-        
-    n_spots = sum(len(indices) for indices in initial_clone_index_baf)    
+
+    n_spots = sum(len(indices) for indices in initial_clone_index_baf)
     clone_id = np.full(n_spots, -1, dtype=int)
 
     for idx, indices in enumerate(initial_clone_index_baf):
@@ -765,7 +776,7 @@ def run_cnaster(config_path, over_rides=None):
     write_fig(fig_path, bafonly_clones_genomic, transparent=True, bbox_inches="tight")
 
     exit(0)
-    
+
     if config.hmrf.np_merge:
         # NB merge similar clones based on Neyman-Pearson
         _, merged_res = neyman_pearson_similarity(
@@ -906,7 +917,7 @@ def run_cnaster(config_path, over_rides=None):
     )
 
     pause()
-    
+
     logger.info(f"Determining normal spots based on BAF-only clones.")
 
     # NB no input files for barcodes of normal spots, or tumor proportion per spot.
@@ -999,7 +1010,7 @@ def run_cnaster(config_path, over_rides=None):
             )
 
     pause()
-            
+
     index_normal = np.where(normal_candidate)[0]
 
     # TODO HACK
@@ -1181,7 +1192,7 @@ def run_cnaster(config_path, over_rides=None):
     # <<<<<
 
     pause()
-    
+
     logger.info(
         f"Refinining {n_baf_clones} BAF identified clones with RDR data assuming n_clones_rdr={config.hmrf.n_clones_rdr}"
     )
@@ -1257,8 +1268,10 @@ def run_cnaster(config_path, over_rides=None):
         copy_slice_sample_ids = copy.copy(sample_ids[idx_spots])
 
         # TODO HACK
-        copy_slice_sample_list = list(np.unique(np.array(sample_list)[sample_ids[idx_spots]]))
-        
+        copy_slice_sample_list = list(
+            np.unique(np.array(sample_list)[sample_ids[idx_spots]])
+        )
+
         # NB hmrf + hmm with RDR data.
         new_clone_res = hmrfmix_concatenate_pipeline(
             single_X[:, :, idx_spots],
@@ -1298,7 +1311,7 @@ def run_cnaster(config_path, over_rides=None):
         clone_res[prefix] = merge_dicts(clone_res[prefix], new_clone_res)
 
         pause()
-        
+
     logger.info(f"Combining results across clones.")
 
     # NB combined assignment for all spots.
@@ -1524,19 +1537,15 @@ def run_cnaster(config_path, over_rides=None):
         offset_clone += n_merged_clones
 
         pause()
-        
+
     # TODO BUG?? prev_assignment or new_assignment?
     n_final_clones = len(np.unique(res_combine["prev_assignment"]))
 
     logger.info(f"Inferred {n_final_clones} clones given RDR & BAF data.")
-    
-    logger.info(
-        f"Found rdr-split clone rdrs:\n{np.exp(res_combine['new_log_mu'])}."
-    )
 
-    logger.info(
-        f"Found rdr-split clone bafs:\n{res_combine['new_p_binom']}."
-    )
+    logger.info(f"Found rdr-split clone rdrs:\n{np.exp(res_combine['new_log_mu'])}.")
+
+    logger.info(f"Found rdr-split clone bafs:\n{res_combine['new_p_binom']}.")
 
     logger.info(
         f"Assuming max. alpha dispersion={np.max(res_combine['new_alphas']):.4f} between clones given current:\n{res_combine['new_alphas']}"
@@ -1553,7 +1562,7 @@ def run_cnaster(config_path, over_rides=None):
     res_combine["new_taus"][:, :] = np.min(res_combine["new_taus"])
 
     pause()
-    
+
     log_persample_weights = np.zeros((n_final_clones, len(sample_list)))
 
     for sidx in range(len(sample_list)):
@@ -1634,7 +1643,7 @@ def run_cnaster(config_path, over_rides=None):
     )
 
     pause()
-    
+
     # TODO new_log_startprob - add to res_combine above.
     for key in [
         "new_log_mu",
@@ -1652,7 +1661,7 @@ def run_cnaster(config_path, over_rides=None):
     )
 
     pause()
-    
+
     # NB infer integer allele-specific copy numbers
     final_clone_ids = np.sort(np.unique(res_combine["new_assignment"]))
 
@@ -1664,9 +1673,9 @@ def run_cnaster(config_path, over_rides=None):
         raise RuntimeError()
 
     logger.info(f"Utilizing final clone ids={final_clone_ids}")
-    
+
     pause()
-    
+
     # NB assumed ploidy for integer copy number problem
     medfix = [""] + [f"_{pp}" for pp in config.int_copy_num.ploidy.split(",")]
 

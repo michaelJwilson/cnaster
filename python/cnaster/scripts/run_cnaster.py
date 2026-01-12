@@ -73,6 +73,7 @@ from cnaster.plotting import (
     # plot_recombination_rates,
     plot_copy_states,
 )
+from cnaster.annotation import get_clone_label_annotation
 
 # from cnaster.reference import get_reference_recomb_rates
 # from cnaster.perturb import perturb_phase
@@ -230,40 +231,16 @@ def run_cnaster(config_path, over_rides=None):
 
     # NB known annotation.
     if config.annotation.clone_label is not None:
-        logger.warning(f"Assuming known clone labels={config.annotation.clone_label}")
-
-        clone_id = (
-            pd.read_csv(config.annotation.clone_label, sep="\t", index_col=0)["labels"]
-            .str.replace("clone_", "")
-            .str.replace("normal", "-1")
-            .astype(int)
-            .to_numpy()
+        initial_clone_index_baf, known_single_base_nb_mean = get_clone_label_annotation(
+            config
         )
-        clone_id += 1
-
-        initial_clone_index_baf = [
-            np.where(clone_id == xx)[0] for xx in np.unique(clone_id)
-        ]
 
         # TODO HACK!
         initial_clone_for_phasing = initial_clone_index_baf
-
-        known_rdr_normal = np.sum(single_X[:, 0, (clone_id == 0)], axis=1)
-
-        bidx_inconfident = np.where(
-            known_rdr_normal < config.quality.min_normal_count_perbin
-        )[0]
-        known_rdr_normal[bidx_inconfident] = 0
-
-        # NB normalized.
-        known_rdr_normal = known_rdr_normal / np.sum(known_rdr_normal)
-
-        spots_coverage = np.sum(single_X[:, 0, :], axis=0)
-
-        known_single_base_nb_mean = known_rdr_normal.reshape(
-            -1, 1
-        ) @ spots_coverage.reshape(1, -1)
     else:
+        # NB reference assignment, not a copy.
+        # initial_clone_index_baf = initial_clone_for_phasing
+        initial_clone_index_baf = None
         known_single_base_nb_mean = None
 
         # NB  rectangular partition across multiple slices.
@@ -274,10 +251,6 @@ def run_cnaster(config_path, over_rides=None):
             x_part=config.phasing.npart_phasing,
             y_part=config.phasing.npart_phasing,
         )
-
-        # NB reference assignment, not a copy.
-        # initial_clone_index_baf = initial_clone_for_phasing
-        initial_clone_index_baf = None
 
     initial_clone_pseudobulk = [[ii for ii in range(len(coords))]]
     pseudobulk_clones_genomic = plot_clones_genomic_simple(

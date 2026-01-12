@@ -51,11 +51,12 @@ from numba import njit
 # from cnaster.sim import load_tables_to_matrices
 from cnaster.hmm import pipeline_baum_welch
 from cnaster.hmm_initialize import plot_cna_mixture
-from cnaster.utils import configure_output_dir, merge_dicts, write_tsv, write_fig, get_output_dir, pause, warning_once, info_once
+from cnaster.utils import configure_output_dir, merge_dicts, write_tsv, write_fig, get_output_dir, pause
 from cnaster.integer_copy import (
     hill_climbing_integer_copynumber_oneclone,
     hill_climbing_integer_copynumber_fixdiploid,
 )
+from cnaster.logger import get_logger
 from cnaster.plotting import (
     plot_clones_genomic,
     plot_clones_spatial,
@@ -71,41 +72,11 @@ from cnaster.plotting import (
 # from cnaster.hmm_emission import Weighted_BetaBinom
 # from cnaster.hmm_utils import get_em_solver_params
 
-
-start_time = time.time()
-
-
-class RuntimeFormatter(logging.Formatter):
-    def format(self, record):
-        runtime_minutes = (time.time() - start_time) / 60.0
-        record.runtime = f"{runtime_minutes:.2f}m"
-        return super().format(record)
-
-formatter = RuntimeFormatter(
-    fmt="%(asctime)s - %(runtime)s - %(name)s - %(levelname)-7s - %(filename)s:%(lineno)d - %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
-
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
-
-for handler in logger.handlers[:]:
-    logger.removeHandler(handler)
-
-stream_handler = logging.StreamHandler()
-stream_handler.setFormatter(formatter)
-
-logger.addHandler(stream_handler)
-
-logger = logging.getLogger(__name__)
-logging.Logger.warning_once = warning_once
-logging.Logger.info_once = info_once
-
-
 @njit
 def set_numba_seed(value):
     np.random.seed(value)
 
+logger = get_logger(__name__)
 
 def run_cnaster(config_path, over_rides=None):
     logger.info("----  Welcome to cnaster  ----")

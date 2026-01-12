@@ -765,6 +765,7 @@ def hmrfmix_concatenate_pipeline(
     r = 0
     merge = False
 
+    # NB convoluted loop logic to achieve merge on last iteration.
     while r <= max_iter_outer:
         logger.info(
             f"----****  Solving iteration {r}/{max_iter_outer} of copy number state fitting & clone assignment (HMM + HMRF) ****----"

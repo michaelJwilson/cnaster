@@ -258,7 +258,7 @@ def write_fig(opath, fig=None, transparent=True, bbox_inches="tight"):
 
     logger.info(f"Writing figure to:\n{opath}")
     fig.savefig(opath, format="pdf", transparent=transparent, bbox_inches=bbox_inches)
-
+    plt.close(fig)
 
 @njit
 def top_hat_sum(arr, width):

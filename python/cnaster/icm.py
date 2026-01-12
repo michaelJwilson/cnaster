@@ -1,14 +1,16 @@
-import logging
+# import logging
 import numpy as np
 import csv
 import time
 from pathlib import Path
 from numba import njit
 from dataclasses import dataclass, asdict, field
-from collections import deque
-from statistics import mean
+# from collections import deque
+# from statistics import mean
+from cnaster.config import start_time
+from cnaster.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__, start_time=start_time)
 
 
 @dataclass

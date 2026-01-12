@@ -1,13 +1,16 @@
 from __future__ import annotations
 
+import time
 import json
 import logging
 from pathlib import Path
 from typing import Any, Dict
+from cnaster.logger import get_logger
 
 import yaml
 
-logger = logging.getLogger(__name__)
+start_time = time.time()
+logger = get_logger(__name__, start_time=start_time)
 
 
 # TODO

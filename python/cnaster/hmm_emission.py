@@ -17,8 +17,10 @@ import csv
 from pathlib import Path
 from numba import njit
 import scipy.optimize
+from cnaster.config import start_time
+from cnaster.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__, start_time=start_time)
 
 # TODO
 warnings.filterwarnings("ignore", category=UserWarning, module="statsmodels")

@@ -9,8 +9,10 @@ from cnaster.hmrf_utils import clone_stack_obs
 from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
 from cnaster.config import get_global_config
 from cnaster.hmm import gmm_init
+from cnaster.config import start_time
+from cnaster.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__, start_time=start_time)
 
 # NB mirrors calicost.phasing.initial_phase_given_partition; 
 @cacher("initial_phase.hdf5")

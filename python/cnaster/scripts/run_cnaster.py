@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 import scipy
 import functools
-from cnaster.config import YAMLConfig, set_global_config
+from cnaster.config import start_time, YAMLConfig, set_global_config
 from cnaster.hmm_nophasing import hmm_nophasing
 from cnaster.hmrf import (
     hmrfmix_concatenate_pipeline,
@@ -56,7 +56,6 @@ from cnaster.utils import (
     merge_dicts,
     write_tsv,
     write_fig,
-    get_output_dir,
     pause,
 )
 from cnaster.integer_copy import (
@@ -85,8 +84,7 @@ from cnaster.plotting import (
 def set_numba_seed(value):
     np.random.seed(value)
 
-
-logger = get_logger(__name__)
+logger = get_logger(__name__, start_time=start_time)
 
 
 def run_cnaster(config_path, over_rides=None):

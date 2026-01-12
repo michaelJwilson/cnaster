@@ -1,8 +1,9 @@
 import logging
 import numpy as np
+from cnaster.config import start_time
+from cnaster.logger import get_logger
 
-logger = logging.getLogger(__name__)
-
+logger = get_logger(__name__, start_time=start_time)
 
 def merge_pseudobulk_by_index_mix(
     single_X,

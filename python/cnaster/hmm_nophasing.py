@@ -21,13 +21,15 @@ from cnaster.hmm_utils import (
 from cnaster.deprecated.hmm_nophasing import compute_emission_probability_nb_betabinom
 from cnaster.hmm_emission_eval import compute_emissions
 from numba import njit
+from cnaster.config import start_time
+from cnaster.logger import get_logger
+
+logger = get_logger(__name__, start_time=start_time)
 
 """
 Joint NB-BB HMM that accounts for tumor/normal genome proportions.
 Tumor genome proportion is weighted by mu in BB distribution.
 """
-
-logger = logging.getLogger(__name__)
 
 
 class hmm_nophasing:

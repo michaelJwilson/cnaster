@@ -2,8 +2,10 @@ import logging
 
 import numpy as np
 from cnaster.config import get_global_config
+from cnaster.config import start_time
+from cnaster.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__, start_time=start_time)
 
 
 def compute_numbat_phase_switch_prob(

@@ -20,9 +20,10 @@ from cnaster.deprecated.hmrf import (
     aggr_hmrfmix_reassignment_concatenate as dep_aggr_hmrfmix_reassignment_concatenate,
 )
 from sklearn.metrics import adjusted_rand_score
+from cnaster.config import start_time
+from cnaster.logger import get_logger
 
-logger = logging.getLogger(__name__)
-
+logger = get_logger(__name__, start_time=start_time)
 
 @njit
 def logsumexp(x):

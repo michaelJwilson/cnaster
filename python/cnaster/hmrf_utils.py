@@ -1,7 +1,9 @@
 import numpy as np
 import logging
+from cnaster.config import start_time
+from cnaster.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__, start_time=start_time)
 
 # TODO validate
 def cast_csr(csr_matrix):

@@ -9,8 +9,10 @@ from scipy.spatial import cKDTree
 from scipy.spatial import distance
 from scipy.sparse import csr_matrix
 from cnaster.utils import cacher
+from cnaster.config import start_time
+from cnaster.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__, start_time=start_time)
 
 
 # TODO respect alignment.

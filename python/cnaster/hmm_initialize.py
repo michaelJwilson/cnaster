@@ -22,8 +22,10 @@ from cnaster.hmm_sitewise import hmm_sitewise
 from cnaster.hmm_nophasing import hmm_nophasing
 from joblib import Parallel, delayed
 import matplotlib.patches as mpatches
+from cnaster.config import start_time
+from cnaster.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__, start_time=start_time)
 
 
 def get_eff_element(t, K, two_sided=True):

@@ -6,8 +6,10 @@ from collections import namedtuple
 from cnaster.recomb import assign_centiMorgans, compute_numbat_phase_switch_prob
 from cnaster.reference import get_reference_genes, get_reference_recomb_rates
 from cnaster.utils import cacher
+from cnaster.config import start_time
+from cnaster.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__, start_time=start_time)
 
 
 # TODO assumes reference gene contains all those present in Visium anndata.

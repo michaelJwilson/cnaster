@@ -1,14 +1,11 @@
-import os
 import copy
 import seaborn as sns
 import numpy as np
-import matplotlib
 import matplotlib.pyplot as plt
 import pandas as pd
 
-import logging
 import matplotlib.gridspec as gridspec
-import cnaster.log_linear
+# import cnaster.log_linear
 from functools import cmp_to_key
 import matplotlib.colors as mcolors
 from matplotlib.lines import Line2D
@@ -16,9 +13,10 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
 from cnaster.integer_copy import get_ordered_acn
 from cnaster.utils import cast_clone_label, write_fig
-from cnaster.config import get_global_config
+from cnaster.config import start_time
+from cnaster.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__, start_time=start_time)
 
 plt.rcParams["font.family"] = "DejaVu Serif"
 

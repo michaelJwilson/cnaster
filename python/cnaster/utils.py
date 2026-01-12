@@ -241,6 +241,23 @@ def get_output_dir(config=None):
 
     return f"{config.paths.output_dir}/clone{config.hmrf.n_clones}_rectangle{config.hmrf.random_state}_w{config.hmrf.spatial_weight:.1f}/"
 
+def configure_output_dir(config=None):
+    # output_dir = f"{config.paths.output_dir}/clone{config.hmrf.n_clones}_rectangle{config.hmrf.random_state}_w{config.hmrf.spatial_weight:.1f}/"
+    output_dir = get_output_dir(config)
+    
+    if not (poutput_dir := Path(output_dir)).exists():
+        logger.info(f"Creating {output_dir}")
+
+        poutput_dir.parent.mkdir(exist_ok=True)
+        poutput_dir.mkdir(exist_ok=True)
+
+    plots_dir = f"{output_dir}/plots/"
+
+    if not (pplots_dir := Path(plots_dir)).exists():
+        logger.info(f"Creating {plots_dir}")
+        pplots_dir.mkdir(exist_ok=True)
+
+    return output_dir, plots_dir
 
 def write_tsv(opath, df=None, header=True, index=False, index_label=None):
     if df is None:

@@ -1239,25 +1239,6 @@ def plot_copy_states(state_cnv):
             
         current_row_idx += 3
 
-    """
-    # Vertical sub-row labels
-    label_map = {0: r"$\mu$", 1: r"$\beta$", 2: r"$\mathbb{N}$"}
-    for r, rtype in enumerate(row_types):
-        table_r = r + data_row_offset
-        first_cell = tbl[(table_r, 0)]
-        y_center = first_cell.get_y() + first_cell.get_height() / 2
-        ax.text(
-            -0.020,
-            y_center,
-            label_map[rtype],
-            rotation=90,
-            va="center",
-            ha="center",
-            fontsize=9,
-            transform=ax.transAxes,
-        )
-    """
-
     plt.title(r"$\mathbb{R}$ copy states", fontsize=14, pad=20)
     plt.tight_layout()
     

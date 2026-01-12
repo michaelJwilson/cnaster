@@ -12,8 +12,10 @@ from cnaster.reference import get_reference_recomb_rates
 from cnaster.recomb import assign_centiMorgans, compute_numbat_phase_switch_prob
 from cnaster.hmm_utils import get_em_solver_params
 from cnaster.config import get_global_config
+from cnaster.config import start_time
+from cnaster.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__, start_time=start_time)
 
 
 def binned_gene_snp(df_gene_snp):

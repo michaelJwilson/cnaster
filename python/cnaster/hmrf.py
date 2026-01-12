@@ -925,8 +925,6 @@ def hmrfmix_concatenate_pipeline(
                     :, sidx
                 ] - scipy.special.logsumexp(log_persample_weights[:, sidx])
 
-        r += 1
-
         if plot_progress:
             logger.info(f"Plotting progress for interation {r}.")
 
@@ -975,6 +973,8 @@ def hmrfmix_concatenate_pipeline(
 
             fig_path = f"{progress_dir}/{prefix}_genomic_iter{r}.pdf"
             write_fig(fig_path, clones_genomic, transparent=True, bbox_inches="tight")
+
+        r += 1
 
     return res
 

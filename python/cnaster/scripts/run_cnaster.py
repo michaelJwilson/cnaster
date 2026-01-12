@@ -19,7 +19,7 @@ from cnaster.hmrf import (
     # hmrfmix_reassignment_posterior,
     reindex_clones,
 )
-from cnaster.io import load_input_data, get_sample_list
+from cnaster.io import load_input_data, get_sample_list, read_tumor_prop
 from cnaster.omics import (
     assign_initial_blocks,
     create_bin_ranges,
@@ -165,29 +165,7 @@ def run_cnaster(config_path, over_rides=None):
     barcodes = adata.obs.index
     sample_list, sample_ids = get_sample_list(adata)
 
-    # TODO park somehere else.
-    if config.preprocessing.tumorprop_file is not None:
-        logger.info(
-            f"Reading pre-processed tumorprop file={config.preprocessing.tumorprop_file}"
-        )
-
-        df_tumorprop = pd.read_csv(
-            config.preprocessing.tumorprop_file, sep="\t", header=0, index_col=0
-        )
-
-        df_tumorprop = df_tumorprop[["Tumor"]]
-        df_tumorprop.columns = ["tumor_proportion"]
-
-        assert np.all(
-            adata.obs.index == df_tumorprop.index
-        ), "Detected mis-alignment of AnnData & tumor prop. barcode/sample ordering."
-
-        adata.obs = adata.obs.join(df_tumorprop)
-
-        single_tumor_prop = adata.obs["tumor_proportion"]
-    else:
-        logger.info(f"No (pre-processed) tumorprop. file provided.")
-        single_tumor_prop = None  # np.ones(len(adata.obs.index), dtype=float)
+    single_tumor_prop = read_tumor_prop(adata, config=config)
 
     # recomb_rates = get_reference_recomb_rates(config.references.geneticmap_file)
     #
@@ -387,9 +365,8 @@ def run_cnaster(config_path, over_rides=None):
     #     if len(filtered_indices) > 0:
     #         updated_clones.append(filtered_indices)
 
-    # # TODO HACK
+    # TODO HACK
     # initial_clone_for_phasing = updated_clones
-
     assignment = np.full(len(coords), -1, dtype=int)
 
     for __clone_id, indices in enumerate(initial_clone_for_phasing):
@@ -661,7 +638,6 @@ def run_cnaster(config_path, over_rides=None):
 
     # TODO HACK
     assignment = pd.Series([f"clone {x}" for x in clone_id])
-
     initial_clones_fig = plot_clones_spatial(
         coords,
         assignment,
@@ -1047,52 +1023,18 @@ def run_cnaster(config_path, over_rides=None):
             sample_list=sample_list,
             sample_ids=sample_ids,
         )
-
-    # TODO HACK
-    elif False:
-        logger.warning(f"Assuming basic normal differential expression.")
-
-        normal_gene_counts = np.sum(adata.layers["count"][normal_candidate, :], axis=0)
-        tumor_gene_counts = np.sum(adata.layers["count"][~normal_candidate, :], axis=0)
-
-        scaled_normal_gene_counts = (
-            normal_gene_counts
-            * len(normal_candidate)
-            / np.count_nonzero(normal_candidate)
-        )
-
-        # TODO HACK both ways?
-        diff_exp_thres = 6.0  # MAGIC
-        exp_diff_exp = (
-            tumor_gene_counts / scaled_normal_gene_counts > diff_exp_thres
-        )  # | (scaled_normal_gene_counts / tumor_gene_counts > diff_exp_thres)
-
-        total_original_umis = adata.layers["count"].sum()
-
-        # TODO assumes single_X etc will be re-calculated downstream.
-        adata.layers["count"][:, exp_diff_exp] = 0.0
-
-        total_original_umis_retained = adata.layers["count"].sum()
-
-        logger.info(
-            f"Zeroed {100. * np.mean(exp_diff_exp):.3f} [%] of genes with {(1. - total_original_umis_retained/total_original_umis):.3f} of UMIs estimated to be driven by differential expression."
-        )
-
-    # TODO CHECK?
     else:
         logger.warning(f"Assuming no filter for normal differential expression.")
 
-    """    
-    summarize_blocks(
-        df_gene_snp,
-        adata,
-        cell_snp_Aallele,
-        cell_snp_Ballele,
-        unique_snp_ids,
-        block_key="bin_id",
-        normal_candidates=normal_candidate,
-    )
-    """
+    # summarize_blocks(
+    #     df_gene_snp,
+    #     adata,
+    #     cell_snp_Aallele,
+    #     cell_snp_Ballele,
+    #     unique_snp_ids,
+    #     block_key="bin_id",
+    #     normal_candidates=normal_candidate,
+    # )
 
     # TODO HACK >>>>>>  do not filter, but merge segments, with insufficient normal umi counts.
     df_gene_snp = create_bin_ranges(
@@ -1237,17 +1179,15 @@ def run_cnaster(config_path, over_rides=None):
             random_state=0,  # TODO HACK.
         )
 
-        """
-        # TODO HACK?  splits each BAF clone along the x direction.
-        # TODO BUG require min spots/umis etc ...
-        x_part, y_part = config.hmrf.n_clones_rdr, 1
+        # # TODO HACK?  splits each BAF clone along the x direction.
+        # # TODO BUG require min spots/umis etc ...
+        # x_part, y_part = config.hmrf.n_clones_rdr, 1
         
-        initial_clone_index, _ = fixed_rectangle_partition(
-            coords[idx_spots],
-            x_part,
-            y_part,
-        )
-        """
+        # initial_clone_index, _ = fixed_rectangle_partition(
+        #     coords[idx_spots],
+        #     x_part,
+        #     y_part,
+        # )
 
         initial_assignment = np.zeros(len(idx_spots), dtype=int)
 
@@ -1994,28 +1934,28 @@ def run_cnaster(config_path, over_rides=None):
     # TODO
     fig_path = f"{output_dir}/plots/clones_genomic.pdf"
     write_fig(fig_path, rdr_baf_fig, transparent=True, bbox_inches="tight")
-    """
-    # TODO issue when indexing of initial clones incompatiable/bigger than final clones.
-    initial_rdr_baf_fig = plot_clones_genomic(
-        df_seglevel_cnv,
-        lengths,
-        single_X,
-        single_base_nb_mean,
-        single_total_bb_RD,
-        res_combine,
-        single_tumor_prop=single_tumor_prop,
-        sample_list=sample_list,
-        clone_ids=None,
-        clone_index=initial_clone_index_baf,
-        remove_xticks=True,
-        base_height=3.2,
-        palette_name="chisel",
-    )
 
-    # TODO
-    fig_path = f"{output_dir}/plots/initial_clones_genomic.pdf"
-    write_fig(fig_path, initial_rdr_baf_fig, transparent=True, bbox_inches="tight")
-    """
+    # TODO issue when indexing of initial clones incompatiable/bigger than final clones.
+    # initial_rdr_baf_fig = plot_clones_genomic(
+    #     df_seglevel_cnv,
+    #     lengths,
+    #     single_X,
+    #     single_base_nb_mean,
+    #     single_total_bb_RD,
+    #     res_combine,
+    #     single_tumor_prop=single_tumor_prop,
+    #     sample_list=sample_list,
+    #     clone_ids=None,
+    #     clone_index=initial_clone_index_baf,
+    #     remove_xticks=True,
+    #     base_height=3.2,
+    #     palette_name="chisel",
+    # )
+
+    # # TODO
+    # fig_path = f"{output_dir}/plots/initial_clones_genomic.pdf"
+    # write_fig(fig_path, initial_rdr_baf_fig, transparent=True, bbox_inches="tight")
+
     clone_index = [
         np.where(res_combine["new_assignment"] == c)[0]
         for c, _ in enumerate(final_clone_ids)

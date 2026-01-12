@@ -803,3 +803,33 @@ def get_sample_list(adata):
     ), f"Failed to assign unique integer to all samples in list. Bug?"
 
     return sample_list, sample_ids
+
+
+def read_tumor_prop(adata, config=None):
+    if config is None:
+        config = get_global_config()
+
+    if config.preprocessing.tumorprop_file is not None:
+        logger.info(
+            f"Reading pre-processed tumorprop file={config.preprocessing.tumorprop_file}"
+        )
+
+        df_tumorprop = pd.read_csv(
+            config.preprocessing.tumorprop_file, sep="\t", header=0, index_col=0
+        )
+
+        df_tumorprop = df_tumorprop[["Tumor"]]
+        df_tumorprop.columns = ["tumor_proportion"]
+
+        assert np.all(
+            adata.obs.index == df_tumorprop.index
+        ), "Detected mis-alignment of AnnData & tumor prop. barcode/sample ordering."
+
+        adata.obs = adata.obs.join(df_tumorprop)
+
+        return  adata.obs["tumor_proportion"]
+    else:
+        logger.info(f"No (pre-processed) tumorprop. file provided.")
+
+        # np.ones(len(adata.obs.index), dtype=float)
+        return 

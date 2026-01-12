@@ -375,15 +375,15 @@ def run_cnaster(config_path, over_rides=None):
         fig_path, prephasing_clones_genomic, transparent=True, bbox_inches="tight"
     )
 
-    if config.run.legacy:
-        logger.warning("Assuming (magic) five BAF states for phasing.")
-        n_states_phasing = 5
-    else:
-        n_states_phasing = config.hmm.n_states
-
     assert single_X.ndim == 3
 
     if config.phasing.run:
+        if config.run.legacy:
+            logger.warning("Assuming (magic) five BAF states for phasing.")
+            n_states_phasing = 5
+        else:
+            n_states_phasing = config.hmm.n_states
+
         # NB single_base_nb_mean initialized to zero - requires normal spot. determination.
         phase_res, phase_indicator, refined_lengths = initial_phase_given_partition(
             single_X,
@@ -409,7 +409,6 @@ def run_cnaster(config_path, over_rides=None):
         logger.info(
             f"Solved for initial phase given Eagle & BAF in {(time.time() - start_time):.2f} seconds."
         )
-
     else:
         phase_indicator = np.zeros(single_X.shape[0])
         refined_lengths = lengths
@@ -581,33 +580,6 @@ def run_cnaster(config_path, over_rides=None):
         single_tumor_prop,
         threshold=config.hmrf.tumorprop_threshold,
     )
-
-    # NB construct clone labels.
-    df_clone_label = pd.DataFrame(
-        {"x": coords[:, 0], "y": coords[:, 1]}, index=barcodes
-    )
-
-    # NB barcodes is the index.
-    df_clone_label.insert(0, "sample_id", df_clone_label.index.str.split("_").str[-1])
-
-    # TODO assert aligned?
-    if config.preprocessing.tumorprop_file is not None:
-        df_clone_label["tumor_proportion"] = single_tumor_prop
-
-    df_clone_label["clone_label"] = clone_id
-
-    # TODO HACK
-    # df_clone_label["UMIs"] = spot_umi_counts
-
-    # NB cannot sort before barcode-ordered assignments etc!
-    df_clone_label = df_clone_label.groupby("sample_id", group_keys=False).apply(
-        lambda g: g.sort_values(["x", "y"])
-    )
-
-    opath = f"{output_dir}/initial_clone_labels.tsv"
-    logger.info(f"Writing initial clone labels to {opath},\n{df_clone_label.head()}")
-
-    write_tsv(opath, df_clone_label, header=True, index=True, index_label="barcode")
 
     # TODO HACK
     assignment = pd.Series([f"clone {x}" for x in clone_id])
@@ -927,7 +899,6 @@ def run_cnaster(config_path, over_rides=None):
                 break
 
             PERCENT_NORMAL += 10
-
     elif config.preprocessing.normalidx_file is not None:
         # single_base_nb_mean has already been added in loading data step.
         if config.preprocessing.tumorprop_file is not None:
@@ -1065,22 +1036,6 @@ def run_cnaster(config_path, over_rides=None):
 
     logger.info(
         f"Found {100. * np.mean(rdr_normal >= config.quality.min_normal_count_perbin):.3f}% of segments with confident normal baseline for MIN_NORMAL_COUNT_PERBIN={config.quality.min_normal_count_perbin}"
-    )
-
-    pct_list = [1, 5, 25, 50, 75] + list(range(90, 101, 1))
-    rdr_pcts = np.percentile(rdr_normal, pct_list)
-    per_segment_std = copy_single_X_rdr[:, (normal_candidate == True)].std(axis=1)
-    std_pcts = np.percentile(per_segment_std, pct_list)
-
-    logger.info(
-        f"For percentiles={pct_list}, rdr_normal percentiles=\n{rdr_pcts}\nand per-segment std across normal candidates percentiles=\n{std_pcts}"
-    )
-
-    # TODO HACK
-    high_std_idx = np.where(per_segment_std > std_pcts[-2])[0]
-    high_rdr_idx = np.where(rdr_normal > rdr_pcts[-2])[0]
-    bidx_inconfident = np.unique(
-        np.concatenate([bidx_inconfident, high_std_idx, high_rdr_idx])
     )
 
     # NB where normal transcript count < config.quality.min_normal_count_perbin, zero.
@@ -1453,9 +1408,8 @@ def run_cnaster(config_path, over_rides=None):
     n_final_clones = len(np.unique(res_combine["prev_assignment"]))
 
     logger.info(f"Inferred {n_final_clones} clones given RDR & BAF data.")
-
+    
     logger.info(f"Found rdr-split clone rdrs:\n{np.exp(res_combine['new_log_mu'])}.")
-
     logger.info(f"Found rdr-split clone bafs:\n{res_combine['new_p_binom']}.")
 
     logger.info(

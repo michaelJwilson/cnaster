@@ -3,7 +3,6 @@ import os
 import h5py
 import scipy
 import pickle
-import logging
 import datetime
 import pandas as pd
 import numpy as np

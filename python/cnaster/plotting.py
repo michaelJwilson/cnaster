@@ -333,14 +333,13 @@ def plot_clones_genomic_simple(
     sample_list=None,
     remove_xticks=True,
     rdr_ylim=6,
-    chrtext_shift=-0.3,
+    chrtext_shift=-0.2,
     base_height=3.2,
     pointsize=5,
     linewidth=1,
 ):
     logger.info("Plotting simplified RDR & BAF scatter plots per clone.")
     
-    # Create pseudobulk for each clone
     X, base_nb_mean, total_bb_RD, tumor_prop = merge_pseudobulk_by_index_mix(
         single_X,
         single_base_nb_mean,
@@ -351,18 +350,22 @@ def plot_clones_genomic_simple(
     
     n_obs = X.shape[0]
     spots_per_clone = [len(idx) for idx in clone_index]
+
+    # NB indexes (sorted, unique) of non-empty clones.
     nonempty_clones = np.where(np.sum(total_bb_RD, axis=0) > 0)[0]
     
-    # Check if base_nb_mean is defined and has valid data
+    logger.info(f"Found non-empty clones: {nonempty_clones} for len(clone_index)={len(clone_index)}")
+
+    # NB check if base_nb_mean is defined and has valid data
     has_rdr = base_nb_mean is not None and np.max(base_nb_mean) > 0
     
     n_pairs = len(nonempty_clones)
-    axes_per_clone = 2 if has_rdr else 1  # RDR + BAF if RDR available, else just BAF
+    axes_per_clone = 2 if has_rdr else 1
     n_axes_total = axes_per_clone * n_pairs
     
     fig = plt.figure(figsize=(20, base_height * n_pairs), dpi=300, facecolor="white")
     
-    # Build height_ratios with spacing between pairs
+    # NB build height_ratios with spacing between pairs
     height_ratios = []
     for i in range(n_pairs):
         height_ratios.extend([1] * axes_per_clone)
@@ -390,7 +393,7 @@ def plot_clones_genomic_simple(
         if has_rdr:
             sns.scatterplot(
                 x=np.arange(X.shape[0]),
-                y=X[:, 0, c] / base_nb_mean[:, c],
+                y=X[:, 0, s] / base_nb_mean[:, s],
                 s=pointsize,
                 edgecolor="none",
                 linewidth=linewidth,
@@ -413,7 +416,7 @@ def plot_clones_genomic_simple(
         baf_idx = ax_idx + (1 if has_rdr else 0)
         sns.scatterplot(
             x=np.arange(X.shape[0]),
-            y=X[:, 1, c] / total_bb_RD[:, c],
+            y=X[:, 1, s] / total_bb_RD[:, s],
             s=pointsize,
             edgecolor="none",
             alpha=0.8,
@@ -450,12 +453,12 @@ def plot_clones_genomic_simple(
         theta_text = ""
 
         if single_tumor_prop is not None:
-            theta_text = f"$\\hat{{\\theta}}={tumor_prop[c]:.2f}$"
+            theta_text = f"$\\hat{{\\theta}}={tumor_prop[s]:.2f}$"
 
         ax.text(
             0.0,
             1.02,
-            f"{spots_per_clone[c]:_} spots; {int(np.sum(X[:, 0, c])):_} umis; {int(np.sum(total_bb_RD[:, c])):_} snp-umis; {theta_text}",
+            f"{spots_per_clone[s]:_} spots; {int(np.sum(X[:, 0, s])):_} umis; {int(np.sum(total_bb_RD[:, s])):_} snp-umis; {theta_text}",
             ha="left",
             va="bottom",
             fontsize=12,
@@ -465,7 +468,7 @@ def plot_clones_genomic_simple(
         if res is not None:
             # NB for all clones
             max_pred = np.argmax(res["log_gamma"], axis=0)
-            this_pred = max_pred[(c * n_obs) : (c * n_obs + n_obs)] % res["n_states"]
+            this_pred = max_pred[(s * n_obs) : (s * n_obs + n_obs)] % res["n_states"]
 
             segments, labs = get_intervals(this_pred)
                 

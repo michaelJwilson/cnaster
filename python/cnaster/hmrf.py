@@ -492,13 +492,13 @@ def aggr_hmrfmix_reassignment_concatenate(
             )
         )
 
-
-    # TODO HACK?
+    """
+    # TODO HACK?  e.g. pred of HMM requires an clone ordering definition.
     # NB reindex new_assignment to contiguous clone ids.
     unique_ids = np.unique(new_assignment)
     id_map = {old: new for new, old in enumerate(unique_ids)}
     new_assignment = np.array([id_map[x] for x in new_assignment])
-
+    """
     if return_posterior:
         return new_assignment, single_llf, total_llf, posterior
     else:

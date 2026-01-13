@@ -62,3 +62,29 @@ def clone_stack_obs(
         clone_stack_sitewise_transmat,
         stack_tumor_prop,
     )
+
+
+def get_clone_indices(assignments, clone_ids):
+    """
+    Return a list of arrays, each containing the indices of spots assigned to each clone ID.
+
+    Args:
+        assignments (np.ndarray): Array of clone assignments for each spot.
+        clone_ids (array-like): Iterable of clone IDs to extract indices for.
+
+    Returns:
+        List[np.ndarray]: List of index arrays, one per clone ID.
+    """
+    return [np.where(assignments == cid)[0] for cid in clone_ids]
+
+def get_clone_assignment(coords, clone_indices):
+    n_spots = sum(len(indices) for indices in clone_indices)
+
+    assert n_spots == len(coords), "Total number of spots does not match length of coords."
+
+    assignment = np.full(len(coords), -1, dtype=int)
+
+    for idx, indices in enumerate(clone_indices):
+        assignment[indices] = idx
+
+    return assignment

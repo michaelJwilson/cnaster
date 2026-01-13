@@ -1056,11 +1056,7 @@ def create_bin_ranges(
         {"CHR": "first", "START": "first", "END": "last"}
     )
 
-    unique_blocks = sorted_chr_pos_both.index
-
-    logger.info(
-        f"Recalculating bins (given phasing) and unique bins ids:\n{unique_blocks}"
-    )
+    logger.info(f"Recalculating bins (given phasing)")
 
     block_lengths = (
         sorted_chr_pos_both.END.to_numpy() - sorted_chr_pos_both.START.to_numpy()

@@ -666,7 +666,10 @@ def merge_assignment(
                     best_merge_cost = current_total_cost + delta_u_to_v
                     best_merge_pair = (u, v)
 
-    logger.info(f"Found best merge pair {best_merge_pair} with dC={best_merge_cost - current_total_cost:.6e}.")
+    if best_merge_cost > -np.inf:
+        logger.info(f"Found best merge pair {best_merge_pair} with dC={best_merge_cost - current_total_cost:.6e}.")
+    else:
+        logger.info(f"No beneficial merge found among {n_clones} clones.")
 
     return current_total_cost, best_merge_cost, best_merge_pair
 

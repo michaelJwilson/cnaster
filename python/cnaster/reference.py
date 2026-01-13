@@ -97,7 +97,7 @@ def get_reference_recomb_rates(geneticmap_file):
 
     df = df.sort_values(by=["chrom", "pos"])
 
-    logger.info(
+    logger.info_once(
         f"Read reference recombination rates from {geneticmap_file}:\n{df.head()}"
     )
 

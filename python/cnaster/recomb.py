@@ -23,7 +23,7 @@ def compute_numbat_phase_switch_prob(
     if min_prob is None:
         min_prob = get_global_config().phasing.min_prob
     
-    logger.info(f"Computing numbat phase switch probabilities assuming nu={nu}.")
+    logger.info_once(f"Computing numbat phase switch probabilities assuming nu={nu}.")
     logger.info(
         f"position_cM has {100. * np.mean(np.isnan(position_cM))}% NAN content."
     )
@@ -48,7 +48,7 @@ def compute_numbat_phase_switch_prob(
         # NB numbat definition;
         phase_switch_prob[i] = (1.0 - np.exp(-2.0 * nu * d)) / 2.0
 
-    logger.info(f"Solved for max phase switch prob. = {np.max(phase_switch_prob)}")
+    logger.info_once(f"Solved for max phase switch prob. = {np.max(phase_switch_prob)}")
         
     under_flowed = phase_switch_prob < min_prob
 
@@ -62,7 +62,7 @@ def compute_numbat_phase_switch_prob(
 
 
 def assign_centiMorgans(chr_pos_vector, ref_positions_cM):
-    logger.info("Assigning centiMorgan recombination rates.")
+    logger.info_once("Assigning centiMorgan recombination rates.")
 
     ref_chrom = np.array(ref_positions_cM.chrom).astype(int)
     ref_pos = np.array(ref_positions_cM.pos)

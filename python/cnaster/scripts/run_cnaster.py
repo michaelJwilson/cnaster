@@ -1076,7 +1076,6 @@ def run_cnaster(config_path, over_rides=None):
         idx_spots = np.where(merged_baf_assignment == bafc)[0]
 
         # NB min. b-allele read count (equivalent to 20 per spot) on pseudobulk to split clones.
-        # TODO split will be on RDR, seems an odd requirement?
         if np.sum(single_total_bb_RD[:, idx_spots]) < 20 * single_X.shape[0]:
             logger.warning(
                 f"Skipping RDR refinment of BAF identified clone {bafc} as too few snp-covering UMIs ({np.sum(single_total_bb_RD[:, idx_spots]):_}/{20 * single_X.shape[0]:_})!"
@@ -1450,7 +1449,8 @@ def run_cnaster(config_path, over_rides=None):
     # NB final re-assignment across all spots using current copy states -
     #    does not conserve original e.g. baf clone assignments, or normal spots.
     #
-    # TODO can generate small clones.
+    logger.info(f"Finalizing assignment with refined parameters.")
+
     if config.preprocessing.tumorprop_file is None:
         new_assignment, _, total_llf, posterior = aggr_hmrf_reassignment(
             single_X,
@@ -1730,6 +1730,8 @@ def run_cnaster(config_path, over_rides=None):
                 df_genelevel_cnv = df_genelevel_cnv.join(
                     tmpdf[~tmpdf[f"clone{s} A"].isnull()].astype(int)
                 )
+
+            pause()
 
         if len(state_cnv) == 0:
             logger.warning(f"Found empty state integer copy numbers for clone{s}!")

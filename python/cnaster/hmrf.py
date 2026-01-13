@@ -479,7 +479,7 @@ def aggr_hmrfmix_reassignment_concatenate(
         _, cnts = np.unique(new_assignment, return_counts=True)
 
         logger.info(
-            f"Solved for updated clone labels with new cost {new_cost:.6e} in {niter} iterations (took {time.time() - start_time:.2f} seconds with clone breakdown=\n{cnts})."
+            f"Solved for updated clone labels with new cost {new_cost:.6e} in {niter} iterations (took {time.time() - start_time:.2f} seconds with clone breakdown=\n{cnts / cnts.sum()})."
         )
 
     # NB compute total ln likelihood.
@@ -830,15 +830,17 @@ def hmrfmix_concatenate_pipeline(
             merge=merge,
         )
 
-        # NB handle the case when one clone has zero spots.
+        # NB handle the case where one clone has zero spots.
         if len(np.unique(new_assignment)) < X.shape[2]:
-            logger.warning(
-                f"Iteration {r}: clone has no spots assigned.  Re-indexing clones."
-            )
-
             res["assignment_before_reindex"] = new_assignment
             remaining_clones = np.sort(np.unique(new_assignment))
+
+            # NB map original clone id to new enumeration.
             re_indexing = {c: i for i, c in enumerate(remaining_clones)}
+
+            logger.warning(
+                f"Iteration {r}: detected clone loss:  re-indexing clones with map={re_indexing}"
+            )
 
             # NB re-index new_assignment to be consecutive given a missing clone.
             new_assignment = np.array([re_indexing[x] for x in new_assignment])
@@ -847,6 +849,7 @@ def hmrfmix_concatenate_pipeline(
                 [np.arange(c * n_obs, c * n_obs + n_obs) for c in remaining_clones]
             )
 
+            # NB log_gamma and pred_cnv ordered by clone.
             res["log_gamma"] = res["log_gamma"][:, concat_idx]
             res["pred_cnv"] = res["pred_cnv"][concat_idx]
 

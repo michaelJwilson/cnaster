@@ -170,7 +170,7 @@ def summarize_lattice_structure(coords, sample_ids=None, sample_list=None):
         unique_dists, unique_cnts = np.unique(sorted_dists, return_counts=True)
 
         # NB cell positions of Visium HD will not be regular.
-        logger.info(f"Found lattice distances from center:\n{unique_dists}\nwith counts:\n{unique_cnts}")
+        logger.info(f"Found lattice distances from center:\n{unique_dists[:10]}\nwith counts:\n{unique_cnts[:10]}")
 
         assert np.all(unique_dists > 0.0)
 

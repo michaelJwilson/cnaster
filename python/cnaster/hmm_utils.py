@@ -131,18 +131,9 @@ def calc_sparsity(csr_matrix):
 
 
 def construct_unique_matrix(obs_count, total_count):
-    """
-    Attributes
-    ----------
-    allele_count : array, shape (n_observations, n_spots)
-        Observed A allele counts per SNP per spot.
-
-    total_bb_RD : array, shape (n_observations, n_spots)
-        Total SNP-covering reads per SNP per spot.
-    """
     n_obs = obs_count.shape[0]
     n_spots = obs_count.shape[1]
-    decimals = name = get_global_config().hmm.compression_decimals
+    decimals = get_global_config().hmm.compression_decimals
 
     unique_values, mapping_matrices = [], []
     mean_validity, mean_compression, mean_sparsity = 0.0, 0.0, 0.0

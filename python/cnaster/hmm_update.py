@@ -590,7 +590,7 @@ def update_emission_params_nb_nophasing_uniqvalues(
 
     if np.any(new_log_mu > max_log_rdr) or np.any(new_log_mu < min_log_rdr):
         logger.warning(
-            f"Clipping updated log RDR to range=({min_log_rdr},{max_log_rdr})"
+            f"Clipping updated log RDR to range=({min_log_rdr},{max_log_rdr}) given log_RDR=\n{new_log_mu}."
         )
 
     new_log_mu[new_log_mu > max_log_rdr] = max_log_rdr
@@ -1504,7 +1504,7 @@ def update_emission_params_bb_nophasing_uniqvalues(
 
     if np.any(new_p_binom < min_binom_prob) or np.any(new_p_binom > max_binom_prob):
         logger.warning(
-            f"Clipping inferred p binom to range=({min_binom_prob},{max_binom_prob})."
+            f"Clipping inferred p binom to range=({min_binom_prob},{max_binom_prob}) given p_binom=\n{new_p_binom}."
         )
 
     new_p_binom[new_p_binom < min_binom_prob] = min_binom_prob

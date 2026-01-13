@@ -343,4 +343,5 @@ def cast_clone_label(label, with_normal=False):
 
 
 def pause():
-    input("<Enter>")
+    # input("<Enter>")
+    pass

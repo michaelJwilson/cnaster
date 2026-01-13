@@ -50,6 +50,147 @@ def binned_gene_snp(df_gene_snp):
     return table_bininfo
 
 
+def determine_normal_candidates(
+    config,
+    res,
+    baf_profiles,
+    single_X,
+    single_X_rdr,
+    smooth_mat,
+    single_tumor_prop=None,
+):
+    """
+    Determine normal candidate spots based on BAF profiles, tumor proportion, or provided indices.
+    Returns a boolean array normal_candidate.
+    """
+    logger.info(f"Determining normal spots based on BAF-only clones.")
+
+    # NB no input files for barcodes of normal spots, or tumor proportion per spot.
+    if (config.preprocessing.normalidx_file is None) and (
+        config.preprocessing.tumorprop_file is None
+    ):
+        EPS_BAF = 0.05 # MAGIC
+        PERCENT_NORMAL = 40 # MAGIC
+
+        logger.info(
+            f"Identifying normal spots based on estimated BAF given EPS_BAF={EPS_BAF} and PERCENT_NORMAL={PERCENT_NORMAL}."
+        )
+
+        # NB sum deviations > EPS_BAF from 0.5 along the genome for each clone; pick normal as minimum deviation.
+        baf_deviations = np.sum(
+            np.maximum(np.abs(baf_profiles - 0.5) - EPS_BAF, 0), axis=1
+        )
+        id_nearnormal_clone = np.argmin(baf_deviations)
+
+        logger.info(
+            f"Found clone {id_nearnormal_clone} to be the most normal-like given BAF deviations."
+        )
+
+        # NB measure the standard deviation of log-transformed, smoothed transcript counts for each spot.
+        vec_stds = np.std(np.log1p(single_X_rdr @ smooth_mat), axis=0)
+        prior_stdthreshold = np.inf
+
+        while True:
+            stdthreshold = np.percentile(
+                vec_stds[res["new_assignment"] == id_nearnormal_clone],
+                PERCENT_NORMAL,
+            )
+            normal_candidate = (vec_stds < stdthreshold) & (
+                res["new_assignment"] == id_nearnormal_clone
+            )
+
+            if config.run.legacy and (
+                np.sum(single_X_rdr[:, (normal_candidate == True)])
+                > 200 * single_X.shape[0]  # MAGIC
+            ):
+                logger.info(
+                    f"Assumed legacy normal spot allocation for {PERCENT_NORMAL}[%] normal spots"
+                )
+                break
+
+            elif stdthreshold > 1.5 * prior_stdthreshold: # MAGIC
+                logger.info(
+                    f"Determined {PERCENT_NORMAL}% normal spots with sufficient UMIs, assigned to normal like clone."
+                )
+                logger.info(
+                    f"BAF-clone breakdown:\n{np.unique(res['new_assignment'][normal_candidate], return_counts=True)}"
+                )
+                break
+            elif PERCENT_NORMAL == 100:
+                logger.warning(
+                    f"All {np.count_nonzero(res['new_assignment'] == id_nearnormal_clone)} spots for clone {id_nearnormal_clone} considered to be normal."
+                )
+                break
+
+            PERCENT_NORMAL += 10
+        return normal_candidate
+
+    elif config.preprocessing.normalidx_file is not None:
+        # single_base_nb_mean has already been added in loading data step.
+        if config.preprocessing.tumorprop_file is not None:
+            logger.warning(
+                f"Found mixed sources for normal spot definition, assuming {config.preprocessing.normalidx_file}."
+            )
+        # You may want to load normal_candidate from file here
+        return None
+
+    else:
+        assert single_tumor_prop is not None
+
+        logger.info(f"Identifying normal spots based on provided tumor proportion.")
+
+        for prop_threshold in np.arange(0.05, 0.6, 0.05):
+            # NB suggests 0 is perfectly normal and otherwise measures tumor proportion, sensibly!
+            normal_candidate = single_tumor_prop < prop_threshold
+
+            if (
+                np.sum(single_X_rdr[:, (normal_candidate == True)])
+                > 200 * single_X.shape[0]  # MAGIC
+            ):
+                logger.info(
+                    f"Determined normal spots with sufficient UMIs based on input tumor proportion @ prop_threshold={prop_threshold}"
+                )
+                break
+        else:
+            logger.warning(
+                f"Failed to determine normal spots with sufficient UMIs based on input tumor proportion."
+            )
+        return normal_candidate
+
+
+def determine_normal_baseline(single_X_rdr, normal_candidate, config=None):
+    if config is None:
+        config = get_global_config()
+
+    logger.info(
+        f"Found sparsity of normal spot set={100. * np.mean(single_X_rdr[:, (normal_candidate == True)]) == 0.:.3f}%"
+    )
+
+    # NB normal baseline transcript count; unnormalized.
+    # TODO normal_candidate clause
+    rdr_normal = np.sum(single_X_rdr[:, (normal_candidate == True)], axis=1)
+
+    bidx_inconfident = np.where(rdr_normal < config.quality.min_normal_count_perbin)[0]
+
+    logger.info(
+        f"Found {100. * np.mean(rdr_normal >= config.quality.min_normal_count_perbin):.3f}% of segments with confident normal baseline for MIN_NORMAL_COUNT_PERBIN={config.quality.min_normal_count_perbin}"
+    )
+
+    # NB where normal transcript count < config.quality.min_normal_count_perbin, zero.
+    rdr_normal[bidx_inconfident] = 0
+    rdr_normal = rdr_normal / np.sum(rdr_normal)
+
+    # NB avoid ill-defined distributions if normal has 0 count in that bin.
+    single_X_rdr[bidx_inconfident, :] = 0
+
+    # NB replicate and normalize rdr_normal to the per-spot total transcripts, T_n.
+    spots_coverage = np.sum(single_X_rdr, axis=0)
+
+    single_base_nb_mean = rdr_normal.reshape(-1, 1) @ spots_coverage.reshape(1, -1)
+
+    return rdr_normal, single_X_rdr, single_base_nb_mean
+
+
 def filter_normal_diffexp(
     exp_counts,
     df_bininfo,

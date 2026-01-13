@@ -42,6 +42,8 @@ from cnaster.neyman_pearson import (
     combine_similar_states_across_clones,
 )
 from cnaster.normal_spot import (
+    determine_normal_candidates,
+    determine_normal_baseline,
     normal_baf_bin_filter,
     filter_normal_diffexp,
     binned_gene_snp,
@@ -231,7 +233,7 @@ def run_cnaster(config_path, over_rides=None):
 
     # NB known annotation.
     if config.annotation.clone_label is not None:
-        initial_clone_index_baf, known_single_base_nb_mean = get_clone_label_annotation(
+        initial_clone_index_baf, _ = get_clone_label_annotation(
             config
         )
 
@@ -241,7 +243,6 @@ def run_cnaster(config_path, over_rides=None):
         # NB reference assignment, not a copy.
         # initial_clone_index_baf = initial_clone_for_phasing
         initial_clone_index_baf = None
-        known_single_base_nb_mean = None
 
         # NB  rectangular partition across multiple slices.
         #     equivalent to parse_visium::perform_partition
@@ -777,17 +778,18 @@ def run_cnaster(config_path, over_rides=None):
 
     # NB construct clone labels.
     df_clone_label = pd.DataFrame(
-        {"x": coords[:, 0], "y": coords[:, 1]}, index=barcodes
+        {
+            "sample_id": [barcode.split("_")[-1] for barcode in barcodes],
+            "x": coords[:, 0],
+            "y": coords[:, 1],
+            "clone_label": merged_res["new_assignment"],
+        },
+        index=barcodes
     )
-
-    # NB barcodes is the index.
-    df_clone_label.insert(0, "sample_id", df_clone_label.index.str.split("_").str[-1])
 
     # TODO assert aligned?
     if config.preprocessing.tumorprop_file is not None:
         df_clone_label["tumor_proportion"] = single_tumor_prop
-
-    df_clone_label["clone_label"] = merged_res["new_assignment"]
 
     # NB cannot sort before barcode-ordered assignments etc!
     df_clone_label = df_clone_label.groupby("sample_id", group_keys=False).apply(
@@ -835,95 +837,15 @@ def run_cnaster(config_path, over_rides=None):
 
     pause()
 
-    logger.info(f"Determining normal spots based on BAF-only clones.")
-
-    # NB no input files for barcodes of normal spots, or tumor proportion per spot.
-    if (config.preprocessing.normalidx_file is None) and (
-        config.preprocessing.tumorprop_file is None
-    ):
-        EPS_BAF = 0.05  # MAGIC
-        PERCENT_NORMAL = 40  # MAGIC
-
-        logger.info(
-            f"Identifying normal spots based on estimated BAF given EPS_BAF={EPS_BAF} and PERCENT_NORMAL={PERCENT_NORMAL}."
-        )
-
-        # NB sum deviations > EPS_BAF from 0.5 along the genome for each clone; pick normal as minimum deviation.
-        baf_deviations = np.sum(
-            np.maximum(np.abs(merged_baf_profiles - 0.5) - EPS_BAF, 0), axis=1
-        )
-        id_nearnormal_clone = np.argmin(baf_deviations)
-
-        logger.info(
-            f"Found clone {id_nearnormal_clone} to be the most normal-like given BAF deviations."
-        )
-
-        # NB measure the standard deviation of log-transformed, smoothed transcript counts for each spot.
-        vec_stds = np.std(np.log1p(copy_single_X_rdr @ smooth_mat), axis=0)
-
-        prior_stdthreshold = np.inf
-
-        while True:
-            # NB spots assigned to the normal-like clone AND 40% with smallest BAF deviation from 0.5;
-            stdthreshold = np.percentile(
-                vec_stds[merged_res["new_assignment"] == id_nearnormal_clone],
-                PERCENT_NORMAL,
-            )
-            normal_candidate = (vec_stds < stdthreshold) & (
-                merged_res["new_assignment"] == id_nearnormal_clone
-            )
-
-            if config.run.legacy and (
-                np.sum(copy_single_X_rdr[:, (normal_candidate == True)])
-                > 200 * single_X.shape[0]
-            ):
-                logger.info(
-                    f"Assumed legacy normal spot allocation for {PERCENT_NORMAL}[%] normal spots"
-                )
-                break
-
-            elif stdthreshold > 1.5 * prior_stdthreshold:  # MAGIC
-                logger.info(
-                    f"Determined {PERCENT_NORMAL}% normal spots with sufficient UMIs, assigned to normal like clone."
-                )
-                logger.info(
-                    f"BAF-clone breakdown:\n{np.unique(merged_res["new_assignment"][normal_candidate], return_counts=True)}"
-                )
-                break
-            elif PERCENT_NORMAL == 100:
-                logger.warning(
-                    f"All {np.count_nonzero(merged_res["new_assignment"] == id_nearnormal_clone)} spots for clone {id_nearnormal_clone} considered to be normal."
-                )
-                break
-
-            PERCENT_NORMAL += 10
-    elif config.preprocessing.normalidx_file is not None:
-        # single_base_nb_mean has already been added in loading data step.
-        if config.preprocessing.tumorprop_file is not None:
-            logger.warning(
-                f"Found mixed sources for normal spot definition, assuming {config.preprocessing.normalidx_file}."
-            )
-    else:
-        assert single_tumor_prop is not None
-
-        logger.info(f"Identifying normal spots based on provided tumor proportion.")
-
-        for prop_threshold in np.arange(0.05, 0.6, 0.05):
-            # NB suggests 0 is perfectly normal and otherwise measures tumor proportion, sensibly!
-            normal_candidate = single_tumor_prop < prop_threshold
-
-            if (
-                np.sum(copy_single_X_rdr[:, (normal_candidate == True)])
-                > 200 * single_X.shape[0]  # MAGIC
-            ):
-                logger.info(
-                    f"Determined normal spots with sufficient UMIs based on input tumor proportion @ prop_threshold={prop_threshold}"
-                )
-                break
-        else:
-            logger.warning(
-                f"Failed to determine normal spots with sufficient UMIs based on input tumor proportion."
-            )
+    normal_candidate = determine_normal_candidates(
+        config,
+        merged_res,
+        merged_baf_profiles,
+        single_X,
+        copy_single_X_rdr,
+        smooth_mat,
+        single_tumor_prop=None,
+    )
 
     pause()
 
@@ -1023,33 +945,11 @@ def run_cnaster(config_path, over_rides=None):
     # <<<<<<<<<<<<
 
     # NB >>>>>  determine normal baseline expression.
-    logger.info(
-        f"Found sparsity of normal spot set={100. * np.mean(copy_single_X_rdr[:, (normal_candidate == True)]) == 0.:.3f}%"
+    rdr_normal, copy_single_X_rdr, copy_single_base_nb_mean = determine_normal_baseline(
+        copy_single_X_rdr,
+        normal_candidate,
+        config,
     )
-
-    # NB normal baseline transcript count; unnormalized.
-    rdr_normal = np.sum(copy_single_X_rdr[:, (normal_candidate == True)], axis=1)
-
-    bidx_inconfident = np.where(rdr_normal < config.quality.min_normal_count_perbin)[0]
-
-    logger.info(
-        f"Found {100. * np.mean(rdr_normal >= config.quality.min_normal_count_perbin):.3f}% of segments with confident normal baseline for MIN_NORMAL_COUNT_PERBIN={config.quality.min_normal_count_perbin}"
-    )
-
-    # NB where normal transcript count < config.quality.min_normal_count_perbin, zero.
-    rdr_normal[bidx_inconfident] = 0
-
-    # NB normalized.
-    rdr_normal = rdr_normal / np.sum(rdr_normal)
-
-    # NB avoid ill-defined distributions if normal has 0 count in that bin, assuming clone
-    #    should have no expression if normal does not - true for copy number models.
-    copy_single_X_rdr[bidx_inconfident, :] = 0
-
-    # NB replicate and normalize rdr_normal to the per-spot total transcripts, T_n.
-    spots_coverage = np.sum(copy_single_X_rdr, axis=0)
-
-    copy_single_base_nb_mean = rdr_normal.reshape(-1, 1) @ spots_coverage.reshape(1, -1)
 
     # NB adding back RDR signal
     single_X[:, 0, :] = copy_single_X_rdr
@@ -1107,7 +1007,7 @@ def run_cnaster(config_path, over_rides=None):
         # # TODO HACK?  splits each BAF clone along the x direction.
         # # TODO BUG require min spots/umis etc ...
         # x_part, y_part = config.hmrf.n_clones_rdr, 1
-        
+
         # initial_clone_index, _ = fixed_rectangle_partition(
         #     coords[idx_spots],
         #     x_part,

@@ -111,7 +111,7 @@ hmm:
   shared_NB_dispersion : True
   fix_BB_dispersion : False
   shared_BB_dispersion : True
-  compression_decimals: 1
+  compression_decimals: 0
   max_iter : 30
   tol : 0.001
   max_workers : 2

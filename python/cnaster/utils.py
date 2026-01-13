@@ -342,6 +342,9 @@ def cast_clone_label(label, with_normal=False):
         return f"Clone {roman_numeral}"
 
 
-def pause():
-    # input("<Enter>")
-    pass
+def pause(config=None):
+    if config is None:
+        config = get_global_config()
+
+    if bool(config.run.pause):
+        input("<Enter>")

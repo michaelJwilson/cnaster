@@ -20,6 +20,7 @@ run:
   cache : False
   legacy : False
   bafonly : False
+  pause : False
 
 references:
   geneticmap_file : /Users/mw9568/repos/CalicoST/GRCh38_resources/genetic_map_GRCh38_merged.tab.gz

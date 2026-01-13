@@ -5,29 +5,29 @@ from cnaster.logger import get_logger
 
 logger = get_logger(__name__, start_time=start_time)
 
-class Assignments:
-    def __init__(self, assignment):
-        self.assignment = None
-        self.update(assignment)
+# class ValidAssignment:
+#     def __init__(self, assignment):
+#         self.assignment = None
+#         self.set(assignment)
 
-    def update(self, assignment):
-        assignment = np.asarray(assignment)
-        unique = np.unique(assignment)
-        expected = np.arange(unique.size)
-        assert np.array_equal(unique, expected), (
-            f"Assignment must be monotonically increasing from 0 with no gaps. "
-            f"Found unique={unique}, expected={expected}"
-        )
-        self.assignment = assignment
+#     def get(self):
+#         return self.assignment
 
-    def get(self):
-        return self.assignment
+#     def set(self, assignment):
+#         assignment = np.asarray(assignment)
+#         unique = np.unique(assignment)
+#         expected = np.arange(unique.size)
+#         assert np.array_equal(unique, expected), (
+#             f"Assignment must be monotonically increasing from 0 with no gaps. "
+#             f"Found unique={unique}, expected={expected}"
+#         )
+#         self.assignment = assignment
 
-    def __len__(self):
-        return len(self.assignment)
+#     def __len__(self):
+#         return len(self.assignment)
 
-    def __getitem__(self, idx):
-        return self.assignment[idx]
+#     def __getitem__(self, idx):
+#         return self.assignment[idx]
 
 
 # TODO validate

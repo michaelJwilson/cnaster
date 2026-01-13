@@ -5,6 +5,31 @@ from cnaster.logger import get_logger
 
 logger = get_logger(__name__, start_time=start_time)
 
+class Assignments:
+    def __init__(self, assignment):
+        self.assignment = None
+        self.update(assignment)
+
+    def update(self, assignment):
+        assignment = np.asarray(assignment)
+        unique = np.unique(assignment)
+        expected = np.arange(unique.size)
+        assert np.array_equal(unique, expected), (
+            f"Assignment must be monotonically increasing from 0 with no gaps. "
+            f"Found unique={unique}, expected={expected}"
+        )
+        self.assignment = assignment
+
+    def get(self):
+        return self.assignment
+
+    def __len__(self):
+        return len(self.assignment)
+
+    def __getitem__(self, idx):
+        return self.assignment[idx]
+
+
 # TODO validate
 def cast_csr(csr_matrix):
     result = []
@@ -77,10 +102,13 @@ def get_clone_indices(assignments, clone_ids):
     """
     return [np.where(assignments == cid)[0] for cid in clone_ids]
 
+
 def get_clone_assignment(coords, clone_indices):
     n_spots = sum(len(indices) for indices in clone_indices)
 
-    assert n_spots == len(coords), "Total number of spots does not match length of coords."
+    assert n_spots == len(
+        coords
+    ), "Total number of spots does not match length of coords."
 
     assignment = np.full(len(coords), -1, dtype=int)
 

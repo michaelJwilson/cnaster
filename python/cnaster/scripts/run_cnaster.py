@@ -272,8 +272,6 @@ def run_cnaster(config_path, over_rides=None):
         fig_path, pseudobulk_clones_genomic, transparent=True, bbox_inches="tight"
     )
 
-    exit(0)
-
     # # NB identify informative segments for filtering based on pseudobulk likelihood.
     # X, base_nb_mean, total_bb_RD, _ =  merge_pseudobulk_by_index_mix(
     #     single_X,
@@ -419,7 +417,7 @@ def run_cnaster(config_path, over_rides=None):
         df_gene_snp.block_id.map({i: x for i, x in enumerate(phase_indicator)}),
     )
 
-    # NB adds 'bin_id' column to df_gene_snp.
+    # NB generates new genomic intervals ("bin_id") based on baf-derived phasing.
     df_gene_snp = create_bin_ranges(
         df_gene_snp,
         adata,
@@ -438,6 +436,7 @@ def run_cnaster(config_path, over_rides=None):
     logger.info(f"Recalculating counts given new phase-based bins.")
 
     # TODO separate transmat.
+    # NB counters per baf-phasing derived genomic intervals.
     (
         lengths,
         single_X,

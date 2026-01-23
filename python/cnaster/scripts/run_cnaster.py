@@ -659,8 +659,6 @@ def run_cnaster(config_path, over_rides=None):
     fig_path = f"{output_dir}/plots/bafonly_clones_spatial.pdf"
     write_fig(fig_path, bafonly_clones_fig, transparent=True, bbox_inches="tight")
 
-    exit(0)
-
     # TODO copy rename.
     bafonly_clones_genomic = plot_clones_genomic_simple(
         single_X,
@@ -676,6 +674,8 @@ def run_cnaster(config_path, over_rides=None):
 
     fig_path = f"{plots_dir}/bafonly_clones_genomic.pdf"
     write_fig(fig_path, bafonly_clones_genomic, transparent=True, bbox_inches="tight")
+
+    exit(0)
 
     if config.hmrf.np_merge:
         # NB merge similar clones based on Neyman-Pearson

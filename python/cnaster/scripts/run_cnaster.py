@@ -675,10 +675,8 @@ def run_cnaster(config_path, over_rides=None):
     fig_path = f"{plots_dir}/bafonly_clones_genomic.pdf"
     write_fig(fig_path, bafonly_clones_genomic, transparent=True, bbox_inches="tight")
 
-    exit(0)
-
+    # NB merge similar clones based on Neyman-Pearson criterion.
     if config.hmrf.np_merge:
-        # NB merge similar clones based on Neyman-Pearson
         _, merged_res = neyman_pearson_similarity(
             X,
             base_nb_mean,
@@ -695,7 +693,7 @@ def run_cnaster(config_path, over_rides=None):
         merged_res = res.copy()
 
     logger.info(
-        f"Inferred {len(np.unique(merged_res['new_assignment']))} clones given BAF data after NP merge."
+        f"Inferred {len(np.unique(merged_res['new_assignment']))} clones given baf data after NP merge."
     )
 
     _, merged_res = merge_by_minspots(
@@ -710,7 +708,7 @@ def run_cnaster(config_path, over_rides=None):
     )
 
     logger.info(
-        f"Inferred {len(np.unique(merged_res['new_assignment']))} clones given BAF data after min spots merge."
+        f"Inferred {len(np.unique(merged_res['new_assignment']))} clones given baf data after min spots merge."
     )
 
     # TODO HACK
@@ -793,13 +791,13 @@ def run_cnaster(config_path, over_rides=None):
     # NB MAP copy state.
     pred = np.argmax(merged_res["log_gamma"], axis=0)
 
-    # NB split into per-contig list vs single concatenated array.
+    # NB split into per-clone list vs clone-concatenated array.
     pred = np.array(
         [pred[(c * n_obs) : (c * n_obs + n_obs)] for c in range(n_baf_clones)]
     )
 
     logger.info(
-        f"Found {100. * np.mean(pred[:, :] < config.hmm.n_states)}% of BAF-only copy states to have phase 0."
+        f"Found {100. * np.mean(pred[:, :] < config.hmm.n_states)}% of baf-only copy states to have phase 0."
     )
 
     # DEPRECATE?  baf-only clones are determined with hmm_nophasing.
@@ -816,6 +814,7 @@ def run_cnaster(config_path, over_rides=None):
 
     pause()
 
+    # NB normal candidates by baf only.
     normal_candidate = determine_normal_candidates(
         config,
         merged_res,
@@ -826,9 +825,9 @@ def run_cnaster(config_path, over_rides=None):
         single_tumor_prop=None,
     )
 
-    pause()
-
     index_normal = np.where(normal_candidate)[0]
+
+    pause()
 
     # TODO HACK
     single_X[:, 0, :] = copy_single_X_rdr
@@ -852,8 +851,10 @@ def run_cnaster(config_path, over_rides=None):
         config.references.geneticmap_file,
     )
 
+    # NB table of per-bin intervals with set(genes) and set(sites).
     df_bininfo = binned_gene_snp(df_gene_snp)
 
+    # NB update to post-noral filtering single_X.
     copy_single_X_rdr = single_X[:, 0, :]
 
     # NB filter out high-UMI DE genes, which may bias RDR estimates.
@@ -868,6 +869,7 @@ def run_cnaster(config_path, over_rides=None):
     else:
         logger.warning(f"Assuming no filter for normal differential expression.")
 
+    # TODO runs slow.
     # summarize_blocks(
     #     df_gene_snp,
     #     adata,
@@ -897,6 +899,8 @@ def run_cnaster(config_path, over_rides=None):
     )
 
     df_bininfo = binned_gene_snp(df_gene_snp)
+
+    exit(0)
 
     # TODO separate transmat.
     phase_indicator = np.ones(single_X.shape[0])

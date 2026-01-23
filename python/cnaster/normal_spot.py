@@ -346,7 +346,8 @@ def normal_baf_bin_filter(
     min_betabinom_tau=30,
 ):
     """
-    Remove bins that potentially contain allele-specific expression based on normal spot BAF.
+    Calculate new (block, spot) counts after filtering genomic bins that have non-normal-like 
+    baf.  This may be the case if mixed with non-normal spots or allele-specific expression.
     """
     if confidence_interval is None:
         confidence_interval = ast.literal_eval(
@@ -377,7 +378,9 @@ def normal_baf_bin_filter(
     tmpres.params[0] = 0.5
     tmpres.params[-1] = max(tmpres.params[-1], min_betabinom_tau)
 
-    # NB remove bins if "normal" b-allele probabilities fall out of (5%-95%) confidence interval.
+    # NB remove bins if "normal" b-allele probabilities fall out of (5%-95%) confidence interval,
+    #    this may be the case if mixed with non-normal spots or allele-specific expression present.
+    #    
     removal_indicator1 = tmpX < scipy.stats.betabinom.ppf(
         confidence_interval[0],
         tmptotal_bb_RD,

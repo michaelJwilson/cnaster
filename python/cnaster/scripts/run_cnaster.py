@@ -881,6 +881,7 @@ def run_cnaster(config_path, over_rides=None):
     # )
 
     # TODO HACK >>>>>>  do not filter, but merge segments, with insufficient normal umi counts.
+    #                   assumes ...     
     df_gene_snp = create_bin_ranges(
         df_gene_snp,
         adata,
@@ -899,8 +900,6 @@ def run_cnaster(config_path, over_rides=None):
     )
 
     df_bininfo = binned_gene_snp(df_gene_snp)
-
-    exit(0)
 
     # TODO separate transmat.
     phase_indicator = np.ones(single_X.shape[0])
@@ -943,14 +942,14 @@ def run_cnaster(config_path, over_rides=None):
     pause()
 
     logger.info(
-        f"Refinining {n_baf_clones} BAF identified clones with RDR data assuming n_clones_rdr={config.hmrf.n_clones_rdr}"
+        f"Refinining {n_baf_clones} baf-identified clones with rdr data assuming n_clones_rdr={config.hmrf.n_clones_rdr}"
     )
 
     clone_res = {}
 
     for bafc in range(n_baf_clones):
         logger.info(
-            f"-----  Refining BAF identified clone {bafc}/{n_baf_clones}  -----"
+            f"-----  Refining baf-identified clone {bafc}/{n_baf_clones}  -----"
         )
 
         prefix = f"clone{bafc}"
@@ -1058,6 +1057,7 @@ def run_cnaster(config_path, over_rides=None):
 
         pause()
 
+    logger.info(f"Found initial solutions for baf-identified clones refined by rdr.")
     logger.info(f"Combining results across clones.")
 
     # NB combined assignment for all spots.
@@ -1073,7 +1073,7 @@ def run_cnaster(config_path, over_rides=None):
 
         # NB baf clone was not split.
         if len(np.unique(res["new_assignment"])) == 1:
-            logger.info(f"Clone {bafc} was not split by RDR.")
+            logger.info(f"clone {bafc} was not split by rdr.")
 
             # NB clone id.
             c, n_merged_clones = res["new_assignment"][0], 1
@@ -1158,7 +1158,8 @@ def run_cnaster(config_path, over_rides=None):
                 threshold=config.hmrf.tumorprop_threshold,
             )
 
-            # NB recompute copy states and clone profiles based on new pseudobulk.
+            # NB recompute copy states and clone profiles based on new pseudobulk.  As a result,
+            #    (rdr, baf) copy states per clone vs universal.
             # TODO clone stack.
             merged_res = pipeline_baum_welch(
                 None,
@@ -1227,7 +1228,7 @@ def run_cnaster(config_path, over_rides=None):
                 ]
             ).T
 
-        # NB number of keys, i.e. prev_assignment only.
+        # NB res_combine has the "prev_assignment" key only.
         if len(res_combine) == 1:
             res_combine.update(
                 {
@@ -1240,7 +1241,9 @@ def run_cnaster(config_path, over_rides=None):
                     "new_p_binom": np.hstack(
                         n_merged_clones * [merged_res["new_p_binom"]]
                     ),
-                    "new_taus": np.hstack(n_merged_clones * [merged_res["new_taus"]]),
+                    "new_taus": np.hstack(
+                        n_merged_clones * [merged_res["new_taus"]]
+                    ),
                     "log_gamma": log_gamma,
                     "pred_cnv": pred_cnv,
                 }
@@ -1284,7 +1287,9 @@ def run_cnaster(config_path, over_rides=None):
     # TODO BUG?? prev_assignment or new_assignment?
     n_final_clones = len(np.unique(res_combine["prev_assignment"]))
 
-    logger.info(f"Inferred {n_final_clones} clones given RDR & BAF data.")
+    logger.info(f"Inferred {n_final_clones} clones given rdr & baf data.")
+
+    exit(0)
 
     logger.info(f"Found rdr-split clone rdrs:\n{np.exp(res_combine['new_log_mu'])}.")
     logger.info(f"Found rdr-split clone bafs:\n{res_combine['new_p_binom']}.")

@@ -91,7 +91,7 @@ def form_gene_snp_table(
     vec_start = df_gene_snp.START.to_numpy()
     vec_end = df_gene_snp.END.to_numpy()
 
-    # NB loops over SNPs.
+    # NB loops over sites.
     for i in np.where(df_gene_snp.gene.isnull())[0]:
         # TODO first SNP has no gene.
         if i == 0:
@@ -305,6 +305,7 @@ def assign_initial_blocks(
     # NB (chr, start, end) for first gene.
     first_interval = tmp_block_genome_intervals[0]
 
+    # NB list of intervals for initial block definition (merged overlapping genes).
     block_genome_intervals = [first_interval]
     merged = 0
 
@@ -338,7 +339,7 @@ def assign_initial_blocks(
     block_ranges = []
 
     for x in block_genome_intervals:
-        # NB overlap of df_gene_snp with block_genome_interval.
+        # NB overlap of df_gene_snp (genes & sites) with block_genome_interval.
         indexes = np.where(
             (df_gene_snp.CHR.to_numpy() == x[0])
             & (
@@ -363,7 +364,7 @@ def assign_initial_blocks(
     for i, x in enumerate(block_ranges):
         df_gene_snp.iloc[x[0] : x[1], -1] = i
 
-    assert np.all(df_gene_snp["initial_block_id"].values) >= 0, "TODO!"
+    assert np.all(df_gene_snp["initial_block_id"].values) >= 0, "Found genes/sites with no assigned block."
 
     logger.info(
         "Assigned SNPs to initial blocks (intervals formed by overlapping genes)."
@@ -378,9 +379,9 @@ def assign_initial_blocks(
         block_key="initial_block_id",
     )
 
-    # NB second level: group the first level blocks into "haplotype blocks" such that the minimum SNP-covering UMI counts >= initial_min_umi.
-    #    maps snp id, {chr}_{pos}_{ref}_{alt} to integer index.
-    map_snp_index = {x: i for i, x in enumerate(unique_snp_ids)}
+    # NB second level: extend the first level blocks based on haplotype-aggregated counts such that the minimum snp-covering umi counts >= initial_min_umi.
+    #    maps site_id, {chr}_{pos}_{ref}_{alt} to integer index.
+    map_snp_index = {site: index for index, site in enumerate(unique_snp_ids)}
     initial_block_chr = df_gene_snp.CHR.to_numpy()[
         np.array([x[0] for x in block_ranges])
     ]
@@ -598,17 +599,18 @@ def summarize_counts_for_blocks(
 ):
     logger.info(f"Summarizing counts for blocks")
 
-    # precompute mapping: snp_id -> index
+    # NB precompute mapping: snp_id -> index
     map_snp_index = {x: i for i, x in enumerate(unique_snp_ids)}
 
-    # filter to SNPs only (drop genes)
+    # NB filter to SNPs only (drop genes).
     df_snps = df_gene_snp[df_gene_snp.snp_id.notna()].copy()
     df_snps["snp_idx"] = df_snps.snp_id.map(map_snp_index)
 
-    # group SNPs by block_id and aggregate indices as lists
+    # NB arrays of snp indexs grouped by block_id
     snp_groups = df_snps.groupby("block_id")["snp_idx"].apply(np.array)
 
     # TODO HACK?  df_gene_snp.gene.notna()
+    # NB no repeated genes.
     df_genes = df_gene_snp[df_gene_snp.is_interval == True].copy()
     gene_groups = df_genes.groupby("block_id")["gene"].apply(lambda x: list(set(x)))
 
@@ -618,6 +620,7 @@ def summarize_counts_for_blocks(
     n_blocks = len(blocks)
     n_spots = adata.shape[0]
 
+    # NB 0 is total umis;  1 index is haplotype 0 counts at each site.
     single_X = np.zeros((n_blocks, 2, n_spots), dtype=int)
     single_base_nb_mean = np.zeros((n_blocks, n_spots))
     single_total_bb_RD = np.zeros((n_blocks, n_spots), dtype=int)
@@ -643,7 +646,10 @@ def summarize_counts_for_blocks(
         # NB RDR/Genes
         if block_id in gene_groups.index:
             genes = gene_groups[block_id]
+
+            # NB genes in df_gene_snp must be present in visium.
             gene_mask = np.isin(gene_names, genes)
+            
             if gene_mask.any():
                 single_X[block_id, 0, :] = gene_counts[:, gene_mask].sum(axis=1)
 

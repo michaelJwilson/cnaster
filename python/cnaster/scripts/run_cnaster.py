@@ -487,8 +487,6 @@ def run_cnaster(config_path, over_rides=None):
         fig_path, pseudobulk_clones_genomic, transparent=True, bbox_inches="tight"
     )
 
-    exit(0)
-
     # NB smooth pooling matrix & distance based (exponential decay) adjacency.
     adjacency_mat, smooth_mat = multislice_adjacency(
         sample_ids,
@@ -585,10 +583,8 @@ def run_cnaster(config_path, over_rides=None):
     fig_path = f"{plots_dir}/initial_clones_spatial.pdf"
     write_fig(fig_path, initial_clones_fig, transparent=True, bbox_inches="tight")
 
-    exit(0)
-
     logger.info(
-        "Solving HMM & HMRF for copy states and clone assignment with BAF only."
+        "Solving hmm & hmrf for copy states and clone assignment with baf only."
     )
 
     # NB baf-only run: zero transcript counts for all segments/spots.
@@ -641,7 +637,7 @@ def run_cnaster(config_path, over_rides=None):
     )
 
     logger.info(
-        f"Inferred {len(np.unique(res['new_assignment']))} clones given BAF data."
+        f"Inferred {len(np.unique(res['new_assignment']))} clones given baf data."
     )
 
     # TODO HACK
@@ -662,6 +658,8 @@ def run_cnaster(config_path, over_rides=None):
 
     fig_path = f"{output_dir}/plots/bafonly_clones_spatial.pdf"
     write_fig(fig_path, bafonly_clones_fig, transparent=True, bbox_inches="tight")
+
+    exit(0)
 
     # TODO copy rename.
     bafonly_clones_genomic = plot_clones_genomic_simple(

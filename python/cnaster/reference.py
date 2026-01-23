@@ -29,10 +29,11 @@ def exp_cancer_gene(gene_name):
     return any(re.match(pattern, gene_name) for pattern in cancer_gene_patterns)
 
 
-def get_reference_genes(hgtable_file, legacy=False):
+def get_reference_genes(hgtable_file):
     config = get_global_config()
 
-    if config.run.legacy:
+    # TODO HACK use legacy only for now.
+    if True or config.run.legacy:
         # NB read gene info and keep only chr1-chr22 and genes appearing in adata
         #    name2  chrom  cdsStart    cdsEnd
         df_hgtable = pd.read_csv(hgtable_file, header=0, index_col=0, sep="\t")

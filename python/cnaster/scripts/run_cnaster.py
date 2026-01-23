@@ -272,6 +272,8 @@ def run_cnaster(config_path, over_rides=None):
         fig_path, pseudobulk_clones_genomic, transparent=True, bbox_inches="tight"
     )
 
+    exit(0)
+
     # # NB identify informative segments for filtering based on pseudobulk likelihood.
     # X, base_nb_mean, total_bb_RD, _ =  merge_pseudobulk_by_index_mix(
     #     single_X,

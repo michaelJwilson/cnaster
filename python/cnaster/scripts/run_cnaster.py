@@ -150,6 +150,7 @@ def run_cnaster(config_path, over_rides=None):
     #    unique_snp_ids: {contig}_{pos}_{R}_{A} for all snps.
     (
         adata,
+        exp_counts, 
         cell_snp_Aallele,
         cell_snp_Ballele,
         unique_snp_ids,
@@ -471,8 +472,6 @@ def run_cnaster(config_path, over_rides=None):
         fig_path, postphasing_clones_genomic, transparent=True, bbox_inches="tight"
     )
 
-    exit(0)
-
     pseudobulk_clones_genomic = plot_clones_genomic_simple(
         single_X,
         single_base_nb_mean,
@@ -488,12 +487,7 @@ def run_cnaster(config_path, over_rides=None):
         fig_path, pseudobulk_clones_genomic, transparent=True, bbox_inches="tight"
     )
 
-    # NB sparse transcript counts (spot, gene).
-    exp_counts = pd.DataFrame.sparse.from_spmatrix(
-        scipy.sparse.csc_matrix(adata.layers["count"]),
-        index=adata.obs.index,
-        columns=adata.var.index,
-    )
+    exit(0)
 
     # NB smooth pooling matrix & distance based (exponential decay) adjacency.
     adjacency_mat, smooth_mat = multislice_adjacency(
@@ -590,6 +584,8 @@ def run_cnaster(config_path, over_rides=None):
 
     fig_path = f"{plots_dir}/initial_clones_spatial.pdf"
     write_fig(fig_path, initial_clones_fig, transparent=True, bbox_inches="tight")
+
+    exit(0)
 
     logger.info(
         "Solving HMM & HMRF for copy states and clone assignment with BAF only."

@@ -340,7 +340,7 @@ def map_unique_snps_enum(unique_snp_ids):
     return result
 
 
-@cacher("processed_input.hdf5")
+# @cacher("processed_input.hdf5")
 def load_input_data(
     config,
     alignment_files=None,
@@ -757,6 +757,7 @@ def load_input_data(
         "ProcessedData",
         [
             "adata",
+            "exp_counts",
             "cell_snp_Aallele",
             "cell_snp_Ballele",
             "unique_snp_ids",
@@ -764,9 +765,17 @@ def load_input_data(
         ],
     )
 
+    # NB sparse transcript counts (spot, gene).
+    exp_counts = pd.DataFrame.sparse.from_spmatrix(
+        scipy.sparse.csc_matrix(adata.layers["count"]),
+        index=adata.obs.index,
+        columns=adata.var.index,
+    )
+
     # TODO dense arrays.
     result = ProcessedData(
         adata,
+        exp_counts,
         cell_snp_Aallele.toarray(),
         cell_snp_Ballele.toarray(),
         unique_snp_ids,

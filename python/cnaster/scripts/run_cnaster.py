@@ -1289,8 +1289,6 @@ def run_cnaster(config_path, over_rides=None):
 
     logger.info(f"Inferred {n_final_clones} clones given rdr & baf data.")
 
-    exit(0)
-
     logger.info(f"Found rdr-split clone rdrs:\n{np.exp(res_combine['new_log_mu'])}.")
     logger.info(f"Found rdr-split clone bafs:\n{res_combine['new_p_binom']}.")
 
@@ -1333,8 +1331,8 @@ def run_cnaster(config_path, over_rides=None):
 
     # NB final re-assignment across all spots using current copy states -
     #    does not conserve original e.g. baf clone assignments, or normal spots.
-    #
-    logger.info(f"Finalizing assignment with refined parameters.")
+    #    Further, does not assume same clone concatenated shape.
+    logger.info(f"Finalizing clone assignment with refined parameters.")
 
     if config.preprocessing.tumorprop_file is None:
         new_assignment, _, total_llf, _ = aggr_hmrf_reassignment(
@@ -1379,7 +1377,7 @@ def run_cnaster(config_path, over_rides=None):
     res_combine["total_llf"] = total_llf
     res_combine["new_assignment"] = new_assignment
 
-    # NB re-order clones such that the normal clone is always 0.
+    # NB re-order clones such that the index of the most-normal clone is 0.
     res_combine, _ = reindex_clones(res_combine, posterior=None, single_tumor_prop=None)
 
     final_clones, final_clone_counts = np.unique(
@@ -1484,6 +1482,7 @@ def run_cnaster(config_path, over_rides=None):
                 f"For clone {cid}, normalized log mu to sum_bin lambda * np.exp(log_mu) = 1.; yielding new mu=\n{np.exp(adjusted_log_mu)}\ngiven mu=\n{np.exp(res_combine["new_log_mu"][:, s])}."
             )
 
+            # TODO finalize integer copy number determination.
             if max_medploidy is not None:
                 best_integer_copies, loss = hill_climbing_integer_copynumber_oneclone(
                     adjusted_log_mu,

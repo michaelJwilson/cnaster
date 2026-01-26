@@ -149,6 +149,8 @@ def run_cnaster(config_path, over_rides=None):
     #    cell_snp_Ballele: haplotype H1 counts (barcode x snp).
     #    unique_snp_ids: {contig}_{pos}_{R}_{A} for all snps.
     (
+        coords,
+        barcodes,
         adata,
         exp_counts, 
         cell_snp_Aallele,
@@ -163,15 +165,14 @@ def run_cnaster(config_path, over_rides=None):
         min_percent_expressed_spots=config.quality.min_percent_expressed_spots,
     )
 
-    # NB (x,y) per spot.
-    coords = adata.obsm["X_pos"]
+    pause()
 
     # cell_snp_Aallele, cell_snp_Ballele = perturb_phase(
     #     cell_snp_Aallele, cell_snp_Ballele, 0.1
     # )
 
-    # NB e.g. 'AAACAAGTATCTCCCA-1_HT112C1-U1' currently.
-    barcodes = adata.obs.index
+    # NB sample list derived from adata.obs['sample'] - removes adjacent duplicates. 
+    #    sample_ids: unique enum for each entry in sample_list.  One per adata.obs entry.
     sample_list, sample_ids = get_sample_list(adata)
 
     single_tumor_prop = read_tumor_prop(adata, config=config)
@@ -189,6 +190,8 @@ def run_cnaster(config_path, over_rides=None):
     df_gene_snp = form_gene_snp_table(
         unique_snp_ids, config.references.hgtable_file, adata
     )
+
+    pause()
 
     # plot_gene_snp_spatial(
     #     adata,
@@ -234,7 +237,9 @@ def run_cnaster(config_path, over_rides=None):
         config.phasing.logphase_shift,
     )
 
-    # NB known annotation.
+    pause()
+
+    # NB known clone annotation per spot.
     if config.annotation.clone_label is not None:
         initial_clone_index_baf, _ = get_clone_label_annotation(
             config
@@ -272,6 +277,8 @@ def run_cnaster(config_path, over_rides=None):
     write_fig(
         fig_path, pseudobulk_clones_genomic, transparent=True, bbox_inches="tight"
     )
+
+    pause()
 
     # # NB identify informative segments for filtering based on pseudobulk likelihood.
     # X, base_nb_mean, total_bb_RD, _ =  merge_pseudobulk_by_index_mix(
@@ -411,7 +418,7 @@ def run_cnaster(config_path, over_rides=None):
         phase_indicator = np.zeros(single_X.shape[0])
         refined_lengths = lengths
 
-    # NB phase is None for genes and otherwise True/False for the phase of each block.
+    # NB phase is None for genes and otherwise 0/1 for baf-inferred phase.
     df_gene_snp["phase"] = np.where(
         df_gene_snp.snp_id.isnull(),
         None,
@@ -462,7 +469,7 @@ def run_cnaster(config_path, over_rides=None):
         single_total_bb_RD,
         initial_clone_for_phasing,
         lengths,
-        res=None,  # TODO
+        res=None,  # TODO e.g. plot phasing inferred states.
         single_tumor_prop=None,
         sample_list=sample_list,
     )
@@ -487,6 +494,8 @@ def run_cnaster(config_path, over_rides=None):
         fig_path, pseudobulk_clones_genomic, transparent=True, bbox_inches="tight"
     )
 
+    pause()
+
     # NB smooth pooling matrix & distance based (exponential decay) adjacency.
     adjacency_mat, smooth_mat = multislice_adjacency(
         sample_ids,
@@ -498,8 +507,8 @@ def run_cnaster(config_path, over_rides=None):
         construct_adjacency_method=config.hmrf.construct_adjacency_method,
         maxspots_pooling=config.hmrf.maxspots_pooling,
         construct_adjacency_w=config.hmrf.construct_adjacency_w,
-        unit_xsquared=config.hmrf.unit_xsquared,
-        unit_ysquared=config.hmrf.unit_ysquared,
+        unit_xsquared=config.hmrf.unit_xsquared, # TODO
+        unit_ysquared=config.hmrf.unit_ysquared, # TODO
     )
 
     adjacency_fig = plot_adjacency(
@@ -515,6 +524,8 @@ def run_cnaster(config_path, over_rides=None):
     write_fig(fig_path, adjacency_fig, transparent=True, bbox_inches="tight")
     # NB end run_parse_n_load::parse_visium.
 
+    pause()
+
     # NB by construction, require normal spots (based on BAF to determine baseline).
     assert np.all(single_base_nb_mean == 0)
 
@@ -523,6 +534,8 @@ def run_cnaster(config_path, over_rides=None):
 
     # NB zeros
     copy_single_base_nb_mean = copy.copy(single_base_nb_mean)
+
+    logger.info(f"Assuming initial clone configuration for baf-inferred clones & copy states.")
 
     # TODO HACK? adata.layers["count"]
     if initial_clone_index_baf is None:
@@ -582,6 +595,8 @@ def run_cnaster(config_path, over_rides=None):
 
     fig_path = f"{plots_dir}/initial_clones_spatial.pdf"
     write_fig(fig_path, initial_clones_fig, transparent=True, bbox_inches="tight")
+
+    pause()
 
     logger.info(
         "Solving hmm & hmrf for copy states and clone assignment with baf only."
@@ -674,6 +689,8 @@ def run_cnaster(config_path, over_rides=None):
 
     fig_path = f"{plots_dir}/bafonly_clones_genomic.pdf"
     write_fig(fig_path, bafonly_clones_genomic, transparent=True, bbox_inches="tight")
+
+    pause()
 
     # NB merge similar clones based on Neyman-Pearson criterion.
     if config.hmrf.np_merge:
@@ -869,6 +886,8 @@ def run_cnaster(config_path, over_rides=None):
     else:
         logger.warning(f"Assuming no filter for normal differential expression.")
 
+    pause()
+
     # TODO runs slow.
     # summarize_blocks(
     #     df_gene_snp,
@@ -881,7 +900,7 @@ def run_cnaster(config_path, over_rides=None):
     # )
 
     # TODO HACK >>>>>>  do not filter, but merge segments, with insufficient normal umi counts.
-    #                   assumes ...     
+    #                   assumes ...  what assumption on phasing, baf switches?
     df_gene_snp = create_bin_ranges(
         df_gene_snp,
         adata,
@@ -924,7 +943,8 @@ def run_cnaster(config_path, over_rides=None):
     copy_single_X_rdr = single_X[:, 0, :]
     # <<<<<<<<<<<<
 
-    # NB >>>>>  determine normal baseline expression.
+    # NB >>>>>  determine normal baseline expression, zeros single_X_rdr entries
+    #           with insufficient normal counts, given config.quality.min_normal_count_perbin.
     _, copy_single_X_rdr, copy_single_base_nb_mean = determine_normal_baseline(
         copy_single_X_rdr,
         normal_candidate,
@@ -940,6 +960,8 @@ def run_cnaster(config_path, over_rides=None):
     # <<<<<
 
     pause()
+
+    exit(0)
 
     logger.info(
         f"Refinining {n_baf_clones} baf-identified clones with rdr data assuming n_clones_rdr={config.hmrf.n_clones_rdr}"

@@ -202,13 +202,13 @@ def filter_normal_diffexp(
     quantile_threshold=80,
 ):
     """
-    Identify and filter out genes that are differentially expressed between "normal" candidates & other cell populations (such as tumor cells)
-    in a dataset based on statistical tests.
+    Cluster input UMIs per slice into "normal" vs "tumor" spots based on PCA + kmeans,
+    utilizing pre-labeled "normal" candidates to identify the "normal" cluster.
 
-    Attributes
-    ----------
-    df_bininfo : pd.DataFrame
-        Contains columns ['CHR', 'START', 'END', 'INCLUDED_GENES', 'INCLUDED_SNP_IDS'], 'INCLUDED_GENES' contains space-delimited gene names.
+    Drop UMI counts per gene that are differentially expressed between this "normal" determination
+˚   and the "tumor" spots based on log fold change.
+
+    Returns new matrix of (bin, spot) counts after filtering genes with estimated differential expression.
     """
     adata = anndata.AnnData(exp_counts)
     adata.layers["count"] = exp_counts.values
@@ -235,7 +235,11 @@ def filter_normal_diffexp(
             index = np.arange(adata.shape[0])
         else:
             index = np.where(sample_ids == s)[0]
+
+        # NB adata for this slice.
         tmpadata = adata[index, :].copy()
+
+        # NB insufficient normal spot umis for this slice.
         if (
             np.sum(tmpadata.layers["count"][tmpadata.obs["normal_candidate"], :])
             < tmpadata.shape[1] * 10  # MAGIC
@@ -247,43 +251,68 @@ def filter_normal_diffexp(
             np.sum(tmpadata.layers["count"], axis=0), quantile_threshold
         )
 
+        # NB  filter genes based on number of cells or counts.
+        #     see https://scanpy.readthedocs.io/en/stable/generated/scanpy.pp.filter_genes.html
         sc.pp.filter_genes(tmpadata, min_cells=10)
+
+        # NB median number of umis per spot?
         med = np.median(np.sum(tmpadata.layers["count"], axis=1))
 
+        # NB normalize such that every spot has the same total count after normalization.
+        #    see https://scanpy.readthedocs.io/en/1.9.x/generated/scanpy.pp.normalize_total.html
         sc.pp.normalize_total(tmpadata, target_sum=med)
+
+        # NB log(1 + x) transform.
+        #    see https://scanpy.readthedocs.io/en/stable/generated/scanpy.pp.log1p.html
         sc.pp.log1p(tmpadata)
 
+        # NB adds PCA representation of data: adata.obsm['X_pca' with shape (adata.n_obs, n_comps)
+        #    see https://scanpy.readthedocs.io/en/stable/generated/scanpy.pp.pca.html
         sc.pp.pca(tmpadata, n_comps=4)
+
+        # NB fit two clusters to PCA representation of data.
         kmeans = KMeans(n_clusters=2, random_state=0).fit(tmpadata.obsm["X_pca"])
         kmeans_labels = kmeans.predict(tmpadata.obsm["X_pca"])
+
+        # NB determine which cluster corresponds to normal candidates.
         idx_kmeans_label = np.argmax(
             np.bincount(kmeans_labels[tmpadata.obs["normal_candidate"]], minlength=2)
         )
+
+        # NB all normal candidates are "normal".
         clone = np.array(["normal"] * tmpadata.shape[0])
         clone[
             (kmeans_labels != idx_kmeans_label) & (~tmpadata.obs["normal_candidate"])
         ] = "tumor"
 
+        # NB spots that are in the same kmeans cluster as normal candidates but not pre-labeled as "normal candidates"
         clone[
             (kmeans_labels == idx_kmeans_label) & (~tmpadata.obs["normal_candidate"])
         ] = "unsure"
+
         tmpadata.obs["clone"] = clone
 
+        # NB aggregate counts per normal/tumor designation.
         agg_counts = np.vstack(
             [
-                np.sum(tmpadata.layers["count"][tmpadata.obs["clone"] == c, :], axis=0)
-                for c in ["normal", "unsure", "tumor"]
+                np.sum(tmpadata.layers["count"][tmpadata.obs["clone"] == label, :], axis=0)
+                for label in ["normal", "unsure", "tumor"]
             ]
         )
         agg_counts = agg_counts / np.sum(agg_counts, axis=1, keepdims=True) * 1e6
+
+        # NB total umis per gene for genes corresponding to adata.var.index
         geneumis = np.array([map_gene_umi[x] for x in tmpadata.var.index])
 
         # TODO divide-by-zero errors >>>>
+        # NB log fold change normal vs unsure
         logfc_u = np.where(
             ((agg_counts[1, :] == 0) | (agg_counts[0, :] == 0)),
             10,
             np.log2(agg_counts[1, :] / agg_counts[0, :]),
         )
+
+        # NB log fold change normal vs tumor
         logfc_t = np.where(
             ((agg_counts[2, :] == 0) | (agg_counts[0, :] == 0)),
             10,

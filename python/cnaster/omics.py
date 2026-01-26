@@ -934,6 +934,8 @@ def greedy_binning_nobreak(
         f"normal_umi={len(block_normal_umi)}"
     )
 
+    # NB (start, end) indices of new bins that aggregate old blocks to
+    #    meet umi, length, etc. requirements.
     bin_ranges = []
     s = 0
 
@@ -947,13 +949,13 @@ def greedy_binning_nobreak(
             normal_umi = np.sum(block_normal_umi[s:t])
             length = np.sum(block_lengths[s:t])
 
-            # Check if all min requirements are met
+            # NB check if all min requirements are met
             meets_umi = total_umi >= secondary_min_umi
             meets_snp = snp_umi >= secondary_min_snp_umi
             meets_normal = normal_umi >= secondary_min_normal_umi
             all_criteria_met = meets_umi and meets_snp and meets_normal
 
-            # Break if bin is too long but meets UMI requirements
+            # NB break if bin is too long but meets UMI requirements
             if length >= max_binlength and all_criteria_met:
                 logger.warning(
                     f"Solved for bin length={length/max_binlength:>6.2f} [max_binlength] "
@@ -962,19 +964,19 @@ def greedy_binning_nobreak(
                 t = max(t - 1, s + 1)
                 break
 
-            # Continue if criteria not met and not too long
+            # NB continue if criteria not met and not too long
             if all_criteria_met:
                 break
 
             t += 1
 
-        # Final counts for bin [s:t]
+        # NB final counts for bin [s:t]
         total_umi = np.sum(block_umi[s:t])
         snp_umi = np.sum(block_snp_umi[s:t])
         normal_umi = np.sum(block_normal_umi[s:t])
         length = np.sum(block_lengths[s:t])
 
-        # Check if it's a small bin at the end that doesn't meet criteria
+        # NB check if it's a small bin at the end that doesn't meet criteria
         if s > 0 and t == len(block_lengths):
             if (
                 total_umi < secondary_min_umi
@@ -1001,6 +1003,7 @@ def greedy_binning_nobreak(
     for i, x in enumerate(bin_ranges):
         bin_ids[x[0] : x[1]] = i
 
+    # NB return new bin ids for each block, where new bins meet umi, length, etc. requirements.
     return bin_ids
 
 
@@ -1056,26 +1059,27 @@ def create_bin_ranges(
     df_gene_snp : pd.DataFrame
         Updated with bin_id column.
     """
-    # Block intervals
+    logger.info(f"Aggregating blocks to bins given baf-inferred phasing to satisfy umi, length, etc. constraints.")
+
     # TODO BUG dropna?
+    # NB block intervals
     sorted_chr_pos_both = df_gene_snp.groupby(key).agg(
         {"CHR": "first", "START": "first", "END": "last"}
     )
 
-    logger.info(f"Recalculating bins (given phasing)")
-
+    # NB block intervals
     block_lengths = (
         sorted_chr_pos_both.END.to_numpy() - sorted_chr_pos_both.START.to_numpy()
     )
     n_blocks = len(block_lengths)
 
-    # Total UMI per block (summed across spots)
-    block_umi = np.sum(single_X[:, 0, :], axis=1)  # transcript counts
+    # NB total umi per block (summed across spots)
+    block_umi = np.sum(single_X[:, 0, :], axis=1)
 
-    # SNP-covering UMI per block
+    # NB total snp-covering umi per block
     block_snp_umi = np.sum(single_total_bb_RD, axis=1)
 
-    # Normal-spot UMI per block
+    # NB normal-spot umi per block
     if normal_candidates is not None:
         if (
             isinstance(normal_candidates, (np.ndarray, pd.Series))
@@ -1113,7 +1117,7 @@ def create_bin_ranges(
         f"fraction normal={frac_normal:.3f}"
     )
 
-    # Breakpoints from phase switches and oversized blocks
+    # NB breakpoints from phase switches, jump in baf when fixed phasing and oversized blocks.
     breakpoints = np.concatenate(
         [
             np.cumsum(refined_lengths),
@@ -1129,7 +1133,7 @@ def create_bin_ranges(
 
     assert np.all(breakpoints[:-1] < breakpoints[1:])
 
-    # Assign bin IDs
+    # NB assign each block to a bin (that meets umi, length, etc. requirements)
     bin_ids = np.zeros(n_blocks, dtype=int)
     offset = 0
 
@@ -1158,7 +1162,7 @@ def create_bin_ranges(
         logger.warning(f"Overwriting bin_id column, storing in block_id.")
         df_gene_snp["block_id"] = df_gene_snp["bin_id"]
 
-    # Append bin_ids to df_gene_snp
+    # NB map each block_id to its bin id
     df_gene_snp["bin_id"] = getattr(df_gene_snp, key).map(
         {i: x for i, x in enumerate(bin_ids)}
     )
@@ -1376,6 +1380,7 @@ def summarize_counts_for_bins(
         f"Retaining {100. * np.mean(has_assigned_bin):.2f}% of gene/snps with assigned bin."
     )
 
+    # NB unique block ids and gene names per bin.
     df_bin_contents = (
         df_gene_snp[has_assigned_bin]
         .groupby("bin_id", sort=True)
@@ -1422,7 +1427,6 @@ def summarize_counts_for_bins(
         else:
             logger.debug(f"No genes found for bin row {b}.")
 
-    # Array of number of unique bins by chromosome (vectorized)
     chr_order = df_gene_snp.CHR.unique()
     lengths = (
         df_gene_snp.loc[has_assigned_bin]
@@ -1432,7 +1436,7 @@ def summarize_counts_for_bins(
         .to_numpy()
     )
 
-    # Phase switch probability from genetic distance (UNCHANGED)
+    # NB phase switch probability from genetic distance
     sorted_chr_pos_first = df_gene_snp.groupby("bin_id").agg(
         {"CHR": "first", "START": "first"}
     )

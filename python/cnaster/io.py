@@ -756,6 +756,8 @@ def load_input_data(
     ProcessedData = namedtuple(
         "ProcessedData",
         [
+            "coords",
+            "barcodes",
             "adata",
             "exp_counts",
             "cell_snp_Aallele",
@@ -764,6 +766,12 @@ def load_input_data(
             "across_slice_adjacency_mat",
         ],
     )
+
+    # NB (x,y) per spot.
+    coords = adata.obsm["X_pos"]
+
+    # NB e.g. 'AAACAAGTATCTCCCA-1_HT112C1-U1' currently.
+    barcodes = adata.obs.index
 
     # NB sparse transcript counts (spot, gene).
     exp_counts = pd.DataFrame.sparse.from_spmatrix(
@@ -774,6 +782,8 @@ def load_input_data(
 
     # TODO dense arrays.
     result = ProcessedData(
+        coords,
+        barcodes,
         adata,
         exp_counts,
         cell_snp_Aallele.toarray(),

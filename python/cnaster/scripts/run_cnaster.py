@@ -961,8 +961,6 @@ def run_cnaster(config_path, over_rides=None):
 
     pause()
 
-    exit(0)
-
     logger.info(
         f"Refinining {n_baf_clones} baf-identified clones with rdr data assuming n_clones_rdr={config.hmrf.n_clones_rdr}"
     )

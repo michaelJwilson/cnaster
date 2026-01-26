@@ -207,7 +207,7 @@ def initial_phase_given_partition(
                 >= BAF_CHANGE_THRESHOLD
             ):
                 # NB new blocks are a min. size and set by change in BAF.
-                logger.warning(f"Forced a block boundary at contig {1 + ii} pos {i} given dBAF={np.abs(minor_baf_profiles[:, i + cumlen] - minor_baf_profiles[:, i + cumlen - 1]).max()}.")
+                logger.warning(f"Forced a block boundary at contig {1 + ii} pos {i} given dBAF={np.abs(minor_baf_profiles[:, i + cumlen] - minor_baf_profiles[:, i + cumlen - 1]).max():.4f}.")
                 refined_lengths.append(i - s)
                 s = i
 

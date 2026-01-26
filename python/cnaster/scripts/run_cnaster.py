@@ -103,7 +103,7 @@ def run_cnaster(config_path, over_rides=None):
     set_global_config(config)
 
     output_dir, plots_dir = configure_output_dir(config)
-
+    
     # TODO 
     random_seed = int(config.hmrf.random_state)
     logger.info(f"Set (numpy) random seed={random_seed}")
@@ -166,7 +166,7 @@ def run_cnaster(config_path, over_rides=None):
     )
 
     pause()
-
+    
     # cell_snp_Aallele, cell_snp_Ballele = perturb_phase(
     #     cell_snp_Aallele, cell_snp_Ballele, 0.1
     # )
@@ -192,7 +192,7 @@ def run_cnaster(config_path, over_rides=None):
     )
 
     pause()
-
+    
     # plot_gene_snp_spatial(
     #     adata,
     #     cell_snp_Aallele,
@@ -215,6 +215,8 @@ def run_cnaster(config_path, over_rides=None):
         initial_min_umi=config.quality.phasing_min_snp_umis,
     )
 
+    pause()
+
     # NB num. of blocks per contig; SN-based H0 and H0+H1 counts block; total UMIs per block.
     (
         lengths,
@@ -228,6 +230,8 @@ def run_cnaster(config_path, over_rides=None):
         cell_snp_Ballele,
         unique_snp_ids,
     )
+
+    pause()
 
     # NB 1D array of expected phase error rate.
     log_sitewise_transmat = get_sitewise_transmat(
@@ -279,7 +283,7 @@ def run_cnaster(config_path, over_rides=None):
     )
 
     pause()
-
+    
     # # NB identify informative segments for filtering based on pseudobulk likelihood.
     # X, base_nb_mean, total_bb_RD, _ =  merge_pseudobulk_by_index_mix(
     #     single_X,
@@ -381,7 +385,7 @@ def run_cnaster(config_path, over_rides=None):
     write_fig(
         fig_path, prephasing_clones_genomic, transparent=True, bbox_inches="tight"
     )
-
+    
     if config.phasing.run:
         if config.run.legacy:
             logger.warning("Assuming (magic) five BAF states for phasing.")
@@ -441,6 +445,8 @@ def run_cnaster(config_path, over_rides=None):
         max_binlength=config.quality.max_binlength,
     )
 
+    pause()
+    
     logger.info(f"Recalculating counts given new baf-phasing intervals.")
 
     # TODO separate transmat.
@@ -462,6 +468,8 @@ def run_cnaster(config_path, over_rides=None):
         geneticmap_file=config.references.geneticmap_file,
     )
 
+    pause()
+    
     # TODO copy rename.
     postphasing_clones_genomic = plot_clones_genomic_simple(
         single_X,
@@ -525,7 +533,7 @@ def run_cnaster(config_path, over_rides=None):
     # NB end run_parse_n_load::parse_visium.
 
     pause()
-
+    
     # NB by construction, require normal spots (based on BAF to determine baseline).
     assert np.all(single_base_nb_mean == 0)
 
@@ -960,7 +968,7 @@ def run_cnaster(config_path, over_rides=None):
     # <<<<<
 
     pause()
-
+    
     logger.info(
         f"Refinining {n_baf_clones} baf-identified clones with rdr data assuming n_clones_rdr={config.hmrf.n_clones_rdr}"
     )

@@ -1,9 +1,12 @@
 paths:
+  sample_sheet : /u/mw9568/research/repos/cnaster/zenodo_sample_sheet.tsv
+  output_dir : /n/fs/scratch/mw9568/cnaster/zenodo
+
   # sample_sheet : /u/mw9568/research/repos/cnaster/htan_annotated_sample_sheet.tsv
   # output_dir : /n/fs/scratch/mw9568/cnaster/htan
 
-  sample_sheet : /u/mw9568/research/repos/cnaster/vishd_sample_sheet.tsv
-  output_dir : /n/fs/scratch/mw9568/cnaster/vishd
+  # sample_sheet : /u/mw9568/research/repos/cnaster/vishd_sample_sheet.tsv
+  # output_dir : /n/fs/scratch/mw9568/cnaster/vishd
 
   perf_path : logs/cnaster.perf
 
@@ -24,6 +27,7 @@ run:
   cache : False
   legacy : False
   bafonly : False
+  pause : True
 
 references:
   geneticmap_file : /u/mw9568/research/data/references/genetic_map_GRCh38_merged.tab.gz

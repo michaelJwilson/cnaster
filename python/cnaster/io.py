@@ -322,7 +322,7 @@ def map_unique_snps_enum(unique_snp_ids):
     result = []
 
     for snp_id in unique_snp_ids:
-        contig, pos, _, _ = snp_id.split("_")
+        contig, pos, *_ = snp_id.split("_")
 
         if snp_id in repeats:
             enum = repeats[snp_id]

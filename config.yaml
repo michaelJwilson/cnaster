@@ -1,12 +1,12 @@
 paths:
-  sample_sheet : /u/mw9568/research/repos/cnaster/zenodo_sample_sheet.tsv
-  output_dir : /n/fs/scratch/mw9568/cnaster/zenodo/numcnas6.3_cnasize5e7_ploidy2_random6
+  # sample_sheet : /u/mw9568/research/repos/cnaster/zenodo_sample_sheet.tsv
+  # output_dir : /n/fs/scratch/mw9568/cnaster/zenodo/numcnas6.3_cnasize5e7_ploidy2_random6
 
   # sample_sheet : /u/mw9568/research/repos/cnaster/htan_annotated_sample_sheet.tsv
   # output_dir : /n/fs/scratch/mw9568/cnaster/htan
 
-  # sample_sheet : /u/mw9568/research/repos/cnaster/vishd_sample_sheet.tsv
-  # output_dir : /n/fs/scratch/mw9568/cnaster/vishd
+  sample_sheet : /u/mw9568/research/repos/cnaster/vishd_sample_sheet.tsv
+  output_dir : /n/fs/scratch/mw9568/cnaster/vishd
 
   perf_path : logs/cnaster.perf
 
@@ -82,7 +82,7 @@ hmrf:
   n_clones_rdr : 2
   min_spots_per_clone : 100
   min_avgumi_per_clone : 10
-  maxspots_pooling : 5
+  maxspots_pooling : 1
   tumorprop_threshold : 0.5
   max_iter_outer : 20
   nodepotential : max
@@ -93,7 +93,7 @@ hmrf:
   inertia : 0
   construct_adjacency_method : hexagon
   construct_adjacency_w : 1.0
-  np_merge : True
+  np_merge : False
   fixed_assignment : False
   unit_xsquared : 1
   unit_ysquared : 1

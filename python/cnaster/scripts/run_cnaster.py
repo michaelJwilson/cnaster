@@ -32,6 +32,7 @@ from cnaster.omics import (
 from cnaster.phasing import initial_phase_given_partition
 from cnaster.spatial import (
     fixed_rectangle_partition,
+    best_equal_partition,
     initialize_clones,
     multislice_adjacency,
     rectangle_initialize_initial_clone,
@@ -528,8 +529,8 @@ def run_cnaster(config_path, over_rides=None):
         sample_list=sample_list,
     )
 
-    fig_path = f"{plots_dir}/adjacency.pdf"
-    write_fig(fig_path, adjacency_fig, transparent=True, bbox_inches="tight")
+    # fig_path = f"{plots_dir}/adjacency.pdf"
+    # write_fig(fig_path, adjacency_fig, transparent=True, bbox_inches="tight")
     # NB end run_parse_n_load::parse_visium.
 
     pause()
@@ -553,13 +554,19 @@ def run_cnaster(config_path, over_rides=None):
         #     coords, config.hmrf.n_clones, random_state=0
         # )
 
-        x_part = y_part = 3
-        initial_clone_index_baf, _ = fixed_rectangle_partition(
-            coords,
-            x_part,
-            y_part,
-            single_tumor_prop=None,
-            threshold=0.5,  # random_state=int(config.hmrf.random_state,)
+        x_part = 6
+        y_part = 8
+        
+        # initial_clone_index_baf, _ = fixed_rectangle_partition(
+        #     coords,
+        #     x_part,
+        #     y_part,
+        #     single_tumor_prop=None,
+        #     threshold=0.5,  # random_state=int(config.hmrf.random_state,)
+        # )
+
+        initial_clone_index_baf, _ = best_equal_partition(
+            coords, x_part, y_part, single_tumor_prop=None, threshold=0.5,
         )
 
         # initial_clone_index_baf, _, _ = sufficient_umis_initial_clone(
@@ -605,7 +612,7 @@ def run_cnaster(config_path, over_rides=None):
     write_fig(fig_path, initial_clones_fig, transparent=True, bbox_inches="tight")
 
     pause()
-
+    
     logger.info(
         "Solving hmm & hmrf for copy states and clone assignment with baf only."
     )

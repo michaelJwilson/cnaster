@@ -545,7 +545,8 @@ def run_cnaster(config_path, over_rides=None):
         #     coords, config.hmrf.n_clones, random_state=0
         # )
 
-        x_part = y_part = 3
+        x_part = 3
+        y_part = 4
         initial_clone_index_baf, _ = fixed_rectangle_partition(
             coords,
             x_part,

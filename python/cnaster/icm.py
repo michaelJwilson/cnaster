@@ -698,6 +698,7 @@ def icm_sweep(
 
     cost = cost_zeropoint
 
+    # TODO no logger given njit, but warning on iterations exceeded?
     while niter < max_iter:
         # NB number edits in this sweep.
         edits = 0

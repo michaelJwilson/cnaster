@@ -78,6 +78,33 @@ def fixed_rectangle_partition(
     return initial_clone_index, clone_assignment
 
 
+def best_equal_partition(
+    coords, x_part, y_part, single_tumor_prop=None, threshold=0.5, n_trials=10
+):
+    best_var = np.inf
+    best_index = None
+    best_assignment = None
+
+    for trial in range(n_trials):
+        initial_clone_index, clone_assignment = fixed_rectangle_partition(
+            coords,
+            x_part,
+            y_part,
+            single_tumor_prop=single_tumor_prop,
+            threshold=threshold,
+            random_state=trial,
+        )
+        sizes = [len(idx) for idx in initial_clone_index]
+        var = np.var(sizes)
+        if var < best_var:
+            best_var = var
+            best_index = initial_clone_index
+            best_assignment = clone_assignment
+
+    logger.info(f"Best partition variance after {n_trials} trials: {best_var:.2f}")
+    return best_index, best_assignment
+
+
 def initialize_clones(
     coords, sample_ids, x_part, y_part, single_tumor_prop=None, threshold=None, random_state=None
 ):

@@ -299,7 +299,7 @@ def nloglikeobs_bb(
 
 class Weighted_NegativeBinomial_mix:
     """
-    Negative Binomial model endog ~ NB(exposure * exp(exog @ params[:-1]), params[-1]), where exog is the design matrix, and params[-1] is 1 / overdispersion.
+    Negative Binomial model endog NB(exposure * exp(exog @ params[:-1]), params[-1]), where exog is the design matrix, and params[-1] is 1 / overdispersion.
     This function fits the NB params when samples are weighted by weights: max_{params} \sum_{s} weights_s * log P(endog_s | exog_s; params)
 
     Attributes
@@ -690,7 +690,7 @@ class Weighted_NegativeBinomial_mix:
 
 class Weighted_BetaBinom_mix:
     """
-    Beta-binomial model endog ~ BetaBin(exposure, tau * p, tau * (1 - p)), where p = exog @ params[:-1] and tau = params[-1].
+    Beta-binomial model endog BetaBin(exposure, tau * p, tau * (1 - p)), where p = exog @ params[:-1] and tau = params[-1].
     This function fits the BetaBin params when samples are weighted by weights: max_{params} \sum_{s} weights_s * log P(endog_s | exog_s; params)
 
     Attributes

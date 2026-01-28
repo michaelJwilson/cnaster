@@ -689,7 +689,7 @@ def icm_sweep(
     cost_zeropoint=0.0,
     temp=1.0,
     min_clone_spots=200,
-    max_iter=10,
+    max_iter=5,
 ):
     # NB ICM is guranteed to converge to a local (maximum).
     n_spots, n_clones = single_llf.shape

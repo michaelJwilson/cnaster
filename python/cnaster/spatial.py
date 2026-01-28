@@ -56,10 +56,10 @@ def fixed_rectangle_partition(
         coords[:, 1], yrange[0] + (yrange[1] - yrange[0]) * py, right=True
     )
 
-    logger.info(f"Solved for xrange={xrange}, yrange={yrange}")
-    logger.info(
-        f"Solved for x-partitions={xrange[0] + (xrange[1] - xrange[0]) * px}, y partitions={yrange[0] + (yrange[1] - yrange[0]) * py}"
-    )
+    # logger.info(f"Solved for xrange={xrange}, yrange={yrange}")
+    # logger.info(
+    #     f"Solved for x-partitions={xrange[0] + (xrange[1] - xrange[0]) * px}, y partitions={yrange[0] + (yrange[1] - yrange[0]) * py}"
+    # )
 
     initial_clone_index = []
     clone_id = 0
@@ -79,7 +79,7 @@ def fixed_rectangle_partition(
 
 
 def best_equal_partition(
-    coords, x_part, y_part, single_tumor_prop=None, threshold=0.5, n_trials=10
+    coords, x_part, y_part, single_tumor_prop=None, threshold=0.5, n_trials=10_000
 ):
     best_var = np.inf
     best_index = None
@@ -100,6 +100,8 @@ def best_equal_partition(
             best_var = var
             best_index = initial_clone_index
             best_assignment = clone_assignment
+            
+            logger.info(f"New best partition at trial {trial}: variance={best_var:.2f}, sizes={sizes}")
 
     logger.info(f"Best partition variance after {n_trials} trials: {best_var:.2f}")
     return best_index, best_assignment

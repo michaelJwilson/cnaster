@@ -294,7 +294,7 @@ def aggr_hmrfmix_reassignment_concatenate(
     )
 
     logger.info(
-        f"Solving (pooled) emission likelihood for X.shape={single_X.shape}, n_states={n_states} and {n_clones} clones with {hmmclass.__name__} and use_mixture={use_mixture}."
+        f"Solving (pooled) emission likelihood for X.shape={single_X.shape}, n_states={n_states} and {n_clones} clones with {hmmclass.__name__}, use_mixture={use_mixture} and merge={merge}."
     )
 
     logger.info("Pooling hmrf data by smooth mat. (reduces necessary computation).")
@@ -449,6 +449,8 @@ def aggr_hmrfmix_reassignment_concatenate(
             sample_ids=sample_ids,                                                                                                                                                       
         )   
         """
+        logger.info("Ready for potential merging")
+        
         while merge:
             new_cost, best_merge_cost, best_merge_pair = merge_assignment(
                 single_llf,
@@ -482,9 +484,11 @@ def aggr_hmrfmix_reassignment_concatenate(
             f"Solved for updated clone labels with new cost {new_cost:.6e} in {niter} iterations (took {time.time() - start_time:.2f} seconds with clone breakdown=\n{cnts / cnts.sum()})."
         )
 
-    # NB compute total ln likelihood.
+    logger.info(f"Computing total ln likelihood.")
+
     total_llf = np.sum(single_llf[np.arange(N), new_assignment])
 
+    # TODO?
     for i in range(N):
         total_llf += np.sum(
             spatial_weight
@@ -599,6 +603,7 @@ def hmrfmix_concatenate_pipeline(
     spatial_weight=1.0 / 6.0,
     tumorprop_threshold=0.5,
     plot_progress=True,
+    merge=True
 ):
     # NB num. of genomic bins, num. pseudobulk (clones, spots, ...)
     n_obs, _, _ = single_X.shape
@@ -764,7 +769,6 @@ def hmrfmix_concatenate_pipeline(
     # NB required for remain_kwargs construction.
     res = {}
     r = 0
-    merge = False
 
     # NB convoluted loop logic to achieve merge on last iteration.
     while r <= max_iter_outer:

@@ -270,7 +270,7 @@ def aggr_hmrfmix_reassignment_concatenate(
     single_tumor_prop=None,
     hmmclass=hmm_sitewise,
     return_posterior=False,
-    merge=False,
+    merge=True,
 ):
     n_obs, _, N = single_X.shape
 

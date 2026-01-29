@@ -152,9 +152,7 @@ def initialize_clones(
 
 
 def summarize_lattice_structure(coords, sample_ids=None, sample_list=None):
-    """
-    Primitive lattice vectors on a hexagonal lattice are equal length, at angle of 120 deg.
-    """
+    # NB primitive lattice vectors on a hexagonal lattice are equal length, at angle of 120 deg.
     coordination_number = None
 
     for i, _ in enumerate(sample_list):

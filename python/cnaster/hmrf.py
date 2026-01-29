@@ -7,7 +7,7 @@ import pandas as pd
 import scipy.special
 from numba import njit, prange
 from pathlib import Path
-from cnaster.icm import icm_sweep, wolff_sweep, unpack_adjacency, merge_assignment
+from cnaster.icm import icm_sweep, icm_sweep_deque, wolff_sweep, unpack_adjacency, merge_assignment
 from cnaster.hmm import gmm_init, pipeline_baum_welch
 from cnaster.hmm_sitewise import hmm_sitewise
 from cnaster.hmrf_utils import cast_csr, clone_stack_obs
@@ -424,7 +424,7 @@ def aggr_hmrfmix_reassignment_concatenate(
         logger.info(f"Solving for updated clone labels.")
         
         # NB updates new_assignment and posterior in place given log emission likelihood.
-        niter, new_cost = icm_sweep(
+        niter, new_cost = icm_sweep_deque(
             single_llf,
             adj_spots,
             adj_neighbors,

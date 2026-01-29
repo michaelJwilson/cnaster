@@ -9,6 +9,7 @@ from dataclasses import dataclass, asdict, field
 # from statistics import mean
 from cnaster.config import start_time
 from cnaster.logger import get_logger
+from collections import deque
 
 logger = get_logger(__name__, start_time=start_time)
 
@@ -771,3 +772,87 @@ def icm_sweep(
 
     return niter, cost
 
+def icm_sweep_deque(
+    single_llf,
+    adj_spots,
+    adj_neighbors,
+    adj_weights,
+    new_assignment,
+    spatial_weight,
+    posterior,
+    tol=0.0,
+    log_persample_weights=None,
+    sample_ids=None,
+    cost_zeropoint=0.0,
+    temp=1.0,
+    min_clone_spots=200,
+):
+    n_spots, n_clones = single_llf.shape
+    w_edge = np.zeros(n_clones)
+    niter = 0
+    cost = cost_zeropoint
+
+    queue = deque(range(n_spots))
+
+    # NB necessary to avoid cycles?
+    in_queue = np.ones(n_spots, dtype=bool)
+
+    while queue:
+        edits = 0
+        clone_counts = np.zeros(n_clones, dtype=np.int32)
+
+        for _ in range(len(queue)):
+            i = queue.popleft()
+            in_queue[i] = False
+
+            w_node = single_llf[i, :].copy()
+            if log_persample_weights is not None:
+                this_sample = sample_ids[i]
+                w_node += log_persample_weights[:, this_sample]
+            w_edge[:] = 0.0
+
+            mask = adj_spots == i
+            neighbors = adj_neighbors[mask]
+            weights = adj_weights[mask]
+
+            for neighbor, edge_weight in zip(neighbors, weights):
+                neighbor_assignment = new_assignment[neighbor]
+                w_edge[neighbor_assignment] += edge_weight
+
+            assignment_cost = w_node + (spatial_weight / temp) * w_edge
+            label = np.argmax(assignment_cost)
+
+            if label != new_assignment[i]:
+                edits += 1
+                cost += assignment_cost[label] - assignment_cost[new_assignment[i]]
+                new_assignment[i] = label
+
+                for neighbor in neighbors:
+                    if not in_queue[neighbor]:
+                        queue.append(neighbor)
+                        in_queue[neighbor] = True
+
+            clone_counts[new_assignment[i]] += 1
+
+            norm = logsumexp(assignment_cost)
+            posterior[i, :] = np.exp(assignment_cost - norm)
+
+        edit_rate = edits / n_spots
+
+        if min_clone_spots > 0 and clone_counts.min() < min_clone_spots:
+            eligible = np.where(clone_counts >= min_clone_spots)[0]
+            for c in range(n_clones):
+                if len(eligible) > 0 and clone_counts[c] < min_clone_spots and clone_counts[c] > 0:
+                    spot_indices = np.where(new_assignment == c)[0]
+                    new_labels = eligible[np.random.randint(0, len(eligible), size=len(spot_indices))]
+                    for idx, new_label in zip(spot_indices, new_labels):
+                        new_assignment[idx] = new_label
+                        clone_counts[c] -= 1
+                        clone_counts[new_label] += 1
+            edit_rate = np.inf
+
+        niter += 1
+        if edit_rate <= tol:
+            break
+
+    return niter, cost

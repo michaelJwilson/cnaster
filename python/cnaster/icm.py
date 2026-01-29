@@ -797,9 +797,10 @@ def icm_sweep_deque(
     # NB necessary to avoid cycles?
     in_queue = np.ones(n_spots, dtype=bool)
 
+    _, clone_counts = np.unique(new_assignment, return_counts=True)
+
     while queue:
         edits = 0
-        clone_counts = np.zeros(n_clones, dtype=np.int32)
 
         for _ in range(len(queue)):
             i = queue.popleft()
@@ -825,14 +826,16 @@ def icm_sweep_deque(
             if label != new_assignment[i]:
                 edits += 1
                 cost += assignment_cost[label] - assignment_cost[new_assignment[i]]
+
+                clone_counts[new_assignment[i]] -= 1
+                clone_counts[label] += 1
+
                 new_assignment[i] = label
 
                 for neighbor in neighbors:
                     if not in_queue[neighbor]:
                         queue.append(neighbor)
                         in_queue[neighbor] = True
-
-            clone_counts[new_assignment[i]] += 1
 
             norm = logsumexp(assignment_cost)
             posterior[i, :] = np.exp(assignment_cost - norm)

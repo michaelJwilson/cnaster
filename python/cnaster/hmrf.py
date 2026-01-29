@@ -270,7 +270,7 @@ def aggr_hmrfmix_reassignment_concatenate(
     single_tumor_prop=None,
     hmmclass=hmm_sitewise,
     return_posterior=False,
-    merge=True,
+    merge=False,
 ):
     n_obs, _, N = single_X.shape
 
@@ -603,7 +603,6 @@ def hmrfmix_concatenate_pipeline(
     spatial_weight=1.0 / 6.0,
     tumorprop_threshold=0.5,
     plot_progress=True,
-    merge=True
 ):
     # NB num. of genomic bins, num. pseudobulk (clones, spots, ...)
     n_obs, _, _ = single_X.shape
@@ -662,6 +661,8 @@ def hmrfmix_concatenate_pipeline(
         X, base_nb_mean, total_bb_RD, lengths, log_sitewise_transmat, tumor_prop
     )
 
+    merge=False
+    
     if (init_log_mu is None) or (init_p_binom is None):
         new_init_log_mu, new_init_p_binom = gmm_init(
             n_states,

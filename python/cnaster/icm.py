@@ -793,11 +793,12 @@ def icm_sweep_deque(
     cost = cost_zeropoint
 
     queue = deque(range(n_spots))
-
-    # NB necessary to avoid cycles?
     in_queue = np.ones(n_spots, dtype=bool)
 
-    _, clone_counts = np.unique(new_assignment, return_counts=True)
+    # Initialize clone_counts correctly
+    clone_counts = np.zeros(n_clones, dtype=np.int32)
+    for idx in range(n_spots):
+        clone_counts[new_assignment[idx]] += 1
 
     while queue:
         edits = 0
@@ -827,6 +828,7 @@ def icm_sweep_deque(
                 edits += 1
                 cost += assignment_cost[label] - assignment_cost[new_assignment[i]]
 
+                # Update clone_counts safely
                 clone_counts[new_assignment[i]] -= 1
                 clone_counts[label] += 1
 

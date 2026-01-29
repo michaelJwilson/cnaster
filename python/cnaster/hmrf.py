@@ -1296,7 +1296,7 @@ def aggr_hmrf_reassignment(
         logger.info(f"Solving for updated clone labels.")
 
         # NB updates new_assignment and posterior in place given log emission likelihood.
-        niter, new_cost = icm_sweep(
+        niter, new_cost = icm_sweep_deque(
             single_llf,
             adj_spots,
             adj_neighbors,

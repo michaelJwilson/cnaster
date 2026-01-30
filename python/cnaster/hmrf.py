@@ -449,7 +449,7 @@ def aggr_hmrfmix_reassignment_concatenate(
             sample_ids=sample_ids,                                                                                                                                                       
         )   
         """
-        logger.info("Ready for potential merging")
+        logger.info(f"Ready for potential merging with merge={merge}.")
         
         while merge:
             new_cost, best_merge_cost, best_merge_pair = merge_assignment(
@@ -481,7 +481,7 @@ def aggr_hmrfmix_reassignment_concatenate(
         _, cnts = np.unique(new_assignment, return_counts=True)
 
         logger.info(
-            f"Solved for updated clone labels with new cost {new_cost:.6e} in {niter} iterations (took {time.time() - start_time:.2f} seconds with clone breakdown=\n{cnts / cnts.sum()})."
+            f"Solved for updated clone labels with new cost {new_cost:.6e} in {niter} iterations (took {time.time() - start_time:.2f} seconds with clone breakdown=\n{[f'{xx:.3f}' for xx in cnts / cnts.sum()]})."
         )
 
     logger.info(f"Computing total ln likelihood.")
@@ -898,43 +898,6 @@ def hmrfmix_concatenate_pipeline(
         with np.printoptions(linewidth=np.inf):
             logger.info(f"Copy number state usage [%]:\n{100. * state_usage}")
 
-        if (
-            # TODO config.hmrf.assignment_ari_tolerance: 0.9?
-            adjusted_rand_score(last_assignment, res["new_assignment"]) >= get_global_config().hmrf.ari_tolerance
-            or len(np.unique(res["new_assignment"])) == 1  # NB single clone assigned.
-        ):
-            if not merge:
-                # NB next round we merge; and the one after fit parameters to the merged clone.
-                r = max_iter_outer - 1
-                merge = True
-                     
-        last_log_mu = res["new_log_mu"]
-        last_p_binom = res["new_p_binom"]
-        last_alphas = res["new_alphas"]
-        last_taus = res["new_taus"]
-        last_assignment = res["new_assignment"]
-
-        # NB X.shape[2] is the current inferred number of clones.
-        if inertia:
-            log_persample_weights = np.ones((X.shape[2], n_samples)) * (
-                -np.log(X.shape[2])
-            )
-
-            for sidx in range(n_samples):
-                index = np.where(sample_ids == sidx)[0]
-
-                this_persample_weight = np.bincount(
-                    res["new_assignment"][index], minlength=X.shape[2]
-                ) / len(index)
-
-                log_persample_weights[:, sidx] = np.where(
-                    this_persample_weight > 0, np.log(this_persample_weight), -50
-                )
-
-                log_persample_weights[:, sidx] = log_persample_weights[
-                    :, sidx
-                ] - scipy.special.logsumexp(log_persample_weights[:, sidx])
-
         if plot_progress:
             logger.info(f"Plotting progress for interation {r}.")
 
@@ -984,7 +947,48 @@ def hmrfmix_concatenate_pipeline(
             fig_path = f"{progress_dir}/{prefix}_genomic_iter{r}.pdf"
             write_fig(fig_path, clones_genomic, transparent=True, bbox_inches="tight")
 
+        # NB potential conflict with GOTO logic below.
         r += 1
+
+        if (
+            # TODO config.hmrf.assignment_ari_tolerance: 0.9?
+            adjusted_rand_score(last_assignment, res["new_assignment"]) >= get_global_config().hmrf.ari_tolerance
+            or len(np.unique(res["new_assignment"])) == 1  # NB single clone assigned.
+        ):
+            if not merge:
+                # NB next round we merge; and the one after fit parameters to the merged clone.
+                #    skip ahead (GOTO) between iterations. 
+                r = max_iter_outer - 1
+                merge = True
+                     
+        last_log_mu = res["new_log_mu"]
+        last_p_binom = res["new_p_binom"]
+        last_alphas = res["new_alphas"]
+        last_taus = res["new_taus"]
+        last_assignment = res["new_assignment"]
+
+        # NB X.shape[2] is the current inferred number of clones.
+        if inertia:
+            log_persample_weights = np.ones((X.shape[2], n_samples)) * (
+                -np.log(X.shape[2])
+            )
+
+            for sidx in range(n_samples):
+                index = np.where(sample_ids == sidx)[0]
+
+                this_persample_weight = np.bincount(
+                    res["new_assignment"][index], minlength=X.shape[2]
+                ) / len(index)
+
+                log_persample_weights[:, sidx] = np.where(
+                    this_persample_weight > 0, np.log(this_persample_weight), -50
+                )
+
+                log_persample_weights[:, sidx] = log_persample_weights[
+                    :, sidx
+                ] - scipy.special.logsumexp(log_persample_weights[:, sidx])
+
+        # r += 1
 
     return res
 

@@ -795,14 +795,16 @@ def icm_sweep_deque(
     queue = deque(range(n_spots))
     in_queue = np.ones(n_spots, dtype=bool)
 
-    # Initialize clone_counts correctly
     clone_counts = np.zeros(n_clones, dtype=np.int32)
     for idx in range(n_spots):
         clone_counts[new_assignment[idx]] += 1
 
+    logger.info(f"Starting icm sweep with clone proportion:\n{clone_counts / clone_counts.sum()}")
+
     while queue:
         edits = 0
 
+        # NB future batches populated with the neighbors of edits in this batch.
         for _ in range(len(queue)):
             i = queue.popleft()
             in_queue[i] = False
@@ -813,7 +815,7 @@ def icm_sweep_deque(
                 w_node += log_persample_weights[:, this_sample]
             w_edge[:] = 0.0
 
-            mask = adj_spots == i
+            mask = (adj_spots == i)
             neighbors = adj_neighbors[mask]
             weights = adj_weights[mask]
 
@@ -828,7 +830,6 @@ def icm_sweep_deque(
                 edits += 1
                 cost += assignment_cost[label] - assignment_cost[new_assignment[i]]
 
-                # Update clone_counts safely
                 clone_counts[new_assignment[i]] -= 1
                 clone_counts[label] += 1
 
@@ -842,9 +843,12 @@ def icm_sweep_deque(
             norm = logsumexp(assignment_cost)
             posterior[i, :] = np.exp(assignment_cost - norm)
 
-        edit_rate = edits / n_spots
+        batch_edit_rate = edits / n_spots
 
-        if min_clone_spots > 0 and clone_counts.min() < min_clone_spots:
+        logger.info(f"Completed icm sweep batch with batch edit rate={batch_edit_rate:.6e}.")
+
+        # NB rdr-refinement guard for small baf-identified clones.
+        if (min_clone_spots > 0) and clone_counts.min() < min_clone_spots:
             eligible = np.where(clone_counts >= min_clone_spots)[0]
             for c in range(n_clones):
                 if len(eligible) > 0 and clone_counts[c] < min_clone_spots and clone_counts[c] > 0:
@@ -852,12 +856,20 @@ def icm_sweep_deque(
                     new_labels = eligible[np.random.randint(0, len(eligible), size=len(spot_indices))]
                     for idx, new_label in zip(spot_indices, new_labels):
                         new_assignment[idx] = new_label
+
                         clone_counts[c] -= 1
                         clone_counts[new_label] += 1
-            edit_rate = np.inf
+
+            logger.info(f"For enforcing min_clone_spot={min_clone_spots} with n_spots={n_spots}, found {len(eligible)} valid clone for reassignment & new clone proportion:\n{clone_counts / clone_counts.sum()}")
+
+            # NB random assignmnent of small clones; force another iteration to reassign.
+            if len(eligible) > 1:
+                batch_edit_rate = np.inf
 
         niter += 1
-        if edit_rate <= tol:
+
+        # NB stop if no edits or only one clone remains.
+        if (batch_edit_rate <= tol) or np.count_nonzero(clone_counts) <= 1:
             break
 
     return niter, cost

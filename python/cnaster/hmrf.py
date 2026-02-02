@@ -1238,6 +1238,8 @@ def aggr_hmrf_reassignment(
 
     posterior = np.zeros((n_spots, n_clones))
 
+    logger.info("Computing unary likelihood for HMRF reassignment.")
+
     # UGH 
     for i in range(n_spots):
         idx = smooth_mat[i, :].nonzero()[1]
@@ -1273,21 +1275,19 @@ def aggr_hmrf_reassignment(
                     tmp_log_emission_rdr[pred[:, c], np.arange(n_obs), 0]
                 ) + np.sum(tmp_log_emission_baf[pred[:, c], np.arange(n_obs), 0])
 
-        """
-        w_node = single_llf[i, :]
-        w_node += log_persample_weights[:, sample_ids[i]]
-        w_edge = np.zeros(n_clones)
-        for j in adjacency_mat[i, :].nonzero()[1]:
-            if new_assignment[j] >= 0:
-                w_edge[new_assignment[j]] += adjacency_mat[i, j]
-        new_assignment[i] = np.argmax(w_node + spatial_weight * w_edge)
+        # w_node = single_llf[i, :]
+        # w_node += log_persample_weights[:, sample_ids[i]]
+        # w_edge = np.zeros(n_clones)
+        # for j in adjacency_mat[i, :].nonzero()[1]:
+        #     if new_assignment[j] >= 0:
+        #         w_edge[new_assignment[j]] += adjacency_mat[i, j]
+        # new_assignment[i] = np.argmax(w_node + spatial_weight * w_edge)
 
-        posterior[i, :] = np.exp(
-            w_node
-            + spatial_weight * w_edge
-            - scipy.special.logsumexp(w_node + spatial_weight * w_edge)
-        )
-        """
+        # posterior[i, :] = np.exp(
+        #     w_node
+        #   + spatial_weight * w_edge
+        #   - scipy.special.logsumexp(w_node + spatial_weight * w_edge)
+        # )
 
     adj_list = cast_csr(adjacency_mat)
     adj_spots, adj_neighbors, adj_weights = unpack_adjacency(adj_list)

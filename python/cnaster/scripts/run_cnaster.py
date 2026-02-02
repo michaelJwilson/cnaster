@@ -1394,6 +1394,8 @@ def run_cnaster(config_path, over_rides=None):
     fig_path = f"{output_dir}/plots/combined_clones_spatial.pdf"
     write_fig(fig_path, clones_fig, transparent=True, bbox_inches="tight")
 
+    exit(0)
+    
     # NB final re-assignment across all spots using current copy states -
     #    does not conserve original e.g. baf clone assignments, or normal spots.
     #    Further, does not assume same clone concatenated shape.

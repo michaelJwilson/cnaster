@@ -801,6 +801,9 @@ def icm_sweep_deque(
 
     logger.info(f"Starting icm sweep with clone proportion:\n{clone_counts / clone_counts.sum()}")
 
+    # TODO
+    min_spot_guard = 0
+    
     while queue:
         edits = 0
 
@@ -848,7 +851,7 @@ def icm_sweep_deque(
         logger.info(f"Completed icm sweep batch with batch edit rate={batch_edit_rate:.6e}.")
 
         # NB rdr-refinement guard for small baf-identified clones.
-        if (min_clone_spots > 0) and clone_counts.min() < min_clone_spots:
+        if (min_clone_spots > 0) and clone_counts.min() < min_clone_spots and clone_counts.min() > 0:
             eligible = np.where(clone_counts >= min_clone_spots)[0]
             for c in range(n_clones):
                 if len(eligible) > 0 and clone_counts[c] < min_clone_spots and clone_counts[c] > 0:
@@ -865,11 +868,12 @@ def icm_sweep_deque(
             # NB random assignmnent of small clones; force another iteration to reassign.
             if len(eligible) > 1:
                 batch_edit_rate = np.inf
+                min_spot_guard += 1
 
         niter += 1
 
         # NB stop if no edits or only one clone remains.
-        if (batch_edit_rate <= tol) or np.count_nonzero(clone_counts) <= 1:
+        if (batch_edit_rate <= tol) or np.count_nonzero(clone_counts) <= 1 or min_spot_guard > 10:
             break
 
     return niter, cost

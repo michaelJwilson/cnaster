@@ -1364,36 +1364,6 @@ def run_cnaster(config_path, over_rides=None):
         ]
     ).T
 
-
-    clone_index = [
-        np.where(res_combine["new_assignment"] == c)[0]
-        for c, _ in enumerate(np.sort(np.unique(res_combine["new_assignment"])))
-    ]
-
-    # NB create pseudobulk for each clone.
-    X, base_nb_mean, total_bb_RD, _ = merge_pseudobulk_by_index_mix(
-        single_X,
-        single_base_nb_mean,
-        single_total_bb_RD,
-        clone_index,
-        single_tumor_prop,
-    )
-
-    # NB clones fig.
-    assignment = pd.Series([f"clone {x}" for x in res_combine["new_assignment"]])
-    clones_fig = plot_clones_spatial(
-        coords,
-        assignment,
-        single_tumor_prop=single_tumor_prop,
-        sample_list=sample_list,
-        sample_ids=sample_ids,
-        base_width=4,
-        base_height=3,
-    )
-
-    fig_path = f"{output_dir}/plots/combined_clones_spatial.pdf"
-    write_fig(fig_path, clones_fig, transparent=True, bbox_inches="tight")
-
     # NB final re-assignment across all spots using current copy states -
     #    does not conserve original e.g. baf clone assignments, or normal spots.
     #    Further, does not assume same clone concatenated shape.

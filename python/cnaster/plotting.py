@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 import matplotlib.gridspec as gridspec
+
 # import cnaster.log_linear
 from functools import cmp_to_key
 import matplotlib.colors as mcolors
@@ -92,7 +93,7 @@ def get_full_palette(palette="tab20b"):
 
 def get_intervals(pred_cnv):
     """
-    Find contiguous intervals in the array pred_cnv where the 
+    Find contiguous intervals in the array pred_cnv where the
     copy number state is the same.  Returns the list of intervals
     and their state.
     """
@@ -112,6 +113,7 @@ def get_intervals(pred_cnv):
             s = s + t
     return intervals, labs
 
+
 def plot_gene_snp_spatial(
     adata,
     cell_snp_Aallele,
@@ -122,16 +124,18 @@ def plot_gene_snp_spatial(
     pointsize=10,
     cmap="viridis",
     base_height=4,
-    sampling=1.,
+    sampling=1.0,
     max_genes=10,
 ):
-    logger.info(f"Plotting spatial distribution for max_genes={max_genes} to {plots_dir}/genes")
-    
+    logger.info(
+        f"Plotting spatial distribution for max_genes={max_genes} to {plots_dir}/genes"
+    )
+
     # genes = df_gene_snp["gene"].unique()
     # genes = [g for g in genes if g in adata.var_names]
 
     genes = list(adata.var_names)
-    
+
     def get_gene_umi(g):
         if g in adata.var_names:
             return float(np.sum(adata[:, g].X))
@@ -141,7 +145,7 @@ def plot_gene_snp_spatial(
     coords = adata.obsm["X_pos"]
 
     logger.info(f"Sorted input gene list.")
-    
+
     # os.makedirs(f"{plots_dir}/genes", exist_ok=True)
 
     gene_count = 0
@@ -154,7 +158,7 @@ def plot_gene_snp_spatial(
             break
 
         logger.info(f"Plotting gene={gene_name}")
-        
+
         gene_count += 1
 
         try:
@@ -165,28 +169,32 @@ def plot_gene_snp_spatial(
         except KeyError:
             logger.error(f"Gene {gene_name} not found in adata.")
             continue
-        
+
         relevant_snps = df_gene_snp[df_gene_snp["gene"] == gene_name]["snp_id"].values
-        
+
         if len(relevant_snps) == 0:
             logger.warning(f"No SNPs found for gene {gene_name} in df_gene_snp.")
             snp_A = np.zeros(coords.shape[0])
             snp_B = np.zeros(coords.shape[0])
         else:
             snp_indices = np.where(np.isin(unique_snp_ids, relevant_snps))[0]
-            
+
             if len(snp_indices) == 0:
-                 logger.warning(f"SNPs for {gene_name} found in table but not in matrix columns.")
-                 snp_A = np.zeros(coords.shape[0])
-                 snp_B = np.zeros(coords.shape[0])
+                logger.warning(
+                    f"SNPs for {gene_name} found in table but not in matrix columns."
+                )
+                snp_A = np.zeros(coords.shape[0])
+                snp_B = np.zeros(coords.shape[0])
             else:
                 snp_A = np.array(cell_snp_Aallele[:, snp_indices].sum(axis=1)).flatten()
                 snp_B = np.array(cell_snp_Ballele[:, snp_indices].sum(axis=1)).flatten()
 
         snp_total = snp_A + snp_B
 
-        fig, axes = plt.subplots(1, 3, figsize=(base_height * 3.5, base_height), dpi=300, facecolor="white")
-        
+        fig, axes = plt.subplots(
+            1, 3, figsize=(base_height * 3.5, base_height), dpi=300, facecolor="white"
+        )
+
         total_umis = int(np.sum(gene_expression))
         total_snp_umis = int(np.sum(snp_total))
 
@@ -213,7 +221,7 @@ def plot_gene_snp_spatial(
                 )
 
             if np.any(~is_zero):
-                c = np.log10(data[~is_zero]) if i ==0 else data[~is_zero]
+                c = np.log10(data[~is_zero]) if i == 0 else data[~is_zero]
                 sc = ax.scatter(
                     coords[~is_zero, 0],
                     -coords[~is_zero, 1],
@@ -230,11 +238,12 @@ def plot_gene_snp_spatial(
 
             ax.set_title(titles[i], fontsize=12)
             ax.axis("off")
-        
+
         fig.tight_layout()
 
         gene_fig_path = f"{plots_dir}/genes/{gene_name}_umis{total_umis}_snpumis{total_snp_umis}_spatial.pdf"
         write_fig(gene_fig_path, fig, transparent=True, bbox_inches="tight")
+
 
 def plot_adjacency(
     coords,
@@ -243,9 +252,11 @@ def plot_adjacency(
     pointsize=5,
     base_height=6,
     cmap="tab20b",
-    sample_list=None
+    sample_list=None,
 ):
-    fig, ax = plt.subplots(1, 1, figsize=(base_height * 1.2, base_height), dpi=300, facecolor="white")
+    fig, ax = plt.subplots(
+        1, 1, figsize=(base_height * 1.2, base_height), dpi=300, facecolor="white"
+    )
 
     if sample_list is not None:
         ax.set_title(", ".join(sample_list) + ": adjacency", fontsize=12, y=0.95)
@@ -260,7 +271,7 @@ def plot_adjacency(
         edgecolor="k",
         linewidth=0.1,
         alpha=0.8,
-        zorder=1
+        zorder=1,
     )
 
     # NB can be pooled with self only.
@@ -280,18 +291,18 @@ def plot_adjacency(
             [coords[i, 0], coords[j, 0]],
             [-coords[i, 1], -coords[j, 1]],
             c="k",
-            alpha=1.,
+            alpha=1.0,
             linewidth=0.1,
-            zorder=3
+            zorder=3,
         )
 
     logger.info(f"Mean edge weight per spot: {np.mean(adjacency_mat.sum(axis=0))}")
 
     rows, cols = adjacency_mat.nonzero()
     weights = np.array(adjacency_mat[rows, cols]).flatten()
-    
+
     max_weight = weights.max() if weights.size > 0 else 1.0
-    
+
     cm = plt.get_cmap(cmap)
     n_nodes = coords.shape[0]
 
@@ -312,13 +323,14 @@ def plot_adjacency(
             c=cm(node_colors[c_idx]),
             alpha=1.0,
             linewidth=0.5 * weight / max_weight,
-            zorder=1
+            zorder=1,
         )
 
     ax.axis("off")
-    
+
     fig.tight_layout()
     return fig
+
 
 def plot_clones_genomic_simple(
     single_X,
@@ -337,7 +349,7 @@ def plot_clones_genomic_simple(
     linewidth=1,
 ):
     logger.info("Plotting simplified RDR & BAF scatter plots per clone.")
-    
+
     X, base_nb_mean, total_bb_RD, tumor_prop = merge_pseudobulk_by_index_mix(
         single_X,
         single_base_nb_mean,
@@ -345,49 +357,51 @@ def plot_clones_genomic_simple(
         clone_index,
         single_tumor_prop,
     )
-    
+
     n_obs = X.shape[0]
     spots_per_clone = [len(idx) for idx in clone_index]
 
     # NB indexes (sorted, unique) of non-empty clones.
     nonempty_clones = np.where(np.sum(total_bb_RD, axis=0) > 0)[0]
-    
-    logger.info(f"Found non-empty clones: {nonempty_clones} for len(clone_index)={len(clone_index)}")
+
+    logger.info(
+        f"Found non-empty clones: {nonempty_clones} for len(clone_index)={len(clone_index)}"
+    )
 
     # NB check if base_nb_mean is defined and has valid data
     has_rdr = base_nb_mean is not None and np.max(base_nb_mean) > 0
-    
+
     n_pairs = len(nonempty_clones)
     axes_per_clone = 2 if has_rdr else 1
     n_axes_total = axes_per_clone * n_pairs
-    
+
     fig = plt.figure(figsize=(20, base_height * n_pairs), dpi=300, facecolor="white")
-    
+
     # NB build height_ratios with spacing between pairs
     height_ratios = []
     for i in range(n_pairs):
         height_ratios.extend([1] * axes_per_clone)
         if i < n_pairs - 1:
             height_ratios.append(0.25)
-    
+
     n_rows = len(height_ratios)
     gs = gridspec.GridSpec(n_rows, 1, height_ratios=height_ratios, hspace=0)
-    
+
     axes, row = [], 0
     for i in range(n_axes_total):
         axes.append(fig.add_subplot(gs[row, 0]))
         row += 1
         if (i % axes_per_clone == axes_per_clone - 1) and (i < n_axes_total - 1):
             row += 1
-    
+
     if sample_list is not None:
         fig.suptitle(", ".join(sample_list), x=0.5, y=0.98, fontsize=16, ha="center")
-    
+
     unique_chrs = 1 + np.arange(len(lengths))
-    
+
     for s, c in enumerate(nonempty_clones):
         ax_idx = s * axes_per_clone
-        
+
         if has_rdr:
             sns.scatterplot(
                 x=np.arange(X.shape[0]),
@@ -397,7 +411,7 @@ def plot_clones_genomic_simple(
                 linewidth=linewidth,
                 ax=axes[ax_idx],
             )
-            
+
             axes[ax_idx].set_ylabel("RDR")
             axes[ax_idx].set_ylim([-0.5, rdr_ylim])
             axes[ax_idx].set_xlim([0, n_obs])
@@ -407,10 +421,10 @@ def plot_clones_genomic_simple(
 
             if remove_xticks:
                 axes[ax_idx].set_xticks([])
-            
+
             for i in range(len(lengths)):
                 axes[ax_idx].axvline(x=np.sum(lengths[:(i)]), c="black", linewidth=0.5)
-        
+
         baf_idx = ax_idx + (1 if has_rdr else 0)
         sns.scatterplot(
             x=np.arange(X.shape[0]),
@@ -421,7 +435,7 @@ def plot_clones_genomic_simple(
             legend=False,
             ax=axes[baf_idx],
         )
-        
+
         axes[baf_idx].set_ylabel("BAF")
         axes[baf_idx].set_ylim([-0.05, 1.05])
         axes[baf_idx].set_yticks(np.arange(0.0, 1.1, 0.2))
@@ -429,13 +443,13 @@ def plot_clones_genomic_simple(
 
         for y in np.arange(0.0, 1.1, 0.1):
             axes[baf_idx].axhline(y=y, c="lightgray", linewidth=0.5)
-        
+
         if remove_xticks:
             axes[baf_idx].set_xticks([])
-        
+
         for i in range(len(lengths)):
             axes[baf_idx].axvline(x=np.sum(lengths[:(i)]), c="black", linewidth=0.5)
-        
+
         ax = axes[ax_idx]
         ax.text(
             -0.04,
@@ -447,7 +461,7 @@ def plot_clones_genomic_simple(
             rotation="vertical",
             transform=ax.transAxes,
         )
-        
+
         theta_text = ""
 
         if single_tumor_prop is not None:
@@ -469,34 +483,26 @@ def plot_clones_genomic_simple(
             this_pred = max_pred[(s * n_obs) : (s * n_obs + n_obs)] % res["n_states"]
 
             segments, labs = get_intervals(this_pred)
-                
+
             mus = np.exp(res["new_log_mu"])
             ps = res["new_p_binom"]
 
             for i, (seg, state) in enumerate(zip(segments, labs)):
                 if has_rdr:
                     axes[ax_idx].plot(
-                        seg, 
-                        [mus[state], mus[state]], 
-                        c="k", 
-                        linewidth=1.0
+                        seg, [mus[state], mus[state]], c="k", linewidth=1.0
                     )
-                
-                axes[baf_idx].plot(
-                    seg, 
-                    [ps[state], ps[state]], 
-                    c="k", 
-                    linewidth=1.0
-                )
+
+                axes[baf_idx].plot(seg, [ps[state], ps[state]], c="k", linewidth=1.0)
 
                 axes[baf_idx].plot(
-                    seg, 
-                    [1. - ps[state], 1. - ps[state]], 
-                    c="k", 
+                    seg,
+                    [1.0 - ps[state], 1.0 - ps[state]],
+                    c="k",
                     linewidth=1.0,
                     linestyle="--",
                 )
-    
+
     for i in range(len(lengths)):
         start_len = np.sum(lengths[:(i)])
         axes[-1].text(
@@ -510,9 +516,10 @@ def plot_clones_genomic_simple(
         )
         for k in range(len(axes)):
             axes[k].axvline(x=np.sum(lengths[:(i)]), c="k", linewidth=1)
-    
+
     fig.tight_layout()
     return fig
+
 
 def plot_clones_genomic(
     df_cnv,  # NB integer copy numbers for each segment.
@@ -881,6 +888,7 @@ def plot_clones_genomic(
 
     return fig
 
+
 def plot_clones_spatial(
     coords,
     assignment,
@@ -913,12 +921,14 @@ def plot_clones_spatial(
     n_samples = 1 if sample_list is None else len(sample_list)
 
     # NB remove nan of single_tumor_prop; assumes 0.5(!)
-    if single_tumor_prop is not None:        
+    if single_tumor_prop is not None:
         copy_single_tumor_prop = np.array(single_tumor_prop, dtype=float)
         invalid = np.isnan(copy_single_tumor_prop)
 
         if np.any(invalid):
-            logger.warning(f"Imputing {100. * np.mean(invalid):.3f} [%] of NaN tumor proportion with 0.5")
+            logger.warning(
+                f"Imputing {100. * np.mean(invalid):.3f} [%] of NaN tumor proportion with 0.5"
+            )
             copy_single_tumor_prop[np.isnan(copy_single_tumor_prop)] = 0.5
 
     fig, axes = plt.subplots(
@@ -947,7 +957,7 @@ def plot_clones_spatial(
             )
         else:
             vals = copy_single_tumor_prop[idx]
-            vals = np.clip(vals, 0., 1.)
+            vals = np.clip(vals, 0.0, 1.0)
 
             base_rgb = mcolors.to_rgb(colorlist[c])
             rgba_colors = np.zeros((len(vals), 4))
@@ -989,14 +999,15 @@ def plot_clones_spatial(
 
     return fig
 
+
 def plot_recombination_rates(df_recomb, base_height=4):
     df = df_recomb.copy()
-    df['chrom'] = df['chrom'].astype(str).str.replace('chr', '')
-    
+    df["chrom"] = df["chrom"].astype(str).str.replace("chr", "")
+
     valid_chroms = [str(i) for i in range(1, 23)]
-    df = df[df['chrom'].isin(valid_chroms)]
-    df['chrom'] = df['chrom'].astype(int)
-    df = df.sort_values(['chrom', 'pos'])
+    df = df[df["chrom"].isin(valid_chroms)]
+    df["chrom"] = df["chrom"].astype(int)
+    df = df.sort_values(["chrom", "pos"])
 
     """
     chrom_mins = df.groupby('chrom')['pos'].min()
@@ -1007,53 +1018,54 @@ def plot_recombination_rates(df_recomb, base_height=4):
     for chrom in chrom_mins.index:
         logger.info(f"chr{chrom:<2}:\t{chrom_mins[chrom]:>12_} - {chrom_maxes[chrom]:>12_}")
     """
-        
-    unique_chroms = sorted(df['chrom'].unique())
+
+    unique_chroms = sorted(df["chrom"].unique())
     n_chroms = len(unique_chroms)
 
     fig, axes = plt.subplots(
-        n_chroms, 
-        1, 
-        figsize=(15, max(base_height, n_chroms * 0.8)), 
-        sharex=True, 
-        sharey=True, 
-        dpi=300
+        n_chroms,
+        1,
+        figsize=(15, max(base_height, n_chroms * 0.8)),
+        sharex=True,
+        sharey=True,
+        dpi=300,
     )
-    
+
     if n_chroms == 1:
         axes = [axes]
 
     for i, chrom in enumerate(unique_chroms):
-        chrom_data = df[df['chrom'] == chrom].copy()
-        chrom_data["pos"] = chrom_data["pos"].astype(float) / 1.e6  # Convert to Mb
+        chrom_data = df[df["chrom"] == chrom].copy()
+        chrom_data["pos"] = chrom_data["pos"].astype(float) / 1.0e6  # Convert to Mb
 
         ax = axes[i]
-        
+
         sns.lineplot(
             data=chrom_data,
-            x='pos',
-            y='recomb_rate',
+            x="pos",
+            y="recomb_rate",
             linewidth=0.5,
             alpha=0.8,
             ax=ax,
-            c="k", 
+            c="k",
         )
 
-        ax.set_ylabel(f"chr{chrom}", rotation=90, ha='right', va='bottom', fontsize=10)
+        ax.set_ylabel(f"chr{chrom}", rotation=90, ha="right", va="bottom", fontsize=10)
         ax.set_xlim(0, None)
         ax.set_ylim(0, 100)
 
         sns.despine(ax=ax)
-        
+
         if i < n_chroms - 1:
             ax.set_xlabel("")
         else:
             ax.set_xlabel("Pos [Mb]")
-    
+
     fig.suptitle("Recombination rate")
     plt.tight_layout()
-    
+
     return fig
+
 
 def plot_copy_states(state_cnv):
     clone_cols = [c for c in state_cnv.columns if "logmu" in c]
@@ -1178,7 +1190,7 @@ def plot_copy_states(state_cnv):
                 cell.set_text_props(text="")
                 cell.set_facecolor("none")
                 cell.set_edgecolor("none")
-                cell.set_height(0.02) # Make gap row shorter
+                cell.set_height(0.02)  # Make gap row shorter
             continue
 
         clone = clone_names[current_clone_idx]
@@ -1189,18 +1201,18 @@ def plot_copy_states(state_cnv):
             b = int(state_cnv.iloc[s_idx][f"{clone} B"])
             base_col = state_colors.get((a, b), "#FFFFFF")
             tbl[(table_r, c)].set_facecolor(blend(base_col, alpha=0.5))
-            
+
         if rtype == 2:
             current_clone_idx += 1
 
     current_row_idx = 0
     for clone_idx, clone in enumerate(clone_names):
         if clone_idx > 0:
-            current_row_idx += 1 # Skip gap row
-            
+            current_row_idx += 1  # Skip gap row
+
         display_clone = cast_clone_label(clone)
         start_r = data_row_offset + current_row_idx
-        
+
         # Clone Label (Vertical Center of 3 rows)
         top_cell = tbl[(start_r, 0)]
         bottom_cell = tbl[(start_r + 2, 0)]
@@ -1217,7 +1229,7 @@ def plot_copy_states(state_cnv):
             fontsize=11,
             transform=ax.transAxes,
         )
-        
+
         # Sub-row labels
         label_map = {0: r"$\mu$", 1: r"$\beta$", 2: r"$\mathbb{N}$"}
         for offset in range(3):
@@ -1234,10 +1246,10 @@ def plot_copy_states(state_cnv):
                 fontsize=9,
                 transform=ax.transAxes,
             )
-            
+
         current_row_idx += 3
 
     plt.title(r"$\mathbb{R}$ copy states", fontsize=14, pad=20)
     plt.tight_layout()
-    
+
     return fig

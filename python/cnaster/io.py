@@ -1,4 +1,5 @@
 import copy
+import json
 import logging
 from pathlib import Path
 
@@ -8,6 +9,7 @@ import pandas as pd
 import scanpy as sc
 import polars as pl
 import scipy.sparse
+import matplotlib.pyplot as plt
 from collections import namedtuple
 from cnaster.filter import get_filter_genes, get_filter_ranges
 from cnaster.reference import exp_cancer_gene
@@ -75,6 +77,69 @@ def get_aggregated_barcodes(barcode_file, known_sample_id=None):
     return df_barcode
 
 
+def get_he_image(spaceranger_dir, res="lowres"):
+    assert res in ("lowres", "hires")
+    # scalefactor = target_size / max (original image height, original image width),
+    # e.g. {
+    #    "spot_diameter_fullres": 58.45684684229273,
+    #    "bin_size_um": 16.0,
+    #    "microns_per_pixel": 0.2737061758251425,
+    #    "tissue_lowres_scalef": 0.0071874363,
+    #    "fiducial_diameter_fullres": 1205.6724661222877,
+    #    "tissue_hires_scalef": 0.071874365,
+    #    "regist_target_img_scalef": 0.071874365
+    # }
+    with open(f"{spaceranger_dir}/spatial/scalefactors_json.json", "r") as ff:
+        scalefactors = json.load(ff)
+
+    scalefactor = scalefactors[f"tissue_{res}_scalef"]
+
+    # NB realizes a (H, W, C) numpy array, i.e. (382, 600, 3) for low and (3818, 6000, 3) for high (HD @ 6.5mm).
+    tissue_image = plt.imread(f"{spaceranger_dir}/spatial/tissue_{res}_image.png")
+
+    # NB 11,222,500 rows in the 2 um version of the file for Visium HD
+    # full_width = np.ceil(6000 / 0.071874365) = 83_479.0
+    # full_height = np.ceil(3818 / 0.071874365) = 53_121.0
+
+    # NB barcode positions correspond to 5_641.821 < y < 30_099.837, 1_190.55 < x < 5_641.82 for 175_561 spots.
+    #    i.e. the aligned portion of the original image.
+    H, W, C = tissue_image.shape
+    rows, cols = np.meshgrid(np.arange(H), np.arange(W), indexing="ij")
+
+    tissue_frame = pl.DataFrame(
+        {
+            "red": tissue_image[:, :, 0].flatten(),
+            "green": tissue_image[:, :, 1].flatten(),
+            "blue": tissue_image[:, :, 2].flatten(),
+            "array_row": rows.flatten(),
+            "array_col": cols.flatten(),
+        }
+    )
+
+    def crop_values(x):
+        return (x - np.min(x)) / (np.max(x) - np.min(x))
+
+    rgb = tissue_frame.select(["red", "green", "blue"]).to_numpy()
+    gray = 0.2125 * rgb[:, 0] + 0.7154 * rgb[:, 1] + 0.0721 * rgb[:, 2]
+    cropped_gray = crop_values(gray)
+
+    percentiles = np.arange(0.0, 110.0, 10)
+    bins = np.percentile(np.sort(cropped_gray.flatten()), percentiles)
+
+    labels = np.digitize(cropped_gray, bins=bins)
+
+    # NB 0.0 < x < 83_339.869; 0 < y < 53_009.165
+    tissue_frame = tissue_frame.with_columns(
+        (pl.col("array_col") / scalefactor).alias("x"),
+        (pl.col("array_row") / scalefactor).alias("y"),
+        pl.Series("gray", gray),
+        pl.Series("cropped_gray", cropped_gray),
+        pl.Series("label", labels),
+    )
+
+    return tissue_frame
+
+
 def get_spatial_positions(spaceranger_dir, filter_in_tissue=True):
     """ """
     # TODO x,y vs row,col?  sub-pixel position?
@@ -106,8 +171,14 @@ def get_spatial_positions(spaceranger_dir, filter_in_tissue=True):
         # NB 11,222,500 rows vs 4,992 rows for visium.
         #    see https://www.10xgenomics.com/support/software/space-ranger/latest/analysis/outputs/spatial-outputs
         #
-        #    native columns:  barcode, in_tissue, array_row, array_col, pxl_row_in_fullres, pxl_col_in_fullres.
-
+        #
+        #    native columns :  barcode, in_tissue, array_row, array_col, pxl_row_in_fullres, pxl_col_in_fullres.
+        #
+        #    visium HD : x2 6.5mm capture areas, array_row = row coordinate of the spot in the array from 0 to 77.
+        #                                        array_col = given orange crate [sic], i.e. hexagonal, for 6.55 this uses even numbers from 0 to 126 for even rows
+        #                                                   and odd numbers from 1 to 127 for odd rows.
+        #                                        pxl_row_in_fullres: The row pixel coordinate of the center of the spot in the full resolution image
+        #                                        pxl_col_in_fullres: The column pixel coordinate of the center of the spot in the full resolution image. This is the x coordinate in pixel space.
         """
         df_this_pos = (
             pl.scan_parquet(f"{spaceranger_dir}/spatial/tissue_positions.parquet")
@@ -142,6 +213,7 @@ def get_spatial_positions(spaceranger_dir, filter_in_tissue=True):
             .with_columns(pl.col("cell_id").alias("barcode"))
         )
         """
+        # TODO invert y.
         df_this_pos = (
             pl.scan_parquet(f"{spaceranger_dir}/spatial/tissue_positions.parquet")
             .rename({"pxl_row_in_fullres": "y", "pxl_col_in_fullres": "x"})
@@ -153,8 +225,7 @@ def get_spatial_positions(spaceranger_dir, filter_in_tissue=True):
             f"Read {spaceranger_dir}/spatial/tissue_positions.parquet:\n{df_this_pos}"
         )
 
-        df_this_pos = df_this_pos.to_pandas()  # .set_index("barcode")
-
+        df_this_pos = df_this_pos.to_pandas()
     else:
         logger.error(f"No spatial coordinate file @ {spaceranger_dir}.")
         raise RuntimeError()
@@ -559,9 +630,7 @@ def load_input_data(
     percentiles = [0, 1, 5, 10, 25, 50, 75, 90, 95, 99, 100]
     perc_vals = np.percentile(spot_umis, percentiles)
 
-    pairs = "\n".join(
-        f"{p:.3f} [%]\t{v:_.0f}" for p, v in zip(percentiles, perc_vals)
-    )
+    pairs = "\n".join(f"{p:.3f} [%]\t{v:_.0f}" for p, v in zip(percentiles, perc_vals))
     logger.info(f"UMIs per spot percentiles:\n{pairs}")
 
     # NB filter out genes that are expressed in < min_percent_expressed_spots spots.
@@ -846,9 +915,9 @@ def read_tumor_prop(adata, config=None):
 
         adata.obs = adata.obs.join(df_tumorprop)
 
-        return  adata.obs["tumor_proportion"]
+        return adata.obs["tumor_proportion"]
     else:
         logger.info(f"No (pre-processed) tumorprop. file provided.")
 
         # np.ones(len(adata.obs.index), dtype=float)
-        return 
+        return

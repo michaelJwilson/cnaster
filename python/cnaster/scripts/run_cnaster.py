@@ -269,13 +269,14 @@ def run_cnaster(config_path, over_rides=None):
         logger.info(f"Initializing clone partition with he image.")
 
         spatial_assignment = get_clone_assignment(coords, initial_clone_for_phasing)
-        he_assignment = adata.obsm["he_label"]
-
-        clone_assignment, uniques = pd.factorize(
+        he_assignment = adata.obsm["he_label"].flatten()
+        
+        clone_assignment, unique_pairs = pd.factorize(
             list(zip(he_assignment, spatial_assignment))
-        ).to_numpy()
+        )
+        
         initial_clone_for_phasing = initial_clone_index_baf = get_clone_indices(
-            clone_assignment, np.sort(uniques)
+            clone_assignment, np.unique(clone_assignment),
         )
 
     # NB all spots in one pseudobulk clone.

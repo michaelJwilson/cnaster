@@ -16,6 +16,9 @@ from cnaster.integer_copy import get_ordered_acn
 from cnaster.utils import cast_clone_label, write_fig
 from cnaster.config import start_time
 from cnaster.logger import get_logger
+import matplotlib as mpl
+from matplotlib.colors import LinearSegmentedColormap, ListedColormap
+
 
 logger = get_logger(__name__, start_time=start_time)
 
@@ -1253,3 +1256,47 @@ def plot_copy_states(state_cnv):
     plt.tight_layout()
 
     return fig
+
+
+def plot_he(frame, output_path):
+    if hasattr(frame, "to_pandas"):
+        frame = frame.to_pandas()
+
+    color_columns = [
+        ("red", "Reds"),
+        ("green", "Greens"),
+        ("blue", "Blues"),
+        ("image", None),
+        ("gray", "gray"),
+        ("category", None),
+    ]
+
+    rows, cols = 2, 4
+    fig, axes = plt.subplots(rows, cols, figsize=(5 * cols, 5 * rows))
+    axes = axes.flatten()
+
+    for ax, (col, cmap) in zip(axes, color_columns):
+        if col == "image":
+            rgb = frame[["red", "green", "blue"]].values
+            ax.scatter(frame["x"], -frame["y"], c=rgb / rgb.max(), s=2)
+        elif col == "category":
+            num_labels = len(np.unique(frame["label"]))
+            cmap = mpl.colormaps["tab20c"].resampled(num_labels)
+            
+            sc = ax.scatter(frame["x"], -frame["y"], c=frame["label"], s=2, cmap=cmap, norm=plt.Normalize(vmin=0, vmax=num_labels-1))
+            cbar = plt.colorbar(sc, ax=ax, ticks=np.arange(num_labels))
+        else:
+            sc = ax.scatter(frame["x"], -frame["y"], c=frame[col], s=2, cmap=cmap)
+            plt.colorbar(sc, ax=ax)
+
+        ax.set_title(col.capitalize())
+        ax.set_xlabel("x")
+        ax.set_ylabel("y")
+        
+    for ax in axes[len(color_columns):]:
+        ax.axis("off")
+
+    plt.tight_layout()
+    fig.savefig(output_path, dpi=750, bbox_inches="tight")
+    plt.close(fig)
+    

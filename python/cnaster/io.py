@@ -10,6 +10,7 @@ import scanpy as sc
 import polars as pl
 import scipy.sparse
 import matplotlib.pyplot as plt
+from scipy.spatial import cKDTree
 from collections import namedtuple
 from cnaster.filter import get_filter_genes, get_filter_ranges
 from cnaster.reference import exp_cancer_gene
@@ -77,7 +78,27 @@ def get_aggregated_barcodes(barcode_file, known_sample_id=None):
     return df_barcode
 
 
-def get_he_image(spaceranger_dir, res="lowres"):
+def join_tables_xy(
+    first: pl.DataFrame, second: pl.DataFrame, columns_to_merge: list[str]
+) -> pl.DataFrame:
+    first_xy = np.column_stack([first["x"].to_numpy(), first["y"].to_numpy()])
+    second_xy = np.column_stack([second["x"].to_numpy(), second["y"].to_numpy()])
+
+    tree = cKDTree(second_xy)
+
+    # NB for each row in first, find closest in second.                                                                                                                                             
+    distances, indices = tree.query(first_xy)
+
+    new_columns = [
+        pl.Series(col, second[col].to_numpy()[indices]) for col in columns_to_merge
+    ]
+
+    new_columns = new_columns + [pl.Series("dist", distances)]
+
+    return first.with_columns(new_columns)
+
+
+def get_he_image(spaceranger_dir, res="hires", pos=None, num_labels=4):
     assert res in ("lowres", "hires")
     # scalefactor = target_size / max (original image height, original image width),
     # e.g. {
@@ -113,9 +134,23 @@ def get_he_image(spaceranger_dir, res="lowres"):
             "blue": tissue_image[:, :, 2].flatten(),
             "array_row": rows.flatten(),
             "array_col": cols.flatten(),
+            
         }
     )
 
+    # NB 0.0 < x < 83_339.869; 0 < y < 53_009.165                                                                                                                                                                        
+    tissue_frame = tissue_frame.with_columns(
+        (pl.col("array_col") / scalefactor).alias("x"),
+        (pl.col("array_row") / scalefactor).alias("y"),
+    )
+
+    if pos is not None:
+        # NB limited to in_tissue=True
+        pos = pl.from_pandas(pos)
+        
+        columns = ("red", "green", "blue")
+        tissue_frame = join_tables_xy(pos, tissue_frame, columns)
+    
     def crop_values(x):
         return (x - np.min(x)) / (np.max(x) - np.min(x))
 
@@ -123,15 +158,13 @@ def get_he_image(spaceranger_dir, res="lowres"):
     gray = 0.2125 * rgb[:, 0] + 0.7154 * rgb[:, 1] + 0.0721 * rgb[:, 2]
     cropped_gray = crop_values(gray)
 
-    percentiles = np.arange(0.0, 110.0, 10)
+    percentiles = np.linspace(0.0, 100.0, 1 + num_labels)
     bins = np.percentile(np.sort(cropped_gray.flatten()), percentiles)
 
     labels = np.digitize(cropped_gray, bins=bins)
 
     # NB 0.0 < x < 83_339.869; 0 < y < 53_009.165
     tissue_frame = tissue_frame.with_columns(
-        (pl.col("array_col") / scalefactor).alias("x"),
-        (pl.col("array_row") / scalefactor).alias("y"),
         pl.Series("gray", gray),
         pl.Series("cropped_gray", cropped_gray),
         pl.Series("label", labels),

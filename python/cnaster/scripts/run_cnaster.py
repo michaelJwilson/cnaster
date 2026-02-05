@@ -89,6 +89,7 @@ from cnaster.annotation import get_clone_label_annotation
 def set_numba_seed(value):
     np.random.seed(value)
 
+
 logger = get_logger(__name__, start_time=start_time)
 
 
@@ -104,8 +105,8 @@ def run_cnaster(config_path, over_rides=None):
     set_global_config(config)
 
     output_dir, plots_dir = configure_output_dir(config)
-    
-    # TODO 
+
+    # TODO
     random_seed = int(config.hmrf.random_state)
     logger.info(f"Set (numpy) random seed={random_seed}")
     np.random.seed(random_seed)
@@ -153,7 +154,7 @@ def run_cnaster(config_path, over_rides=None):
         coords,
         barcodes,
         adata,
-        exp_counts, 
+        exp_counts,
         cell_snp_Aallele,
         cell_snp_Ballele,
         unique_snp_ids,
@@ -167,12 +168,12 @@ def run_cnaster(config_path, over_rides=None):
     )
 
     pause()
-    
+
     # cell_snp_Aallele, cell_snp_Ballele = perturb_phase(
     #     cell_snp_Aallele, cell_snp_Ballele, 0.1
     # )
 
-    # NB sample list derived from adata.obs['sample'] - removes adjacent duplicates. 
+    # NB sample list derived from adata.obs['sample'] - removes adjacent duplicates.
     #    sample_ids: unique enum for each entry in sample_list.  One per adata.obs entry.
     sample_list, sample_ids = get_sample_list(adata)
 
@@ -193,7 +194,7 @@ def run_cnaster(config_path, over_rides=None):
     )
 
     pause()
-    
+
     # plot_gene_snp_spatial(
     #     adata,
     #     cell_snp_Aallele,
@@ -246,9 +247,7 @@ def run_cnaster(config_path, over_rides=None):
 
     # NB known clone annotation per spot.
     if config.annotation.clone_label is not None:
-        initial_clone_index_baf, _ = get_clone_label_annotation(
-            config
-        )
+        initial_clone_index_baf, _ = get_clone_label_annotation(config)
 
         # TODO HACK!
         initial_clone_for_phasing = initial_clone_index_baf
@@ -264,6 +263,19 @@ def run_cnaster(config_path, over_rides=None):
             sample_ids,  # NB for all spots in all slices.
             x_part=config.phasing.npart_phasing,
             y_part=config.phasing.npart_phasing,
+        )
+
+    if True and "he_label" in adata.obsm:
+        logger.info(f"Initializing clone partition with he image.")
+
+        spatial_assignment = get_clone_assignment(coords, initial_clone_for_phasing)
+        he_assignment = adata.obsm["he_label"]
+
+        clone_assignment, uniques = pd.factorize(
+            list(zip(he_assignment, spatial_assignment))
+        ).to_numpy()
+        initial_clone_for_phasing = initial_clone_index_baf = get_clone_indices(
+            clone_assignment, np.sort(uniques)
         )
 
     # NB all spots in one pseudobulk clone.
@@ -283,8 +295,6 @@ def run_cnaster(config_path, over_rides=None):
         fig_path, pseudobulk_clones_genomic, transparent=True, bbox_inches="tight"
     )
 
-    pause()
-    
     # # NB identify informative segments for filtering based on pseudobulk likelihood.
     # X, base_nb_mean, total_bb_RD, _ =  merge_pseudobulk_by_index_mix(
     #     single_X,
@@ -386,7 +396,7 @@ def run_cnaster(config_path, over_rides=None):
     write_fig(
         fig_path, prephasing_clones_genomic, transparent=True, bbox_inches="tight"
     )
-    
+
     if config.phasing.run:
         if config.run.legacy:
             logger.warning("Assuming (magic) five BAF states for phasing.")
@@ -447,7 +457,7 @@ def run_cnaster(config_path, over_rides=None):
     )
 
     pause()
-    
+
     logger.info(f"Recalculating counts given new baf-phasing intervals.")
 
     # TODO separate transmat.
@@ -470,7 +480,7 @@ def run_cnaster(config_path, over_rides=None):
     )
 
     pause()
-    
+
     # TODO copy rename.
     postphasing_clones_genomic = plot_clones_genomic_simple(
         single_X,
@@ -503,6 +513,8 @@ def run_cnaster(config_path, over_rides=None):
         fig_path, pseudobulk_clones_genomic, transparent=True, bbox_inches="tight"
     )
 
+    exit(0)
+
     pause()
 
     # NB smooth pooling matrix & distance based (exponential decay) adjacency.
@@ -516,8 +528,8 @@ def run_cnaster(config_path, over_rides=None):
         construct_adjacency_method=config.hmrf.construct_adjacency_method,
         maxspots_pooling=config.hmrf.maxspots_pooling,
         construct_adjacency_w=config.hmrf.construct_adjacency_w,
-        unit_xsquared=config.hmrf.unit_xsquared, # TODO
-        unit_ysquared=config.hmrf.unit_ysquared, # TODO
+        unit_xsquared=config.hmrf.unit_xsquared,  # TODO
+        unit_ysquared=config.hmrf.unit_ysquared,  # TODO
     )
 
     adjacency_fig = plot_adjacency(
@@ -534,7 +546,7 @@ def run_cnaster(config_path, over_rides=None):
     # NB end run_parse_n_load::parse_visium.
 
     pause()
-    
+
     # NB by construction, require normal spots (based on BAF to determine baseline).
     assert np.all(single_base_nb_mean == 0)
 
@@ -544,7 +556,9 @@ def run_cnaster(config_path, over_rides=None):
     # NB zeros
     copy_single_base_nb_mean = copy.copy(single_base_nb_mean)
 
-    logger.info(f"Assuming initial clone configuration for baf-inferred clones & copy states.")
+    logger.info(
+        f"Assuming initial clone configuration for baf-inferred clones & copy states."
+    )
 
     # TODO HACK? adata.layers["count"]
     if initial_clone_index_baf is None:
@@ -556,7 +570,7 @@ def run_cnaster(config_path, over_rides=None):
 
         x_part = 3
         y_part = 3
-        
+
         # initial_clone_index_baf, _ = fixed_rectangle_partition(
         #     coords,
         #     x_part,
@@ -566,7 +580,11 @@ def run_cnaster(config_path, over_rides=None):
         # )
 
         initial_clone_index_baf, _ = best_equal_partition(
-            coords, x_part, y_part, single_tumor_prop=None, threshold=0.5,
+            coords,
+            x_part,
+            y_part,
+            single_tumor_prop=None,
+            threshold=0.5,
         )
 
         # initial_clone_index_baf, _, _ = sufficient_umis_initial_clone(
@@ -612,7 +630,7 @@ def run_cnaster(config_path, over_rides=None):
     write_fig(fig_path, initial_clones_fig, transparent=True, bbox_inches="tight")
 
     pause()
-    
+
     logger.info(
         "Solving hmm & hmrf for copy states and clone assignment with baf only."
     )
@@ -765,7 +783,9 @@ def run_cnaster(config_path, over_rides=None):
         single_X,
         single_base_nb_mean,
         single_total_bb_RD,
-        get_clone_indices(merged_res["new_assignment"], np.unique(merged_res["new_assignment"])),
+        get_clone_indices(
+            merged_res["new_assignment"], np.unique(merged_res["new_assignment"])
+        ),
         lengths,
         res=merged_res,
         single_tumor_prop=None,
@@ -793,7 +813,7 @@ def run_cnaster(config_path, over_rides=None):
             "y": coords[:, 1],
             "clone_label": merged_res["new_assignment"],
         },
-        index=barcodes
+        index=barcodes,
     )
 
     # TODO assert aligned?
@@ -975,7 +995,7 @@ def run_cnaster(config_path, over_rides=None):
     # <<<<<
 
     pause()
-    
+
     logger.info(
         f"Refinining {n_baf_clones} baf-identified clones with rdr data assuming n_clones_rdr={config.hmrf.n_clones_rdr}"
     )
@@ -1188,7 +1208,9 @@ def run_cnaster(config_path, over_rides=None):
                 single_X[:, :, idx_spots],
                 single_base_nb_mean[:, idx_spots],
                 single_total_bb_RD[:, idx_spots],
-                get_clone_indices(merged_res["new_assignment"], range(n_merged_clones)), # TODO clone_ids def. vs range
+                get_clone_indices(
+                    merged_res["new_assignment"], range(n_merged_clones)
+                ),  # TODO clone_ids def. vs range
                 single_tumor_prop[idx_spots] if single_tumor_prop is not None else None,
                 threshold=config.hmrf.tumorprop_threshold,
             )
@@ -1276,9 +1298,7 @@ def run_cnaster(config_path, over_rides=None):
                     "new_p_binom": np.hstack(
                         n_merged_clones * [merged_res["new_p_binom"]]
                     ),
-                    "new_taus": np.hstack(
-                        n_merged_clones * [merged_res["new_taus"]]
-                    ),
+                    "new_taus": np.hstack(n_merged_clones * [merged_res["new_taus"]]),
                     "log_gamma": log_gamma,
                     "pred_cnv": pred_cnv,
                 }
@@ -1741,7 +1761,7 @@ def run_cnaster(config_path, over_rides=None):
             "y": coords[:, 1],
             "clone_label": res_combine["new_assignment"],
         },
-        index=barcodes
+        index=barcodes,
     )
 
     # TODO assert aligned?

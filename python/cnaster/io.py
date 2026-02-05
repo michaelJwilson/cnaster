@@ -170,7 +170,9 @@ def get_he_image(spaceranger_dir, res="hires", pos=None, num_labels=4):
         pl.Series("label", labels),
     )
 
-    return tissue_frame
+    logger.info(f"Merged with he with result:\n{tissue_frame}")
+    
+    return tissue_frame.to_pandas()
 
 
 def get_spatial_positions(spaceranger_dir, filter_in_tissue=True):
@@ -532,6 +534,9 @@ def load_input_data(
         # NB (x,y) positions for each barcode (one per row).  limited to "in tissue" by default.
         df_this_pos = get_spatial_positions(df_meta["spaceranger_dir"].iloc[i])
 
+        # NEW
+        df_this_pos = get_he_image(df_meta["spaceranger_dir"].iloc[i], pos=df_this_pos)
+        
         # NB read filtered_feature_bc_matrix.h5(ad) from spaceranger_dir for this sample - UMIs (spot barcode, gene).
         adatatmp = get_spaceranger_counts(df_meta["spaceranger_dir"].iloc[i])
 
@@ -569,7 +574,11 @@ def load_input_data(
 
         df_this_pos.sort_values(by="barcode", inplace=True)
 
+        # NEW
         adatatmp.obsm["X_pos"] = np.vstack([df_this_pos.x, df_this_pos.y]).T
+        adatatmp.obsm["he_gray"] = df_this_pos.gray.to_numpy()
+        adatatmp.obsm["he_label"] = df_this_pos.label.to_numpy()
+        
         adatatmp.obs["sample"] = sname
 
         # NB index by {barcode}_{sample} (TBC)
@@ -874,7 +883,7 @@ def load_input_data(
 
     # NB e.g. 'AAACAAGTATCTCCCA-1_HT112C1-U1' currently.
     barcodes = adata.obs.index
-
+    
     # NB sparse transcript counts (spot, gene).
     exp_counts = pd.DataFrame.sparse.from_spmatrix(
         scipy.sparse.csc_matrix(adata.layers["count"]),

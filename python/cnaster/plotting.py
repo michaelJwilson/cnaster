@@ -952,7 +952,7 @@ def plot_clones_spatial(
             sns.scatterplot(
                 x=shifted_coords[idx, 0],
                 y=-shifted_coords[idx, 1],
-                s=1,
+                s=.1,
                 color=colorlist[c],
                 linewidth=0,
                 legend=None,
@@ -970,7 +970,7 @@ def plot_clones_spatial(
             axes.scatter(
                 shifted_coords[idx, 0],
                 -shifted_coords[idx, 1],
-                s=1,
+                s=.1,
                 c=rgba_colors,
                 linewidth=0,
             )

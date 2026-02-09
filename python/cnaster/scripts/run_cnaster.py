@@ -243,6 +243,23 @@ def run_cnaster(config_path, over_rides=None):
         config.phasing.logphase_shift,
     )
 
+    # NB all spots in one pseudobulk clone.                                                                                                                                                                     
+    initial_clone_pseudobulk = [[ii for ii in range(len(coords))]]
+    pseudobulk_clones_genomic = plot_clones_genomic_simple(
+        single_X,
+        single_base_nb_mean,
+        single_total_bb_RD,
+        initial_clone_pseudobulk,
+        lengths,
+        single_tumor_prop=single_tumor_prop,
+        sample_list=sample_list,
+    )
+
+    fig_path = f"{plots_dir}/pseudobulk_clones_genomic.pdf"
+    write_fig(
+        fig_path, pseudobulk_clones_genomic, transparent=True, bbox_inches="tight"
+    )
+
     pause()
 
     # NB known clone annotation per spot.
@@ -278,23 +295,6 @@ def run_cnaster(config_path, over_rides=None):
         initial_clone_for_phasing = initial_clone_index_baf = get_clone_indices(
             clone_assignment, np.unique(clone_assignment),
         )
-
-    # NB all spots in one pseudobulk clone.
-    initial_clone_pseudobulk = [[ii for ii in range(len(coords))]]
-    pseudobulk_clones_genomic = plot_clones_genomic_simple(
-        single_X,
-        single_base_nb_mean,
-        single_total_bb_RD,
-        initial_clone_pseudobulk,
-        lengths,
-        single_tumor_prop=single_tumor_prop,
-        sample_list=sample_list,
-    )
-
-    fig_path = f"{plots_dir}/pseudobulk_clones_genomic.pdf"
-    write_fig(
-        fig_path, pseudobulk_clones_genomic, transparent=True, bbox_inches="tight"
-    )
 
     # # NB identify informative segments for filtering based on pseudobulk likelihood.
     # X, base_nb_mean, total_bb_RD, _ =  merge_pseudobulk_by_index_mix(
@@ -381,7 +381,7 @@ def run_cnaster(config_path, over_rides=None):
 
     fig_path = f"{plots_dir}/phasing_clones_spatial.pdf"
     write_fig(fig_path, phasing_clones_fig, transparent=True, bbox_inches="tight")
-
+    
     # TODO copy rename.
     prephasing_clones_genomic = plot_clones_genomic_simple(
         single_X,
@@ -513,8 +513,6 @@ def run_cnaster(config_path, over_rides=None):
     write_fig(
         fig_path, pseudobulk_clones_genomic, transparent=True, bbox_inches="tight"
     )
-
-    exit(0)
 
     pause()
 
@@ -724,6 +722,8 @@ def run_cnaster(config_path, over_rides=None):
     fig_path = f"{plots_dir}/bafonly_clones_genomic.pdf"
     write_fig(fig_path, bafonly_clones_genomic, transparent=True, bbox_inches="tight")
 
+    exit(0)
+    
     pause()
 
     # NB merge similar clones based on Neyman-Pearson criterion.

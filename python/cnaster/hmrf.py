@@ -954,6 +954,7 @@ def hmrfmix_concatenate_pipeline(
             # TODO config.hmrf.assignment_ari_tolerance: 0.9?
             adjusted_rand_score(last_assignment, res["new_assignment"]) >= get_global_config().hmrf.ari_tolerance
             or len(np.unique(res["new_assignment"])) == 1  # NB single clone assigned.
+            or r = max_iter_outer - 1 # NB we merge on the iteration before last, facilitating assignment to merged clones. 
         ):
             if not merge:
                 # NB next round we merge; and the one after fit parameters to the merged clone.

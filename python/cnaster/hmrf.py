@@ -1313,7 +1313,7 @@ def aggr_hmrf_reassignment(
             sample_ids=sample_ids,
         )
 
-        while False:
+        while merge:
             new_cost, best_merge_cost, best_merge_pair = merge_assignment(
                 single_llf,
                 adj_spots,

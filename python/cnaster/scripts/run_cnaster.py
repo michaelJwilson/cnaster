@@ -1008,13 +1008,14 @@ def run_cnaster(config_path, over_rides=None):
 
         prefix = f"clone{bafc}"
 
-        # NB spots assigned to this BAF-only clone (after merging based on Neyman-Pearson similarity).
+        # NB spots assigned to this baf-only clone (after merging based on Neyman-Pearson similarity).
         idx_spots = np.where(merged_baf_assignment == bafc)[0]
 
+        """
         # NB min. b-allele read count (equivalent to 20 per spot) on pseudobulk to split clones.
         if np.sum(single_total_bb_RD[:, idx_spots]) < 20 * single_X.shape[0]:
             logger.warning(
-                f"Skipping RDR refinment of BAF identified clone {bafc} as too few snp-covering UMIs ({np.sum(single_total_bb_RD[:, idx_spots]):_}/{20 * single_X.shape[0]:_})!"
+                f"Skipping RDR refinment of baf identified clone {bafc} as too few snp-covering umis ({np.sum(single_total_bb_RD[:, idx_spots]):_}/{20 * single_X.shape[0]:_})!"
             )
             clone_res[prefix] = {
                 "barcodes": barcodes[idx_spots],
@@ -1031,12 +1032,14 @@ def run_cnaster(config_path, over_rides=None):
             }
 
             continue
+        """
+        sufficient_snp_umi_for_split = np.sum(single_total_bb_RD[:, idx_spots]) >= 20 * single_X.shape[0]
 
-        # NB initialize new set of clones within this BAF identified clone.
+        # NB initialize new set of clones within this baf identified clone.
         # TODO tumor_prop, i.e. _mix.
         initial_clone_index, _ = rectangle_initialize_initial_clone(
             coords[idx_spots],
-            config.hmrf.n_clones_rdr,
+            config.hmrf.n_clones_rdr if sufficient_snp_umi_for_split else 1,
             random_state=0,  # TODO HACK.
         )
 

@@ -539,9 +539,10 @@ def plot_clones_genomic(
     rdr_ylim=6,
     chrtext_shift=-0.2,
     base_height=3.2,
-    pointsize=5,
+    pointsize=3,
     linewidth=1,
     palette_name="chisel",
+    plot_errors=True,
 ):
     logger.info(f"Plotting inferred rdr+baf for all clones.")
 
@@ -707,9 +708,33 @@ def plot_clones_genomic(
             palette = palette
 
         # NB plot phased b-allele frequency
+        x_vals = np.arange(X[:, 1, c].shape[0])
+        baf_vals = X[:, 1, c] / total_bb_RD[:, c]
+
+        if plot_errors:
+            # Wald interval standard error: sqrt(p(1-p)/n)
+            n_counts = total_bb_RD[:, c]
+            n_counts[n_counts == 0] = 1  # Avoid division by zero
+            std_err = np.sqrt(baf_vals * (1 - baf_vals) / n_counts)
+            
+            # Map hue categories to colors
+            color_map = {i: palette[i] for i in range(len(palette))}
+            point_colors = [color_map[h] for h in hue.codes]
+
+            axes[2 * s + 1].errorbar(
+                x_vals,
+                baf_vals,
+                yerr=std_err,
+                fmt="none",
+                ecolor=point_colors,
+                elinewidth=0.5,
+                alpha=0.75,
+                zorder=0
+            )
+
         sns.scatterplot(
-            x=np.arange(X[:, 1, c].shape[0]),  # NB integer per segment.
-            y=X[:, 1, c] / total_bb_RD[:, c],  # NB BAF.
+            x=x_vals,  # NB integer per segment.
+            y=baf_vals,  # NB BAF.
             hue=hue,
             palette=palette,
             s=pointsize,
@@ -717,6 +742,7 @@ def plot_clones_genomic(
             alpha=0.8,
             legend=False,
             ax=axes[2 * s + 1],
+            zorder=1
         )
 
         """
@@ -759,6 +785,7 @@ def plot_clones_genomic(
             alpha=0.8,
             legend=False,
             ax=axes[2 * s + 1],
+            zorder=1
         )
 
         axes[2 * s + 1].set_ylabel(f"\nBAF")
@@ -934,6 +961,12 @@ def plot_clones_spatial(
             )
             copy_single_tumor_prop[np.isnan(copy_single_tumor_prop)] = 0.5
 
+    # NB heuristic for marker size: 120000.0 is roughly appropriate for s=0.1 with ~100k spots.
+    #    If we have fewer spots, we want larger markers.
+    #    Clip to a reasonable range [0.1, 20].
+    n_points = coords.shape[0]
+    marker_size = np.clip(12000.0 / n_points, 0.1, 25.0)
+
     fig, axes = plt.subplots(
         1, 1, figsize=(base_width * n_samples, base_height), dpi=300, facecolor="white"
     )
@@ -952,7 +985,7 @@ def plot_clones_spatial(
             sns.scatterplot(
                 x=shifted_coords[idx, 0],
                 y=-shifted_coords[idx, 1],
-                s=.1,
+                s=marker_size,
                 color=colorlist[c],
                 linewidth=0,
                 legend=None,
@@ -970,7 +1003,7 @@ def plot_clones_spatial(
             axes.scatter(
                 shifted_coords[idx, 0],
                 -shifted_coords[idx, 1],
-                s=.1,
+                s=marker_size,
                 c=rgba_colors,
                 linewidth=0,
             )
@@ -1299,4 +1332,4 @@ def plot_he(frame, output_path):
     plt.tight_layout()
     fig.savefig(output_path, dpi=750, bbox_inches="tight")
     plt.close(fig)
-    
+

@@ -1326,6 +1326,12 @@ def aggr_hmrf_reassignment(
             )
 
             if best_merge_cost > new_cost:
+                num_clones = len(np.unique(new_assignment))
+
+                if num_clones <= 2:
+                    logger.warning("Found beneficial merge of final two clones; ignoring.")
+                    break
+                    
                 u, v = best_merge_pair
                 num_merged_spots = 0
 

@@ -542,9 +542,12 @@ def plot_clones_genomic(
     pointsize=3,
     linewidth=1,
     palette_name="chisel",
-    plot_errors=True,
+    plot_baf_errors="beta",
 ):
     logger.info(f"Plotting inferred rdr+baf for all clones.")
+
+    if plot_baf_errors not in (None, "wald", "beta"):
+        raise ValueError(f"plot_baf_errors must be one of None, 'wald', or 'beta'")
 
     chisel_palette, ordered_acn = get_full_palette(palette_name)
 
@@ -711,15 +714,31 @@ def plot_clones_genomic(
         x_vals = np.arange(X[:, 1, c].shape[0])
         baf_vals = X[:, 1, c] / total_bb_RD[:, c]
 
-        if plot_errors:
-            # Wald interval standard error: sqrt(p(1-p)/n)
+        if plot_baf_errors is not None:
             n_counts = total_bb_RD[:, c]
             n_counts[n_counts == 0] = 1  # Avoid division by zero
-            std_err = np.sqrt(baf_vals * (1 - baf_vals) / n_counts)
             
             # Map hue categories to colors
             color_map = {i: palette[i] for i in range(len(palette))}
             point_colors = [color_map[h] for h in hue.codes]
+
+            if plot_baf_errors == "wald":
+                # Wald interval standard error: sqrt(p(1-p)/n)
+                std_err = np.sqrt(baf_vals * (1 - baf_vals) / n_counts)
+            
+            elif plot_baf_errors == "beta":
+                # Beta posterior standard deviation with Uniform Prior Beta(1,1)
+                # Posterior is Beta(alpha, beta) where alpha = k + 1, beta = n - k + 1
+                k = X[:, 1, c]
+                n = total_bb_RD[:, c]
+                alpha = k + 1
+                beta = n - k + 1
+                
+                # std dev of Beta distribution: sqrt( (a*b) / ( (a+b)^2 * (a+b+1) ) )
+                alpha_beta_sum = alpha + beta
+                std_err = np.sqrt(
+                    (alpha * beta) / (np.square(alpha_beta_sum) * (alpha_beta_sum + 1))
+                )
 
             axes[2 * s + 1].errorbar(
                 x_vals,
@@ -806,6 +825,7 @@ def plot_clones_genomic(
                     ],
                     c="lightgray",
                     linewidth=0.5,
+                    zorder=0,
                 )
             axes[2 * s].plot(
                 seg,
@@ -815,6 +835,7 @@ def plot_clones_genomic(
                 ],
                 c="k",
                 linewidth=0.5,
+                zorder=2,
             )
             axes[2 * s + 1].plot(
                 seg,
@@ -824,6 +845,7 @@ def plot_clones_genomic(
                 ],
                 c="k",
                 linewidth=0.5,
+                zorder=2,
             )
 
             # NB phase flip.
@@ -836,6 +858,7 @@ def plot_clones_genomic(
                 c="k",
                 linewidth=0.5,
                 linestyle="--",
+                zorder=2,
             )
 
             for to_plot in np.arange(0.0, 1.1, 0.1):
@@ -847,6 +870,7 @@ def plot_clones_genomic(
                     ],
                     c="lightgray",
                     linewidth=0.5,
+                    zorder=0,
                 )
 
         # TODO filter based on clone aggregated hue.

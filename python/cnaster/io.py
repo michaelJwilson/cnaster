@@ -1,3 +1,4 @@
+import os
 import copy
 import json
 import logging
@@ -8,7 +9,7 @@ import numpy as np
 import pandas as pd
 import scanpy as sc
 import polars as pl
-import scipy.sparse
+import scipy.sparse as sp
 import matplotlib.pyplot as plt
 from scipy.spatial import cKDTree
 from collections import namedtuple
@@ -42,40 +43,71 @@ def get_sample_sheet(sample_sheet_path):
     return df_meta
 
 
+def get_barcodes(barcode_file):
+    # NB see https://github.com/raphael-group/CalicoST/blob/5e4a8a1230e71505667d51390dc9c035a69d60d9/calicost.smk#L32
+    found_file = None
+
+    for ext in (".tsv.gz", ".tsv", ".txt", ".txt.gz"):
+        candidate = barcode_file.replace(".txt", ext)
+
+        if os.path.exists(candidate):
+            found_file = candidate
+            break
+
+    if found_file is None:
+        raise RuntimeError(
+            "Failed to retrieves barcodes.txt (or its known alternative extensions)"
+        )
+
+    if found_file.endswith(".tsv.gz"):
+        df_barcodes = pd.read_csv(
+            found_file,
+            sep="\t",
+            header=None,
+            names=["combined_barcode"],
+            compression="gzip",
+        )
+    else:
+        # NB default for .txt
+        df_barcodes = pd.read_csv(found_file, header=None, names=["combined_barcode"])
+
+    return df_barcodes
+
+
 # TODO check (e.g. sample sheet with john): AAACAAGTATCTCCCA-1_HT112C1-U1 == {spot}-1_{sample_id}-{slice}.
 def get_aggregated_barcodes(barcode_file, known_sample_id=None):
-    # NB see https://github.com/raphael-group/CalicoST/blob/5e4a8a1230e71505667d51390dc9c035a69d60d9/calicost.smk#L32
-    df_barcode = pd.read_csv(barcode_file, header=None, names=["combined_barcode"])
-    sample_id_defined = df_barcode.combined_barcode.str.contains("_").all()
+    df_barcodes = get_barcodes(barcode_file)
+
+    sample_id_defined = df_barcodes.combined_barcode.str.contains("_").all()
 
     # NB per-slice Visium 10x defined barcode.
-    df_barcode["barcode"] = [
-        x.split("_")[0] for x in df_barcode.combined_barcode.to_numpy()
+    df_barcodes["barcode"] = [
+        x.split("_")[0] for x in df_barcodes.combined_barcode.to_numpy()
     ]
 
     if sample_id_defined:
         logger.info(f"Found defined sample_ids")
-        df_barcode["sample_id"] = [
-            x.split("_")[-1] for x in df_barcode.combined_barcode.to_numpy()
+        df_barcodes["sample_id"] = [
+            x.split("_")[-1] for x in df_barcodes.combined_barcode.to_numpy()
         ]
     else:
         logger.warning(
             f"Unable to resolve sample_ids from aggregated barcodes.  Assuming known sample_id={known_sample_id}."
         )
-        df_barcode["sample_id"] = (
+        df_barcodes["sample_id"] = (
             known_sample_id if known_sample_id is not None else "UNKNOWN"
         )
 
     # TODO HACK
-    df_barcode["barcode"] = df_barcode.combined_barcode
-    df_barcode["sample_id"] = known_sample_id
+    df_barcodes["barcode"] = df_barcodes.combined_barcode
+    df_barcodes["sample_id"] = known_sample_id
 
     # TODO sample ids currently slice, e.g. U1;
     logger.info(
-        f"Input aggregated barcode file {barcode_file} with {df_barcode.shape[0]:_} barcodes for all samples/bams, e.g.\n{df_barcode.head()}\n"
+        f"Input aggregated barcode file {barcode_file} with {df_barcodes.shape[0]:_} barcodes for all samples/bams, e.g.\n{df_barcodes.head()}\n"
     )
 
-    return df_barcode
+    return df_barcodes
 
 
 def join_tables_xy(
@@ -86,7 +118,7 @@ def join_tables_xy(
 
     tree = cKDTree(second_xy)
 
-    # NB for each row in first, find closest in second.                                                                                                                                             
+    # NB for each row in first, find closest in second.
     distances, indices = tree.query(first_xy)
 
     new_columns = [
@@ -144,11 +176,10 @@ def get_he_image(spaceranger_dir, res="hires", pos=None, num_labels=4):
             "blue": tissue_image[:, :, 2].flatten(),
             "array_row": rows.flatten(),
             "array_col": cols.flatten(),
-            
         }
     )
 
-    # NB 0.0 < x < 83_339.869; 0 < y < 53_009.165                                                                                                                                                                        
+    # NB 0.0 < x < 83_339.869; 0 < y < 53_009.165
     tissue_frame = tissue_frame.with_columns(
         (pl.col("array_col") / scalefactor).alias("x"),
         (pl.col("array_row") / scalefactor).alias("y"),
@@ -157,10 +188,10 @@ def get_he_image(spaceranger_dir, res="hires", pos=None, num_labels=4):
     if pos is not None:
         # NB limited to in_tissue=True
         pos = pl.from_pandas(pos)
-        
+
         columns = ("red", "green", "blue")
         tissue_frame = join_tables_xy(pos, tissue_frame, columns)
-    
+
     def crop_values(x):
         return (x - np.min(x)) / (np.max(x) - np.min(x))
 
@@ -181,7 +212,7 @@ def get_he_image(spaceranger_dir, res="hires", pos=None, num_labels=4):
     )
 
     logger.info(f"Merged with he with result:\n{tissue_frame}")
-    
+
     return tissue_frame.to_pandas()
 
 
@@ -402,7 +433,7 @@ def get_alignments(alignment_files, df_meta, df_agg_barcode, significance=1.0e-6
 
         offset += pi.shape[0]
 
-    across_slice_adjacency_mat = scipy.sparse.csr_matrix(
+    across_slice_adjacency_mat = sp.csr_matrix(
         (dat, (row_ind, col_ind)), shape=(adata.shape[0], adata.shape[0])
     )
 
@@ -446,6 +477,9 @@ def map_unique_snps_enum(unique_snp_ids):
         else:
             enum = 0
 
+        # TODO HACK JOHN
+        contig = contig.replace("chr","")
+            
         new_snp_id = f"{contig}_{pos}_{enum}"
         result.append(new_snp_id)
 
@@ -490,8 +524,14 @@ def load_input_data(
 
     # TODO duplicate of df_agg_barcode
     # NB dataframe of combined barcodes, i.e. Visium barcode + slice 'sample_id'.
-    snp_barcodes = pd.read_csv(
-        f"{snp_dir}/barcodes.txt", header=None, names=["barcodes"]
+    snp_barcodes = get_barcodes(f"{snp_dir}/barcodes.txt").rename(
+        columns={"combined_barcode": "barcodes"},
+        errors="raise",
+    )
+
+    # TODO HACK JOHN
+    snp_barcodes["barcodes"] = snp_barcodes["barcodes"].map(                                                                                                                                                                
+        lambda xx: xx.replace("_U1", "")
     )
 
     """
@@ -515,9 +555,13 @@ def load_input_data(
     unique_snp_ids = map_unique_snps_enum(unique_snp_ids)
 
     # NB read (phased) counts for H0/H1 for (spots, snps).
-    cell_snp_Aallele = scipy.sparse.load_npz(f"{snp_dir}/cell_snp_Aallele.npz")
-    cell_snp_Ballele = scipy.sparse.load_npz(f"{snp_dir}/cell_snp_Ballele.npz")
+    cell_snp_Aallele = sp.load_npz(f"{snp_dir}/cell_snp_Aallele.npz")
+    cell_snp_Ballele = sp.load_npz(f"{snp_dir}/cell_snp_Ballele.npz")
 
+    # TODO HACK JOHN
+    # cell_snp_Aallele = cell_snp_Aallele.T
+    # cell_snp_Ballele = cell_snp_Ballele.T
+    
     assert cell_snp_Aallele.shape == cell_snp_Ballele.shape
 
     cell_snp = (cell_snp_Aallele + cell_snp_Ballele).todense().sum(axis=1)
@@ -546,7 +590,7 @@ def load_input_data(
 
         # NEW
         df_this_pos = get_he_image(df_meta["spaceranger_dir"].iloc[i], pos=df_this_pos)
-        
+
         # NB read filtered_feature_bc_matrix.h5(ad) from spaceranger_dir for this sample - UMIs (spot barcode, gene).
         adatatmp = get_spaceranger_counts(df_meta["spaceranger_dir"].iloc[i])
 
@@ -592,7 +636,7 @@ def load_input_data(
         
         if "label" in df_this_pos.columns:
             adatatmp.obsm["he_label"] = df_this_pos.label.to_numpy()
-        
+
         adatatmp.obs["sample"] = sname
 
         # NB index by {barcode}_{sample} (TBC)
@@ -613,15 +657,15 @@ def load_input_data(
 
     isin = snp_barcodes.barcodes.isin(shared_barcodes).to_numpy()
 
-    # TODO barcode inconsistent between snps and umis.
-    assert np.any(
-        isin
-    ), f"Found inconsistent barcodes between SNPs and UMIs, e.g. {list(snp_barcodes.barcodes)[:5]} vs {list(adata.obs.index)[:5]}"
-
     logger.info(
         f"Retaining {100.0 * np.mean(isin):.3f}% of SNP barcodes (shared between UMIs and SNPs)."
     )
 
+    # TODO barcode inconsistent between snps and umis.                                                                                                                                                                                
+    assert np.any(
+        isin
+    ), f"Found inconsistent barcodes between SNPs and UMIs, e.g. \n{list(snp_barcodes.barcodes)[:5]}\nvs\n{list(adata.obs.index)[:5]}"
+    
     # NB barcode (row) selection.
     if not isin.all():
         cell_snp_Aallele = cell_snp_Aallele[isin, :]
@@ -897,10 +941,10 @@ def load_input_data(
 
     # NB e.g. 'AAACAAGTATCTCCCA-1_HT112C1-U1' currently.
     barcodes = adata.obs.index
-    
+
     # NB sparse transcript counts (spot, gene).
     exp_counts = pd.DataFrame.sparse.from_spmatrix(
-        scipy.sparse.csc_matrix(adata.layers["count"]),
+        sp.csc_matrix(adata.layers["count"]),
         index=adata.obs.index,
         columns=adata.var.index,
     )

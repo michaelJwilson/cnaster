@@ -6,7 +6,7 @@ paths:
   # output_dir : /n/fs/scratch/mw9568/cnaster/htan
 
   sample_sheet : /u/mw9568/research/repos/cnaster/vishd_sample_sheet.tsv
-  output_dir : /n/fs/scratch/mw9568/cnaster/vishd
+  output_dir : /n/fs/scratch/mw9568/cnaster/vishd/CWRFYX3
 
   perf_path : logs/cnaster.perf
 
@@ -27,7 +27,7 @@ run:
   cache : False
   legacy : False
   bafonly : False
-  pause : True
+  pause : False
 
 references:
   geneticmap_file : /u/mw9568/research/data/references/genetic_map_GRCh38_merged.tab.gz

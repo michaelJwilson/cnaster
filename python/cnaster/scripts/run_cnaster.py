@@ -95,7 +95,7 @@ logger = get_logger(__name__, start_time=start_time)
 
 def run_cnaster(config_path, over_rides=None):
     logger.info("----  Welcome to cnaster  ----")
-
+    
     config = YAMLConfig.from_file(config_path)
     config.over_ride(over_rides)
     config.issue_warnings()
@@ -144,7 +144,7 @@ def run_cnaster(config_path, over_rides=None):
 
     # # NB renormalize cumulative edge weight to median in each case.
     # adjacency_mat = renormalize_adjacency_mat(adjacency_mat)
-
+    
     # NB start run_parse_n_load::parse_visium::load_joint_data
     #    adata: (barcode x gene) transcripts ('count') + 'tumor_annotation' + 'X_pos' + slice ('sample').
     #    cell_snp_Aallele: haplotype H0 counts (barcode x snp).
@@ -166,7 +166,7 @@ def run_cnaster(config_path, over_rides=None):
         min_snp_umis=config.quality.spot_min_snp_umis,
         min_percent_expressed_spots=config.quality.min_percent_expressed_spots,
     )
-
+    
     pause()
 
     # cell_snp_Aallele, cell_snp_Ballele = perturb_phase(
@@ -259,7 +259,7 @@ def run_cnaster(config_path, over_rides=None):
     write_fig(
         fig_path, pseudobulk_clones_genomic, transparent=True, bbox_inches="tight"
     )
-
+    
     pause()
 
     # NB known clone annotation per spot.

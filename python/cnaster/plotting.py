@@ -543,11 +543,15 @@ def plot_clones_genomic(
     linewidth=1,
     palette_name="chisel",
     plot_baf_errors="beta",
+    plot_rdr_errors="poisson",
 ):
     logger.info(f"Plotting inferred rdr+baf for all clones.")
 
     if plot_baf_errors not in (None, "wald", "beta"):
         raise ValueError(f"plot_baf_errors must be one of None, 'wald', or 'beta'")
+    
+    if plot_rdr_errors not in (None, "poisson"):
+        raise ValueError(f"plot_rdr_errors must be one of None, or 'poisson'")
 
     chisel_palette, ordered_acn = get_full_palette(palette_name)
 
@@ -671,15 +675,47 @@ def plot_clones_genomic(
         )
         """
 
+        x_vals_rdr = np.arange(X[:, 1, c].shape[0])
+        y_vals_rdr = X[:, 0, c] / base_nb_mean[:, c]
+
+        if plot_rdr_errors == "poisson":
+            # Poisson error: sqrt(N) / N_base
+            # The plotted value is N / N_base. The standard deviation of N is sqrt(N).
+            # So the standard deviation of the ratio is sqrt(N) / N_base.
+            
+            n_obs_counts = X[:, 0, c]
+            n_base = base_nb_mean[:, c]
+            
+            # Avoid division by zero in error calculation if any base is 0 (unlikely but safe)
+            with np.errstate(divide='ignore', invalid='ignore'):
+                std_err_rdr = np.sqrt(n_obs_counts) / n_base
+                std_err_rdr[~np.isfinite(std_err_rdr)] = 0.0
+
+            # Map hue categories to colors for error bars
+            color_map = {i: palette[i] for i in range(len(palette))}
+            point_colors = [color_map[h] for h in hue.codes]
+
+            axes[2 * s].errorbar(
+                x_vals_rdr,
+                y_vals_rdr,
+                yerr=std_err_rdr,
+                fmt="none",
+                ecolor=point_colors,
+                elinewidth=0.5,
+                alpha=0.75,
+                zorder=0
+            )
+
         sns.scatterplot(
-            x=np.arange(X[:, 1, c].shape[0]),  # NB integer per segment.
-            y=X[:, 0, c] / base_nb_mean[:, c],  # NB UMIs relative to normal baseline.
+            x=x_vals_rdr,  # NB integer per segment.
+            y=y_vals_rdr,  # NB UMIs relative to normal baseline.
             hue=hue,
             palette=palette,
             s=pointsize,
             edgecolor="none",
             linewidth=linewidth,
             ax=axes[2 * s],
+            zorder=1
         )
 
         # axes[2 * s].set_yscale("linlog", threshold=1.0, base=2.0)

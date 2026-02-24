@@ -549,8 +549,8 @@ def load_input_data(
     cell_snp_Ballele = sp.load_npz(f"{snp_dir}/cell_snp_Ballele.npz")
 
     # TODO HACK JOHN
-    cell_snp_Aallele = cell_snp_Aallele.T
-    cell_snp_Ballele = cell_snp_Ballele.T
+    # cell_snp_Aallele = cell_snp_Aallele.T
+    # cell_snp_Ballele = cell_snp_Ballele.T
     
     assert cell_snp_Aallele.shape == cell_snp_Ballele.shape
 

@@ -934,6 +934,9 @@ def plot_clones_spatial(
             )
             copy_single_tumor_prop[np.isnan(copy_single_tumor_prop)] = 0.5
 
+    n_points = coords.shape[0]
+    marker_size = np.clip(12000.0 / n_points, 0.1, 25.0)
+            
     fig, axes = plt.subplots(
         1, 1, figsize=(base_width * n_samples, base_height), dpi=300, facecolor="white"
     )
@@ -952,7 +955,7 @@ def plot_clones_spatial(
             sns.scatterplot(
                 x=shifted_coords[idx, 0],
                 y=-shifted_coords[idx, 1],
-                s=.1,
+                s=marker_size,
                 color=colorlist[c],
                 linewidth=0,
                 legend=None,
@@ -970,7 +973,7 @@ def plot_clones_spatial(
             axes.scatter(
                 shifted_coords[idx, 0],
                 -shifted_coords[idx, 1],
-                s=.1,
+                s=marker_size,
                 c=rgba_colors,
                 linewidth=0,
             )

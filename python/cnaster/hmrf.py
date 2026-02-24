@@ -1190,7 +1190,7 @@ def merge_by_minspots(
 
     merged_res = copy.copy(res)
     merged_res["new_assignment"] = new_assignment
-    merged_res["total_llf"] = np.NAN
+    merged_res["total_llf"] = np.nan
     merged_res["pred_cnv"] = np.concatenate(
         [
             res["pred_cnv"][(c[0] * n_obs) : (c[0] * n_obs + n_obs)]

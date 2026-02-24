@@ -142,13 +142,23 @@ def get_he_image(spaceranger_dir, res="hires", pos=None, num_labels=4):
     #    "tissue_hires_scalef": 0.071874365,
     #    "regist_target_img_scalef": 0.071874365
     # }
-    with open(f"{spaceranger_dir}/spatial/scalefactors_json.json", "r") as ff:
+
+    sf_path = Path(f"{spaceranger_dir}/spatial/scalefactors_json.json")
+    img_path = Path(f"{spaceranger_dir}/spatial/tissue_{res}_image.png")
+
+    if not sf_path.exists() or not img_path.exists():
+        logger.warning(
+            f"Could not find H&E image or scalefactors at {spaceranger_dir}/spatial/"
+        )
+        return pos
+
+    with open(sf_path, "r") as ff:
         scalefactors = json.load(ff)
 
     scalefactor = scalefactors[f"tissue_{res}_scalef"]
 
     # NB realizes a (H, W, C) numpy array, i.e. (382, 600, 3) for low and (3818, 6000, 3) for high (HD @ 6.5mm).
-    tissue_image = plt.imread(f"{spaceranger_dir}/spatial/tissue_{res}_image.png")
+    tissue_image = plt.imread(img_path)
 
     # NB 11,222,500 rows in the 2 um version of the file for Visium HD
     # full_width = np.ceil(6000 / 0.071874365) = 83_479.0
@@ -398,7 +408,7 @@ def get_alignments(alignment_files, df_meta, df_agg_barcode, significance=1.0e-6
         # TODO? max alignment weight = 1
         pi = pi / np.max(np.append(np.sum(pi, axis=0), np.sum(pi, axis=1)))
 
-        # NB assumes alignments ordered by df_meta sample_ids.
+        # NB assumes alignments ordered by df_meta sample ids.
         sname1 = df_meta.sample_id.to_numpy()[i]
         sname2 = df_meta.sample_id.to_numpy()[i + 1]
 
@@ -620,8 +630,12 @@ def load_input_data(
 
         # NEW
         adatatmp.obsm["X_pos"] = np.vstack([df_this_pos.x, df_this_pos.y]).T
-        adatatmp.obsm["he_gray"] = df_this_pos.gray.to_numpy()
-        adatatmp.obsm["he_label"] = df_this_pos.label.to_numpy()
+
+        if "gray" in df_this_pos.columns:
+            adatatmp.obsm["he_gray"] = df_this_pos.gray.to_numpy()
+        
+        if "label" in df_this_pos.columns:
+            adatatmp.obsm["he_label"] = df_this_pos.label.to_numpy()
 
         adatatmp.obs["sample"] = sname
 

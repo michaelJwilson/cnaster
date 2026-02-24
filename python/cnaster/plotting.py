@@ -539,11 +539,19 @@ def plot_clones_genomic(
     rdr_ylim=6,
     chrtext_shift=-0.2,
     base_height=3.2,
-    pointsize=5,
+    pointsize=3,
     linewidth=1,
     palette_name="chisel",
+    plot_baf_errors="beta",
+    plot_rdr_errors="poisson",
 ):
     logger.info(f"Plotting inferred rdr+baf for all clones.")
+
+    if plot_baf_errors not in (None, "wald", "beta"):
+        raise ValueError(f"plot_baf_errors must be one of None, 'wald', or 'beta'")
+    
+    if plot_rdr_errors not in (None, "poisson"):
+        raise ValueError(f"plot_rdr_errors must be one of None, or 'poisson'")
 
     chisel_palette, ordered_acn = get_full_palette(palette_name)
 
@@ -667,15 +675,47 @@ def plot_clones_genomic(
         )
         """
 
+        x_vals_rdr = np.arange(X[:, 1, c].shape[0])
+        y_vals_rdr = X[:, 0, c] / base_nb_mean[:, c]
+
+        if plot_rdr_errors == "poisson":
+            # Poisson error: sqrt(N) / N_base
+            # The plotted value is N / N_base. The standard deviation of N is sqrt(N).
+            # So the standard deviation of the ratio is sqrt(N) / N_base.
+            
+            n_obs_counts = X[:, 0, c]
+            n_base = base_nb_mean[:, c]
+            
+            # Avoid division by zero in error calculation if any base is 0 (unlikely but safe)
+            with np.errstate(divide='ignore', invalid='ignore'):
+                std_err_rdr = np.sqrt(n_obs_counts) / n_base
+                std_err_rdr[~np.isfinite(std_err_rdr)] = 0.0
+
+            # Map hue categories to colors for error bars
+            color_map = {i: palette[i] for i in range(len(palette))}
+            point_colors = [color_map[h] for h in hue.codes]
+
+            axes[2 * s].errorbar(
+                x_vals_rdr,
+                y_vals_rdr,
+                yerr=std_err_rdr,
+                fmt="none",
+                ecolor=point_colors,
+                elinewidth=0.5,
+                alpha=0.75,
+                zorder=0
+            )
+
         sns.scatterplot(
-            x=np.arange(X[:, 1, c].shape[0]),  # NB integer per segment.
-            y=X[:, 0, c] / base_nb_mean[:, c],  # NB UMIs relative to normal baseline.
+            x=x_vals_rdr,  # NB integer per segment.
+            y=y_vals_rdr,  # NB UMIs relative to normal baseline.
             hue=hue,
             palette=palette,
             s=pointsize,
             edgecolor="none",
             linewidth=linewidth,
             ax=axes[2 * s],
+            zorder=1
         )
 
         # axes[2 * s].set_yscale("linlog", threshold=1.0, base=2.0)
@@ -707,9 +747,49 @@ def plot_clones_genomic(
             palette = palette
 
         # NB plot phased b-allele frequency
+        x_vals = np.arange(X[:, 1, c].shape[0])
+        baf_vals = X[:, 1, c] / total_bb_RD[:, c]
+
+        if plot_baf_errors is not None:
+            n_counts = total_bb_RD[:, c]
+            n_counts[n_counts == 0] = 1  # Avoid division by zero
+            
+            # Map hue categories to colors
+            color_map = {i: palette[i] for i in range(len(palette))}
+            point_colors = [color_map[h] for h in hue.codes]
+
+            if plot_baf_errors == "wald":
+                # Wald interval standard error: sqrt(p(1-p)/n)
+                std_err = np.sqrt(baf_vals * (1 - baf_vals) / n_counts)
+            
+            elif plot_baf_errors == "beta":
+                # Beta posterior standard deviation with Uniform Prior Beta(1,1)
+                # Posterior is Beta(alpha, beta) where alpha = k + 1, beta = n - k + 1
+                k = X[:, 1, c]
+                n = total_bb_RD[:, c]
+                alpha = k + 1
+                beta = n - k + 1
+                
+                # std dev of Beta distribution: sqrt( (a*b) / ( (a+b)^2 * (a+b+1) ) )
+                alpha_beta_sum = alpha + beta
+                std_err = np.sqrt(
+                    (alpha * beta) / (np.square(alpha_beta_sum) * (alpha_beta_sum + 1))
+                )
+
+            axes[2 * s + 1].errorbar(
+                x_vals,
+                baf_vals,
+                yerr=std_err,
+                fmt="none",
+                ecolor=point_colors,
+                elinewidth=0.5,
+                alpha=0.75,
+                zorder=0
+            )
+
         sns.scatterplot(
-            x=np.arange(X[:, 1, c].shape[0]),  # NB integer per segment.
-            y=X[:, 1, c] / total_bb_RD[:, c],  # NB BAF.
+            x=x_vals,  # NB integer per segment.
+            y=baf_vals,  # NB BAF.
             hue=hue,
             palette=palette,
             s=pointsize,
@@ -717,6 +797,7 @@ def plot_clones_genomic(
             alpha=0.8,
             legend=False,
             ax=axes[2 * s + 1],
+            zorder=1
         )
 
         """
@@ -759,6 +840,7 @@ def plot_clones_genomic(
             alpha=0.8,
             legend=False,
             ax=axes[2 * s + 1],
+            zorder=1
         )
 
         axes[2 * s + 1].set_ylabel(f"\nBAF")
@@ -779,6 +861,7 @@ def plot_clones_genomic(
                     ],
                     c="lightgray",
                     linewidth=0.5,
+                    zorder=0,
                 )
             axes[2 * s].plot(
                 seg,
@@ -788,6 +871,7 @@ def plot_clones_genomic(
                 ],
                 c="k",
                 linewidth=0.5,
+                zorder=2,
             )
             axes[2 * s + 1].plot(
                 seg,
@@ -797,6 +881,7 @@ def plot_clones_genomic(
                 ],
                 c="k",
                 linewidth=0.5,
+                zorder=2,
             )
 
             # NB phase flip.
@@ -809,6 +894,7 @@ def plot_clones_genomic(
                 c="k",
                 linewidth=0.5,
                 linestyle="--",
+                zorder=2,
             )
 
             for to_plot in np.arange(0.0, 1.1, 0.1):
@@ -820,6 +906,7 @@ def plot_clones_genomic(
                     ],
                     c="lightgray",
                     linewidth=0.5,
+                    zorder=0,
                 )
 
         # TODO filter based on clone aggregated hue.
@@ -934,9 +1021,12 @@ def plot_clones_spatial(
             )
             copy_single_tumor_prop[np.isnan(copy_single_tumor_prop)] = 0.5
 
+    # NB heuristic for marker size: 120000.0 is roughly appropriate for s=0.1 with ~100k spots.
+    #    If we have fewer spots, we want larger markers.
+    #    Clip to a reasonable range [0.1, 20].
     n_points = coords.shape[0]
     marker_size = np.clip(12000.0 / n_points, 0.1, 25.0)
-            
+
     fig, axes = plt.subplots(
         1, 1, figsize=(base_width * n_samples, base_height), dpi=300, facecolor="white"
     )
@@ -1302,4 +1392,4 @@ def plot_he(frame, output_path):
     plt.tight_layout()
     fig.savefig(output_path, dpi=750, bbox_inches="tight")
     plt.close(fig)
-    
+

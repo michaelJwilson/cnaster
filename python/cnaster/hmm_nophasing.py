@@ -202,7 +202,7 @@ class hmm_nophasing:
         cumlen = 0
         for le in lengths:
             log_beta[:, (cumlen + le - 1)] = 0
-            
+
             for t in np.arange(le - 2, -1, -1):
                 for i in np.arange(n_states):
                     for j in np.arange(n_states):
@@ -342,10 +342,9 @@ class hmm_nophasing:
 
         for r in range(max_iter):
             logger.info(
-                f"----  Solving for Baum-Welch iteration {r}/{max_iter} with NegBin+BetaBin emission  -----"
+                f"----  Solving for Baum-Welch iteration {r}/{max_iter} with Neative Binomial & Beta Binomial emission  -----"
             )
 
-            # E-step
             if tumor_prop is None:
                 # NB does not utilize unique_values.
                 (
@@ -419,7 +418,7 @@ class hmm_nophasing:
 
             log_emission = log_emission_rdr + log_emission_baf
 
-            # NB log_gamma (n_states * n_observations), potentially concatenated by clone.
+            # NB e-step ... log_gamma (n_states * n_observations), potentially concatenated by clone.
             log_gamma = self.get_state_posteriors(lengths, log_transmat, log_startprob, log_emission, log_sitewise_transmat)
 
             contracted_log_gamma = np.sum(np.exp(log_gamma), axis=1) / np.sum(
@@ -432,7 +431,7 @@ class hmm_nophasing:
             if contracted_log_gamma.min() < 1.0e-6:
                 logger.warning(f"Defunct copy number states detected.")
 
-            # M-step
+            # NB m-step
             if "s" in self.params:
                 new_log_startprob = update_startprob_nophasing(lengths, log_gamma)
                 new_log_startprob = new_log_startprob.flatten()

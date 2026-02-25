@@ -1783,7 +1783,10 @@ def update_emission_params_bb_nophasing_uniqvalues_mix(
     #    for the unique obs. in this spot.
     n_spots = len(unique_values)
     n_states = log_gamma.shape[0]
-    
+
+    # NB we expect that current code calls clones separately, or concatenated along obs. axis.
+    assert n_spots == 1
+
     gamma = np.exp(log_gamma)
 
     # TODO
@@ -1797,7 +1800,7 @@ def update_emission_params_bb_nophasing_uniqvalues_mix(
 
     # TODO
     logger.info(
-        "Updating (no phasing, tumor mix) BAF emission parameters with shared dispersion."
+        f"Updating (no phasing, tumor prop={tumor_prop is not None}) baf emission parameters with shared = {shared_BB_dispersion}."
     )
 
     # NB will acumulate list of values over spots/clones.
@@ -1842,7 +1845,7 @@ def update_emission_params_bb_nophasing_uniqvalues_mix(
 
         if len(idx_state_posweight) < this_features.shape[1]:
             logger.warning(
-                f"M-step solving for only states: {idx_state_posweight} given MAGIC."
+                f"m-step solving for only states: {idx_state_posweight} given MAGIC."
             )
 
         idx_row_posweight = np.concatenate(
@@ -1927,5 +1930,5 @@ def update_emission_params_bb_nophasing_uniqvalues_mix(
 
     new_p_binom[new_p_binom < min_binom_prob] = min_binom_prob
     new_p_binom[new_p_binom > max_binom_prob] = max_binom_prob
-    
+
     return new_p_binom, new_taus

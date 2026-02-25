@@ -129,10 +129,10 @@ class hmm_nophasing:
         Note that n_states is the CNV states, and there are n_states of paired states for (CNV, phasing) pairs.
 
         Input
+            log_emission: n_states * n_observations * n_spots.
             lengths: sum of lengths = n_observations.
             log_transmat: n_states * n_states. Transition probability after log transformation.
             log_startprob: n_states. Start probability after log transformation.
-            log_emission: n_states * n_observations * n_spots. Log probability.
         Output
             log_alpha: size n_states * n_observations. log alpha[j, t] = log P(o_1, ... o_t, q_t = j | lambda).
         """
@@ -147,21 +147,20 @@ class hmm_nophasing:
             len(log_startprob) == n_states
         ), "Length of startprob_ must be equal to the first dimension of log_transmat!"
 
-        log_alpha = np.zeros((log_emission.shape[0], n_obs))
-        buf = np.zeros(log_emission.shape[0])
+        log_alpha = np.zeros((n_states, n_obs))
+        buf = np.zeros(n_states)
         cumlen = 0
 
         for le in lengths:
-            # start prob
-            # ??? Theoretically, joint distribution across spots under iid is the prod (or sum) of individual (log) probabilities.
-            # But adding too many spots may lead to a higher weight of the emission rather then transition prob.
+            # NB initialize with start_prob and emission of first obs. for each item of lengths,
+            #    e.g. contig.  Treats last axis (spots/clones) as iid (TBC).
             log_alpha[:, cumlen] = log_startprob + np_sum_ax_squeeze(
                 log_emission[:, cumlen, :], axis=1
             )
 
             for t in np.arange(1, le):
-                for j in np.arange(log_emission.shape[0]):
-                    for i in np.arange(log_emission.shape[0]):
+                for j in np.arange(n_states):
+                    for i in np.arange(n_states):
                         buf[i] = log_alpha[i, (cumlen + t - 1)] + log_transmat[i, j]
 
                     log_alpha[j, (cumlen + t)] = mylogsumexp(buf) + np.sum(
@@ -187,7 +186,7 @@ class hmm_nophasing:
             log_startprob: n_states. Start probability after log transformation.
             log_emission: n_states * n_observations * n_spots. Log probability.
         Output
-            log_beta: size 2*n_states * n_observations. log beta[i, t] = log P(o_{t+1}, ..., o_T | q_t = i, lambda).
+            log_beta: (n_states * n_observations). log beta[i, t] = log P(o_{t+1}, ..., o_T | q_t = i, lambda).
         """
         n_obs = log_emission.shape[1]
         n_states = log_emission.shape[0]
@@ -197,18 +196,16 @@ class hmm_nophasing:
         assert (
             len(log_startprob) == n_states
         ), "Length of startprob_ must be equal to the first dimension of log_transmat!"
-        # initialize log_beta
-        log_beta = np.zeros((log_emission.shape[0], n_obs))
-        buf = np.zeros(log_emission.shape[0])
+
+        log_beta = np.zeros((n_states, n_obs))
+        buf = np.zeros(n_states)
         cumlen = 0
         for le in lengths:
-            # start prob
-            # ??? Theoretically, joint distribution across spots under iid is the prod (or sum) of individual (log) probabilities.
-            # But adding too many spots may lead to a higher weight of the emission rather then transition prob.
             log_beta[:, (cumlen + le - 1)] = 0
+            
             for t in np.arange(le - 2, -1, -1):
-                for i in np.arange(log_emission.shape[0]):
-                    for j in np.arange(log_emission.shape[0]):
+                for i in np.arange(n_states):
+                    for j in np.arange(n_states):
                         buf[j] = (
                             log_beta[j, (cumlen + t + 1)]
                             + log_transmat[i, j]
@@ -293,6 +290,10 @@ class hmm_nophasing:
         """
         _, n_comp, n_spots = X.shape
 
+        # NB TODO code treats spot axis as iid emission.
+        #         expects clones to be concatenated along obs. axis or passed separately.
+        #         also true of the "mapping" compression for unique emission configurations.
+        assert n_spots == 1
         assert n_comp == 2
 
         # NB initialize NB logmean shift and BetaBinom prob
@@ -418,7 +419,7 @@ class hmm_nophasing:
 
             log_emission = log_emission_rdr + log_emission_baf
 
-            # NB n_states * n_observations
+            # NB log_gamma (n_states * n_observations), potentially concatenated by clone.
             log_gamma = self.get_state_posteriors(lengths, log_transmat, log_startprob, log_emission, log_sitewise_transmat)
 
             contracted_log_gamma = np.sum(np.exp(log_gamma), axis=1) / np.sum(
@@ -437,7 +438,6 @@ class hmm_nophasing:
                 new_log_startprob = new_log_startprob.flatten()
 
                 logger.info(f"Updated HMM start probability=\n{[xx for xx in new_log_startprob]}")
-
             else:
                 new_log_startprob = log_startprob
 

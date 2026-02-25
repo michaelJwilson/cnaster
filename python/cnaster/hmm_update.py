@@ -1783,6 +1783,7 @@ def update_emission_params_bb_nophasing_uniqvalues_mix(
     #    for the unique obs. in this spot.
     n_spots = len(unique_values)
     n_states = log_gamma.shape[0]
+    
     gamma = np.exp(log_gamma)
 
     # TODO
@@ -1826,7 +1827,7 @@ def update_emission_params_bb_nophasing_uniqvalues_mix(
 
         # NB design matrix of one-hot encoding for each copy-number state for each observation (with sufficient exposure).
         this_features = np.zeros((n_states * len(idx_nonzero), n_states))
-        
+
         for i in np.arange(n_states):
             this_features[(i * len(idx_nonzero)) : ((i + 1) * len(idx_nonzero)), i] = 1
 
@@ -1926,4 +1927,5 @@ def update_emission_params_bb_nophasing_uniqvalues_mix(
 
     new_p_binom[new_p_binom < min_binom_prob] = min_binom_prob
     new_p_binom[new_p_binom > max_binom_prob] = max_binom_prob
+    
     return new_p_binom, new_taus

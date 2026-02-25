@@ -1,5 +1,3 @@
-import logging
-
 import numpy as np
 import scipy.special
 from cnaster.hmm_update import (
@@ -18,7 +16,7 @@ from cnaster.hmm_utils import (
     mylogsumexp,
     np_sum_ax_squeeze,
 )
-from cnaster.deprecated.hmm_nophasing import compute_emission_probability_nb_betabinom
+# from cnaster.deprecated.hmm_nophasing import compute_emission_probability_nb_betabinom
 from cnaster.hmm_emission_eval import compute_emissions
 from numba import njit
 from cnaster.config import start_time
@@ -603,5 +601,3 @@ class hmm_nophasing:
             new_log_transmat,
             log_gamma,
         )
-
-    

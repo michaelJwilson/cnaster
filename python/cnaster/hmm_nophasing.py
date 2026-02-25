@@ -132,7 +132,7 @@ class hmm_nophasing:
     @staticmethod
     @njit
     def forward_lattice(
-        lengths, log_transmat, log_startprob, log_emission,
+        lengths, log_transmat, log_startprob, log_emission, log_sitewise_transmat,
     ):
         """
         Note that n_states is the CNV states, and there are n_states of paired states for (CNV, phasing) pairs.
@@ -185,7 +185,7 @@ class hmm_nophasing:
     @staticmethod
     @njit
     def backward_lattice(
-        lengths, log_transmat, log_startprob, log_emission,
+        lengths, log_transmat, log_startprob, log_emission, log_sitewise_transmat,
     ):
         """
         Note that n_states is the CNV states, and there are n_states of paired states for (CNV, phasing) pairs.
@@ -227,6 +227,47 @@ class hmm_nophasing:
                     log_beta[i, (cumlen + t)] = mylogsumexp(buf)
             cumlen += le
         return log_beta
+    
+    def get_state_posteriors(self, lengths, log_transmat, log_startprob, log_emission, log_sitewise_transmat):
+        log_alpha = self.forward_lattice(
+            lengths,
+            log_transmat,
+            log_startprob,
+            log_emission,
+            log_sitewise_transmat,
+        )
+
+        log_beta = self.backward_lattice(
+            lengths,
+            log_transmat,
+            log_startprob,
+            log_emission,
+            log_sitewise_transmat,
+        )
+
+        # NB log_gamma (n_states * n_observations), potentially concatenated by clone.
+        return compute_posterior_obs(log_alpha, log_beta)
+    
+    def get_transition_posteriors(self, lengths, log_transmat, log_startprob, log_emission, log_sitewise_transmat):
+        log_alpha = self.forward_lattice(
+            lengths,
+            log_transmat,
+            log_startprob,
+            log_emission,
+            log_sitewise_transmat,
+        )
+
+        log_beta = self.backward_lattice(
+            lengths,
+            log_transmat,
+            log_startprob,
+            log_emission,
+            log_sitewise_transmat,
+        )
+
+        return compute_posterior_transition_nophasing(
+            log_alpha, log_beta, log_transmat, log_emission,
+        )
 
     def run_baum_welch_nb_bb(
         self,
@@ -296,19 +337,17 @@ class hmm_nophasing:
 
         logger.info(f"Assumed initial log_gamma?  {log_gamma is not None}")
 
-        # NB a trick to speed up BetaBinom optimization: taking only unique values of
-        # (B allele count, total SNP covering read count)
-        logger.info("Constructing NB compression in (X[:, 0, :], base_nb_mean).")
-
+        # NB unique_values is a list of length n_spots, each element is an array of shape (n_unique_pairs, 2) with columns of rounded (obs_count, total_count).
+        #    mapping_matrices is a list of length n_spots, each element is a sparse matrix of shape (n_obs, n_unique_pairs) mapping obs. to compressed space per spot.
         unique_values_nb, mapping_matrices_nb = construct_unique_matrix(
             X[:, 0, :], base_nb_mean
         )
 
-        logger.info("Constructing BB compression in (X[:, 1, :], total_bb_RD).")
-
         unique_values_bb, mapping_matrices_bb = construct_unique_matrix(
             X[:, 1, :], total_bb_RD
         )
+
+        logger.info("Constructed BB/NB compression in (X[:, 1, :], total_bb_RD) and (X[:, 0, :], base_nb_mean).")
 
         for r in range(max_iter):
             logger.info(
@@ -389,24 +428,9 @@ class hmm_nophasing:
 
             log_emission = log_emission_rdr + log_emission_baf
 
-            log_alpha = self.forward_lattice(
-                lengths,
-                log_transmat,
-                log_startprob,
-                log_emission,
-                log_sitewise_transmat,
-            )
-
-            log_beta = self.backward_lattice(
-                lengths,
-                log_transmat,
-                log_startprob,
-                log_emission,
-                log_sitewise_transmat,
-            )
-
             # NB n_states * n_observations
-            log_gamma = compute_posterior_obs(log_alpha, log_beta)
+            log_gamma = self.get_state_posteriors(lengths, log_transmat, log_startprob, log_emission, log_sitewise_transmat)
+
             contracted_log_gamma = np.sum(np.exp(log_gamma), axis=1) / np.sum(
                 np.exp(log_gamma)
             )
@@ -416,10 +440,6 @@ class hmm_nophasing:
             # HACK MAGIC TODO
             if contracted_log_gamma.min() < 1.0e-6:
                 logger.warning(f"Defunct copy number states detected.")
-
-            # log_xi = compute_posterior_transition_nophasing(
-            #     log_alpha, log_beta, log_transmat, log_emission
-            # )
 
             # M-step
             if "s" in self.params:
@@ -432,10 +452,7 @@ class hmm_nophasing:
                 new_log_startprob = log_startprob
 
             if "t" in self.params:
-                log_xi = compute_posterior_transition_nophasing(
-                    log_alpha, log_beta, log_transmat, log_emission
-                )
-
+                log_xi = self.get_transition_posteriors(lengths, log_transmat, log_startprob, log_emission, log_sitewise_transmat)
                 new_log_transmat = update_transition_nophasing(log_xi, is_diag=is_diag)
             else:
                 new_log_transmat = log_transmat
@@ -590,7 +607,7 @@ class hmm_nophasing:
             p_binom = new_p_binom
             taus = new_taus
         else:
-            logger.warning(f"hmm_nophasing did not converge.")
+            logger.warning(f"hmm_nophasing failed to converge.")
             
         return (
             new_log_mu,

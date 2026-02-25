@@ -131,8 +131,7 @@ def calc_sparsity(csr_matrix):
 
 
 def construct_unique_matrix(obs_count, total_count):
-    n_obs = obs_count.shape[0]
-    n_spots = obs_count.shape[1]
+    n_obs, n_spots = obs_count.shape
     decimals = get_global_config().hmm.compression_decimals
 
     unique_values, mapping_matrices = [], []
@@ -140,36 +139,36 @@ def construct_unique_matrix(obs_count, total_count):
 
     for s in range(n_spots):
         valid = total_count[:, s] > 0
-
-        # ADD filter by valid
-        counts = np.vstack([obs_count[:, s], total_count[:, s]]).T
-
         mean_validity += np.mean(valid)
+
+        # TODO add filter by valid?
+        counts = np.vstack([obs_count[:, s], total_count[:, s]]).T
 
         # TODO BUG fails for numpy cases; not np.issubdtype(total_count.dtype, np.integer)
         if total_count.dtype != int:
             counts = counts.round(decimals=decimals)
 
-        pairs, pairs_counts = np.unique(counts, axis=0, return_counts=True)
-
-        logger.info(
-            f"Found {len(pairs)} unique pairs with {100. * np.mean(valid):.3f}% non-zero:\n{pairs}"
-        )
+        # NB unique (rounded) pairs of (obs_count, total_count) for spot s.
+        pairs, _ = np.unique(counts, axis=0, return_counts=True)
+        unique_values.append(pairs)
 
         mean_compression += 1.0 - len(pairs) / n_obs
 
-        unique_values.append(pairs)
+        # NB mapper of unique pairs to idx.
         pair_index = {(pairs[i, 0], pairs[i, 1]): i for i in range(pairs.shape[0])}
 
         # NB construct mapping matrix with shape (n_obs, n_unique_pairs);
         #    one-hot of obs. to compressed.
         mat_row = np.arange(n_obs)
+
+        # NB each observation gets the index of its corresponding unique pair.
         mat_col = np.zeros(n_obs, dtype=int)
 
         for i in range(n_obs):
             if total_count.dtype == int:
                 tmpidx = pair_index[(obs_count[i, s], total_count[i, s])]
             else:
+                # TODO inconsistent with rounding of counts above, i.e. no obs rounding.
                 tmpidx = pair_index[
                     (obs_count[i, s], total_count[i, s].round(decimals=decimals))
                 ]
@@ -196,6 +195,8 @@ def construct_unique_matrix(obs_count, total_count):
 
     logger.info(msg)
 
+    # NB unique_values is a list of length n_spots, each element is an array of shape (n_unique_pairs, 2) with columns of rounded (obs_count, total_count).
+    #    mapping_matrices is a list of length n_spots, each element is a sparse matrix of shape (n_obs, n_unique_pairs) mapping obs. to compressed space.
     return unique_values, mapping_matrices
 
 

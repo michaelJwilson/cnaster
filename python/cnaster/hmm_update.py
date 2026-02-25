@@ -1782,7 +1782,6 @@ def update_emission_params_bb_nophasing_uniqvalues_mix(
     start_p_binom=None,
     fix_BB_dispersion=False,
     shared_BB_dispersion=False,
-    percent_threshold=0.99,
     min_binom_prob=0.01,
     max_binom_prob=0.99,
 ):

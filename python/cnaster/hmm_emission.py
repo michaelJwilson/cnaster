@@ -194,25 +194,22 @@ def nloglikeobs_nb(
 
     return result
 
-# TODO
 def betabinom_logpmf_zp(endog, exposure):
     return loggamma(exposure + 1) - loggamma(endog + 1) - loggamma(exposure - endog + 1)
 
-@njit(nogil=True, cache=True, fastmath=False, error_model="numpy")
-def compute_bb_ab(exog, params, tumor_prop=None):
-    p = np.dot(exog, params[:-1])
-    tau = params[-1]
+@njit(nogil=True, cache=True, error_model="numpy")
+def compute_bb_ab(exog, params):
+    num_states = exog.shape[-1]
 
-    if tumor_prop is None:
-        a = p * tau
-        b = (1.0 - p) * tau
-    else:
-        a = (p * tumor_prop + 0.5 * (1.0 - tumor_prop)) * tau
-        b = ((1.0 - p) * tumor_prop + 0.5 * (1.0 - tumor_prop)) * tau
+    p = np.dot(exog, params[:num_states])
+    t = np.dot(exog, params[num_states:])
+
+    a = p * t
+    b = (1.0 - p) * t
 
     return a, b
 
-@njit(nogil=True, cache=True, fastmath=False, error_model="numpy")
+@njit(nogil=True, cache=True, error_model="numpy")
 def betabinom_logpmf(endog, exposure, a, b, zero_point, EPS=1.0e-10):
     result_array = np.empty_like(endog, dtype=np.float64)
 
@@ -247,21 +244,16 @@ def nloglikeobs_bb(
     weights,
     exposure,
     params,
-    tumor_prop=None,
     zero_point=None,
     reduce=True,
 ):
-    a, b = compute_bb_ab(exog, params, tumor_prop)
+    a, b = compute_bb_ab(exog, params)
 
     if zero_point is not None:
         result = -betabinom_logpmf(endog, exposure, a, b, zero_point)
     else:
         result = -scipy.stats.betabinom.logpmf(endog, exposure, a, b)
         result[np.isnan(result)] = np.inf
-
-    # if prior:
-    #   prior_shift = baf_prior_eval(a / (a + b), sigma=None)
-    #   result -= prior_shift
 
     if reduce:
         reduced_result = result.dot(weights)
@@ -707,12 +699,12 @@ class Weighted_BetaBinom_mix:
     exposure : array, (n_samples,)
         Total number of trials. In BAF case, this is the total number of SNP-covering UMIs.
     """
-
     def __init__(
-        self, endog, exog, weights, exposure, tumor_prop=None, compress=False, **kwargs
+        self, endog, exog, weights, exposure, tumor_prop=None, fixed_dispersion=False, shared_dispersion=True,
     ):
         exog = exog.copy()
 
+        # NB corresponds to a single (potentially unknown) state.
         if exog.ndim == 1:
             exog = np.atleast_2d(exog).T
 
@@ -722,78 +714,60 @@ class Weighted_BetaBinom_mix:
         self.weights = np.asarray(weights, dtype=np.float64)
         self.exposure = np.asarray(exposure, dtype=np.float64)
         self.tumor_prop = tumor_prop
-        self.compress = False
+        self.fixed_dispersion = fixed_dispersion
+        self.shared_dispersion = shared_dispersion
+
         self.num_states = self.exog.shape[-1]
         self.zero_point = None
 
-        if tumor_prop is not None:
-            logger.warning(
-                f"{self.__class__.__name__} compression is not supported for tumor_prop != None."
-            )
-            return
+    def nloglikeobs(self, params, *args):
+        params = np.array(params)
 
-        # TODO HACK
-        cls = np.argmax(self.exog, axis=-1)
-        counts = np.vstack([self.endog, self.exposure, cls]).T
+        if self.fixed_dispersion:
+            params = np.concatenate([params, np.full(self.num_states, args[0])])
+        elif self.shared_dispersion:
+            params = np.concatenate([params[:-1], np.full(self.num_states, params[-1])])
+        else:
+            assert len(params) == self.num_states * 2
 
-        # TODO HACK decimals
-        if counts.dtype != int:
-            counts = counts.round(decimals=4)
-
-        # NB see https://numpy.org/doc/stable/reference/generated/numpy.unique.html
-        unique_pairs, unique_idx, unique_inv = np.unique(
-            counts, return_index=True, return_inverse=True, axis=0
-        )
-
-        mean_compression = 1.0 - len(unique_pairs) / len(self.endog)
-
-        logger.warning(
-            f"{self.__class__.__name__} has further achievable compression: {100. * mean_compression:.4f}%"
-        )
-
-        if compress and mean_compression > 0.0:
-            # TODO HACK
-            # NB sum self.weights - relies on original self.endog length
-            transfer = np.zeros((len(unique_pairs), len(self.endog)), dtype=int)
-
-            for i in range(len(unique_pairs)):
-                transfer[i, unique_inv == i] = 1
-
-            self.weights = transfer @ self.weights
-
-            # NB update self.endog, self.exposure, self.exog, self.weights for unique_pairs compression:
-            self.endog = unique_pairs[:, 0]
-            self.exposure = unique_pairs[:, 1]
-
-            # NB one-hot encoded design matrix of class labels
-            self.exog = self.exog[unique_idx, :]
-            self.compress = True
-
-    def nloglikeobs(self, params, reduce=True):
         return nloglikeobs_bb(
             self.endog,
             self.exog,
             self.weights,
             self.exposure,
             params,
-            tumor_prop=self.tumor_prop,
             zero_point=self.zero_point,
-            reduce=reduce,
+            reduce=True,
         )
 
-    def get_bounds(self, params):
-        n_params = len(params)
+    def get_default_params(self, legacy=False):
+        ps, single_dispersion = get_betabinom_start_params(legacy=legacy, exog=self.exog)
+
+        if self.fixed_dispersion or self.shared_dispersion:
+            disp = [single_dispersion]
+        else:
+            disp = [single_dispersion] * self.num_states
+                    
+        return np.array(ps[: self.num_states] + disp)
+
+    def get_bounds(self):
+        EPSILON = 1.0e-6
         bounds = []
 
-        EPSILON = 1.0e-6
-
-        for _ in range(n_params - 1):
+        for _ in range(self.num_states):
             bounds.append((EPSILON, 1.0 - EPSILON))
 
-        bounds.append((EPSILON, 1e6))
+        if self.fixed_dispersion:
+            pass
+        elif self.shared_dispersion:
+            bounds.append((EPSILON, 1e6))
+        else:
+            for _ in range(self.num_states):
+                bounds.append((EPSILON, 1e6))
 
         return bounds
     
+    """
     def run_mcmc(self, start_params, n_samples, burn_in, bounds):
         rel_step = 0.005
         step_scales = np.abs(start_params) * rel_step
@@ -823,33 +797,23 @@ class Weighted_BetaBinom_mix:
         )
 
         return samples
-
+    """
+        
     def fit(
         self, start_params=None, maxiter=10_000, maxfun=5_000, legacy=False, **kwargs
     ):
-        using_default_params = start_params is None
-
-        if start_params is None:
-            # TODO DEPRECATE
-            if hasattr(self, "start_params"):
-                start_params = self.start_params
-            else:
-                ps, disp = get_betabinom_start_params(legacy=legacy, exog=self.exog)
-                start_params = np.array(ps[: self.num_states] + [disp])
-
-        assert self.num_states == (
-            len(start_params) - 1
-        ), f"{len(start_params)}, {self.exog.shape}"
+        if using_default_params := (start_params is None):
+            start_params = self.get_default_params(legacy=legacy)
 
         self.zero_point = betabinom_logpmf_zp(self.endog, self.exposure)
 
         start_time = time.time()
 
         logger.info(
-            f"Weighted_BetaBinom_mix (compress={self.compress}, num_states={self.num_states}, endog_shape={self.endog.shape}) initial likelihood={self.nloglikeobs(start_params):.6e} @ start_params:\n{[xx for xx in start_params]}"
+            f"Weighted_BetaBinom_mix (num_states={self.num_states}, endog.shape={self.endog.shape}), initial nloglike={self.nloglikeobs(start_params):.6e} @ start_params:\n{[xx for xx in start_params]}"
         )
 
-        bounds = self.get_bounds(start_params)
+        bounds = self.get_bounds()
         options = {
             "maxiter": maxiter,
             "maxfun": maxfun,
@@ -857,6 +821,13 @@ class Weighted_BetaBinom_mix:
             "disp": kwargs.get("disp", False),
         }
 
+        if self.fixed_dispersion:
+            args = (start_params[-1])
+            start_params = start_params[:-1]
+        else:
+            args = None
+
+        """
         result = gibbs_minimize(
             self.endog, 
             self.exog,
@@ -868,8 +839,7 @@ class Weighted_BetaBinom_mix:
             initial_params=start_params,
             log_space=False,
         )
-        
-        exit(0)
+        """
 
         result = scipy.optimize.minimize(
             self.nloglikeobs,
@@ -877,6 +847,7 @@ class Weighted_BetaBinom_mix:
             method=get_solver(),
             bounds=bounds,
             options=options,
+            args=args,
         )
 
         optimize_result = OptimizationResult(

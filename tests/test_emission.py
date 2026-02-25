@@ -1,15 +1,10 @@
 import scipy
-import pytest
 import numpy as np
-from scipy.stats import betabinom, nbinom
-from scipy.special import loggamma
-from numba import njit
 from functools import partial
 from cnaster.hmm_sitewise import switch_betabinom
 from cnaster.hmm_emission import (
     betabinom_logpmf,
     betabinom_logpmf_zp,
-    ln_rising_factorial_sorted,
     ln_nb_shift,
     nloglikeobs_nb,
 )

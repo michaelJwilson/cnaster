@@ -1,7 +1,6 @@
 import numpy as np
 import scipy.special
 from cnaster.hmm_update import (
-    update_emission_params_bb_nophasing_uniqvalues,
     update_emission_params_bb_nophasing_uniqvalues_mix,
     update_emission_params_nb_nophasing_uniqvalues,
     update_emission_params_nb_nophasing_uniqvalues_mix,
@@ -16,19 +15,12 @@ from cnaster.hmm_utils import (
     mylogsumexp,
     np_sum_ax_squeeze,
 )
-# from cnaster.deprecated.hmm_nophasing import compute_emission_probability_nb_betabinom
 from cnaster.hmm_emission_eval import compute_emissions
 from numba import njit
 from cnaster.config import start_time
 from cnaster.logger import get_logger
 
 logger = get_logger(__name__, start_time=start_time)
-
-"""
-Joint NB-BB HMM that accounts for tumor/normal genome proportions.
-Tumor genome proportion is weighted by mu in BB distribution.
-"""
-
 
 class hmm_nophasing:
     def __init__(self, params="stmp", t=1 - 1e-4):
@@ -79,7 +71,6 @@ class hmm_nophasing:
                         + 1
                         - tumor_prop[idx_nonzero_rdr, s]
                     )
-                    nb_std = np.sqrt(nb_mean + alphas[i, s] * nb_mean**2)
                     n, p = convert_params_disp(nb_mean, alphas[i, s])
                     log_emission_rdr[i, idx_nonzero_rdr, s] = scipy.stats.nbinom.logpmf(
                         X[idx_nonzero_rdr, 0, s], n, p
@@ -156,7 +147,6 @@ class hmm_nophasing:
             len(log_startprob) == n_states
         ), "Length of startprob_ must be equal to the first dimension of log_transmat!"
 
-        # initialize log_alpha
         log_alpha = np.zeros((log_emission.shape[0], n_obs))
         buf = np.zeros(log_emission.shape[0])
         cumlen = 0
@@ -494,11 +484,12 @@ class hmm_nophasing:
                     (
                         new_p_binom,
                         new_taus,
-                    ) = update_emission_params_bb_nophasing_uniqvalues(
+                    ) = update_emission_params_bb_nophasing_uniqvalues_mix(
                         unique_values_bb,
                         mapping_matrices_bb,
                         log_gamma,
                         taus,
+                        tumor_prop=None,
                         start_p_binom=p_binom,
                         fix_BB_dispersion=fix_BB_dispersion,
                         shared_BB_dispersion=shared_BB_dispersion,

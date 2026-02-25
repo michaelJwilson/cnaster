@@ -1515,9 +1515,9 @@ def update_emission_params_bb_sitewise_uniqvalues_mix(
     start_p_binom=None,
     fix_BB_dispersion=False,
     shared_BB_dispersion=False,
-    percent_threshold=0.99,
     min_binom_prob=0.01,
     max_binom_prob=0.99,
+    state_weight_threshold=0.0,
 ):
     """
     Attributes
@@ -1707,11 +1707,12 @@ def update_emission_params_bb_sitewise_uniqvalues_mix(
                         (i * 2 * len(idx_nonzero)) : ((i + 1) * 2 * len(idx_nonzero)), i
                     ] = 1
                 
+                # NEW
                 idx_state_posweight = np.array(
                     [
                         i
                         for i in range(this_features.shape[1])
-                        if np.sum(this_weights[this_features[:, i] == 1]) >= 0.1
+                        if np.sum(this_weights[this_features[:, i] == 1]) >= state_weight_threshold
                     ]
                 )
                 idx_row_posweight = np.concatenate(

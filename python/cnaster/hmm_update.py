@@ -1706,7 +1706,7 @@ def update_emission_params_bb_sitewise_uniqvalues_mix(
                     this_features[
                         (i * 2 * len(idx_nonzero)) : ((i + 1) * 2 * len(idx_nonzero)), i
                     ] = 1
-                # only optimize for states where at least 1 SNP belongs to
+                
                 idx_state_posweight = np.array(
                     [
                         i

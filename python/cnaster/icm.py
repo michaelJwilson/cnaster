@@ -303,7 +303,7 @@ def wolff_update(
 
     current_cost = assignment_cost[current_assignment]
 
-    # NB we look for the next best ...
+    # NB we look for the next 'best' ...
     assignment_cost[current_assignment] = -np.inf
 
     # NB Metropolis: if any assignment is lower, accept one randomly.

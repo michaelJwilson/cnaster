@@ -1821,10 +1821,12 @@ def update_emission_params_bb_nophasing_uniqvalues_mix(
         # NB accumulates posterior for all obs. to the posterior weights on the compressed space.
         tmp = (scipy.sparse.csr_matrix(gamma) @ mapping_matrices[s]).toarray()
 
+        # NB tile per state posterior weight for all obs. in this spot.
         this_weights = np.concatenate([tmp[i, idx_nonzero] for i in range(n_states)])
 
         # NB design matrix of one-hot encoding for each copy-number state for each observation (with sufficient exposure).
         this_features = np.zeros((n_states * len(idx_nonzero), n_states))
+        
         for i in np.arange(n_states):
             this_features[(i * len(idx_nonzero)) : ((i + 1) * len(idx_nonzero)), i] = 1
 

@@ -134,7 +134,7 @@ class hmm_nophasing:
     @staticmethod
     @njit
     def forward_lattice(
-        lengths, log_transmat, log_startprob, log_emission, log_sitewise_transmat
+        lengths, log_transmat, log_startprob, log_emission,
     ):
         """
         Note that n_states is the CNV states, and there are n_states of paired states for (CNV, phasing) pairs.
@@ -187,7 +187,7 @@ class hmm_nophasing:
     @staticmethod
     @njit
     def backward_lattice(
-        lengths, log_transmat, log_startprob, log_emission, log_sitewise_transmat
+        lengths, log_transmat, log_startprob, log_emission,
     ):
         """
         Note that n_states is the CNV states, and there are n_states of paired states for (CNV, phasing) pairs.
@@ -317,8 +317,9 @@ class hmm_nophasing:
                 f"----  Solving for Baum-Welch iteration {r}/{max_iter} with NegBin+BetaBin emission  -----"
             )
 
-            # E step
+            # E-step
             if tumor_prop is None:
+                # NB does not utilize unique_values.
                 (
                     log_emission_rdr,
                     log_emission_baf,

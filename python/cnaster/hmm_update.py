@@ -532,7 +532,7 @@ def update_emission_params_nb_nophasing_uniqvalues(
             features = scipy.linalg.block_diag(*features)
 
             model = Weighted_NegativeBinomial(
-                y, features, weights=weights, exposure=exposure
+                y, features, weights, exposure,
             )
 
             if config.nbinom.run_default:

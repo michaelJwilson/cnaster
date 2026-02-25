@@ -131,7 +131,9 @@ def calc_sparsity(csr_matrix):
 
 
 def construct_unique_matrix(obs_count, total_count):
-    n_obs, n_spots = obs_count.shape
+    n_obs = obs_count.shape[0]
+    n_spots = obs_count.shape[1]
+    
     decimals = get_global_config().hmm.compression_decimals
 
     unique_values, mapping_matrices = [], []

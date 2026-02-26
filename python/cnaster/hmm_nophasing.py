@@ -759,207 +759,119 @@ class hmm_nophasing:
         )
 
     def gibbs_minimize(
+        self,
         endog,
-        exog,
-        weights,
         exposure,
         nloglikeobs_func,
         bounds,
         options,
-        initial_params=None,
+        estep_func,
+        initial_params,
         log_space=False,
         batch_frac=0.95,
     ):
         """
-        Gibbs sampling-based minimization for em-derived emission parameters.
-
-        Algorithm:
-
-        1. Initialize all K state parameters to a single random draw from the empirical ratios (endog/exposure).
-        2. Iterate through each state k:
-        - Consider the empirical ratios for all N data points as potential updates for parameter k.
-        - Calculate the energy cost=nloglike of model if state k adopts the parameter implied by data point i.
-        - Sample new parameter for state k based on gibbs softmax prob. of exp(-energy_cost) normalized across all data points i.
-        - Calculate the new posteriors/weights with an e-step using the updated parameter for state k.
-        3. Update dispersion parameter after each Gibbs step (with learning rate).
-        4. Calculate the new posteriors/weights with an e-step using the updated dispersion for state k.
-        5. Repeat for max iterations or until convergence of parameters or cost.
-
-        where
-            endog: (N x K,) tiled array of observed counts, e.g. number of successes (BN) or counts (NB)
-            exposure: (N x K,) tiled array of exposures, e.g. number of trials (BN) or baseline count (NB).
-            exog: (N x K, K) one-hot encoded state indicator per datapoint.
-            weights: (N x K,) array of e.g. e-step derived posterior weights P(Q_zi = k | data, params).
+        Gibbs sampling-based minimization for emission parameters.
         """
         maxiter = int(options.get("maxiter", 100))
+        current_params = np.array(initial_params)
 
-        # NB extract endog and exposure without state tiling for empirical ratio calculation by taking the data for the
-        #    first state only
-        isin = np.where(exog[:, 0] == 1)[0]
+        weights = estep_func(current_params)
 
-        single_endog = endog[isin]
-        single_exposure = exposure[isin]
+        # NB weights is (len(endog), K)
+        num_states = weights.shape[1]
 
-        num_states = exog.shape[1]
-
-        # Calculate empirical parameters from data:
-        # For NB: log mu = log(endog / exposure)
-        # For BB: p = endog / exposure
         with np.errstate(divide="ignore", invalid="ignore"):
-            ratios = single_endog / single_exposure
+            ratios = endog / exposure
             valid_mask = (
-                (single_exposure > 0)
-                & (ratios > bounds[0][0])
-                & (ratios < bounds[0][1])
+                (exposure > 0) & (ratios > bounds[0][0]) & (ratios < bounds[0][1])
             )
+            candidates = np.log(ratios[valid_mask]) if log_space else ratios[valid_mask]
 
-        candidate_params = ratios[valid_mask]
-
-        if log_space:
-            candidate_params = np.log(ratios[valid_mask])
-
-        num_candidates = len(candidate_params)
-
-        logger.info(
-            f"Solved for {num_candidates} Gibbs candidate parameters:\n{np.unique(candidate_params)[:5]} ... {np.unique(candidate_params)[-5:]}"
-        )
-
-        logger.info(
-            f"Initialized with relative state weights:\n{np.sum(weights, axis=0) / np.sum(weights)}"
-        )
-
-        if initial_params is None:
-            # NB initial initialization for all K states.
-            current_state_params = [
-                np.random.choice(candidate_params, size=1)[0]
-            ] * num_states
-
-            # NB initial dispersion by sampling in log10 space of bounds
-            disp_candidate = np.logspace(
-                np.log10(bounds[-1][0]), np.log10(bounds[-1][1]), num=100
-            )
-
-            current_disp = [np.random.choice(disp_candidate)]
-
-            current_full_params = np.array(current_state_params + current_disp)
-        else:
-            current_full_params = np.array(initial_params)
-
-        # NB energy/cost to be minimized.
-        best_params = current_full_params.copy()
-        best_cost = -nloglikeobs_func(
-            endog,
-            exog,
-            weights,
-            exposure,
-            current_full_params,
-        )
-
-        logger.info(
-            f"Gibbs initial cost to be minimized={best_cost:.4e} @\n{best_params}"
-        )
+        num_candidates = len(candidates)
 
         batch_size = (
             int(num_candidates * batch_frac)
             if batch_frac is not None
             else num_candidates
         )
-        loss_history = []
 
-        # NB Each iteration corresponds to {Gibbs update for each state and a dispersion update}.
-        for _ in range(maxiter):
-            # NB potential updates for each of the state mean parameters.
+        best_cost = nloglikeobs_func(endog, weights, exposure, current_params)
+        best_params = current_params.copy()
+
+        logger.info(
+            f"{num_candidates} Gibbs candidates with range=({candidates.min():.4e}, {candidates.max():.4e})."
+        )
+        logger.info(
+            f"Initial cost={best_cost:.4e} and posterior weights:\n{['{:.3f}'.format(xx) for xx in weights.mean(axis=0)]}"
+        )
+
+        for it in range(maxiter):
             batch_indices = np.random.choice(num_candidates, batch_size, replace=False)
-            active_candidates = candidate_params[batch_indices]
+            active_candidates = candidates[batch_indices]
 
             for k in range(num_states):
-                # NB ensure current value is maintained.
-                sample_candidates = np.unique(
-                    np.concatenate([active_candidates, [current_full_params[k]]])
+                # NB include current value to ensure possibility of monotonicity
+                pool = np.unique(
+                    np.concatenate([active_candidates, [current_params[k]]])
                 )
-                log_probs, valid_candidates = [], []
 
-                for cand in sample_candidates:
-                    temp_params = current_full_params.copy()
+                log_probs, pool_vals = [], []
+
+                for cand in pool:
+                    temp_params = current_params.copy()
                     temp_params[k] = cand
 
-                    new_cost = -nloglikeobs_func(
-                        endog,
-                        exog,
-                        weights,
-                        exposure,
-                        temp_params,
-                    )
+                    cost = nloglikeobs_func(endog, weights, exposure, temp_params)
 
-                    log_probs.append(-new_cost)
-                    valid_candidates.append(cand)
+                    log_probs.append(-cost)
+                    pool_vals.append(cand)
 
+                # NB softmax sampling
                 log_probs = np.array(log_probs)
 
-                # NB softmax with numerical stability.
                 probs = np.exp(log_probs - np.max(log_probs))
                 probs /= np.sum(probs)
 
-                # NB update state mean with sampled candidate.
-                current_full_params[k] = np.random.choice(valid_candidates, p=probs)
-                """
-                # NB Optimize dispersion for current state configuration
-                dispersion_cost = lambda disp: -nloglikeobs_func(
-                    endog,
-                    exog,
-                    weights,
-                    exposure,
-                    np.concatenate([current_full_params[:-1], [disp]]),
-                )
+                old_param = current_params[k]
+                current_params[k] = np.random.choice(pool_vals, p=probs)
 
-                # NB constrained scalar minimization for dispersion
+                def dispersion_cost(disp):
+                    p = current_params.copy()
+
+                    # NB dispersions are not in log space.
+                    p[-1] = disp
+                    return nloglikeobs_func(endog, weights, exposure, p)
+                
                 res = scipy.optimize.minimize_scalar(
-                    dispersion_cost,
-                    bounds=(bounds[-1][0], bounds[-1][1]),
-                    method='bounded'
+                    dispersion_cost, bounds=bounds[-1], method="bounded"
                 )
 
                 if res.success:
-                    current_full_params[-1] = res.x
-                """
-                current_cost = -nloglikeobs_func(
-                    endog,
-                    exog,
-                    weights,
-                    exposure,
-                    current_full_params,
-                )
+                    current_params[-1] = res.x
+                
+                weights = estep_func(current_params)
 
-                loss_history.append(current_cost)
+                current_cost = nloglikeobs_func(
+                    endog, weights, exposure, current_params
+                )
 
                 logger.info(
-                    f"Gibbs sample generated new cost={current_cost:.4e} @\n{current_full_params}"
+                    f"Gibbs sample step for state {k}: {old_param:.4e} -> {current_params[k]:.4e} with new posterior weights=\n{['{:.3f}'.format(xx) for xx in weights.mean(axis=0)]}"
                 )
 
-                """            
+                # NB sample cost, may not be monotonically decreasing, i.e. not best cost.
+                logger.info(f"Gibbs iteration {it}: cost={current_cost:.4e}")
+
                 if current_cost < best_cost:
                     best_cost = current_cost
-                    best_params = current_full_params.copy()
-            
-                    logger.info(f"Gibbs minimization found new best cost={best_cost:.4e} @\n{best_params}")
-                """
-                """
-                # NB simple adaptive learning rate decay
-                if it > 0 and it % 10 == 0:
-                    learning_rate *= 0.99
-                """
+                    best_params = current_params.copy()
+
+                    logger.info(f"Found new best cost={current_cost:.4e} with best params=\n{best_params}")
 
         exit(0)
 
-        result = scipy.optimize.OptimizeResult(
-            x=best_params,
-            fun=-best_cost,
-            success=True,
-            nit=maxiter,
-            message="Gibbs sampling optimization terminated",
-        )
-
-        return result
+        return scipy.optimize.OptimizeResult(x=best_params, fun=best_cost, success=True)
 
     def run_baum_welch_nb_bb(
         self,
@@ -979,6 +891,198 @@ class hmm_nophasing:
         init_p_binom=None,
         init_alphas=None,
         init_taus=None,
+        max_iter=100,
+        tol=1e-4,
+        **kwargs,
+    ):
+        _, n_comp, n_spots = X.shape
+        assert n_spots == 1
+        assert n_comp == 2
+
+        (
+            log_mu,
+            p_binom,
+            alphas,
+            taus,
+            log_startprob,
+            log_transmat,
+        ) = self.initialize_params(
+            n_states,
+            n_spots,
+            init_log_mu,
+            init_p_binom,
+            init_alphas,
+            init_taus,
+        )
+
+        unique_vals_nb, maps_nb = construct_unique_matrix(X[:, 0, :], base_nb_mean)
+        unique_vals_bb, maps_bb = construct_unique_matrix(X[:, 1, :], total_bb_RD)
+
+        nb_mapper, bb_mapper = maps_nb[0], maps_bb[0]
+        nb_endog, nb_exp = unique_vals_nb[0][:, 0], unique_vals_nb[0][:, 1]
+        bb_endog, bb_exp = unique_vals_bb[0][:, 0], unique_vals_bb[0][:, 1]
+
+        optimize_nb = np.any(nb_exp > 0)
+
+        # NB compute log_emission for (n_states, unique n_obs) and broadcasts to (n_states, n_obs) with mapper.
+        def compute_log_emissions(c_log_mu, c_p_binom, c_alphas, c_taus):
+            idx_nz = nb_exp > 0
+            log_emit_rdr_uniq = np.zeros((n_states, len(nb_endog)))
+            if optimize_nb and np.any(idx_nz):
+                exog_dummy = np.ones((np.sum(idx_nz), 1))
+                w_dummy = np.ones(np.sum(idx_nz))
+
+                for i in range(n_states):
+                    log_emit_rdr_uniq[i, idx_nz] = -nloglikeobs_nb(
+                        nb_endog[idx_nz],
+                        exog_dummy,
+                        w_dummy,
+                        nb_exp[idx_nz],
+                        np.array([c_log_mu[i, 0], c_alphas[i, 0]]),
+                        reduce=False,
+                    )
+
+            log_emit_baf_uniq = np.zeros((n_states, len(bb_endog)))
+            exog_dummy = np.ones((len(bb_endog), 1))
+            w_dummy = np.ones(len(bb_endog))
+            for i in range(n_states):
+                log_emit_baf_uniq[i, :] = -nloglikeobs_bb(
+                    bb_endog,
+                    exog_dummy,
+                    w_dummy,
+                    bb_exp,
+                    np.array([c_p_binom[i, 0], c_taus[i, 0]]),
+                    reduce=False,
+                )
+
+            return (log_emit_rdr_uniq @ nb_mapper.T + log_emit_baf_uniq @ bb_mapper.T)[
+                :, :, np.newaxis
+            ]
+
+        def params_to_estep(curr_log_mu, curr_p_binom, curr_alphas, curr_taus):
+            log_emit = compute_log_emissions(
+                curr_log_mu, curr_p_binom, curr_alphas, curr_taus
+            )
+            return self.get_state_posteriors(
+                lengths, log_transmat, log_startprob, log_emit, log_sitewise_transmat
+            )
+
+        def solve_component(
+            endog, exp, mapper, init_p, bounds, is_log, nll_func, update_params_func
+        ):
+            def estep_adapter(p_flat):
+                curr_p = update_params_func(p_flat)
+                log_gamma = params_to_estep(*curr_p)
+
+                return (np.exp(log_gamma) @ mapper).T
+
+            def nll_adapter(endog, weights, exposure, p_flat):
+                state_params = p_flat[:-1]
+                disp_param = p_flat[-1] # Always natural scale now
+
+                total_nll = 0
+                exog_ones = np.ones((len(endog), 1))
+
+                for k in range(n_states):
+                    # For NB state_params are log_mu (is_log=True), for BB they are p (is_log=False)
+                    # disp_param is alpha or tau (natural scale)
+                    
+                    k_vec = np.array(
+                        [state_params[k], disp_param]
+                    )
+                    total_nll += nll_func(
+                        endog, exog_ones, weights[:, k], exposure, k_vec
+                    )
+                return total_nll
+
+            return self.gibbs_minimize(
+                endog,
+                exp,
+                nll_adapter,
+                bounds,
+                kwargs,
+                estep_adapter,
+                init_p,
+                log_space=is_log,
+            )
+
+        if optimize_nb:
+            logger.info("max_gibbs: optimizing nb...")
+
+            def update_nb_params(p_flat):
+                # p_flat -> (log_mu, p_binom, alphas, taus)
+                new_mus = p_flat[:-1].reshape(n_states, 1)
+                new_alphas = np.full((n_states, 1), p_flat[-1]) # p_flat[-1] is alpha
+                return new_mus, p_binom, new_alphas, taus
+
+            # Pass natural alpha
+            init_nb = np.concatenate([log_mu.flatten(), [alphas.flatten()[0]]])
+            res_nb = solve_component(
+                nb_endog,
+                nb_exp,
+                nb_mapper,
+                init_nb,
+                (
+                    [(-10, 10), (1e-4, 100)]
+                    if fix_NB_dispersion
+                    else [(-10, 10), (1e-4, 100)]
+                ),
+                True, # is_log refers to mu only
+                nloglikeobs_nb,
+                update_nb_params,
+            )
+
+            log_mu, _, alphas, _ = update_nb_params(res_nb.x)
+
+        logger.info("max_gibbs: optimizing bb ...")
+
+        def update_bb_params(p_flat):
+            new_ps = p_flat[:-1].reshape(n_states, 1)
+
+            # NB dispersions are not in log space.
+            new_taus = np.full((n_states, 1), p_flat[-1])
+            return log_mu, new_ps, alphas, new_taus
+
+        # Pass natural tau
+        init_bb = np.concatenate([p_binom.flatten(), [taus.flatten()[0]]])
+        res_bb = solve_component(
+            bb_endog,
+            bb_exp,
+            bb_mapper,
+            init_bb,
+            [(0.01, 0.99), (1, 1000)],
+            False,
+            nloglikeobs_bb,
+            update_bb_params,
+        )
+
+        _, p_binom, _, taus = update_bb_params(res_bb.x)
+        log_gamma = params_to_estep(log_mu, p_binom, alphas, taus)
+
+        exit(0)
+
+        return log_mu, alphas, p_binom, taus, log_startprob, log_transmat, log_gamma
+
+    def run_maxlike_nb_bb(
+        self,
+        X,
+        lengths,
+        n_states,
+        base_nb_mean,
+        total_bb_RD,
+        log_sitewise_transmat=None,
+        tumor_prop=None,
+        fix_NB_dispersion=False,
+        shared_NB_dispersion=False,
+        fix_BB_dispersion=False,
+        shared_BB_dispersion=False,
+        is_diag=False,
+        init_log_mu=None,
+        init_p_binom=None,
+        init_alphas=None,
+        init_taus=None,
+        max_iter=100,
+        tol=1e-4,
         **kwargs,
     ):
         """
@@ -1040,10 +1144,8 @@ class hmm_nophasing:
             log_emit_rdr_uniq = np.zeros((n_states, len(nb_endog)))
             log_emit_baf_uniq = np.zeros((n_states, len(bb_endog)))
 
-            # NB pure emission factor with each state separately.
             exog_nb = np.ones((len(nb_endog), 1))
             weights_nb = np.ones(len(nb_endog))
-
             exog_bb = np.ones((len(bb_endog), 1))
             weights_bb = np.ones(len(bb_endog))
 
@@ -1069,14 +1171,9 @@ class hmm_nophasing:
                     reduce=False,
                 )
 
-            # NB map back to obs space with matrix multiplication by mapping_matrices.
             log_emit_rdr = log_emit_rdr_uniq @ nb_mapper.T
             log_emit_baf = log_emit_baf_uniq @ bb_mapper.T
-
-            log_emission = log_emit_rdr + log_emit_baf
-            log_emission = log_emission[:, :, np.newaxis]
-
-            return log_emission
+            return log_emit_rdr + log_emit_baf
 
         def nll_forward(params):
             this_log_mu, this_p_binom, this_alphas, this_taus = self.unpack_params(

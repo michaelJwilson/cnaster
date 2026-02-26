@@ -1,5 +1,7 @@
 import numpy as np
 import scipy.special
+import scipy.optimize
+import time
 from cnaster.hmm_update import (
     update_emission_params_bb_nophasing_uniqvalues_mix,
     update_emission_params_nb_nophasing_uniqvalues,
@@ -16,11 +18,13 @@ from cnaster.hmm_utils import (
     np_sum_ax_squeeze,
 )
 from cnaster.hmm_emission_eval import compute_emissions
+from cnaster.hmm_emission import nloglikeobs_nb, nloglikeobs_bb
 from numba import njit
 from cnaster.config import start_time
 from cnaster.logger import get_logger
 
 logger = get_logger(__name__, start_time=start_time)
+
 
 class hmm_nophasing:
     def __init__(self, params="stmp", t=1 - 1e-4):
@@ -123,7 +127,11 @@ class hmm_nophasing:
     @staticmethod
     @njit
     def forward_lattice(
-        lengths, log_transmat, log_startprob, log_emission, log_sitewise_transmat,
+        lengths,
+        log_transmat,
+        log_startprob,
+        log_emission,
+        log_sitewise_transmat,
     ):
         """
         Note that n_states is the CNV states, and there are n_states of paired states for (CNV, phasing) pairs.
@@ -174,7 +182,11 @@ class hmm_nophasing:
     @staticmethod
     @njit
     def backward_lattice(
-        lengths, log_transmat, log_startprob, log_emission, log_sitewise_transmat,
+        lengths,
+        log_transmat,
+        log_startprob,
+        log_emission,
+        log_sitewise_transmat,
     ):
         """
         Note that n_states is the CNV states, and there are n_states of paired states for (CNV, phasing) pairs.
@@ -214,8 +226,10 @@ class hmm_nophasing:
                     log_beta[i, (cumlen + t)] = mylogsumexp(buf)
             cumlen += le
         return log_beta
-    
-    def get_state_posteriors(self, lengths, log_transmat, log_startprob, log_emission, log_sitewise_transmat):
+
+    def get_state_posteriors(
+        self, lengths, log_transmat, log_startprob, log_emission, log_sitewise_transmat
+    ):
         log_alpha = self.forward_lattice(
             lengths,
             log_transmat,
@@ -234,8 +248,10 @@ class hmm_nophasing:
 
         # NB log_gamma (n_states * n_observations), potentially concatenated by clone.
         return compute_posterior_obs(log_alpha, log_beta)
-    
-    def get_transition_posteriors(self, lengths, log_transmat, log_startprob, log_emission, log_sitewise_transmat):
+
+    def get_transition_posteriors(
+        self, lengths, log_transmat, log_startprob, log_emission, log_sitewise_transmat
+    ):
         log_alpha = self.forward_lattice(
             lengths,
             log_transmat,
@@ -253,9 +269,13 @@ class hmm_nophasing:
         )
 
         return compute_posterior_transition_nophasing(
-            log_alpha, log_beta, log_transmat, log_emission,
+            log_alpha,
+            log_beta,
+            log_transmat,
+            log_emission,
         )
 
+    """
     def run_baum_welch_nb_bb(
         self,
         X,
@@ -278,16 +298,6 @@ class hmm_nophasing:
         tol=1e-4,
         **kwargs,
     ):
-        """
-        Input
-            X: size n_observations * n_components * n_spots.
-            lengths: sum of lengths = n_observations.
-            base_nb_mean: size of n_observations * n_spots.
-            In NB-BetaBinom model, n_components = 2
-        Intermediate
-            log_mu: size of n_states. Log of mean/exposure/base_prob of each HMM state.
-            alpha: size of n_states. Dispersioon parameter of each HMM state.
-        """
         _, n_comp, n_spots = X.shape
 
         # NB TODO code treats spot axis as iid emission.
@@ -338,7 +348,9 @@ class hmm_nophasing:
             X[:, 1, :], total_bb_RD
         )
 
-        logger.info("Constructed BB/NB compression in (X[:, 1, :], total_bb_RD) and (X[:, 0, :], base_nb_mean).")
+        logger.info(
+            "Constructed BB/NB compression in (X[:, 1, :], total_bb_RD) and (X[:, 0, :], base_nb_mean)."
+        )
 
         for r in range(max_iter):
             logger.info(
@@ -419,13 +431,21 @@ class hmm_nophasing:
             log_emission = log_emission_rdr + log_emission_baf
 
             # NB e-step ... log_gamma (n_states * n_observations), potentially concatenated by clone.
-            log_gamma = self.get_state_posteriors(lengths, log_transmat, log_startprob, log_emission, log_sitewise_transmat)
+            log_gamma = self.get_state_posteriors(
+                lengths,
+                log_transmat,
+                log_startprob,
+                log_emission,
+                log_sitewise_transmat,
+            )
 
             contracted_log_gamma = np.sum(np.exp(log_gamma), axis=1) / np.sum(
                 np.exp(log_gamma)
             )
 
-            logger.info(f"State posterior breakdown:\n{[xx for xx in contracted_log_gamma]}")
+            logger.info(
+                f"State posterior breakdown:\n{[xx for xx in contracted_log_gamma]}"
+            )
 
             # HACK MAGIC TODO
             if contracted_log_gamma.min() < 1.0e-6:
@@ -436,12 +456,20 @@ class hmm_nophasing:
                 new_log_startprob = update_startprob_nophasing(lengths, log_gamma)
                 new_log_startprob = new_log_startprob.flatten()
 
-                logger.info(f"Updated HMM start probability=\n{[xx for xx in new_log_startprob]}")
+                logger.info(
+                    f"Updated HMM start probability=\n{[xx for xx in new_log_startprob]}"
+                )
             else:
                 new_log_startprob = log_startprob
 
             if "t" in self.params:
-                log_xi = self.get_transition_posteriors(lengths, log_transmat, log_startprob, log_emission, log_sitewise_transmat)
+                log_xi = self.get_transition_posteriors(
+                    lengths,
+                    log_transmat,
+                    log_startprob,
+                    log_emission,
+                    log_sitewise_transmat,
+                )
                 new_log_transmat = update_transition_nophasing(log_xi, is_diag=is_diag)
             else:
                 new_log_transmat = log_transmat
@@ -573,13 +601,12 @@ class hmm_nophasing:
             log_mu_converged = (
                 np.mean(np.abs(np.exp(new_log_mu) - np.exp(log_mu))) < tol
             )
-            """
+
             # TODO
-            mu_stds = np.sqrt(np.exp(new_log_mu) + alphas * np.exp(new_log_mu)**2)
-            log_mu_converged = (                                                                                                                                                                                                                                           
-                np.all(np.abs(np.exp(new_log_mu) - np.exp(log_mu)) < mu_stds / 5.)                                                                                                                                                                                     
-            )
-            """
+            # mu_stds = np.sqrt(np.exp(new_log_mu) + alphas * np.exp(new_log_mu)**2)
+            # log_mu_converged = (                                                                                                                                                                                                                                           
+            #    np.all(np.abs(np.exp(new_log_mu) - np.exp(log_mu)) < mu_stds / 5.)                                                                                                                                                                                     
+            #)
 
             p_binom_converged = np.mean(np.abs(new_p_binom - p_binom)) < tol
 
@@ -598,7 +625,7 @@ class hmm_nophasing:
             taus = new_taus
         else:
             logger.warning(f"hmm_nophasing failed to converge.")
-            
+
         return (
             new_log_mu,
             new_alphas,
@@ -606,5 +633,287 @@ class hmm_nophasing:
             new_taus,
             new_log_startprob,
             new_log_transmat,
+            log_gamma,
+        )
+    """
+    def run_baum_welch_nb_bb(
+        self,
+        X,
+        lengths,
+        n_states,
+        base_nb_mean,
+        total_bb_RD,
+        log_sitewise_transmat=None,
+        tumor_prop=None,
+        fix_NB_dispersion=False,
+        shared_NB_dispersion=False,
+        fix_BB_dispersion=False,
+        shared_BB_dispersion=False,
+        is_diag=False,
+        init_log_mu=None,
+        init_p_binom=None,
+        init_alphas=None,
+        init_taus=None,
+        **kwargs,
+    ):
+        """
+        Maximizes likelihood using scipy.optimize.minimize on the negative log-likelihood
+        calculated via a forward pass. Parameters are flattened for the optimizer.
+        """
+        _, n_comp, n_spots = X.shape
+        assert n_spots == 1
+        assert n_comp == 2
+
+        # Initialize parameters
+        log_mu = (
+            np.vstack([np.linspace(-0.1, 0.1, n_states) for r in range(n_spots)]).T
+            if init_log_mu is None
+            else init_log_mu
+        )
+        p_binom = (
+            np.vstack([np.linspace(0.05, 0.45, n_states) for r in range(n_spots)]).T
+            if init_p_binom is None
+            else init_p_binom
+        )
+        alphas = (
+            0.1 * np.ones((n_states, n_spots)) if init_alphas is None else init_alphas
+        )
+        taus = 30 * np.ones((n_states, n_spots)) if init_taus is None else init_taus
+
+        # Transition probabilities
+        log_startprob = np.log(np.ones(n_states) / n_states)
+        if n_states > 1:
+            transmat = np.ones((n_states, n_states)) * (1.0 - self.t) / (n_states - 1)
+            np.fill_diagonal(transmat, self.t)
+            log_transmat = np.log(transmat)
+        else:
+            log_transmat = np.zeros((1, 1))
+
+        # Setup Unique matrices for fast emission calculation
+        unique_values_nb, mapping_matrices_nb = construct_unique_matrix(
+            X[:, 0, :], base_nb_mean
+        )
+        unique_values_bb, mapping_matrices_bb = construct_unique_matrix(
+            X[:, 1, :], total_bb_RD
+        )
+
+        # Prepare unique mapping broadcasting
+        u_nb_val = unique_values_nb[0]  # (n_uniq_nb, 2)
+        u_nb_map = mapping_matrices_nb[0]  # (n_obs, n_uniq_nb)
+
+        u_bb_val = unique_values_bb[0]  # (n_uniq_bb, 2)
+        u_bb_map = mapping_matrices_bb[0]  # (n_obs, n_uniq_bb)
+
+        # Pre-fetch columns for vectorization
+        uniq_nb_obs = u_nb_val[:, 0]
+        uniq_nb_mean = u_nb_val[:, 1]
+
+        uniq_bb_alt = u_bb_val[:, 0]
+        uniq_bb_depth = u_bb_val[:, 1]
+
+        # Determine if NB parameters should be optimized (is there any signal?)
+        optimize_nb = np.any(uniq_nb_mean > 0)
+
+        # Construct initial parameter vector based on flags
+        params_list = []
+        if optimize_nb:
+            params_list.append(log_mu.flatten())
+        params_list.append(p_binom.flatten())
+
+        if optimize_nb and not fix_NB_dispersion:
+            if shared_NB_dispersion:
+                # optimize one alpha for all states
+                params_list.append(np.log(alphas[0, :].flatten()))
+            else:
+                # optimize separate alpha for each state
+                params_list.append(np.log(alphas.flatten()))
+
+        if not fix_BB_dispersion:
+            if shared_BB_dispersion:
+                # optimize one tau for all states
+                params_list.append(np.log(taus[0, :].flatten()))
+            else:
+                # optimize separate tau for each state
+                params_list.append(np.log(taus.flatten()))
+
+        x0 = np.concatenate(params_list)
+
+        def unpack_params(x):
+            idx = 0
+            if optimize_nb:
+                curr_log_mu = x[idx : idx + n_states].reshape(n_states, 1)
+                idx += n_states
+            else:
+                curr_log_mu = log_mu  # Constant from init
+
+            curr_p_binom = x[idx : idx + n_states].reshape(n_states, 1)
+            curr_p_binom = np.clip(curr_p_binom, 1e-6, 1 - 1e-6)
+            idx += n_states
+
+            if not optimize_nb or fix_NB_dispersion:
+                curr_alphas = alphas
+            elif shared_NB_dispersion:
+                val = np.exp(x[idx])
+                curr_alphas = np.full((n_states, 1), val)
+                idx += 1
+            else:
+                curr_alphas = np.exp(x[idx : idx + n_states]).reshape(n_states, 1)
+                idx += n_states
+
+            if fix_BB_dispersion:
+                curr_taus = taus
+            elif shared_BB_dispersion:
+                val = np.exp(x[idx])
+                curr_taus = np.full((n_states, 1), val)
+                idx += 1
+            else:
+                curr_taus = np.exp(x[idx : idx + n_states]).reshape(n_states, 1)
+                idx += n_states
+
+            return curr_log_mu, curr_p_binom, curr_alphas, curr_taus
+
+        def objective(x):
+            c_log_mu, c_p_binom, c_alphas, c_taus = unpack_params(x)
+
+            n_uniq_nb = len(uniq_nb_obs)
+            n_uniq_bb = len(uniq_bb_alt)
+
+            log_emit_rdr_uniq = np.zeros((n_states, n_uniq_nb))
+            log_emit_baf_uniq = np.zeros((n_states, n_uniq_bb))
+
+            exog_nb = np.ones((n_uniq_nb, 1))
+            weights_nb = np.ones(n_uniq_nb)
+
+            exog_bb = np.ones((n_uniq_bb, 1))
+            weights_bb = np.ones(n_uniq_bb)
+
+            idx_nonzero_mean = uniq_nb_mean > 0
+
+            for i in range(n_states):
+                if np.any(idx_nonzero_mean):
+                    log_emit_rdr_uniq[i, idx_nonzero_mean] = -nloglikeobs_nb(
+                        uniq_nb_obs[idx_nonzero_mean],
+                        exog_nb[idx_nonzero_mean],
+                        weights_nb[idx_nonzero_mean],
+                        uniq_nb_mean[idx_nonzero_mean],
+                        np.array([c_log_mu[i, 0], c_alphas[i, 0]]),
+                        reduce=False,
+                    )
+
+                log_emit_baf_uniq[i, :] = -nloglikeobs_bb(
+                    uniq_bb_alt, 
+                    exog_bb, 
+                    weights_bb, 
+                    uniq_bb_depth, 
+                    np.array([c_p_binom[i, 0], c_taus[i, 0]]), 
+                    reduce=False
+                )
+
+            log_emit_rdr = log_emit_rdr_uniq @ u_nb_map.T
+            log_emit_baf = log_emit_baf_uniq @ u_bb_map.T
+
+            log_emission = log_emit_rdr + log_emit_baf
+            log_emission = log_emission[:, :, np.newaxis]
+
+            log_alpha = self.forward_lattice(
+                lengths,
+                log_transmat,
+                log_startprob,
+                log_emission,
+                log_sitewise_transmat,
+            )
+
+            total_ll = 0
+            curr = 0
+
+            for le in lengths:
+                total_ll += mylogsumexp(log_alpha[:, curr + le - 1])
+                curr += le
+
+            return -total_ll
+
+        start_time_opt = time.time()
+        logger.info(
+            f"maxlike_nb_bb (n_states={n_states}, X.shape={X.shape}), initial nloglike={objective(x0):.6e} @ start_params:\n{[f'{xx:.3f}' for xx in x0]}"
+        )
+
+        res = scipy.optimize.minimize(
+            objective,
+            x0,
+            method="BFGS",
+            options={"disp": False, "maxiter": kwargs.get("max_iter", 1_000)},
+        )
+
+        end_time_opt = time.time()
+        runtime = end_time_opt - start_time_opt
+
+        logger.info(
+            f"maxLike_nb_bb done: {runtime:.2f}s with BFGS\nX_shape={X.shape},\n"
+            f"{len(x0)} params,\n"
+            f"{res.nit} iter,\n"
+            f"{res.nfev} fcalls,\n"
+            f"converged: {res.success},\n"
+            f"message: {res.message},\n"
+            f"nllf: {res.fun:.6e}\n"
+            f"params:\n{[f'{float(xx):.3f}' for xx in res.x]}"
+        )
+
+        final_log_mu, final_p_binom, final_alphas, final_taus = unpack_params(res.x)
+
+        log_emit_rdr_uniq = np.zeros((n_states, len(uniq_nb_obs)))
+        log_emit_baf_uniq = np.zeros((n_states, len(uniq_bb_alt)))
+
+        n_uniq_nb = len(uniq_nb_obs)
+        n_uniq_bb = len(uniq_bb_alt)
+
+        exog_nb = np.ones((n_uniq_nb, 1))
+        weights_nb = np.ones(n_uniq_nb)
+        exog_bb = np.ones((n_uniq_bb, 1))
+        weights_bb = np.ones(n_uniq_bb)
+
+        idx_nonzero_mean = uniq_nb_mean > 0
+
+        for i in range(n_states):
+            if np.any(idx_nonzero_mean):
+                log_emit_rdr_uniq[i, idx_nonzero_mean] = -nloglikeobs_nb(
+                    uniq_nb_obs[idx_nonzero_mean],
+                    exog_nb[idx_nonzero_mean],
+                    weights_nb[idx_nonzero_mean],
+                    uniq_nb_mean[idx_nonzero_mean],
+                    np.array([final_log_mu[i, 0], final_alphas[i, 0]]),
+                    reduce=False,
+                )
+
+            log_emit_baf_uniq[i, :] = -nloglikeobs_bb(
+                uniq_bb_alt, 
+                exog_bb, 
+                weights_bb, 
+                uniq_bb_depth, 
+                np.array([final_p_binom[i, 0], final_taus[i, 0]]), 
+                reduce=False
+            )
+
+        log_emit_rdr = log_emit_rdr_uniq @ u_nb_map.T
+        log_emit_baf = log_emit_baf_uniq @ u_bb_map.T
+        log_emission = (log_emit_rdr + log_emit_baf)[:, :, np.newaxis]
+
+        log_gamma = self.get_state_posteriors(
+            lengths, log_transmat, log_startprob, log_emission, log_sitewise_transmat
+        )
+
+        try:
+            hess_inv = res.hess_inv
+            param_errors = np.sqrt(np.diag(hess_inv))
+        except Exception as e:
+            logger.warning(f"Could not compute parameter errors from Hessian: {e}")
+            param_errors = np.zeros_like(x0)
+
+        return (
+            final_log_mu,
+            final_alphas,
+            final_p_binom,
+            final_taus,
+            log_startprob,
+            log_transmat,
             log_gamma,
         )

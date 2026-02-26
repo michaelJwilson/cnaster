@@ -372,11 +372,6 @@ def wolff_sweep(
     log_persample_weights=None,
     sample_ids=None,
 ):
-    """
-    logger.info(
-        f"Completing an ICM sweep for unary likelihood of shape {single_llf.shape} and spatial weight {spatial_weight}."
-    )
-    """
     original_assignment = new_assignment.copy()
 
     cost_zeropoint = calc_assignment_cost(

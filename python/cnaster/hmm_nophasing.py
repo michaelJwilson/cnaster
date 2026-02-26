@@ -774,7 +774,12 @@ class hmm_nophasing:
         Gibbs sampling-based minimization for emission parameters.
         """
         maxiter = int(options.get("maxiter", 100))
-        current_params = np.array(initial_params)
+
+        # TODO HACK
+        # current_params = np.array(initial_params)
+        current_params = np.array(
+            [0.199, 0.080, 0.454, 0.688, 0.450, 0.317, 0.157, 10.101]
+        )
 
         weights = estep_func(current_params)
 
@@ -803,8 +808,11 @@ class hmm_nophasing:
             f"{num_candidates} Gibbs candidates with range=({candidates.min():.4e}, {candidates.max():.4e})."
         )
         logger.info(
-            f"Initial cost={best_cost:.4e} and posterior weights:\n{['{:.3f}'.format(xx) for xx in weights.mean(axis=0)]}"
+            f"Initial cost={best_cost:.4e} for params and posterior weights:\n{['{:.3f}'.format(xx) for xx in current_params]}\n{['{:.3f}'.format(xx) for xx in weights.mean(axis=0)]}"
         )
+
+
+
 
         for it in range(maxiter):
             batch_indices = np.random.choice(num_candidates, batch_size, replace=False)
@@ -834,22 +842,24 @@ class hmm_nophasing:
                 probs /= np.sum(probs)
 
                 old_param = current_params[k]
-                current_params[k] = np.random.choice(pool_vals, p=probs)
+                # current_params[k] = np.random.choice(pool_vals, p=probs)
 
                 def dispersion_cost(disp):
-                    p = current_params.copy()
-
                     # NB dispersions are not in log space.
+                    p = current_params.copy()
                     p[-1] = disp
                     return nloglikeobs_func(endog, weights, exposure, p)
-                
+
                 res = scipy.optimize.minimize_scalar(
                     dispersion_cost, bounds=bounds[-1], method="bounded"
                 )
 
                 if res.success:
                     current_params[-1] = res.x
-                
+
+                print(res)
+                exit(0)
+
                 weights = estep_func(current_params)
 
                 current_cost = nloglikeobs_func(
@@ -867,7 +877,9 @@ class hmm_nophasing:
                     best_cost = current_cost
                     best_params = current_params.copy()
 
-                    logger.info(f"Found new best cost={current_cost:.4e} with best params=\n{best_params}")
+                    logger.info(
+                        f"Found new best cost={current_cost:.4e} with best params=\n{best_params}"
+                    )
 
         exit(0)
 
@@ -955,9 +967,9 @@ class hmm_nophasing:
                     reduce=False,
                 )
 
-            return (log_emit_rdr_uniq @ nb_mapper.T + log_emit_baf_uniq @ bb_mapper.T)[
-                :, :, np.newaxis
-            ]
+            log_emit_rdr = log_emit_rdr_uniq @ nb_mapper.T
+            log_emit_baf = log_emit_baf_uniq @ bb_mapper.T
+            return (log_emit_rdr + log_emit_baf)[:, :, np.newaxis]
 
         def params_to_estep(curr_log_mu, curr_p_binom, curr_alphas, curr_taus):
             log_emit = compute_log_emissions(
@@ -978,7 +990,7 @@ class hmm_nophasing:
 
             def nll_adapter(endog, weights, exposure, p_flat):
                 state_params = p_flat[:-1]
-                disp_param = p_flat[-1] # Always natural scale now
+                disp_param = p_flat[-1]  # Always natural scale now
 
                 total_nll = 0
                 exog_ones = np.ones((len(endog), 1))
@@ -986,10 +998,8 @@ class hmm_nophasing:
                 for k in range(n_states):
                     # For NB state_params are log_mu (is_log=True), for BB they are p (is_log=False)
                     # disp_param is alpha or tau (natural scale)
-                    
-                    k_vec = np.array(
-                        [state_params[k], disp_param]
-                    )
+
+                    k_vec = np.array([state_params[k], disp_param])
                     total_nll += nll_func(
                         endog, exog_ones, weights[:, k], exposure, k_vec
                     )
@@ -1012,7 +1022,7 @@ class hmm_nophasing:
             def update_nb_params(p_flat):
                 # p_flat -> (log_mu, p_binom, alphas, taus)
                 new_mus = p_flat[:-1].reshape(n_states, 1)
-                new_alphas = np.full((n_states, 1), p_flat[-1]) # p_flat[-1] is alpha
+                new_alphas = np.full((n_states, 1), p_flat[-1])  # p_flat[-1] is alpha
                 return new_mus, p_binom, new_alphas, taus
 
             # Pass natural alpha
@@ -1027,7 +1037,7 @@ class hmm_nophasing:
                     if fix_NB_dispersion
                     else [(-10, 10), (1e-4, 100)]
                 ),
-                True, # is_log refers to mu only
+                True,  # is_log refers to mu only
                 nloglikeobs_nb,
                 update_nb_params,
             )
@@ -1050,7 +1060,7 @@ class hmm_nophasing:
             bb_exp,
             bb_mapper,
             init_bb,
-            [(0.01, 0.99), (1, 1000)],
+            [(0.01, 0.99), (1, 1_000)],
             False,
             nloglikeobs_bb,
             update_bb_params,
@@ -1063,7 +1073,7 @@ class hmm_nophasing:
 
         return log_mu, alphas, p_binom, taus, log_startprob, log_transmat, log_gamma
 
-    def run_maxlike_nb_bb(
+    def run_max_like_nb_bb(
         self,
         X,
         lengths,
@@ -1173,7 +1183,7 @@ class hmm_nophasing:
 
             log_emit_rdr = log_emit_rdr_uniq @ nb_mapper.T
             log_emit_baf = log_emit_baf_uniq @ bb_mapper.T
-            return log_emit_rdr + log_emit_baf
+            return (log_emit_rdr + log_emit_baf)[:, :, np.newaxis]
 
         def nll_forward(params):
             this_log_mu, this_p_binom, this_alphas, this_taus = self.unpack_params(
@@ -1285,6 +1295,8 @@ class hmm_nophasing:
             )
 
             logger.info(f"Parameter estimates:\n{formatted_params_str}")
+
+        exit(0)
 
         return (
             final_log_mu,

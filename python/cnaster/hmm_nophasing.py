@@ -636,7 +636,7 @@ class hmm_nophasing:
             log_gamma,
         )
     """
-    def run_baum_welch_nb_bb(
+    def run_maxlike_nb_bb(
         self,
         X,
         lengths,
@@ -664,7 +664,6 @@ class hmm_nophasing:
         assert n_spots == 1
         assert n_comp == 2
 
-        # Initialize parameters
         log_mu = (
             np.vstack([np.linspace(-0.1, 0.1, n_states) for r in range(n_spots)]).T
             if init_log_mu is None
@@ -680,7 +679,6 @@ class hmm_nophasing:
         )
         taus = 30 * np.ones((n_states, n_spots)) if init_taus is None else init_taus
 
-        # Transition probabilities
         log_startprob = np.log(np.ones(n_states) / n_states)
         if n_states > 1:
             transmat = np.ones((n_states, n_states)) * (1.0 - self.t) / (n_states - 1)
@@ -689,7 +687,6 @@ class hmm_nophasing:
         else:
             log_transmat = np.zeros((1, 1))
 
-        # Setup Unique matrices for fast emission calculation
         unique_values_nb, mapping_matrices_nb = construct_unique_matrix(
             X[:, 0, :], base_nb_mean
         )
@@ -697,24 +694,20 @@ class hmm_nophasing:
             X[:, 1, :], total_bb_RD
         )
 
-        # Prepare unique mapping broadcasting
-        u_nb_val = unique_values_nb[0]  # (n_uniq_nb, 2)
-        u_nb_map = mapping_matrices_nb[0]  # (n_obs, n_uniq_nb)
+        u_nb_val = unique_values_nb[0]  
+        u_nb_map = mapping_matrices_nb[0]
 
-        u_bb_val = unique_values_bb[0]  # (n_uniq_bb, 2)
-        u_bb_map = mapping_matrices_bb[0]  # (n_obs, n_uniq_bb)
+        u_bb_val = unique_values_bb[0]
+        u_bb_map = mapping_matrices_bb[0]
 
-        # Pre-fetch columns for vectorization
         uniq_nb_obs = u_nb_val[:, 0]
         uniq_nb_mean = u_nb_val[:, 1]
 
         uniq_bb_alt = u_bb_val[:, 0]
         uniq_bb_depth = u_bb_val[:, 1]
 
-        # Determine if NB parameters should be optimized (is there any signal?)
         optimize_nb = np.any(uniq_nb_mean > 0)
 
-        # Construct initial parameter vector based on flags
         params_list = []
         if optimize_nb:
             params_list.append(log_mu.flatten())
@@ -722,18 +715,14 @@ class hmm_nophasing:
 
         if optimize_nb and not fix_NB_dispersion:
             if shared_NB_dispersion:
-                # optimize one alpha for all states
                 params_list.append(np.log(alphas[0, :].flatten()))
             else:
-                # optimize separate alpha for each state
                 params_list.append(np.log(alphas.flatten()))
 
         if not fix_BB_dispersion:
             if shared_BB_dispersion:
-                # optimize one tau for all states
                 params_list.append(np.log(taus[0, :].flatten()))
             else:
-                # optimize separate tau for each state
                 params_list.append(np.log(taus.flatten()))
 
         x0 = np.concatenate(params_list)
@@ -744,7 +733,7 @@ class hmm_nophasing:
                 curr_log_mu = x[idx : idx + n_states].reshape(n_states, 1)
                 idx += n_states
             else:
-                curr_log_mu = log_mu  # Constant from init
+                curr_log_mu = log_mu
 
             curr_p_binom = x[idx : idx + n_states].reshape(n_states, 1)
             curr_p_binom = np.clip(curr_p_binom, 1e-6, 1 - 1e-6)

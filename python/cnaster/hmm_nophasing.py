@@ -891,16 +891,17 @@ class hmm_nophasing:
         )
 
         try:
+            # NB marginalized errors per parameter as per eqn. (20) of Heavens, 
+            #    see https://arxiv.org/pdf/0906.0664
+            #
             hess_inv = res.hess_inv
-            param_errors = np.sqrt(np.diag(hess_inv))
+            errs = 2. * np.sqrt(np.diag(hess_inv))
 
-            # Avoid division by zero for error percentage calculation
             safe_x = np.where(np.abs(res.x) < 1e-9, 1e-9, res.x)
-            frac_errors_pct = (param_errors / np.abs(safe_x)) * 100
-
+            frac_errors_pct = (errs / np.abs(safe_x)) * 100
             formatted_params_str = "\n".join([
-                f"{float(val):8.3f} +/- {float(err):8.3f} ({float(pct):5.1f}%)"
-                for val, err, pct in zip(res.x, param_errors, frac_errors_pct)
+                f"{float(val):8.3f} +/- {float(err):8.3f} (95% confidence, {float(pct):5.1f}% frac. error)"
+                for val, err, pct in zip(res.x, errs, frac_errors_pct)
             ])
 
             logger.info(f"Parameter estimates:\n{formatted_params_str}")
@@ -909,7 +910,7 @@ class hmm_nophasing:
 
         except Exception as e:
             logger.warning(f"Could not compute parameter errors from Hessian: {e}")
-            param_errors = None
+            errs = None
 
         return (
             final_log_mu,

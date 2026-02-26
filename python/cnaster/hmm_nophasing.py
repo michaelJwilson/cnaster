@@ -329,16 +329,20 @@ class hmm_nophasing:
         shared_NB_dispersion=False,
         fix_BB_dispersion=False,
         shared_BB_dispersion=False,
+        use_logit=True,  # Add use_logit flag
     ):
         """Flatten parameters into single optimization vector."""
         params_list = []
         if optimize_nb:
             params_list.append(log_mu.flatten())
-        params_list.append(p_binom.flatten())
+        # Use logit parameterization for p_binom if use_logit is True
+        if use_logit:
+            params_list.append(scipy.special.logit(p_binom.flatten()))
+        else:
+            params_list.append(p_binom.flatten())
 
         if optimize_nb and not fix_NB_dispersion:
             if shared_NB_dispersion:
-                # Take the first element if shared (assumes initialized somewhat similarly or just takes one)
                 params_list.append(np.array([np.log(alphas.flatten()[0])]))
             else:
                 params_list.append(np.log(alphas.flatten()))
@@ -363,6 +367,7 @@ class hmm_nophasing:
         shared_NB_dispersion=False,
         fix_BB_dispersion=False,
         shared_BB_dispersion=False,
+        use_logit=True,  # Add use_logit flag
     ):
         """Reconstruct parameter matrices from flat optimization vector."""
         idx = 0
@@ -373,7 +378,13 @@ class hmm_nophasing:
         else:
             log_mu = log_mu_init
 
-        p_binom = np.clip(x[idx : idx + n_states].reshape(n_states, 1), 1e-6, 1 - 1e-6)
+        # Use inverse logit transformation for p_binom if use_logit is True
+        if use_logit:
+            p_binom = scipy.special.expit(x[idx : idx + n_states].reshape(n_states, 1))
+        else:
+            p_binom = np.clip(
+                x[idx : idx + n_states].reshape(n_states, 1), 1e-6, 1 - 1e-6
+            )
         idx += n_states
 
         if not optimize_nb or fix_NB_dispersion:
@@ -778,11 +789,11 @@ class hmm_nophasing:
         init_taus=None,
         max_iter=100,
         tol=1e-4,
+        use_logit=False,
         **kwargs,
     ):
         """
-        Maximizes likelihood using scipy.optimize.minimize on the negative log-likelihood
-        calculated via a forward pass. Parameters are flattened for the optimizer.
+        Maximizes likelihood using scipy.optimize.minimize with L-BFGS-B, applying bounds and optionally using logit parameterization.
         """
         _, n_comp, n_spots = X.shape
         assert n_spots == 1
@@ -811,12 +822,9 @@ class hmm_nophasing:
             X[:, 1, :], total_bb_RD
         )
 
-        # NB defined for one-spot online, first element of list can be extracted.
         nb_mapper, bb_mapper = mapping_matrices_nb[0], mapping_matrices_bb[0]
-
         bb_endog = unique_values_bb[0][:, 0]
         bb_exposure = unique_values_bb[0][:, 1]
-
         nb_endog = unique_values_nb[0][:, 0]
         nb_exposure = unique_values_nb[0][:, 1]
 
@@ -832,7 +840,25 @@ class hmm_nophasing:
             shared_NB_dispersion=shared_NB_dispersion,
             fix_BB_dispersion=fix_BB_dispersion,
             shared_BB_dispersion=shared_BB_dispersion,
+            use_logit=use_logit,  # Pass use_logit flag
         )
+
+        # Define bounds for parameters
+        bounds = []
+        if optimize_nb:
+            bounds.extend([(None, None)] * log_mu.size)  # No bounds for log_mu
+        if use_logit:
+            bounds.extend([(-10, 10)] * p_binom.size)  # Bounds for logit(p_binom)
+        else:
+            bounds.extend([(1e-6, 1 - 1e-6)] * p_binom.size)  # Bounds for p_binom
+        if optimize_nb and not fix_NB_dispersion:
+            bounds.extend(
+                [(None, None)] if shared_NB_dispersion else [(None, None)] * alphas.size
+            )
+        if not fix_BB_dispersion:
+            bounds.extend(
+                [(None, None)] if shared_BB_dispersion else [(None, None)] * taus.size
+            )
 
         def compute_log_emissions(this_log_mu, this_p_binom, this_alphas, this_taus):
             log_emit_rdr_uniq = np.zeros((n_states, len(nb_endog)))
@@ -881,6 +907,7 @@ class hmm_nophasing:
                 shared_NB_dispersion=shared_NB_dispersion,
                 fix_BB_dispersion=fix_BB_dispersion,
                 shared_BB_dispersion=shared_BB_dispersion,
+                use_logit=use_logit,  # Pass use_logit flag
             )
 
             log_emission = compute_log_emissions(
@@ -898,7 +925,6 @@ class hmm_nophasing:
             curr = 0
             total_nll = 0
 
-            # TODO TBC
             for le in lengths:
                 total_nll += -mylogsumexp(log_alpha[:, curr + le - 1])
                 curr += le
@@ -907,17 +933,17 @@ class hmm_nophasing:
 
         start_time_opt = time.time()
         logger.info(
-            f"maxlike_nb_bb with\n\tn_states={n_states};\n\tX.shape={X.shape});\n\tfixed_dispersion={fix_NB_dispersion};\n\tshared dispersion={shared_NB_dispersion};\n\toptimize_nb={optimize_nb};\n\tinitial nloglike={nll_forward(x0):.6e} @ start_params:\n{[f'{xx:.3f}' for xx in x0]}"
+            f"maxlike_nb_bb with L-BFGS-B\n\tn_states={n_states};\n\tX.shape={X.shape};\n\tfixed_dispersion={fix_NB_dispersion};\n\tshared dispersion={shared_NB_dispersion};\n\toptimize_nb={optimize_nb};\n\tuse_logit={use_logit};\n\tinitial nloglike={nll_forward(x0):.6e}"
         )
 
-        # TODO HACK
-        # options = get_em_solver_params()
         options = {"maxiter": kwargs.get("max_iter", 1_000), "disp": False}
 
+        # NB L-BFGS-B
         res = scipy.optimize.minimize(
             nll_forward,
             x0,
             method="BFGS",
+            bounds=bounds,
             options=options,
         )
 
@@ -925,18 +951,27 @@ class hmm_nophasing:
         runtime = end_time_opt - start_time_opt
 
         logger.info(
-            f"maxlike_nb_bb complete: {runtime:.2f}s with BFGS\nX_shape={X.shape},\n"
+            f"maxlike_nb_bb complete: {runtime:.2f}s with L-BFGS-B\nX_shape={X.shape},\n"
             f"{len(x0)} params,\n"
             f"{res.nit} iter,\n"
             f"{res.nfev} fcalls,\n"
             f"converged: {res.success},\n"
             f"message: {res.message},\n"
             f"nll: {res.fun:.6e}\n"
-            f"params:\n{[f'{float(xx):.3f}' for xx in res.x]}"
         )
 
-        # TODO
-        # NB defaults to init parameters for any not solved for.
+        # Compute parameter errors using the inverse Hessian
+        try:
+            if isinstance(res.hess_inv, np.ndarray):
+                hess_inv = res.hess_inv
+            else:
+                hess_inv = res.hess_inv.todense()  # For sparse matrix (L-BFGS-B)
+            parameter_errors = np.sqrt(np.diag(hess_inv))
+            logger.info(f"Parameter errors (std dev): {parameter_errors}")
+        except Exception as e:
+            logger.warning(f"Failed to compute parameter errors: {e}")
+            parameter_errors = None
+
         final_log_mu, final_p_binom, final_alphas, final_taus = self.unpack_params(
             res.x,
             n_states,
@@ -948,6 +983,7 @@ class hmm_nophasing:
             shared_NB_dispersion=shared_NB_dispersion,
             fix_BB_dispersion=fix_BB_dispersion,
             shared_BB_dispersion=shared_BB_dispersion,
+            use_logit=use_logit,  # Pass use_logit flag
         )
 
         log_emission = compute_log_emissions(
@@ -957,28 +993,6 @@ class hmm_nophasing:
         log_gamma = self.get_state_posteriors(
             lengths, log_transmat, log_startprob, log_emission, log_sitewise_transmat
         )
-
-        try:
-            # NB marginalized errors per parameter as per eqn. (20) of Heavens,
-            #    see https://arxiv.org/pdf/0906.0664
-            #
-            hess_inv = res.hess_inv
-            errs = 2.0 * np.sqrt(np.diag(hess_inv))
-        except Exception as e:
-            logger.warning(f"Could not compute parameter errors from Hessian: {e}")
-            errs = None
-
-        if errs is not None:
-            safe_x = np.where(np.abs(res.x) < 1e-9, 1e-9, res.x)
-            frac_errors_pct = (errs / np.abs(safe_x)) * 100
-            formatted_params_str = "\n".join(
-                [
-                    f"{float(val):8.3f} +/- {float(err):8.3f} (95% confidence, {float(pct):5.1f}% frac. error)"
-                    for val, err, pct in zip(res.x, errs, frac_errors_pct)
-                ]
-            )
-
-            logger.info(f"Parameter estimates:\n{formatted_params_str}")
 
         return (
             final_log_mu,

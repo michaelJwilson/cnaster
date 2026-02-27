@@ -823,6 +823,9 @@ class hmm_nophasing:
             X[:, 1, :], total_bb_RD
         )
 
+        nbEncoder = CountEncoder(X[:, 0, :], base_nb_mean)
+        bbEncoder = CountEncoder(X[:, 1, :], total_bb_RD)
+
         nb_mapper, bb_mapper = mapping_matrices_nb[0], mapping_matrices_bb[0]
         bb_endog = unique_values_bb[0][:, 0]
         bb_exposure = unique_values_bb[0][:, 1]

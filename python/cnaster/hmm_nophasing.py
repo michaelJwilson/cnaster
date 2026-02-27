@@ -322,8 +322,8 @@ class hmm_nophasing:
         bounds = []
         bounds.append(np.array([(-10, 10)] * n_states))  # log_mus
         bounds.append(np.array([(1.0e-6, 1.0 - 1.0e-6)] * n_states))  # p_binoms
-        bounds.append(np.array([(0., 100_000)] * n_states))  # alphas
-        bounds.append(np.array([(0., 100_000)] * n_states))  # taus
+        bounds.append(np.array([(0.0, 100_000)] * n_states))  # alphas
+        bounds.append(np.array([(0.0, 100_000)] * n_states))  # taus
 
         return bounds
 
@@ -800,7 +800,7 @@ class hmm_nophasing:
         init_alphas=None,
         init_taus=None,
         max_iter=100,
-        max_rdr=5.0, # TODO HACK MAGIC
+        max_rdr=5.0,  # TODO HACK MAGIC
         tol=1e-4,
         use_logit=False,
         **kwargs,
@@ -873,6 +873,8 @@ class hmm_nophasing:
         log_emit_rdr_uniq = np.zeros((n_states, len(nb_endog)))
         log_emit_baf_uniq = np.zeros((n_states, len(bb_endog)))
 
+        state_posteriors = np.zeros((n_states, nb_endog.n_obs), dtype=float)
+
         def compute_log_emissions(this_log_mu, this_p_binom, this_alphas, this_taus):
             for i in range(n_states):
                 if np.any(nb_valid):
@@ -885,7 +887,7 @@ class hmm_nophasing:
                         reduce=False,
                     )
                 else:
-                    log_emit_rdr_uniq[:, :] = 0.
+                    log_emit_rdr_uniq[:, :] = 0.0
 
                 if np.any(bb_valid):
                     log_emit_baf_uniq[i, bb_valid] = -nloglikeobs_bb(
@@ -897,7 +899,7 @@ class hmm_nophasing:
                         reduce=False,
                     )
                 else:
-                    log_emit_baf_uniq[:, :] = 0.
+                    log_emit_baf_uniq[:, :] = 0.0
 
             log_emit_rdr = nbEncoder.decode_array(log_emit_rdr_uniq, 0)
             log_emit_baf = bbEncoder.decode_array(log_emit_baf_uniq, 0)
@@ -905,13 +907,50 @@ class hmm_nophasing:
             # NB jumps the dimension for one spot.
             return (log_emit_rdr + log_emit_baf)[:, :, np.newaxis]
 
+        def update_state_posteriors(params, log_emission):
+            state_posteriors = np.exp(
+                self.get_state_posteriors(
+                    lengths,
+                    log_transmat,
+                    log_startprob,
+                    log_emission,
+                    log_sitewise_transmat,
+                )
+            )
+
+        def baum_welch_forward(params):
+            this_log_mu, this_p_binom, this_alphas, this_taus = self.unpack_params(
+                params,
+                n_states,
+                log_mu,  # TODO init_log_mu
+                alphas,  # TODO init_alphas
+                taus,  # TODO init_taus
+                optimize_nb=optimize_nb,
+                fix_NB_dispersion=fix_NB_dispersion,
+                shared_NB_dispersion=shared_NB_dispersion,
+                fix_BB_dispersion=fix_BB_dispersion,
+                shared_BB_dispersion=shared_BB_dispersion,
+                use_logit=use_logit,
+            )
+
+            # NB emission is (nstates, n_observations, n_spots), but currently only supports n_spots=1.
+            log_emission = compute_log_emissions(
+                this_log_mu, this_p_binom, this_alphas, this_taus
+            )
+
+            # NB log_gamma is (n_states * n_observations), potentially concatenated by clone on obs. axis.
+            update_state_posteriors(params, log_emission)
+
+            # NB em cost is sum_iid of obs., sum_state of gamma * log_emission, which is negative log likelihood.
+            return -np.sum(state_posteriors * log_emission[..., 0])
+
         def nll_forward(params):
             this_log_mu, this_p_binom, this_alphas, this_taus = self.unpack_params(
                 params,
                 n_states,
-                log_mu, # TODO init_log_mu
-                alphas, # TODO init_alphas
-                taus, # TODO init_taus
+                log_mu,  # TODO init_log_mu
+                alphas,  # TODO init_alphas
+                taus,  # TODO init_taus
                 optimize_nb=optimize_nb,
                 fix_NB_dispersion=fix_NB_dispersion,
                 shared_NB_dispersion=shared_NB_dispersion,
@@ -941,16 +980,23 @@ class hmm_nophasing:
 
             return total_nll
 
+        # {nll_forward, baum_welch_forward}
+        cost = baum_welch_forward
+
         start_time_opt = time.time()
         logger.info(
-            f"maxlike_nb_bb with L-BFGS-B\n\tn_states={n_states};\n\tX.shape={X.shape};\n\tfixed_dispersion={fix_NB_dispersion};\n\tshared dispersion={shared_NB_dispersion};\n\toptimize_nb={optimize_nb};\n\tuse_logit={use_logit};\n\tinitial nloglike={nll_forward(x0):.6e}"
+            f"maxlike_nb_bb with BFGS\n\tn_states={n_states};\n\tX.shape={X.shape};\n\tfixed_dispersion={fix_NB_dispersion};\n\tshared dispersion={shared_NB_dispersion};\n\toptimize_nb={optimize_nb};\n\tuse_logit={use_logit};\n\tinitial cost={cost(x0):.6e}"
         )
 
-        options = {"maxiter": kwargs.get("max_iter", 10_000), "maxfun": kwargs.get("max_fun", 5_000), "disp": False}
+        options = {
+            "maxiter": kwargs.get("max_iter", 10_000),
+            # "maxfun": kwargs.get("max_fun", 5_000),
+            "disp": False,
+        }
 
         # TODO bounds
         res = scipy.optimize.minimize(
-            nll_forward,
+            cost,
             x0,
             method="BFGS",
             bounds=None,

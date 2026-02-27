@@ -1,12 +1,15 @@
 import numpy as np
 import scipy
 from numba import njit
+from cnaster.count_encoder import CountEncoder
 from cnaster.config import get_global_config
 from cnaster.config import start_time
 from cnaster.logger import get_logger
 
 logger = get_logger(__name__, start_time=start_time)
 
+# NB define global alias for legacy
+construct_unique_matrix = CountEncoder.construct_unique_encoding
 
 def get_em_solver_params():
     """
@@ -128,78 +131,6 @@ def calc_sparsity(csr_matrix):
     non_zero_elements = csr_matrix.size
 
     return (total_elements - non_zero_elements) / total_elements
-
-
-def construct_unique_matrix(obs_count, total_count):
-    n_obs = obs_count.shape[0]
-    n_spots = obs_count.shape[1]
-    
-    decimals = get_global_config().hmm.compression_decimals
-
-    unique_values, mapping_matrices = [], []
-    mean_validity, mean_compression, mean_sparsity = 0.0, 0.0, 0.0
-
-    for s in range(n_spots):
-        valid = total_count[:, s] > 0
-        mean_validity += np.mean(valid)
-
-        # TODO add filter by valid?
-        counts = np.vstack([obs_count[:, s], total_count[:, s]]).T
-
-        # TODO BUG fails for numpy cases; not np.issubdtype(total_count.dtype, np.integer)
-        if total_count.dtype != int:
-            counts = counts.round(decimals=decimals)
-
-        # NB unique (rounded) pairs of (obs_count, total_count) for spot s.
-        pairs, _ = np.unique(counts, axis=0, return_counts=True)
-        unique_values.append(pairs)
-
-        mean_compression += 1.0 - len(pairs) / n_obs
-
-        # NB mapper of unique pairs to idx.
-        pair_index = {(pairs[i, 0], pairs[i, 1]): i for i in range(pairs.shape[0])}
-
-        # NB construct mapping matrix with shape (n_obs, n_unique_pairs);
-        #    one-hot of obs. to compressed.
-        mat_row = np.arange(n_obs)
-
-        # NB each observation gets the index of its corresponding unique pair.
-        mat_col = np.zeros(n_obs, dtype=int)
-
-        for i in range(n_obs):
-            if total_count.dtype == int:
-                tmpidx = pair_index[(obs_count[i, s], total_count[i, s])]
-            else:
-                # TODO inconsistent with rounding of counts above, i.e. no obs rounding.
-                tmpidx = pair_index[
-                    (obs_count[i, s], total_count[i, s].round(decimals=decimals))
-                ]
-            mat_col[i] = tmpidx
-
-        # NB num. columns set by max(mat_col).
-        csr_matrix = scipy.sparse.csr_matrix(
-            (np.ones(len(mat_row)), (mat_row, mat_col))
-        )
-
-        mean_sparsity += calc_sparsity(csr_matrix)
-
-        # Example usage:
-        #   e.g.  convert posteriors from observation space to the compressed space
-        # .        tmp = (scipy.sparse.csr_matrix(gamma) @ mapping_matrices[s]).toarray()
-        mapping_matrices.append(csr_matrix)
-
-    mean_validity /= n_spots
-    mean_compression /= n_spots
-    mean_sparsity /= n_spots
-
-    msg = f"Constructed unique count compression with mean validity: {100. * mean_validity:.4f}, mean compression rate (decimals={decimals}): {100. * mean_compression:.4f}%, "
-    msg += f"as represented by {n_spots} sparse matrices with mean sparsity {100. * mean_sparsity:.2f}%."
-
-    logger.info(msg)
-
-    # NB unique_values is a list of length n_spots, each element is an array of shape (n_unique_pairs, 2) with columns of rounded (obs_count, total_count).
-    #    mapping_matrices is a list of length n_spots, each element is a sparse matrix of shape (n_obs, n_unique_pairs) mapping obs. to compressed space.
-    return unique_values, mapping_matrices
 
 
 def compute_posterior_obs(log_alpha, log_beta):

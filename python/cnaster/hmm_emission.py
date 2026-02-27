@@ -19,7 +19,7 @@ from numba import njit
 import scipy.optimize
 from cnaster.config import start_time
 from cnaster.logger import get_logger
-from cnaster.gibbs import gibbs_minimize
+
 
 logger = get_logger(__name__, start_time=start_time)
 
@@ -625,20 +625,6 @@ class Weighted_BetaBinom_mix:
             start_params = start_params[:-1]
         else:
             args = ()
-
-        """
-        result = gibbs_minimize(
-            self.endog, 
-            self.exog,
-            self.weights,
-            self.exposure,
-            nloglikeobs_bb,
-            bounds,
-            options,
-            initial_params=start_params,
-            log_space=False,
-        )
-        """
 
         result = scipy.optimize.minimize(
             self.nloglikeobs,

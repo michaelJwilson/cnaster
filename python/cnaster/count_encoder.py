@@ -6,7 +6,6 @@ from cnaster.logger import get_logger
 
 logger = get_logger(__name__, start_time=start_time)
 
-
 class CountEncoder:
     def __init__(self, obs_count, total_count):
         self.obs_count = obs_count
@@ -37,10 +36,12 @@ class CountEncoder:
     @staticmethod
     def construct_unique_encoding(obs_count, total_count):
         decimals = get_global_config().hmm.compression_decimals
-
         unique_values, mapping_matrices = [], []
 
-        for s in range(self.n_spots):
+        n_obs = obs_count.shape[0]
+        n_spots = obs_count.shape[1]
+
+        for s in range(n_spots):
             counts = np.vstack([obs_count[:, s], total_count[:, s]]).T
 
             # TODO BUG fails for numpy cases; not np.issubdtype(total_count.dtype, np.integer)
@@ -56,12 +57,12 @@ class CountEncoder:
 
             # NB construct mapping matrix with shape (n_obs, n_unique_pairs);
             #    one-hot of obs. to compressed.
-            mat_row = np.arange(self.n_obs)
+            mat_row = np.arange(n_obs)
 
             # NB each observation gets the index of its corresponding unique pair.
-            mat_col = np.zeros(self.n_obs, dtype=int)
+            mat_col = np.zeros(n_obs, dtype=int)
 
-            for i in range(self.n_obs):
+            for i in range(n_obs):
                 if total_count.dtype == int:
                     tmpidx = pair_index[(obs_count[i, s], total_count[i, s])]
                 else:

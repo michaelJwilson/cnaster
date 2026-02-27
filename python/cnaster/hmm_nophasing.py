@@ -18,6 +18,7 @@ from cnaster.hmm_utils import (
     np_sum_ax_squeeze,
     get_em_solver_params,
 )
+from cnaster.count_encoder import CountEncoder
 from cnaster.hmm_emission_eval import compute_emissions
 from cnaster.hmm_emission import nloglikeobs_nb, nloglikeobs_bb
 from numba import njit

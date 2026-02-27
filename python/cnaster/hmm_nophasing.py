@@ -812,16 +812,6 @@ class hmm_nophasing:
         assert n_spots == 1
         assert n_comp == 2
 
-        unique_values_nb, mapping_matrices_nb = construct_unique_matrix(
-            X[:, 0, :], base_nb_mean
-        )
-        unique_values_bb, mapping_matrices_bb = construct_unique_matrix(
-            X[:, 1, :], total_bb_RD
-        )
-
-        nbEncoder = CountEncoder(X[:, 0, :], base_nb_mean)
-        bbEncoder = CountEncoder(X[:, 1, :], total_bb_RD)
-
         optimize_nb = np.any(base_nb_mean > 0)
 
         (
@@ -854,7 +844,7 @@ class hmm_nophasing:
         )
 
         bounds = self.get_bounds(n_states)
-        b0 = self.pack_params(
+        _ = self.pack_params(
             *bounds,
             optimize_nb=optimize_nb,
             fix_NB_dispersion=fix_NB_dispersion,
@@ -864,19 +854,22 @@ class hmm_nophasing:
             use_logit=use_logit,
         )
 
+        nbEncoder = CountEncoder(X[:, 0, :], base_nb_mean)
+        bbEncoder = CountEncoder(X[:, 1, :], total_bb_RD)
+
+        # NB assumes a single spot, index 0.
+        nb_endog = nbEncoder.get_unique_obs(0)
+        nb_exposure = nbEncoder.get_unique_total(0)
+        nb_defined = nb_exposure > 0
+
+        bb_endog = bbEncoder.get_unique_obs(0)
+        bb_exposure = bbEncoder.get_unique_total(0)
+        bb_defined = bb_exposure > 0
+
+        nb_ones = np.ones_like(nb_endog, dtype=float).reshape(-1, 1)
+        bb_ones = np.ones_like(bb_endog, dtype=float).reshape(-1, 1)
+
         def compute_log_emissions(this_log_mu, this_p_binom, this_alphas, this_taus):
-            # NB assumes a single spot, index 0.
-            nb_endog = nbEncoder.get_unique_obs(0)
-            nb_exposure = nbEncoder.get_unique_total(0)
-            nb_defined = nb_exposure > 0
-
-            bb_endog = bbEncoder.get_unique_obs(0)
-            bb_exposure = bbEncoder.get_unique_total(0)
-            bb_defined = bb_exposure > 0
-
-            nb_ones = np.ones_like(nb_endog, dtype=float).reshape(-1, 1)
-            bb_ones = np.ones_like(bb_endog, dtype=float).reshape(-1, 1)
-
             log_emit_rdr_uniq = np.zeros((n_states, len(nb_endog)))
             log_emit_baf_uniq = np.zeros((n_states, len(bb_endog)))
 

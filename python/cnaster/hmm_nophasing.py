@@ -800,6 +800,7 @@ class hmm_nophasing:
         init_alphas=None,
         init_taus=None,
         max_iter=100,
+        max_rdr=5.0, # TODO HACK MAGIC
         tol=1e-4,
         use_logit=False,
         **kwargs,
@@ -860,11 +861,11 @@ class hmm_nophasing:
         # NB assumes a single spot, index 0.
         nb_endog = nbEncoder.get_unique_obs(0)
         nb_exposure = nbEncoder.get_unique_total(0)
-        nb_defined = nb_exposure > 0
+        nb_valid = (nb_exposure > 0) & (nb_endog <= max_rdr * nb_exposure)
 
         bb_endog = bbEncoder.get_unique_obs(0)
         bb_exposure = bbEncoder.get_unique_total(0)
-        bb_defined = bb_exposure > 0
+        bb_valid = bb_exposure > 0
 
         nb_ones = np.ones_like(nb_endog, dtype=float).reshape(-1, 1)
         bb_ones = np.ones_like(bb_endog, dtype=float).reshape(-1, 1)
@@ -874,24 +875,24 @@ class hmm_nophasing:
 
         def compute_log_emissions(this_log_mu, this_p_binom, this_alphas, this_taus):
             for i in range(n_states):
-                if np.any(nb_defined):
-                    log_emit_rdr_uniq[i, nb_defined] = -nloglikeobs_nb(
-                        nb_endog[nb_defined],
-                        nb_ones[nb_defined],
-                        nb_ones[nb_defined],
-                        nb_exposure[nb_defined],
+                if np.any(nb_valid):
+                    log_emit_rdr_uniq[i, nb_valid] = -nloglikeobs_nb(
+                        nb_endog[nb_valid],
+                        nb_ones[nb_valid],
+                        nb_ones[nb_valid],
+                        nb_exposure[nb_valid],
                         np.array([this_log_mu[i, 0], this_alphas[i, 0]]),
                         reduce=False,
                     )
                 else:
                     log_emit_rdr_uniq[:, :] = 0.
 
-                if np.any(bb_defined):
-                    log_emit_baf_uniq[i, bb_defined] = -nloglikeobs_bb(
-                        bb_endog[bb_defined],
-                        bb_ones[bb_defined],
-                        bb_ones[bb_defined],
-                        bb_exposure[bb_defined],
+                if np.any(bb_valid):
+                    log_emit_baf_uniq[i, bb_valid] = -nloglikeobs_bb(
+                        bb_endog[bb_valid],
+                        bb_ones[bb_valid],
+                        bb_ones[bb_valid],
+                        bb_exposure[bb_valid],
                         np.array([this_p_binom[i, 0], this_taus[i, 0]]),
                         reduce=False,
                     )
@@ -945,7 +946,7 @@ class hmm_nophasing:
             f"maxlike_nb_bb with L-BFGS-B\n\tn_states={n_states};\n\tX.shape={X.shape};\n\tfixed_dispersion={fix_NB_dispersion};\n\tshared dispersion={shared_NB_dispersion};\n\toptimize_nb={optimize_nb};\n\tuse_logit={use_logit};\n\tinitial nloglike={nll_forward(x0):.6e}"
         )
 
-        options = {"maxiter": kwargs.get("max_iter", 1_000), "disp": False}
+        options = {"maxiter": kwargs.get("max_iter", 10_000), "maxfun": kwargs.get("max_fun", 5_000), "disp": False}
 
         # TODO bounds
         res = scipy.optimize.minimize(

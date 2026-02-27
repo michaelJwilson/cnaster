@@ -6,6 +6,7 @@ from cnaster.logger import get_logger
 
 logger = get_logger(__name__, start_time=start_time)
 
+
 class CountEncoder:
     def __init__(self, obs_count, total_count):
         self.obs_count = obs_count
@@ -19,19 +20,42 @@ class CountEncoder:
             obs_count, total_count
         )
 
-    def encode_vector(self, vector, spot):
-        assert len(vector) == self.n_obs
-
+    def encode_array(self, array, spot):
+        # mapper is (nobs, nunique),
+        # array is  [..., nobs] or [nobs, ...]
+        # result is [..., nunique] or [nunique, ...]
         mapper = self.mapping_matrices[spot]
 
-        return (mapper.T @ vector).flatten()
+        # NB sparse transpose is cheap
+        if array.shape[-1] == mapper.shape[0]:
+            return array @ mapper
+        elif array.shape[0] == mapper.shape[0]:
+            return mapper.T @ array
+        else:
+            raise ValueError(
+                f"Array shape {array.shape} not compatible with mapper shape {mapper.shape}."
+            )
 
-    def decode_vector(self, vector, spot):
-        assert len(vector) == self.mapping_matrices[spot].shape[1]
-
+    def decode_array(self, array, spot):
+        # mapper is (nobs, nunique),
+        # array is encoded as [..., nunique] or [nunique, ...]
+        # result is [..., nobs] or [nobs, ...]
         mapper = self.mapping_matrices[spot]
 
-        return (mapper @ vector).flatten()
+        if array.shape[-1] == mapper.shape[-1]:
+            return array @ mapper.T
+        elif array.shape[0] == mapper.shape[-1]:
+            return mapper @ array
+        else:
+            raise ValueError(
+                f"Array shape {array.shape} not compatible with mapper shape {mapper.shape}."
+            )
+
+    def get_unique_obs(self, spot):
+        return self.unique_counts[spot][:, 0]
+
+    def get_unique_total(self, spot):
+        return self.unique_counts[spot][:, 1]
 
     @staticmethod
     def construct_unique_encoding(obs_count, total_count):

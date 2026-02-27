@@ -277,7 +277,7 @@ class hmm_nophasing:
             log_emission,
         )
 
-    def initialize_params(
+    def get_initial_params(
         self,
         n_states,
         n_spots,
@@ -286,18 +286,14 @@ class hmm_nophasing:
         init_alphas=None,
         init_taus=None,
     ):
-        """
-        Helper to initialize HMM emission and transition parameters.
-        """
-        # NB initialize NB logmean shift and BetaBinom prob
         log_mu = (
-            np.vstack([np.linspace(-0.1, 0.1, n_states) for r in range(n_spots)]).T
+            np.vstack([np.linspace(-0.1, 0.1, n_states) for _ in range(n_spots)]).T
             if init_log_mu is None
             else init_log_mu
         )
 
         p_binom = (
-            np.vstack([np.linspace(0.05, 0.45, n_states) for r in range(n_spots)]).T
+            np.vstack([np.linspace(0.05, 0.45, n_states) for _ in range(n_spots)]).T
             if init_p_binom is None
             else init_p_binom
         )
@@ -319,6 +315,18 @@ class hmm_nophasing:
 
         return log_mu, p_binom, alphas, taus, log_startprob, log_transmat
 
+    def get_bounds(
+        self,
+        n_states,
+    ):
+        bounds = []
+        bounds.append(np.array([(-10, 10)] * n_states))  # log_mus
+        bounds.append(np.array([(1.0e-6, 1.0 - 1.0e-6)] * n_states))  # p_binoms
+        bounds.append(np.array([(0., 100_000)] * n_states))  # alphas
+        bounds.append(np.array([(0., 100_000)] * n_states))  # taus
+
+        return bounds
+
     def pack_params(
         self,
         log_mu,
@@ -330,17 +338,19 @@ class hmm_nophasing:
         shared_NB_dispersion=False,
         fix_BB_dispersion=False,
         shared_BB_dispersion=False,
-        use_logit=True,  # Add use_logit flag
+        use_logit=True,
     ):
-        """Flatten parameters into single optimization vector."""
+        """
+        Defines an optimization vector given canonical parameterization & runtime settings.
+        """
+        # TODO parameter block, dispersion block, parameter block, dispersion block, etc.
         params_list = []
         if optimize_nb:
             params_list.append(log_mu.flatten())
-        # Use logit parameterization for p_binom if use_logit is True
-        if use_logit:
-            params_list.append(scipy.special.logit(p_binom.flatten()))
-        else:
-            params_list.append(p_binom.flatten())
+
+        params_list.append(
+            scipy.special.logit(p_binom.flatten()) if use_logit else p_binom.flatten()
+        )
 
         if optimize_nb and not fix_NB_dispersion:
             if shared_NB_dispersion:
@@ -370,7 +380,9 @@ class hmm_nophasing:
         shared_BB_dispersion=False,
         use_logit=True,  # Add use_logit flag
     ):
-        """Reconstruct parameter matrices from flat optimization vector."""
+        """
+        Reconstruct canonical parameterization given optimization vector & runtime settings.
+        """
         idx = 0
 
         if optimize_nb:
@@ -379,7 +391,6 @@ class hmm_nophasing:
         else:
             log_mu = log_mu_init
 
-        # Use inverse logit transformation for p_binom if use_logit is True
         if use_logit:
             p_binom = scipy.special.expit(x[idx : idx + n_states].reshape(n_states, 1))
         else:
@@ -797,24 +808,9 @@ class hmm_nophasing:
         Maximizes likelihood using scipy.optimize.minimize with L-BFGS-B, applying bounds and optionally using logit parameterization.
         """
         _, n_comp, n_spots = X.shape
+
         assert n_spots == 1
         assert n_comp == 2
-
-        (
-            log_mu,
-            p_binom,
-            alphas,
-            taus,
-            log_startprob,
-            log_transmat,
-        ) = self.initialize_params(
-            n_states,
-            n_spots,
-            init_log_mu,
-            init_p_binom,
-            init_alphas,
-            init_taus,
-        )
 
         unique_values_nb, mapping_matrices_nb = construct_unique_matrix(
             X[:, 0, :], base_nb_mean
@@ -826,13 +822,23 @@ class hmm_nophasing:
         nbEncoder = CountEncoder(X[:, 0, :], base_nb_mean)
         bbEncoder = CountEncoder(X[:, 1, :], total_bb_RD)
 
-        nb_mapper, bb_mapper = mapping_matrices_nb[0], mapping_matrices_bb[0]
-        bb_endog = unique_values_bb[0][:, 0]
-        bb_exposure = unique_values_bb[0][:, 1]
-        nb_endog = unique_values_nb[0][:, 0]
-        nb_exposure = unique_values_nb[0][:, 1]
+        optimize_nb = np.any(base_nb_mean > 0)
 
-        optimize_nb = np.any(nb_exposure > 0)
+        (
+            log_mu,
+            p_binom,
+            alphas,
+            taus,
+            log_startprob,
+            log_transmat,
+        ) = self.get_initial_params(
+            n_states,
+            n_spots,
+            init_log_mu,
+            init_p_binom,
+            init_alphas,
+            init_taus,
+        )
 
         x0 = self.pack_params(
             log_mu,
@@ -844,74 +850,76 @@ class hmm_nophasing:
             shared_NB_dispersion=shared_NB_dispersion,
             fix_BB_dispersion=fix_BB_dispersion,
             shared_BB_dispersion=shared_BB_dispersion,
-            use_logit=use_logit,  # Pass use_logit flag
+            use_logit=use_logit,
         )
 
-        # Define bounds for parameters
-        bounds = []
-        if optimize_nb:
-            bounds.extend([(None, None)] * log_mu.size)  # No bounds for log_mu
-        if use_logit:
-            bounds.extend([(-10, 10)] * p_binom.size)  # Bounds for logit(p_binom)
-        else:
-            bounds.extend([(1e-6, 1 - 1e-6)] * p_binom.size)  # Bounds for p_binom
-        if optimize_nb and not fix_NB_dispersion:
-            bounds.extend(
-                [(None, None)] if shared_NB_dispersion else [(None, None)] * alphas.size
-            )
-        if not fix_BB_dispersion:
-            bounds.extend(
-                [(None, None)] if shared_BB_dispersion else [(None, None)] * taus.size
-            )
+        bounds = self.get_bounds(n_states)
+        b0 = self.pack_params(
+            *bounds,
+            optimize_nb=optimize_nb,
+            fix_NB_dispersion=fix_NB_dispersion,
+            shared_NB_dispersion=shared_NB_dispersion,
+            fix_BB_dispersion=fix_BB_dispersion,
+            shared_BB_dispersion=shared_BB_dispersion,
+            use_logit=use_logit,
+        )
 
         def compute_log_emissions(this_log_mu, this_p_binom, this_alphas, this_taus):
+            # NB assumes a single spot, index 0.
+            nb_endog = nbEncoder.get_unique_obs(0)
+            nb_exposure = nbEncoder.get_unique_total(0)
+            nb_defined = nb_exposure > 0
+
+            bb_endog = bbEncoder.get_unique_obs(0)
+            bb_exposure = bbEncoder.get_unique_total(0)
+            bb_defined = bb_exposure > 0
+
+            nb_ones = np.ones_like(nb_endog, dtype=float).reshape(-1, 1)
+            bb_ones = np.ones_like(bb_endog, dtype=float).reshape(-1, 1)
+
             log_emit_rdr_uniq = np.zeros((n_states, len(nb_endog)))
             log_emit_baf_uniq = np.zeros((n_states, len(bb_endog)))
 
-            exog_nb = np.ones((len(nb_endog), 1))
-            weights_nb = np.ones(len(nb_endog))
-            exog_bb = np.ones((len(bb_endog), 1))
-            weights_bb = np.ones(len(bb_endog))
-
-            idx_nonzero_mean = nb_exposure > 0
-
             for i in range(n_states):
-                if np.any(idx_nonzero_mean):
-                    log_emit_rdr_uniq[i, idx_nonzero_mean] = -nloglikeobs_nb(
-                        nb_endog[idx_nonzero_mean],
-                        exog_nb[idx_nonzero_mean],
-                        weights_nb[idx_nonzero_mean],
-                        nb_exposure[idx_nonzero_mean],
+                if np.any(nb_defined):
+                    log_emit_rdr_uniq[i, nb_defined] = -nloglikeobs_nb(
+                        nb_endog[nb_defined],
+                        nb_ones[nb_defined],
+                        nb_ones[nb_defined],
+                        nb_exposure[nb_defined],
                         np.array([this_log_mu[i, 0], this_alphas[i, 0]]),
                         reduce=False,
                     )
 
-                log_emit_baf_uniq[i, :] = -nloglikeobs_bb(
-                    bb_endog,
-                    exog_bb,
-                    weights_bb,
-                    bb_exposure,
-                    np.array([this_p_binom[i, 0], this_taus[i, 0]]),
-                    reduce=False,
-                )
+                if np.any(bb_defined):
+                    log_emit_baf_uniq[i, bb_defined] = -nloglikeobs_bb(
+                        bb_endog[bb_defined],
+                        bb_ones[bb_defined],
+                        bb_ones[bb_defined],
+                        bb_exposure[bb_defined],
+                        np.array([this_p_binom[i, 0], this_taus[i, 0]]),
+                        reduce=False,
+                    )
 
-            log_emit_rdr = log_emit_rdr_uniq @ nb_mapper.T
-            log_emit_baf = log_emit_baf_uniq @ bb_mapper.T
+            log_emit_rdr = nbEncoder.decode_array(log_emit_rdr_uniq, 0)
+            log_emit_baf = bbEncoder.decode_array(log_emit_baf_uniq, 0)
+
+            # NB jumps the dimension for one spot.
             return (log_emit_rdr + log_emit_baf)[:, :, np.newaxis]
 
         def nll_forward(params):
             this_log_mu, this_p_binom, this_alphas, this_taus = self.unpack_params(
                 params,
                 n_states,
-                log_mu,
-                alphas,
-                taus,
+                log_mu, # TODO init_log_mu
+                alphas, # TODO init_alphas
+                taus, # TODO init_taus
                 optimize_nb=optimize_nb,
                 fix_NB_dispersion=fix_NB_dispersion,
                 shared_NB_dispersion=shared_NB_dispersion,
                 fix_BB_dispersion=fix_BB_dispersion,
                 shared_BB_dispersion=shared_BB_dispersion,
-                use_logit=use_logit,  # Pass use_logit flag
+                use_logit=use_logit,
             )
 
             log_emission = compute_log_emissions(
@@ -942,12 +950,12 @@ class hmm_nophasing:
 
         options = {"maxiter": kwargs.get("max_iter", 1_000), "disp": False}
 
-        # NB L-BFGS-B
+        # TODO bounds
         res = scipy.optimize.minimize(
             nll_forward,
             x0,
             method="BFGS",
-            bounds=bounds,
+            bounds=None,
             options=options,
         )
 
@@ -964,12 +972,11 @@ class hmm_nophasing:
             f"nll: {res.fun:.6e}\n"
         )
 
-        # Compute parameter errors using the inverse Hessian
         try:
             if isinstance(res.hess_inv, np.ndarray):
                 hess_inv = res.hess_inv
             else:
-                hess_inv = res.hess_inv.todense()  # For sparse matrix (L-BFGS-B)
+                hess_inv = res.hess_inv.todense()
             parameter_errors = np.sqrt(np.diag(hess_inv))
             logger.info(f"Parameter errors (std dev): {parameter_errors}")
         except Exception as e:
@@ -987,7 +994,7 @@ class hmm_nophasing:
             shared_NB_dispersion=shared_NB_dispersion,
             fix_BB_dispersion=fix_BB_dispersion,
             shared_BB_dispersion=shared_BB_dispersion,
-            use_logit=use_logit,  # Pass use_logit flag
+            use_logit=use_logit,
         )
 
         log_emission = compute_log_emissions(

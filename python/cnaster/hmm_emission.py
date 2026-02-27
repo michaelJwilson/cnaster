@@ -196,7 +196,7 @@ def compute_bb_ab(exog, params):
     num_states = exog.shape[-1]
 
     p = np.dot(exog, params[:num_states])
-    t = np.dot(exog, params[num_states:])
+    t = np.dot(exog, params[ num_states:])
 
     a = p * t
     b = (1.0 - p) * t

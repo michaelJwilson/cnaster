@@ -873,7 +873,8 @@ class hmm_nophasing:
         log_emit_rdr_uniq = np.zeros((n_states, len(nb_endog)))
         log_emit_baf_uniq = np.zeros((n_states, len(bb_endog)))
 
-        state_posteriors = np.zeros((n_states, nb_endog.n_obs), dtype=float)
+        self.log_emissions = None
+        self.state_posteriors = None
 
         def compute_log_emissions(this_log_mu, this_p_binom, this_alphas, this_taus):
             for i in range(n_states):
@@ -905,15 +906,17 @@ class hmm_nophasing:
             log_emit_baf = bbEncoder.decode_array(log_emit_baf_uniq, 0)
 
             # NB jumps the dimension for one spot.
-            return (log_emit_rdr + log_emit_baf)[:, :, np.newaxis]
+            self.log_emissions = (log_emit_rdr + log_emit_baf)[:, :, np.newaxis]
 
-        def update_state_posteriors(params, log_emission):
-            state_posteriors = np.exp(
+            return self.log_emissions
+
+        def update_state_posteriors(params):
+            self.state_posteriors = np.exp(
                 self.get_state_posteriors(
                     lengths,
                     log_transmat,
                     log_startprob,
-                    log_emission,
+                    self.log_emissions,
                     log_sitewise_transmat,
                 )
             )
@@ -939,10 +942,10 @@ class hmm_nophasing:
             )
 
             # NB log_gamma is (n_states * n_observations), potentially concatenated by clone on obs. axis.
-            update_state_posteriors(params, log_emission)
+            update_state_posteriors(params)
 
             # NB em cost is sum_iid of obs., sum_state of gamma * log_emission, which is negative log likelihood.
-            return -np.sum(state_posteriors * log_emission[..., 0])
+            return -np.sum(self.state_posteriors * log_emission[..., 0])
 
         def nll_forward(params):
             this_log_mu, this_p_binom, this_alphas, this_taus = self.unpack_params(

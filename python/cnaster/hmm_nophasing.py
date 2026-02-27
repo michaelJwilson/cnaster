@@ -470,7 +470,7 @@ class hmm_nophasing:
             taus,
             log_startprob,
             log_transmat,
-        ) = self.initialize_params(
+        ) = self.get_initial_params(
             n_states,
             n_spots,
             init_log_mu,
@@ -869,10 +869,10 @@ class hmm_nophasing:
         nb_ones = np.ones_like(nb_endog, dtype=float).reshape(-1, 1)
         bb_ones = np.ones_like(bb_endog, dtype=float).reshape(-1, 1)
 
-        def compute_log_emissions(this_log_mu, this_p_binom, this_alphas, this_taus):
-            log_emit_rdr_uniq = np.zeros((n_states, len(nb_endog)))
-            log_emit_baf_uniq = np.zeros((n_states, len(bb_endog)))
+        log_emit_rdr_uniq = np.zeros((n_states, len(nb_endog)))
+        log_emit_baf_uniq = np.zeros((n_states, len(bb_endog)))
 
+        def compute_log_emissions(this_log_mu, this_p_binom, this_alphas, this_taus):
             for i in range(n_states):
                 if np.any(nb_defined):
                     log_emit_rdr_uniq[i, nb_defined] = -nloglikeobs_nb(
@@ -883,6 +883,8 @@ class hmm_nophasing:
                         np.array([this_log_mu[i, 0], this_alphas[i, 0]]),
                         reduce=False,
                     )
+                else:
+                    log_emit_rdr_uniq[:, :] = 0.
 
                 if np.any(bb_defined):
                     log_emit_baf_uniq[i, bb_defined] = -nloglikeobs_bb(
@@ -893,6 +895,8 @@ class hmm_nophasing:
                         np.array([this_p_binom[i, 0], this_taus[i, 0]]),
                         reduce=False,
                     )
+                else:
+                    log_emit_baf_uniq[:, :] = 0.
 
             log_emit_rdr = nbEncoder.decode_array(log_emit_rdr_uniq, 0)
             log_emit_baf = bbEncoder.decode_array(log_emit_baf_uniq, 0)

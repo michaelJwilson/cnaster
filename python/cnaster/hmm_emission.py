@@ -376,41 +376,6 @@ class Weighted_NegativeBinomial_mix:
                 bounds.append((EPSILON, 1e6))
 
         return bounds
-
-    """
-    def run_mcmc(self, start_params, n_samples, burn_in, bounds):
-        rel_step = 5.0e-3
-        step_scales = np.abs(start_params) * rel_step
-
-        # NB: zero_point is not used for NB calculation in this implementation
-        zero_point = np.zeros_like(self.endog)
-
-        samples, accepted = run_mcmc_numba(
-            numba_nloglikeobs_nb,
-            start_params,
-            n_samples,
-            burn_in,
-            self.endog,
-            self.exog,
-            self.weights,
-            self.exposure,
-            self.tumor_prop,
-            zero_point,
-            bounds,
-            step_scales,
-        )
-
-        acceptance_rate = accepted / n_samples
-
-        means = np.mean(samples, axis=0)
-        errors = np.std(samples, axis=0)
-
-        logger.info(
-            f"Found {acceptance_rate:.2%} acceptance rate for MCMC with means=\n{[xx for xx in means]}\nand errors=\n{[xx for xx in errors]}"
-        )
-
-        return samples
-    """
         
     def fit(
         self,
@@ -565,38 +530,6 @@ class Weighted_BetaBinom_mix:
                 bounds.append((EPSILON, 1e6))
 
         return bounds
-
-    """
-    def run_mcmc(self, start_params, n_samples, burn_in, bounds):
-        rel_step = 0.005
-        step_scales = np.abs(start_params) * rel_step
-
-        samples, accepted = run_mcmc_numba(
-            numba_nloglikeobs_bb,
-            start_params,
-            n_samples,
-            burn_in,
-            self.endog,
-            self.exog,
-            self.weights,
-            self.exposure,
-            self.tumor_prop,
-            self.zero_point,
-            bounds,
-            step_scales,
-        )
-
-        acceptance_rate = accepted / n_samples
-
-        means = np.mean(samples, axis=0)
-        errors = np.std(samples, axis=0)
-
-        logger.info(
-            f"Found {acceptance_rate:.2%} acceptance rate for MCMC with means=\n{[xx for xx in means]}\nand errors=\n{[xx for xx in errors]}"
-        )
-
-        return samples
-    """
 
     def fit(
         self, start_params=None, maxiter=10_000, maxfun=5_000, legacy=False, **kwargs

@@ -784,7 +784,7 @@ class hmm_nophasing:
             "log_gamma": log_gamma,
         }
 
-    def run_baum_welch_nb_bb(
+    def run_maxlike_nb_bb(
         self,
         X,
         lengths,

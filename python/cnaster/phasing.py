@@ -125,7 +125,6 @@ def initial_phase_given_partition(
     for i in range(n_clones):
         logger.info(f"Solving for phasing of initial clone {i} of {n_clones}.")
 
-        """
         # NB assumes BAF = 0.5 for insufficient snp umi count; initial binning chosen so this is not the case
         #    for pseudobulk of all spots?
         # NB phasing of a single clone; independent BAF values.
@@ -174,6 +173,7 @@ def initial_phase_given_partition(
             max_iter=max_iter,
             tol=tol,
         )
+        """
 
         # NB MAP estimate of state given log posterior; pred. > n_states indicates switch-error.
         pred = np.argmax(res["log_gamma"], axis=0)

@@ -74,7 +74,7 @@ def compute_emission_probability_nb_betabinom_phased(
     
     return log_emission_rdr, log_emission_baf
 
-# @njit
+@njit
 def forward_marginalize_phased(
     lengths, log_transmat, log_startprob, log_emission, log_sitewise_transmat
 ):
@@ -473,12 +473,12 @@ class hmm_sitewise:
             p_binom = new_p_binom
             taus = new_taus
 
-        return (
-            new_log_mu,
-            new_alphas,
-            new_p_binom,
-            new_taus,
-            new_log_startprob,
-            new_log_transmat,
-            log_gamma,
-        )
+        return {
+            "new_log_mu": new_log_mu,
+            "new_alphas": new_alphas,
+            "new_p_binom": new_p_binom,
+            "new_taus": new_taus,
+            "new_log_startprob": log_startprob,  # TODO
+            "new_log_transmat": log_transmat,  # TODO
+            "log_gamma": log_gamma,
+        }

@@ -4,6 +4,7 @@ import numpy as np
 from collections import namedtuple
 from cnaster.utils import cacher
 from cnaster.hmm import hmm_sitewise, pipeline_baum_welch
+from cnaster.hmm_phased import hmm_phased
 from cnaster.hmm_nophasing import hmm_nophasing
 from cnaster.hmrf_utils import clone_stack_obs
 from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
@@ -82,6 +83,7 @@ def initial_phase_given_partition(
         minor_X, base_nb_mean, total_bb_RD, lengths, log_sitewise_transmat, tumor_prop
     )
 
+    # TODO
     init_log_mu, init_p_binom = gmm_init(
         n_states,
         clone_stack_minor_X,               
@@ -93,6 +95,7 @@ def initial_phase_given_partition(
         only_minor=True,
     )
 
+    # NB currently determines dispersion for phasing calc.
     res = pipeline_baum_welch(
         None,
         clone_stack_minor_X,
@@ -122,6 +125,7 @@ def initial_phase_given_partition(
     for i in range(n_clones):
         logger.info(f"Solving for phasing of initial clone {i} of {n_clones}.")
 
+        """
         # NB assumes BAF = 0.5 for insufficient snp umi count; initial binning chosen so this is not the case
         #    for pseudobulk of all spots?
         # NB phasing of a single clone; independent BAF values.
@@ -144,6 +148,25 @@ def initial_phase_given_partition(
             fix_BB_dispersion=fix_BB_dispersion,
             shared_BB_dispersion=shared_BB_dispersion,
             is_diag=True,
+            init_log_mu=init_log_mu,
+            init_p_binom=init_p_binom,
+            init_alphas=res["new_alphas"],
+            init_taus=res["new_taus"],
+            max_iter=max_iter,
+            tol=tol,
+        )
+        """
+        res = hmm_phased(params=params, t=t).run_baum_welch_nb_bb(
+            X[:, :, i : (i + 1)],
+            lengths,
+            n_states,
+            base_nb_mean[:, i : (i + 1)],
+            total_bb_RD[:, i : (i + 1)],
+            log_sitewise_transmat,
+            fix_NB_dispersion=fix_NB_dispersion,
+            shared_NB_dispersion=shared_NB_dispersion,
+            fix_BB_dispersion=fix_BB_dispersion,
+            shared_BB_dispersion=shared_BB_dispersion,
             init_log_mu=init_log_mu,
             init_p_binom=init_p_binom,
             init_alphas=res["new_alphas"],

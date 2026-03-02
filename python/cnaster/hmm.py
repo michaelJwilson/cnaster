@@ -4,7 +4,7 @@ import numpy as np
 import scipy.linalg
 import scipy.special
 import scipy.stats
-from cnaster.hmm_initialize import gmm_init, cna_mixture_init
+from cnaster.hmm_initialize import gmm_init
 from cnaster.hmm_sitewise import hmm_sitewise
 from cnaster.hmm_utils import compute_posterior_obs
 from cnaster.config import start_time
@@ -14,7 +14,7 @@ logger = get_logger(__name__, start_time=start_time)
 
 
 def pipeline_baum_welch(
-    output_prefix,
+    _,
     X,
     lengths,
     n_states,
@@ -83,16 +83,8 @@ def pipeline_baum_welch(
     remain_kwargs = {k: v for k, v in kwargs.items() if k in ["lambd", "sample_length"]}
 
     logger.info(f"Assuming kwargs={remain_kwargs.keys()}")
-
-    (
-        new_log_mu,
-        new_alphas,
-        new_p_binom,
-        new_taus,
-        new_log_startprob,
-        new_log_transmat,
-        log_gamma,
-    ) = hmm_model.run_baum_welch_nb_bb(
+    
+    res = hmm_model.run_baum_welch_nb_bb(
         X,
         lengths,
         n_states,
@@ -113,6 +105,15 @@ def pipeline_baum_welch(
         tol=tol,
         **remain_kwargs,
     )
+
+    # TODO
+    new_log_mu = res["new_log_mu"]
+    new_alphas = res["new_alphas"]
+    new_p_binom = res["new_p_binom"]
+    new_taus = res["new_taus"]
+    new_log_startprob = res["new_log_startprob"]
+    new_log_transmat = res["new_log_transmat"]
+    log_gamma = res["log_gamma"]
 
     to_log = [
         f"Solved for best emission parameters with {hmm_model.__class__.__name__}:"

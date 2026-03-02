@@ -1863,6 +1863,7 @@ def run_cnaster(config_path, over_rides=None):
         clone_index,
         single_tumor_prop,
     )
+    """
     plot_cna_mixture(
         res_combine["new_log_mu"],
         res_combine["new_alphas"],
@@ -1873,6 +1874,7 @@ def run_cnaster(config_path, over_rides=None):
         total_bb_RD,
         prefix="final",
     )
+    """
     logger.info(f"Done in {(time.time() - start_time)/60.:.2f} minutes.")
 
 

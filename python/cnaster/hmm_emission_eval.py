@@ -35,9 +35,7 @@ def betabinom_logpmf_numba(k, n, alpha, beta):
 
     return log_binom_coeff + log_beta_num - log_beta_denom
 
-
-# error_model="numpy"
-@njit(nogil=True, cache=True, fastmath=False, parallel=True)
+@njit(nogil=True, cache=True, fastmath=False, parallel=True, error_model="numpy")
 def compute_emissions_nb(
     X,
     base_nb_mean,
@@ -47,10 +45,9 @@ def compute_emissions_nb(
     n_obs,
     n_spots,
 ):
-    # TODO 
+    # TODO guard against log_mu parameters defined with a "spot" (clone) axis > 1.
     assert log_mu.shape[1] == 1
 
-    # TODO zeros? -np.inf
     log_emission_rdr = np.full((n_states, n_obs, n_spots), 0.0)
 
     for i in numba.prange(n_states):
@@ -68,9 +65,7 @@ def compute_emissions_nb(
 
     return log_emission_rdr
 
-
-# error_model="numpy"
-@njit(nogil=True, cache=True, fastmath=False, parallel=True)
+@njit(nogil=True, cache=True, fastmath=False, parallel=True, error_model="numpy")
 def compute_emissions_bb(
     X,
     total_bb_RD,
@@ -80,10 +75,9 @@ def compute_emissions_bb(
     n_obs,
     n_spots,
 ):
-    # TODO 
+    # TODO guard against p_binom parameters defined with a "spot" (clone) axis > 1.
     assert p_binom.shape[1] == 1
 
-    # TODO zeros? -np.inf
     log_emission_baf = np.full((n_states, n_obs, n_spots), 0.0)
 
     for i in numba.prange(n_states):

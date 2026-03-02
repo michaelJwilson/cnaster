@@ -21,6 +21,11 @@ from cnaster.hmm_utils import (
 from cnaster.count_encoder import CountEncoder
 from cnaster.hmm_emission_eval import compute_emissions
 from cnaster.hmm_emission import nloglikeobs_nb, nloglikeobs_bb
+from cnaster.hmm_sitewise import (
+    compute_emission_probability_nb_betabinom_phased,
+    forward_marginalize_phased,
+    backward_marginalize_phased,
+)
 from numba import njit
 from cnaster.config import start_time
 from cnaster.logger import get_logger
@@ -37,10 +42,6 @@ class hmm_nophasing:
     def compute_emission_probability_nb_betabinom(
         X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus
     ):
-        logger.debug(
-            f"Evaluating HMRF NB+BB emission likelihood for X.shape={X.shape} and log_mu.shape={log_mu.shape}."
-        )
-
         # LEGACY
         # return compute_emission_probability_nb_betabinom(
         #       X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus
@@ -49,6 +50,7 @@ class hmm_nophasing:
             X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus
         )
 
+    """
     @staticmethod
     def compute_emission_probability_nb_betabinom_mix(
         X,
@@ -125,6 +127,7 @@ class hmm_nophasing:
                     )
 
         return log_emission_rdr, log_emission_baf
+    """
 
     @staticmethod
     @njit
@@ -771,15 +774,15 @@ class hmm_nophasing:
         else:
             logger.warning(f"hmm_nophasing failed to converge.")
 
-        return (
-            new_log_mu,
-            new_alphas,
-            new_p_binom,
-            new_taus,
-            new_log_startprob,
-            new_log_transmat,
-            log_gamma,
-        )
+        return {
+            "new_log_mu": new_log_mu,
+            "new_alphas": new_alphas,
+            "new_p_binom": new_p_binom,
+            "new_taus": new_taus,
+            "new_log_startprob": new_log_startprob,  # TODO
+            "new_log_transmat": new_log_transmat,  # TODO
+            "log_gamma": log_gamma,
+        }
 
     def run_baum_welch_nb_bb(
         self,
@@ -830,6 +833,8 @@ class hmm_nophasing:
             init_alphas,
             init_taus,
         )
+
+        # logger.info(f"Assuming log_startprob={log_startprob} and log_transmat=\n{log_transmat}.")
 
         x0 = self.pack_params(
             log_mu,
@@ -910,7 +915,7 @@ class hmm_nophasing:
 
             return self.log_emissions
 
-        def update_state_posteriors(params):
+        def update_state_posteriors(_):
             self.state_posteriors = np.exp(
                 self.get_state_posteriors(
                     lengths,
@@ -936,16 +941,30 @@ class hmm_nophasing:
                 use_logit=use_logit,
             )
 
+            """
             # NB emission is (nstates, n_observations, n_spots), but currently only supports n_spots=1.
             log_emission = compute_log_emissions(
                 this_log_mu, this_p_binom, this_alphas, this_taus
             )
+            """
+
+            log_emission_rdr, log_emission_baf = self.compute_emission_probability_nb_betabinom(
+                X,
+                base_nb_mean,
+                this_log_mu,
+                this_alphas,
+                total_bb_RD,
+                this_p_binom,
+                this_taus,
+            )
+
+            self.log_emissions = log_emission_rdr + log_emission_baf
 
             # NB log_gamma is (n_states * n_observations), potentially concatenated by clone on obs. axis.
             update_state_posteriors(params)
 
             # NB em cost is sum_iid of obs., sum_state of gamma * log_emission, which is negative log likelihood.
-            return -np.sum(self.state_posteriors * log_emission[..., 0])
+            return -np.sum(self.state_posteriors * self.log_emissions[..., 0])
 
         def nll_forward(params):
             this_log_mu, this_p_binom, this_alphas, this_taus = self.unpack_params(
@@ -962,15 +981,27 @@ class hmm_nophasing:
                 use_logit=use_logit,
             )
 
-            log_emission = compute_log_emissions(
-                this_log_mu, this_p_binom, this_alphas, this_taus
+            # log_emission = compute_log_emissions(
+            #     this_log_mu, this_p_binom, this_alphas, this_taus
+            # )
+
+            log_emission_rdr, log_emission_baf = self.compute_emission_probability_nb_betabinom(
+                X,
+                base_nb_mean,
+                this_log_mu,
+                this_alphas,
+                total_bb_RD,
+                this_p_binom,
+                this_taus,
             )
+
+            self.log_emissions = log_emission_rdr + log_emission_baf
 
             log_alpha = self.forward_lattice(
                 lengths,
                 log_transmat,
                 log_startprob,
-                log_emission,
+                self.log_emissions,
                 log_sitewise_transmat,
             )
 
@@ -994,6 +1025,8 @@ class hmm_nophasing:
         options = {
             "maxiter": kwargs.get("max_iter", 10_000),
             # "maxfun": kwargs.get("max_fun", 5_000),
+            "gtol": 1e-6,
+            # "ftol": 1e-6,
             "disp": False,
         }
 
@@ -1010,7 +1043,7 @@ class hmm_nophasing:
         runtime = end_time_opt - start_time_opt
 
         logger.info(
-            f"maxlike_nb_bb complete: {runtime:.2f}s with L-BFGS-B\nX_shape={X.shape},\n"
+            f"maxlike_nb_bb complete: {runtime:.2f}s with BFGS\nX_shape={X.shape},\n"
             f"{len(x0)} params,\n"
             f"{res.nit} iter,\n"
             f"{res.nfev} fcalls,\n"
@@ -1025,7 +1058,7 @@ class hmm_nophasing:
             else:
                 hess_inv = res.hess_inv.todense()
             parameter_errors = np.sqrt(np.diag(hess_inv))
-            logger.info(f"Parameter errors (std dev): {parameter_errors}")
+            logger.info(f"Parameter errors (std dev):\n{parameter_errors}")
         except Exception as e:
             logger.warning(f"Failed to compute parameter errors: {e}")
             parameter_errors = None
@@ -1044,20 +1077,35 @@ class hmm_nophasing:
             use_logit=use_logit,
         )
 
-        log_emission = compute_log_emissions(
-            final_log_mu, final_p_binom, final_alphas, final_taus
+        # log_emission = compute_log_emissions(
+        # #     final_log_mu, final_p_binom, final_alphas, final_taus
+        # )
+
+        log_emission_rdr, log_emission_baf = self.compute_emission_probability_nb_betabinom(
+            X,
+            base_nb_mean,
+            final_log_mu,
+            final_alphas,
+            total_bb_RD,
+            final_p_binom,
+            final_taus,
         )
+
+        log_emission = log_emission_rdr + log_emission_baf
 
         log_gamma = self.get_state_posteriors(
             lengths, log_transmat, log_startprob, log_emission, log_sitewise_transmat
         )
 
-        return (
-            final_log_mu,
-            final_alphas,
-            final_p_binom,
-            final_taus,
-            log_startprob,
-            log_transmat,
-            log_gamma,
-        )
+        return {
+            "new_log_mu": final_log_mu,
+            "new_alphas": final_alphas,
+            "new_p_binom": final_p_binom,
+            "new_taus": final_taus,
+            "new_log_startprob": log_startprob,  # TODO
+            "new_log_transmat": log_transmat,  # TODO
+            "log_gamma": log_gamma,
+            "pred_cnv": np.argmax(log_gamma, axis=0),
+            "llf": -cost(res.x),
+            "n_states": n_states,
+        }

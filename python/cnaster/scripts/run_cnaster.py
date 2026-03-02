@@ -722,8 +722,6 @@ def run_cnaster(config_path, over_rides=None):
     fig_path = f"{plots_dir}/bafonly_clones_genomic.pdf"
     write_fig(fig_path, bafonly_clones_genomic, transparent=True, bbox_inches="tight")
 
-    exit(0)
-
     pause()
 
     # NB merge similar clones based on Neyman-Pearson criterion.

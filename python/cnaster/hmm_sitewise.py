@@ -113,6 +113,8 @@ def forward_marginalize_phased(
         log_startprob, log_startprob
     )
 
+    combined_transmat = np.empty((2 * n_states, 2 * n_states))
+
     for le in lengths:
         log_alpha[:, cumlen] = combined_log_startprob + np_sum_ax_squeeze(
             log_emission[:, cumlen, :], axis=1
@@ -131,8 +133,8 @@ def forward_marginalize_phased(
                     ],
                 ]
             )
+
             # NEW 
-            combined_transmat = np.empty((2 * n_states, 2 * n_states))
             combined_transmat[:n_states, :n_states] = log_phases_switch_mat[0, 0] + log_transmat
             combined_transmat[:n_states, n_states:] = log_phases_switch_mat[0, 1] + log_transmat
             combined_transmat[n_states:, :n_states] = log_phases_switch_mat[1, 0] + log_transmat
@@ -180,6 +182,7 @@ def backward_marginalize_phased(
     assert log_emission.shape[0] % 2 == 0, f"Expect 2 * n_states for phasing;  detected odd {log_emission.shape}"
 
     log_sitewise_self_transmat = np.log(1. - np.exp(log_sitewise_transmat))
+    combined_transmat = np.empty((2 * n_states, 2 * n_states))
 
     log_beta = np.zeros((log_emission.shape[0], n_obs))
     buf = np.zeros(log_emission.shape[0])
@@ -201,8 +204,7 @@ def backward_marginalize_phased(
                 ]
             )
 
-            # NEW 
-            combined_transmat = np.empty((2 * n_states, 2 * n_states))
+            # NEW
             combined_transmat[:n_states, :n_states] = log_phases_switch_mat[0, 0] + log_transmat
             combined_transmat[:n_states, n_states:] = log_phases_switch_mat[0, 1] + log_transmat
             combined_transmat[n_states:, :n_states] = log_phases_switch_mat[1, 0] + log_transmat

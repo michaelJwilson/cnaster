@@ -138,7 +138,7 @@ def initial_phase_given_partition(
             log_sitewise_transmat,
             tumor_prop=tumor_prop, # NB calicost assumes tumor_prop is None
             hmmclass=hmm_sitewise,
-            params="",
+            params="", # NB does not solve for p(!) or s.
             t=t,
             random_state=random_state,
             only_minor=True,

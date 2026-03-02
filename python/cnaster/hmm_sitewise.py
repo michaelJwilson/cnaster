@@ -74,7 +74,7 @@ def compute_emission_probability_nb_betabinom_phased(
     
     return log_emission_rdr, log_emission_baf
 
-# @njit
+@njit
 def forward_marginalize_phased(
     lengths, log_transmat, log_startprob, log_emission, log_sitewise_transmat
 ):
@@ -131,10 +131,12 @@ def forward_marginalize_phased(
                     ],
                 ]
             )
-            combined_transmat = np.kron(
-                np.exp(log_phases_switch_mat), np.exp(log_transmat)
-            )
-            combined_transmat = np.log(combined_transmat)
+            # NEW 
+            combined_transmat = np.empty((2 * n_states, 2 * n_states))
+            combined_transmat[:n_states, :n_states] = log_phases_switch_mat[0, 0] + log_transmat
+            combined_transmat[:n_states, n_states:] = log_phases_switch_mat[0, 1] + log_transmat
+            combined_transmat[n_states:, :n_states] = log_phases_switch_mat[1, 0] + log_transmat
+            combined_transmat[n_states:, n_states:] = log_phases_switch_mat[1, 1] + log_transmat
 
             for j in np.arange(log_emission.shape[0]):
                 for i in np.arange(log_emission.shape[0]):
@@ -198,10 +200,14 @@ def backward_marginalize_phased(
                     ],
                 ]
             )
-            combined_transmat = np.kron(
-                np.exp(log_phases_switch_mat), np.exp(log_transmat)
-            )
-            combined_transmat = np.log(combined_transmat)
+
+            # NEW 
+            combined_transmat = np.empty((2 * n_states, 2 * n_states))
+            combined_transmat[:n_states, :n_states] = log_phases_switch_mat[0, 0] + log_transmat
+            combined_transmat[:n_states, n_states:] = log_phases_switch_mat[0, 1] + log_transmat
+            combined_transmat[n_states:, :n_states] = log_phases_switch_mat[1, 0] + log_transmat
+            combined_transmat[n_states:, n_states:] = log_phases_switch_mat[1, 1] + log_transmat
+            
             for i in np.arange(log_emission.shape[0]):
                 for j in np.arange(log_emission.shape[0]):
                     buf[j] = (

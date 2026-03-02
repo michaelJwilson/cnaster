@@ -834,7 +834,7 @@ class hmm_nophasing:
             "log_gamma": log_gamma,
         }
 
-    def run_baum_welch_nb_bb(
+    def run_maxlike_nb_bb(
         self,
         X,
         lengths,
@@ -858,9 +858,6 @@ class hmm_nophasing:
         use_logit=False,
         **kwargs,
     ):
-        """
-        Maximizes likelihood using scipy.optimize.minimize with L-BFGS-B, applying bounds and optionally using logit parameterization.
-        """
         _, n_comp, n_spots = X.shape
 
         assert n_spots == 1

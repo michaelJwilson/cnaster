@@ -128,6 +128,7 @@ def initial_phase_given_partition(
         # NB assumes BAF = 0.5 for insufficient snp umi count; initial binning chosen so this is not the case
         #    for pseudobulk of all spots?
         # NB phasing of a single clone; independent BAF values.
+        '''
         res = pipeline_baum_welch(
             None,
             X[:, :, i : (i + 1)],
@@ -154,8 +155,9 @@ def initial_phase_given_partition(
             max_iter=max_iter,
             tol=tol,
         )
-        """
-        res = hmm_phased(params=params, t=t).run_baum_welch_nb_bb(
+        '''
+
+        res = hmm_phased(params="", t=t).run_baum_welch_nb_bb(
             X[:, :, i : (i + 1)],
             lengths,
             n_states,
@@ -173,7 +175,6 @@ def initial_phase_given_partition(
             max_iter=max_iter,
             tol=tol,
         )
-        """
 
         # NB MAP estimate of state given log posterior; pred. > n_states indicates switch-error.
         pred = np.argmax(res["log_gamma"], axis=0)

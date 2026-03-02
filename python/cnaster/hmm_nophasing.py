@@ -1006,7 +1006,7 @@ class hmm_nophasing:
                 this_taus,
             )
 
-            self.log_emissions = log_emission_rdr + log_emission_baf
+            self.log_emissions = (log_emission_rdr + log_emission_baf)[:, :, np.newaxis]
 
             log_alpha = self.forward_lattice(
                 lengths,
@@ -1091,7 +1091,7 @@ class hmm_nophasing:
 
         """
         # NB emission is (nstates, n_observations, n_spots), but currently only supports n_spots=1.
-        log_emission = compute_emission_probability_nb_betabinom_coded(
+        log_emission_rdr, log_emission_baf = compute_emission_probability_nb_betabinom_coded(
             nbEncoder, bbEncoder, final_log_mu, final_p_binom, final_alphas, final_taus
         )
         """

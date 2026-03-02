@@ -824,6 +824,8 @@ class hmm_nophasing:
         else:
             logger.warning(f"hmm_nophasing failed to converge.")
 
+        exit(0)
+
         return {
             "new_log_mu": new_log_mu,
             "new_alphas": new_alphas,
@@ -834,7 +836,7 @@ class hmm_nophasing:
             "log_gamma": log_gamma,
         }
 
-    def run_maxlike_nb_bb(
+    def run_baum_welch_nb_bb(
         self,
         X,
         lengths,
@@ -881,7 +883,11 @@ class hmm_nophasing:
             init_taus,
         )
 
-        # logger.info(f"Assuming log_startprob={log_startprob} and log_transmat=\n{log_transmat}.")
+        logger.info(f"Assuming kwargs={kwargs}")
+        logger.info(f"Assumed initial p_binom and dispersion:\n{np.hstack((p_binom, taus))}")
+
+        # DEPRECATE
+        log_gamma = kwargs.get("log_gamma", None)
 
         x0 = self.pack_params(
             log_mu,
@@ -896,6 +902,7 @@ class hmm_nophasing:
             use_logit=use_logit,
         )
 
+        """
         bounds = self.get_bounds(n_states)
         _ = self.pack_params(
             *bounds,
@@ -906,6 +913,7 @@ class hmm_nophasing:
             shared_BB_dispersion=shared_BB_dispersion,
             use_logit=use_logit,
         )
+        """
 
         nbEncoder = CountEncoder(X[:, 0, :], base_nb_mean)
         bbEncoder = CountEncoder(X[:, 1, :], total_bb_RD)
@@ -949,7 +957,7 @@ class hmm_nophasing:
 
             # NB emission is (nstates, n_observations, n_spots), but currently only supports n_spots=1.
             log_emission_rdr, log_emission_baf = self.compute_emission_probability_nb_betabinom_coded(
-                nbEncoder, bbEncoder, this_log_mu, this_p_binom, this_alphas, this_taus
+                nbEncoder, bbEncoder, this_log_mu, this_alphas, this_p_binom, this_taus
             )
             """
             log_emission_rdr, log_emission_baf = self.compute_emission_probability_nb_betabinom(
@@ -986,13 +994,11 @@ class hmm_nophasing:
                 use_logit=use_logit,
             )
 
-            """
             # NB emission is (nstates, n_observations, n_spots), but currently only supports n_spots=1.
             log_emission_rdr, log_emission_baf = self.compute_emission_probability_nb_betabinom_coded(
-                nbEncoder, bbEncoder, this_log_mu, this_p_binom, this_alphas, this_taus
+                nbEncoder, bbEncoder, this_log_mu, this_alphas, this_p_binom, this_taus
             )
             """
-
             log_emission_rdr, log_emission_baf = self.compute_emission_probability_nb_betabinom(
                 X,
                 base_nb_mean,
@@ -1002,6 +1008,7 @@ class hmm_nophasing:
                 this_p_binom,
                 this_taus,
             )
+            """
 
             self.log_emissions = (log_emission_rdr + log_emission_baf)[:, :, np.newaxis]
 
@@ -1024,16 +1031,17 @@ class hmm_nophasing:
 
         # {nll_forward, baum_welch_forward}
         cost = baum_welch_forward
+        callback = update_state_posteriors
 
         start_time_opt = time.time()
         logger.info(
-            f"maxlike_nb_bb with BFGS\n\tn_states={n_states};\n\tX.shape={X.shape};\n\tfixed_dispersion={fix_NB_dispersion};\n\tshared dispersion={shared_NB_dispersion};\n\toptimize_nb={optimize_nb};\n\tuse_logit={use_logit};\n\tinitial cost={cost(x0):.6e}"
+            f"maxlike_nb_bb with BFGS\nn_states={n_states};\nX.shape={X.shape};\nfixed_dispersion={fix_NB_dispersion};\nshared dispersion={shared_NB_dispersion};\noptimize_nb={optimize_nb};\nuse_logit={use_logit};\ninitial cost={cost(x0):.6e}"
         )
 
         options = {
             "maxiter": kwargs.get("max_iter", 10_000),
             # "maxfun": kwargs.get("max_fun", 5_000),
-            "gtol": 1e-6,
+            # "gtol": 1e-6,
             # "ftol": 1e-6,
             "disp": False,
         }
@@ -1044,7 +1052,7 @@ class hmm_nophasing:
             x0,
             method="BFGS",
             bounds=None,
-            callback=update_state_posteriors,
+            callback=callback,
             options=options,
         )
 
@@ -1061,6 +1069,7 @@ class hmm_nophasing:
             f"nll: {res.fun:.6e}\n"
         )
 
+        """
         try:
             if isinstance(res.hess_inv, np.ndarray):
                 hess_inv = res.hess_inv
@@ -1071,6 +1080,7 @@ class hmm_nophasing:
         except Exception as e:
             logger.warning(f"Failed to compute parameter errors: {e}")
             parameter_errors = None
+        """
 
         final_log_mu, final_p_binom, final_alphas, final_taus = self.unpack_params(
             res.x,
@@ -1085,6 +1095,19 @@ class hmm_nophasing:
             shared_BB_dispersion=shared_BB_dispersion,
             use_logit=use_logit,
         )
+
+        to_log = [
+            f"Solved for best emission parameters with {self.__class__.__name__}:"
+        ]
+
+        if optimize_nb:
+            to_log.append(f"mu=\n{[f'{xx:.3f}' for xx in final_log_mu[:,0]]}")
+            to_log.append(f"alphas=\n{[f'{xx:.3f}' for xx in final_alphas[:,0]]}")
+
+        to_log.append(f"p_binom=\n{[f'{xx:.3f}' for xx in final_p_binom[:,0]]}")
+        to_log.append(f"taus=\n{[f'{xx:.3e}' for xx in final_taus[:,0]]}")
+
+        logger.info("\n".join(to_log))
 
         """
         # NB emission is (nstates, n_observations, n_spots), but currently only supports n_spots=1.
@@ -1107,6 +1130,25 @@ class hmm_nophasing:
 
         log_gamma = self.get_state_posteriors(
             lengths, log_transmat, log_startprob, log_emission, log_sitewise_transmat
+        )
+
+        contracted_log_gamma = np.sum(np.exp(log_gamma), axis=1) / np.sum(
+                np.exp(log_gamma)
+            )
+
+        logger.info(
+            f"State posterior breakdown:\n{[f'{xx:.4e}' for xx in contracted_log_gamma]}"
+        )
+
+        logger.info(
+            "Found max HMM parameter updates for tol=%.6e: \nstart prob.=%.6e\ntransfer matrix=%.6e\nmu=%.6e\np_binom=%.6e\nalpha=%.6e\ntau=%.6e",
+            tol,
+            np.max(np.abs(np.exp(log_startprob) - np.exp(log_startprob))),
+            np.max(np.abs(np.exp(log_transmat) - np.exp(log_transmat))),
+            np.max(np.abs(np.exp(final_log_mu) - np.exp(log_mu))),
+            np.max(np.abs(final_p_binom - p_binom)),
+            np.max(np.abs(final_alphas - alphas)),
+            np.max(np.abs(final_taus - taus)),
         )
 
         return {

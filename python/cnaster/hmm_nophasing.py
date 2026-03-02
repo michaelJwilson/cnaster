@@ -837,8 +837,6 @@ class hmm_nophasing:
         else:
             logger.warning(f"hmm_nophasing failed to converge.")
 
-        exit(0)
-
         return {
             "new_log_mu": new_log_mu,
             "new_alphas": new_alphas,
@@ -849,7 +847,7 @@ class hmm_nophasing:
             "log_gamma": log_gamma,
         }
 
-    def run_maxlike_nb_bb(
+    def run_baum_welch_nb_bb(
         self,
         X,
         lengths,
@@ -1064,8 +1062,8 @@ class hmm_nophasing:
             return total_nll
 
         # {nll_forward, baum_welch_forward}
-        cost = baum_welch_forward
-        callback = update_state_posteriors
+        cost = nll_forward
+        callback = None
 
         start_time_opt = time.time()
         logger.info(

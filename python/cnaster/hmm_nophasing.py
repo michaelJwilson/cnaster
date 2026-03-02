@@ -26,6 +26,7 @@ from cnaster.hmm_sitewise import (
     forward_marginalize_phased,
     backward_marginalize_phased,
 )
+from scipy.optimize import OptimizeResult
 from numba import njit
 from cnaster.config import start_time
 from cnaster.logger import get_logger
@@ -50,6 +51,7 @@ class hmm_nophasing:
             X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus
         )
     
+    @staticmethod
     def compute_emission_probability_nb_betabinom_coded(nbEncoder, bbEncoder, this_log_mu, this_p_binom, this_alphas, this_taus):
         n_states = this_log_mu.shape[0]
 
@@ -550,7 +552,7 @@ class hmm_nophasing:
 
         for r in range(max_iter):
             logger.info(
-                f"----  Solving for Baum-Welch iteration {r}/{max_iter} with Neative Binomial & Beta Binomial emission  -----"
+                f"----  Solving for Baum-Welch iteration {r}/{max_iter} with Negative Binomial & Beta Binomial emission  -----"
             )
 
             if tumor_prop is None:
@@ -832,7 +834,7 @@ class hmm_nophasing:
             "log_gamma": log_gamma,
         }
 
-    def run_maxlike_nb_bb(
+    def run_baum_welch_nb_bb(
         self,
         X,
         lengths,
@@ -840,19 +842,19 @@ class hmm_nophasing:
         base_nb_mean,
         total_bb_RD,
         log_sitewise_transmat=None,
-        # tumor_prop=None,
+        tumor_prop=None,
         fix_NB_dispersion=False,
         shared_NB_dispersion=False,
         fix_BB_dispersion=False,
         shared_BB_dispersion=False,
-        # is_diag=False,
+        is_diag=False,
         init_log_mu=None,
         init_p_binom=None,
         init_alphas=None,
         init_taus=None,
-        # max_iter=100,
+        max_iter=100,
         max_rdr=5.0,  # TODO HACK MAGIC
-        # tol=1e-4,
+        tol=1e-4,
         use_logit=False,
         **kwargs,
     ):
@@ -913,8 +915,16 @@ class hmm_nophasing:
 
         self.log_emissions = None
         self.state_posteriors = None
+        self.iterations = 0
 
-        def update_state_posteriors(_):
+        def update_state_posteriors(intermediate_result: OptimizeResult=None):
+            # NB 'intermediate_result' required by scipy.  BFGS defines fun and x attributes only.
+            #    see https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html
+            if intermediate_result is not None:
+                if (self.iterations > 0) and (self.iterations % 5 != 0):
+                    self.iterations += 1                    
+                    return
+
             self.state_posteriors = np.exp(
                 self.get_state_posteriors(
                     lengths,
@@ -940,13 +950,11 @@ class hmm_nophasing:
                 use_logit=use_logit,
             )
 
-            """
             # NB emission is (nstates, n_observations, n_spots), but currently only supports n_spots=1.
-            log_emission = compute_emission_probability_nb_betabinom_coded(
+            log_emission_rdr, log_emission_baf = self.compute_emission_probability_nb_betabinom_coded(
                 nbEncoder, bbEncoder, this_log_mu, this_p_binom, this_alphas, this_taus
             )
             """
-
             log_emission_rdr, log_emission_baf = self.compute_emission_probability_nb_betabinom(
                 X,
                 base_nb_mean,
@@ -956,11 +964,12 @@ class hmm_nophasing:
                 this_p_binom,
                 this_taus,
             )
+            """
 
-            self.log_emissions = log_emission_rdr + log_emission_baf
+            self.log_emissions = (log_emission_rdr + log_emission_baf)[:, :, np.newaxis]
 
             # NB log_gamma is (n_states * n_observations), potentially concatenated by clone on obs. axis.
-            update_state_posteriors(params)
+            update_state_posteriors()
 
             # NB em cost is sum_iid of obs., sum_state of gamma * log_emission, which is negative log likelihood.
             return -np.sum(self.state_posteriors * self.log_emissions[..., 0])
@@ -982,7 +991,7 @@ class hmm_nophasing:
 
             """
             # NB emission is (nstates, n_observations, n_spots), but currently only supports n_spots=1.
-            log_emission = compute_emission_probability_nb_betabinom_coded(
+            log_emission_rdr, log_emission_baf = self.compute_emission_probability_nb_betabinom_coded(
                 nbEncoder, bbEncoder, this_log_mu, this_p_binom, this_alphas, this_taus
             )
             """
@@ -1038,6 +1047,7 @@ class hmm_nophasing:
             x0,
             method="BFGS",
             bounds=None,
+            callback=update_state_posteriors,
             options=options,
         )
 

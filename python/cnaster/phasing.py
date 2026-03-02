@@ -119,6 +119,8 @@ def initial_phase_given_partition(
         tol=tol,
     )
 
+    quit()
+
     baf_profiles = np.zeros((n_clones, X.shape[0]))
     phase_profiles = np.zeros((n_clones, X.shape[0]))
 

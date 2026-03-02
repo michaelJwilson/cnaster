@@ -50,15 +50,17 @@ class hmm_nophasing:
         return compute_emissions(
             X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus
         )
-    
+
     @staticmethod
-    def compute_emission_probability_nb_betabinom_coded(nbEncoder, bbEncoder, log_mu, alphas, p_binom, taus):
+    def compute_emission_probability_nb_betabinom_coded(
+        nbEncoder, bbEncoder, log_mu, alphas, p_binom, taus
+    ):
         n_states = log_mu.shape[0]
 
         # NB assumes a single spot, index 0.
         nb_endog = nbEncoder.get_unique_obs(0)
         nb_exposure = nbEncoder.get_unique_total(0)
-        nb_valid = (nb_exposure > 0)
+        nb_valid = nb_exposure > 0
 
         bb_endog = bbEncoder.get_unique_obs(0)
         bb_exposure = bbEncoder.get_unique_total(0)
@@ -532,6 +534,17 @@ class hmm_nophasing:
             init_taus,
         )
 
+        kwargs_str = (
+            "{\n" + "\n".join(f"  '{k}': {v}" for k, v in kwargs.items()) + "\n}"
+            if kwargs
+            else "{}"
+        )
+        logger.info(f"Assuming kwargs={kwargs_str}")
+        logger.info(
+            f"Assumed initial p_binom and dispersion:\n{np.hstack((p_binom, taus))}"
+        )
+
+        # DEPRECATE
         log_gamma = kwargs.get("log_gamma", None)
 
         logger.info(f"Assumed initial log_gamma?  {log_gamma is not None}")
@@ -642,7 +655,7 @@ class hmm_nophasing:
             )
 
             logger.info(
-                f"State posterior breakdown:\n{[xx for xx in contracted_log_gamma]}"
+                f"State posterior breakdown:\n{[f'{xx:.4e}' for xx in contracted_log_gamma]}"
             )
 
             # HACK MAGIC TODO
@@ -836,7 +849,7 @@ class hmm_nophasing:
             "log_gamma": log_gamma,
         }
 
-    def run_baum_welch_nb_bb(
+    def run_maxlike_nb_bb(
         self,
         X,
         lengths,
@@ -883,8 +896,15 @@ class hmm_nophasing:
             init_taus,
         )
 
-        logger.info(f"Assuming kwargs={kwargs}")
-        logger.info(f"Assumed initial p_binom and dispersion:\n{np.hstack((p_binom, taus))}")
+        kwargs_str = (
+            "{\n" + "\n".join(f"  '{k}': {v}" for k, v in kwargs.items()) + "\n}"
+            if kwargs
+            else "{}"
+        )
+        logger.info(f"Assuming kwargs={kwargs_str}")
+        logger.info(
+            f"Assumed initial p_binom and dispersion:\n{np.hstack((p_binom, taus))}"
+        )
 
         # DEPRECATE
         log_gamma = kwargs.get("log_gamma", None)
@@ -922,12 +942,12 @@ class hmm_nophasing:
         self.state_posteriors = None
         self.iterations = 0
 
-        def update_state_posteriors(intermediate_result: OptimizeResult=None):
+        def update_state_posteriors(intermediate_result: OptimizeResult = None):
             # NB 'intermediate_result' required by scipy.  BFGS defines fun and x attributes only.
             #    see https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html
             if intermediate_result is not None:
                 if (self.iterations > 0) and (self.iterations % 5 != 0):
-                    self.iterations += 1                    
+                    self.iterations += 1
                     return
 
             self.state_posteriors = np.exp(
@@ -956,8 +976,15 @@ class hmm_nophasing:
             )
 
             # NB emission is (nstates, n_observations, n_spots), but currently only supports n_spots=1.
-            log_emission_rdr, log_emission_baf = self.compute_emission_probability_nb_betabinom_coded(
-                nbEncoder, bbEncoder, this_log_mu, this_alphas, this_p_binom, this_taus
+            log_emission_rdr, log_emission_baf = (
+                self.compute_emission_probability_nb_betabinom_coded(
+                    nbEncoder,
+                    bbEncoder,
+                    this_log_mu,
+                    this_alphas,
+                    this_p_binom,
+                    this_taus,
+                )
             )
             """
             log_emission_rdr, log_emission_baf = self.compute_emission_probability_nb_betabinom(
@@ -995,8 +1022,15 @@ class hmm_nophasing:
             )
 
             # NB emission is (nstates, n_observations, n_spots), but currently only supports n_spots=1.
-            log_emission_rdr, log_emission_baf = self.compute_emission_probability_nb_betabinom_coded(
-                nbEncoder, bbEncoder, this_log_mu, this_alphas, this_p_binom, this_taus
+            log_emission_rdr, log_emission_baf = (
+                self.compute_emission_probability_nb_betabinom_coded(
+                    nbEncoder,
+                    bbEncoder,
+                    this_log_mu,
+                    this_alphas,
+                    this_p_binom,
+                    this_taus,
+                )
             )
             """
             log_emission_rdr, log_emission_baf = self.compute_emission_probability_nb_betabinom(
@@ -1116,14 +1150,16 @@ class hmm_nophasing:
         )
         """
 
-        log_emission_rdr, log_emission_baf = self.compute_emission_probability_nb_betabinom(
-            X,
-            base_nb_mean,
-            final_log_mu,
-            final_alphas,
-            total_bb_RD,
-            final_p_binom,
-            final_taus,
+        log_emission_rdr, log_emission_baf = (
+            self.compute_emission_probability_nb_betabinom(
+                X,
+                base_nb_mean,
+                final_log_mu,
+                final_alphas,
+                total_bb_RD,
+                final_p_binom,
+                final_taus,
+            )
         )
 
         log_emission = log_emission_rdr + log_emission_baf
@@ -1133,8 +1169,8 @@ class hmm_nophasing:
         )
 
         contracted_log_gamma = np.sum(np.exp(log_gamma), axis=1) / np.sum(
-                np.exp(log_gamma)
-            )
+            np.exp(log_gamma)
+        )
 
         logger.info(
             f"State posterior breakdown:\n{[f'{xx:.4e}' for xx in contracted_log_gamma]}"

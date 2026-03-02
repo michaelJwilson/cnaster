@@ -108,12 +108,12 @@ def forward_marginalize_phased(
     buf = np.zeros(log_emission.shape[0])
     cumlen = 0
 
-    for le in lengths:
-        # NB split prob. equally across phases, i.e. half each.
-        combined_log_startprob = np.log(0.5) + np.append(
-            log_startprob, log_startprob
-        )
+    # NB split prob. equally across phases, i.e. half each.
+    combined_log_startprob = np.log(0.5) + np.append(
+        log_startprob, log_startprob
+    )
 
+    for le in lengths:
         log_alpha[:, cumlen] = combined_log_startprob + np_sum_ax_squeeze(
             log_emission[:, cumlen, :], axis=1
         )

@@ -74,7 +74,7 @@ def compute_emission_probability_nb_betabinom_phased(
     
     return log_emission_rdr, log_emission_baf
 
-@njit
+# @njit
 def forward_marginalize_phased(
     lengths, log_transmat, log_startprob, log_emission, log_sitewise_transmat
 ):

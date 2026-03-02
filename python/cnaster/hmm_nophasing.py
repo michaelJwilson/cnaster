@@ -52,8 +52,8 @@ class hmm_nophasing:
         )
     
     @staticmethod
-    def compute_emission_probability_nb_betabinom_coded(nbEncoder, bbEncoder, this_log_mu, this_p_binom, this_alphas, this_taus):
-        n_states = this_log_mu.shape[0]
+    def compute_emission_probability_nb_betabinom_coded(nbEncoder, bbEncoder, log_mu, alphas, p_binom, taus):
+        n_states = log_mu.shape[0]
 
         # NB assumes a single spot, index 0.
         nb_endog = nbEncoder.get_unique_obs(0)
@@ -77,7 +77,7 @@ class hmm_nophasing:
                     nb_ones[nb_valid],
                     nb_ones[nb_valid],
                     nb_exposure[nb_valid],
-                    np.array([this_log_mu[i, 0], this_alphas[i, 0]]),
+                    np.array([log_mu[i, 0], alphas[i, 0]]),
                     reduce=False,
                 )
             else:
@@ -89,7 +89,7 @@ class hmm_nophasing:
                     bb_ones[bb_valid],
                     bb_ones[bb_valid],
                     bb_exposure[bb_valid],
-                    np.array([this_p_binom[i, 0], this_taus[i, 0]]),
+                    np.array([p_binom[i, 0], taus[i, 0]]),
                     reduce=False,
                 )
             else:

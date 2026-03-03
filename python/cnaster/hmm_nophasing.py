@@ -960,6 +960,7 @@ class hmm_nophasing:
         self.iterations = 0
 
         def update_state_posteriors():
+            # TODO m-step for log_startprob and log_transmat.
             if (self.iterations > 0) and (self.iterations % 5 != 0):
                 self.iterations += 1
                 return
@@ -977,6 +978,7 @@ class hmm_nophasing:
             self.iterations += 1
 
         def baum_welch_forward(params):
+            # TODO log_startprob?
             this_log_startprob, this_log_mu, this_p_binom, this_alphas, this_taus = self.unpack_params(
                 params,
                 n_states,
@@ -1017,7 +1019,6 @@ class hmm_nophasing:
             """
 
             self.log_emissions = (log_emission_rdr + log_emission_baf)[:, :, np.newaxis]
-            self.log_startprob = this_log_startprob
 
             # NB log_gamma is (n_states * n_observations), potentially concatenated by clone on obs. axis.
             #    utilized on optimization callback.

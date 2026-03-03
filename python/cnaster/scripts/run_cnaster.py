@@ -287,7 +287,7 @@ def run_cnaster(config_path, over_rides=None):
         spatial_assignment = get_clone_assignment(coords, initial_clone_for_phasing)
         he_assignment = adata.obsm["he_label"].flatten()
         
-        clone_assignment, unique_pairs = pd.factorize(
+        clone_assignment, _ = pd.factorize(
             list(zip(he_assignment, spatial_assignment))
         )
         
@@ -1105,8 +1105,8 @@ def run_cnaster(config_path, over_rides=None):
             tol=config.hmm.tol,
             spatial_weight=config.hmrf.spatial_weight,
             tumorprop_threshold=config.hmrf.tumorprop_threshold,
-            init_p_binom=None,  # merged_res["new_p_binom"],  # HACK? BAF states known from BAF-only run. # TODO init mus conditioned on known baf.
-            init_log_mu=None,  # np.zeros_like(merged_res["new_p_binom"]),  # HACK? BAF states known from BAF-only run.  # TODO init mus conditioned on known baf.
+            init_p_binom=None,
+            init_log_mu=None,
         )
 
         clone_res[prefix] = merge_dicts(clone_res[prefix], new_clone_res)

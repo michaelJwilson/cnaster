@@ -156,7 +156,7 @@ def initial_phase_given_partition(
             tol=tol,
         )
         '''
-        res = hmm_phased(params="", t=t).run_baum_welch_nb_bb(
+        res = hmm_phased(params="sp", t=t).run_baum_welch_nb_bb(
             X[:, :, i : (i + 1)],
             lengths,
             n_states,

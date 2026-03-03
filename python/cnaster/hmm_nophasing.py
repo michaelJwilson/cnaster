@@ -448,7 +448,8 @@ class hmm_nophasing:
         idx = 0
 
         if "s" in self.params:
-            log_startprob = x[idx : idx + n_states]
+            raw_startprob = x[idx : idx + n_states]
+            log_startprob = raw_startprob - scipy.special.logsumexp(raw_startprob)
             idx += n_states
         else:
             log_startprob = log_startprob_init
@@ -470,9 +471,7 @@ class hmm_nophasing:
         else:
             p_binom = p_binom_init
 
-        if not optimize_nb or "m" not in self.params or fix_NB_dispersion:
-            alphas = alphas_init
-        else:
+        if optimize_nb and "m" in self.params and not fix_NB_dispersion:
             if shared_NB_dispersion:
                 val = np.exp(x[idx])
                 alphas = np.full((n_states, 1), val)
@@ -480,10 +479,10 @@ class hmm_nophasing:
             else:
                 alphas = np.exp(x[idx : idx + n_states]).reshape(n_states, 1)
                 idx += n_states
-
-        if "p" not in self.params or fix_BB_dispersion:
-            taus = taus_init
         else:
+            alphas = alphas_init
+
+        if "p" in self.params and not fix_BB_dispersion:
             if shared_BB_dispersion:
                 val = np.exp(x[idx])
                 taus = np.full((n_states, 1), val)
@@ -491,6 +490,8 @@ class hmm_nophasing:
             else:
                 taus = np.exp(x[idx : idx + n_states]).reshape(n_states, 1)
                 idx += n_states
+        else:
+            taus = taus_init
 
         return log_startprob, log_mu, p_binom, alphas, taus
 
@@ -863,7 +864,7 @@ class hmm_nophasing:
             "log_gamma": log_gamma,
         }
 
-    def run_maxlike_nb_bb(
+    def run_baum_welch_nb_bb(
         self,
         X,
         lengths,
@@ -971,6 +972,8 @@ class hmm_nophasing:
                     log_sitewise_transmat,
                 )
             )
+
+            self.iterations += 1
 
         def baum_welch_forward(params):
             this_log_startprob, this_log_mu, this_p_binom, this_alphas, this_taus = self.unpack_params(

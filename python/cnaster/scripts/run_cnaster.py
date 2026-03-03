@@ -31,7 +31,7 @@ from cnaster.omics import (
 )
 from cnaster.phasing import initial_phase_given_partition
 from cnaster.spatial import (
-    fixed_rectangle_partition,
+    # fixed_rectangle_partition,
     best_equal_partition,
     initialize_clones,
     multislice_adjacency,
@@ -176,7 +176,6 @@ def run_cnaster(config_path, over_rides=None):
     # NB sample list derived from adata.obs['sample'] - removes adjacent duplicates.
     #    sample_ids: unique enum for each entry in sample_list.  One per adata.obs entry.
     sample_list, sample_ids = get_sample_list(adata)
-
     single_tumor_prop = read_tumor_prop(adata, config=config)
 
     # recomb_rates = get_reference_recomb_rates(config.references.geneticmap_file)
@@ -400,7 +399,7 @@ def run_cnaster(config_path, over_rides=None):
 
     if config.phasing.run:
         if config.run.legacy:
-            logger.warning("Assuming (magic) five BAF states for phasing.")
+            logger.warning("Assuming (magic) five baf states for phasing.")
             n_states_phasing = 5
         else:
             n_states_phasing = config.hmm.n_states
@@ -521,8 +520,8 @@ def run_cnaster(config_path, over_rides=None):
         sample_ids,
         sample_list,
         coords,
-        single_total_bb_RD,  # NEGLECTED?
-        exp_counts,  # NEGLECTED?
+        single_total_bb_RD, # NEGLECTED?
+        exp_counts, # NEGLECTED?
         across_slice_adjacency_mat,
         construct_adjacency_method=config.hmrf.construct_adjacency_method,
         maxspots_pooling=config.hmrf.maxspots_pooling,

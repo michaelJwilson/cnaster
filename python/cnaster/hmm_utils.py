@@ -144,7 +144,7 @@ def compute_posterior_obs(log_alpha, log_beta):
     n_states = log_alpha.shape[0]
     n_obs = log_alpha.shape[1]
 
-    log_gamma = np.zeros((n_states, n_obs))
+    # log_gamma = np.zeros((n_states, n_obs))
     log_gamma = log_alpha + log_beta
 
     if np.any(np.sum(log_gamma, axis=0) == 0):

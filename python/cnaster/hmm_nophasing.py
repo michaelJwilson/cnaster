@@ -43,10 +43,6 @@ class hmm_nophasing:
     def compute_emission_probability_nb_betabinom(
         X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus
     ):
-        # LEGACY
-        # return compute_emission_probability_nb_betabinom(
-        #       X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus
-        # )
         return compute_emissions(
             X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus
         )
@@ -895,6 +891,12 @@ class hmm_nophasing:
 
         optimize_nb = np.any(base_nb_mean > 0)
 
+        nbEncoder = CountEncoder(X[:, 0, :], base_nb_mean)
+        bbEncoder = CountEncoder(X[:, 1, :], total_bb_RD)
+
+        logger.info(f"Solved for med. {np.median(nbEncoder.total_count)} and max. {np.max(nbEncoder.total_count)} total counts for nbEncoder.")
+        logger.info(f"Solved for med. {np.median(bbEncoder.total_count)} and max. {np.max(bbEncoder.total_count)} total counts for bbEncoder.")
+
         (
             log_mu,
             p_binom,
@@ -910,6 +912,10 @@ class hmm_nophasing:
             init_alphas,
             init_taus,
         )
+
+        # TODO HACK?
+        # init_alphas = 1. / np.exp(init_log_mu) if init_log_mu is not None else init_alphas
+        # init_taus = np.median(bbEncoder.total_count) * np.ones_like(p_binom)
 
         kwargs_str = (
             "{\n" + "\n".join(f"  '{k}': {v}" for k, v in kwargs.items()) + "\n}"
@@ -950,18 +956,14 @@ class hmm_nophasing:
             use_logit=use_logit,
         )
         """
-
-        nbEncoder = CountEncoder(X[:, 0, :], base_nb_mean)
-        bbEncoder = CountEncoder(X[:, 1, :], total_bb_RD)
-
         self.log_startprob = log_startprob
         self.log_emissions = None
         self.state_posteriors = None
         self.iterations = 0
 
-        def update_state_posteriors():
+        def update_state_posteriors(intermediate_result: OptimizeResult = None):
             # TODO m-step for log_startprob and log_transmat.
-            if (self.iterations > 0) and (self.iterations % 5 != 0):
+            if (self.iterations > 0) and (self.iterations % 2 != 0):
                 self.iterations += 1
                 return
 
@@ -979,7 +981,7 @@ class hmm_nophasing:
 
         def baum_welch_forward(params):
             # TODO log_startprob?
-            this_log_startprob, this_log_mu, this_p_binom, this_alphas, this_taus = self.unpack_params(
+            _, this_log_mu, this_p_binom, this_alphas, this_taus = self.unpack_params(
                 params,
                 n_states,
                 log_startprob,
@@ -1022,8 +1024,9 @@ class hmm_nophasing:
 
             # NB log_gamma is (n_states * n_observations), potentially concatenated by clone on obs. axis.
             #    utilized on optimization callback.
-            #
-            # update_state_posteriors()
+            
+            if self.state_posteriors is None:
+                update_state_posteriors()
 
             # NB em cost is sum_iid of obs., sum_state of gamma * log_emission, which is negative log likelihood.
             return -np.sum(self.state_posteriors * self.log_emissions[..., 0])
@@ -1089,6 +1092,8 @@ class hmm_nophasing:
 
         # {nll_forward, baum_welch_forward}
         cost = nll_forward
+
+        # {None, update_state_posteriors}
         callback = None
 
         start_time_opt = time.time()
@@ -1127,7 +1132,6 @@ class hmm_nophasing:
             f"nll: {res.fun:.6e}\n"
         )
 
-        """
         try:
             if isinstance(res.hess_inv, np.ndarray):
                 hess_inv = res.hess_inv
@@ -1138,7 +1142,6 @@ class hmm_nophasing:
         except Exception as e:
             logger.warning(f"Failed to compute parameter errors: {e}")
             parameter_errors = None
-        """
 
         final_log_startprob, final_log_mu, final_p_binom, final_alphas, final_taus = self.unpack_params(
             res.x,
@@ -1194,12 +1197,12 @@ class hmm_nophasing:
             lengths, log_transmat, final_log_startprob, log_emission, log_sitewise_transmat
         )
 
-        contracted_log_gamma = np.sum(np.exp(log_gamma), axis=1) / np.sum(
+        state_prior = np.sum(np.exp(log_gamma), axis=1) / np.sum(
             np.exp(log_gamma)
         )
 
         logger.info(
-            f"State posterior breakdown:\n{[f'{xx:.4e}' for xx in contracted_log_gamma]}"
+            f"State posterior breakdown:\n{[f'{xx:.4e}' for xx in state_prior]}"
         )
 
         logger.info(
@@ -1212,6 +1215,8 @@ class hmm_nophasing:
             np.max(np.abs(final_alphas - alphas)),
             np.max(np.abs(final_taus - taus)),
         )
+
+        exit(0)
 
         return {
             "new_log_mu": final_log_mu,

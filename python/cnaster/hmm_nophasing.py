@@ -954,11 +954,12 @@ class hmm_nophasing:
         nbEncoder = CountEncoder(X[:, 0, :], base_nb_mean)
         bbEncoder = CountEncoder(X[:, 1, :], total_bb_RD)
 
+        self.log_startprob = log_startprob
         self.log_emissions = None
         self.state_posteriors = None
         self.iterations = 0
 
-        def update_state_posteriors(this_log_startprob):
+        def update_state_posteriors():
             if (self.iterations > 0) and (self.iterations % 5 != 0):
                 self.iterations += 1
                 return
@@ -967,7 +968,7 @@ class hmm_nophasing:
                 self.get_state_posteriors(
                     lengths,
                     log_transmat,
-                    this_log_startprob,
+                    self.log_startprob,
                     self.log_emissions,
                     log_sitewise_transmat,
                 )
@@ -1016,9 +1017,12 @@ class hmm_nophasing:
             """
 
             self.log_emissions = (log_emission_rdr + log_emission_baf)[:, :, np.newaxis]
+            self.log_startprob = this_log_startprob
 
             # NB log_gamma is (n_states * n_observations), potentially concatenated by clone on obs. axis.
-            update_state_posteriors(this_log_startprob)
+            #    utilized on optimization callback.
+            #
+            # update_state_posteriors()
 
             # NB em cost is sum_iid of obs., sum_state of gamma * log_emission, which is negative log likelihood.
             return -np.sum(self.state_posteriors * self.log_emissions[..., 0])

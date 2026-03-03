@@ -384,6 +384,7 @@ class hmm_nophasing:
 
     def pack_params(
         self,
+        log_startprob,
         log_mu,
         p_binom,
         alphas,
@@ -400,32 +401,38 @@ class hmm_nophasing:
         """
         # TODO parameter block, dispersion block, parameter block, dispersion block, etc.
         params_list = []
-        if optimize_nb:
+        if "s" in self.params:
+            params_list.append(log_startprob.flatten())
+
+        if optimize_nb and "m" in self.params:
             params_list.append(log_mu.flatten())
 
-        params_list.append(
-            scipy.special.logit(p_binom.flatten()) if use_logit else p_binom.flatten()
-        )
+        if "p" in self.params:
+            params_list.append(
+                scipy.special.logit(p_binom.flatten()) if use_logit else p_binom.flatten()
+            )
 
-        if optimize_nb and not fix_NB_dispersion:
+        if optimize_nb and "m" in self.params and not fix_NB_dispersion:
             if shared_NB_dispersion:
                 params_list.append(np.array([np.log(alphas.flatten()[0])]))
             else:
                 params_list.append(np.log(alphas.flatten()))
 
-        if not fix_BB_dispersion:
+        if "p" in self.params and not fix_BB_dispersion:
             if shared_BB_dispersion:
                 params_list.append(np.array([np.log(taus.flatten()[0])]))
             else:
                 params_list.append(np.log(taus.flatten()))
 
-        return np.concatenate(params_list)
+        return np.concatenate(params_list) if params_list else np.array([])
 
     def unpack_params(
         self,
         x,
         n_states,
+        log_startprob_init,
         log_mu_init,
+        p_binom_init,
         alphas_init,
         taus_init,
         optimize_nb=True,
@@ -440,21 +447,30 @@ class hmm_nophasing:
         """
         idx = 0
 
-        if optimize_nb:
+        if "s" in self.params:
+            log_startprob = x[idx : idx + n_states]
+            idx += n_states
+        else:
+            log_startprob = log_startprob_init
+
+        if optimize_nb and "m" in self.params:
             log_mu = x[idx : idx + n_states].reshape(n_states, 1)
             idx += n_states
         else:
             log_mu = log_mu_init
 
-        if use_logit:
-            p_binom = scipy.special.expit(x[idx : idx + n_states].reshape(n_states, 1))
+        if "p" in self.params:
+            if use_logit:
+                p_binom = scipy.special.expit(x[idx : idx + n_states].reshape(n_states, 1))
+            else:
+                p_binom = np.clip(
+                    x[idx : idx + n_states].reshape(n_states, 1), 1e-6, 1 - 1e-6
+                )
+            idx += n_states
         else:
-            p_binom = np.clip(
-                x[idx : idx + n_states].reshape(n_states, 1), 1e-6, 1 - 1e-6
-            )
-        idx += n_states
+            p_binom = p_binom_init
 
-        if not optimize_nb or fix_NB_dispersion:
+        if not optimize_nb or "m" not in self.params or fix_NB_dispersion:
             alphas = alphas_init
         else:
             if shared_NB_dispersion:
@@ -465,7 +481,7 @@ class hmm_nophasing:
                 alphas = np.exp(x[idx : idx + n_states]).reshape(n_states, 1)
                 idx += n_states
 
-        if fix_BB_dispersion:
+        if "p" not in self.params or fix_BB_dispersion:
             taus = taus_init
         else:
             if shared_BB_dispersion:
@@ -476,7 +492,7 @@ class hmm_nophasing:
                 taus = np.exp(x[idx : idx + n_states]).reshape(n_states, 1)
                 idx += n_states
 
-        return log_mu, p_binom, alphas, taus
+        return log_startprob, log_mu, p_binom, alphas, taus
 
     def run_baum_welch_nb_bb(
         self,
@@ -847,7 +863,7 @@ class hmm_nophasing:
             "log_gamma": log_gamma,
         }
 
-    def run_baum_welch_nb_bb(
+    def run_maxlike_nb_bb(
         self,
         X,
         lengths,
@@ -908,6 +924,7 @@ class hmm_nophasing:
         log_gamma = kwargs.get("log_gamma", None)
 
         x0 = self.pack_params(
+            log_startprob,
             log_mu,
             p_binom,
             alphas,
@@ -940,29 +957,28 @@ class hmm_nophasing:
         self.state_posteriors = None
         self.iterations = 0
 
-        def update_state_posteriors(intermediate_result: OptimizeResult = None):
-            # NB 'intermediate_result' required by scipy.  BFGS defines fun and x attributes only.
-            #    see https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html
-            if intermediate_result is not None:
-                if (self.iterations > 0) and (self.iterations % 5 != 0):
-                    self.iterations += 1
-                    return
+        def update_state_posteriors(this_log_startprob):
+            if (self.iterations > 0) and (self.iterations % 5 != 0):
+                self.iterations += 1
+                return
 
             self.state_posteriors = np.exp(
                 self.get_state_posteriors(
                     lengths,
                     log_transmat,
-                    log_startprob,
+                    this_log_startprob,
                     self.log_emissions,
                     log_sitewise_transmat,
                 )
             )
 
         def baum_welch_forward(params):
-            this_log_mu, this_p_binom, this_alphas, this_taus = self.unpack_params(
+            this_log_startprob, this_log_mu, this_p_binom, this_alphas, this_taus = self.unpack_params(
                 params,
                 n_states,
+                log_startprob,
                 log_mu,  # TODO init_log_mu
+                p_binom,
                 alphas,  # TODO init_alphas
                 taus,  # TODO init_taus
                 optimize_nb=optimize_nb,
@@ -999,16 +1015,18 @@ class hmm_nophasing:
             self.log_emissions = (log_emission_rdr + log_emission_baf)[:, :, np.newaxis]
 
             # NB log_gamma is (n_states * n_observations), potentially concatenated by clone on obs. axis.
-            update_state_posteriors()
+            update_state_posteriors(this_log_startprob)
 
             # NB em cost is sum_iid of obs., sum_state of gamma * log_emission, which is negative log likelihood.
             return -np.sum(self.state_posteriors * self.log_emissions[..., 0])
 
         def nll_forward(params):
-            this_log_mu, this_p_binom, this_alphas, this_taus = self.unpack_params(
+            this_log_startprob, this_log_mu, this_p_binom, this_alphas, this_taus = self.unpack_params(
                 params,
                 n_states,
+                log_startprob,
                 log_mu,  # TODO init_log_mu
+                p_binom,
                 alphas,  # TODO init_alphas
                 taus,  # TODO init_taus
                 optimize_nb=optimize_nb,
@@ -1047,7 +1065,7 @@ class hmm_nophasing:
             log_alpha = self.forward_lattice(
                 lengths,
                 log_transmat,
-                log_startprob,
+                this_log_startprob,
                 self.log_emissions,
                 log_sitewise_transmat,
             )
@@ -1114,10 +1132,12 @@ class hmm_nophasing:
             parameter_errors = None
         """
 
-        final_log_mu, final_p_binom, final_alphas, final_taus = self.unpack_params(
+        final_log_startprob, final_log_mu, final_p_binom, final_alphas, final_taus = self.unpack_params(
             res.x,
             n_states,
+            log_startprob,
             log_mu,
+            p_binom,
             alphas,
             taus,
             optimize_nb=optimize_nb,
@@ -1163,7 +1183,7 @@ class hmm_nophasing:
         log_emission = log_emission_rdr + log_emission_baf
 
         log_gamma = self.get_state_posteriors(
-            lengths, log_transmat, log_startprob, log_emission, log_sitewise_transmat
+            lengths, log_transmat, final_log_startprob, log_emission, log_sitewise_transmat
         )
 
         contracted_log_gamma = np.sum(np.exp(log_gamma), axis=1) / np.sum(
@@ -1177,7 +1197,7 @@ class hmm_nophasing:
         logger.info(
             "Found max HMM parameter updates for tol=%.6e: \nstart prob.=%.6e\ntransfer matrix=%.6e\nmu=%.6e\np_binom=%.6e\nalpha=%.6e\ntau=%.6e",
             tol,
-            np.max(np.abs(np.exp(log_startprob) - np.exp(log_startprob))),
+            np.max(np.abs(np.exp(final_log_startprob) - np.exp(log_startprob))),
             np.max(np.abs(np.exp(log_transmat) - np.exp(log_transmat))),
             np.max(np.abs(np.exp(final_log_mu) - np.exp(log_mu))),
             np.max(np.abs(final_p_binom - p_binom)),
@@ -1190,7 +1210,7 @@ class hmm_nophasing:
             "new_alphas": final_alphas,
             "new_p_binom": final_p_binom,
             "new_taus": final_taus,
-            "new_log_startprob": log_startprob,  # TODO
+            "new_log_startprob": final_log_startprob,  # TODO
             "new_log_transmat": log_transmat,  # TODO
             "log_gamma": log_gamma,
             "pred_cnv": np.argmax(log_gamma, axis=0),

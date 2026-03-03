@@ -462,9 +462,7 @@ def wolff_sweep(
         f"Completing an annealed Wolff sweep with edge range=({adj_weights.min():.4f},{adj_weights.max():.4f}), high temperature {high_temp:.4e}, {len(anneal_temps)} decades:\n{anneal_temps}"
     )
 
-    n_spots = single_llf.shape[0]
     wolff_temp = 4.5
-
     max_iter = 0
 
     for anneal_iter, anneal_temp in enumerate(anneal_temps):

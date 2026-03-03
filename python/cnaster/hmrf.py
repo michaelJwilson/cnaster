@@ -632,7 +632,7 @@ def hmrfmix_concatenate_pipeline(
             f"Found nb_mean=0 across all spots,segments; corresponds to BAF only run."
         )
 
-    # NB normalized baseline expression.
+    # NB normalized baseline expression;
     with np.errstate(divide="ignore", invalid="ignore"):
         lambd = np.sum(single_base_nb_mean, axis=1) / norm
 
@@ -699,7 +699,7 @@ def hmrfmix_concatenate_pipeline(
             init_taus = new_init_taus
 
         logger.info(
-            f"Solved for HMM initialized parameters:\n{init_log_mu}\n{init_p_binom}"
+            f"Solved for hmm initialized parameters:\n{init_log_mu}\n{init_p_binom}"
         )
         logger.info(
             f"Plotting initial copy state mixture for instance {hmrfmix_concatenate_pipeline.call_count-1} with X.shape={X.shape}."

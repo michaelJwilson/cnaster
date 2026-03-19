@@ -437,7 +437,7 @@ impl HMRF {
 pub mod tests {
     use super::*;
 
-    pub fn generate_mock_array(
+    pub fn create_mock(
         width: usize,
         height: usize,
         num_colors: usize,
@@ -574,11 +574,13 @@ pub mod tests {
         }
     }
 
+    pub fn create_test_mock() -> HMRF {
+        create_mock(100, 100, 4, -10.0, 0.50, Some(5.0), 1234)
+    }
+
     #[test]
     fn test_plot_mock_hmrf() {
-        let width = 100;
-        let height = 100;
-        let hmrf = generate_mock_array(width, height, 4, -1.0, 0.1, None, 42);
+        let hmrf = create_test_mock();
 
         assert!(hmrf.plot_labels("test_labels.svg").is_ok());
 
@@ -590,10 +592,8 @@ pub mod tests {
 
     #[test]
     fn test_spinglass_potts_energy() {
-        let width = 25;
-        let height = 25;
         let beta = 1.0;
-        let hmrf = generate_mock_array(width, height, 4, -1.0, 0.1, None, 1337);
+        let hmrf = create_test_mock();
 
         let cost = hmrf.potts_energy(beta);
 
@@ -602,10 +602,7 @@ pub mod tests {
 
     #[test]
     fn test_icm_annealing() {
-        let width = 100;
-        let height = 100;
-
-        let mut hmrf = generate_mock_array(width, height, 4, -10.0, 0.50, Some(5.0), 1234);
+        let mut hmrf = create_test_mock();
 
         println!("Initial Energy: {}", hmrf.potts_energy(1.0));
         assert!(hmrf.plot_labels("icm_annealing_init.svg").is_ok());
@@ -629,10 +626,7 @@ pub mod tests {
 
     #[test]
     fn test_gibbs_annealing() {
-        let width = 100;
-        let height = 100;
-
-        let mut hmrf = generate_mock_array(width, height, 4, -10.0, 0.50, Some(5.0), 1234);
+        let mut hmrf = create_test_mock();
 
         assert!(hmrf.plot_labels("gibbs_annealing_init.svg").is_ok());
 
@@ -655,10 +649,7 @@ pub mod tests {
 
     #[test]
     fn test_swendsen_wang_annealing() {
-        let width = 100;
-        let height = 100;
-
-        let mut hmrf = generate_mock_array(width, height, 4, -10.0, 0.50, Some(5.0), 1234);
+        let mut hmrf = create_test_mock();
 
         assert!(hmrf.plot_labels("swendsen_wang_annealing_init.svg").is_ok());
 
@@ -681,10 +672,7 @@ pub mod tests {
 
     #[test]
     fn test_wolff_annealing() {
-        let width = 100;
-        let height = 100;
-
-        let mut hmrf = generate_mock_array(width, height, 4, -10.0, 0.50, Some(5.0), 1234);
+        let mut hmrf = create_test_mock();
 
         assert!(hmrf.plot_labels("wolff_annealing_init.svg").is_ok());
 
@@ -707,10 +695,7 @@ pub mod tests {
 
     #[test]
     fn test_mean_field_decode() {
-        let width = 100;
-        let height = 100;
-
-        let mut hmrf = generate_mock_array(width, height, 4, -2.0, 0.1, Some(1.0), 1234);
+        let mut hmrf = create_test_mock();
 
         assert!(hmrf.plot_labels("mfd_init.svg").is_ok());
 

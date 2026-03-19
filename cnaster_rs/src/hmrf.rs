@@ -350,21 +350,64 @@ pub mod tests {
         uniform_j: Option<f64>,
         seed: u64,
     ) -> HMRF {
+        assert!(num_colors % 2 == 0, "num_colors must be an even number");
         let mut rng = StdRng::seed_from_u64(seed);
         let n_spots = width * height;
 
         let labels: Vec<usize> = (0..n_spots).map(|_| rng.gen_range(0..num_colors)).collect();
 
-        // NB generate H_field as a checkerboard pattern
+        // Print color proportions
+        let mut color_counts = vec![0; num_colors];
+        for &label in &labels {
+            color_counts[label] += 1;
+        }
+        println!("Color proportions:");
+        for (i, &count) in color_counts.iter().enumerate() {
+            println!(
+                "  Color {}: {:.2}%",
+                i,
+                (count as f64 / n_spots as f64) * 100.0
+            );
+        }
+
+        // Dirichlet sample the x coordinates into a partition m / 2
+        let n_x_parts = num_colors / 2;
+        let mut x_weights = Vec::new();
+        for _ in 0..n_x_parts {
+            let mut u = rng.gen::<f64>();
+            if u == 0.0 { u = 1e-10; }
+            x_weights.push(-u.ln());
+        }
+        let x_sum: f64 = x_weights.iter().sum();
+        
+        let mut x_boundaries = vec![0.0];
+        let mut current_x = 0.0;
+        for w in x_weights {
+            current_x += (w / x_sum) * (width as f64);
+            x_boundaries.push(current_x);
+        }
+        x_boundaries[n_x_parts] = width as f64 + 1.0; // Ensure edge coverage
+
+        // Dirichlet sample the y coordinates into a partition 2
+        let mut u1 = rng.gen::<f64>(); if u1 == 0.0 { u1 = 1e-10; }
+        let mut u2 = rng.gen::<f64>(); if u2 == 0.0 { u2 = 1e-10; }
+        let y_boundary = (-u1.ln() / (-u1.ln() - u2.ln())) * (height as f64);
+
+        // Drive the field such that Hnm = max_h for a given m in each partition
         let mut h_field = vec![vec![0.0; num_colors]; n_spots];
-        let square_size = 5; // Set checkerboard square size > 1
         for y in 0..height {
             for x in 0..width {
                 let i = y * width + x;
-                if num_colors > 1 {
-                    let color_idx = ((x / square_size + y / square_size) % 2).min(num_colors - 1);
-                    h_field[i][color_idx] = max_h;
+                
+                let mut x_part = 0;
+                while (x as f64) >= x_boundaries[x_part + 1] {
+                    x_part += 1;
                 }
+                
+                let y_part = if (y as f64) < y_boundary { 0 } else { 1 };
+                
+                let color_idx = y_part * n_x_parts + x_part;
+                h_field[i][color_idx] = max_h;
             }
         }
 
@@ -413,13 +456,14 @@ pub mod tests {
     fn test_plot_mock_hmrf() {
         let width = 25;
         let height = 25;
-        let hmrf = generate_mock_array(width, height, 3, 1.0, None, 42);
+        let hmrf = generate_mock_array(width, height, 4, 1.0, None, 42);
 
         assert!(hmrf.plot_labels("test_labels.svg").is_ok());
 
         assert!(hmrf.plot_field(0, "test_field_c0.svg").is_ok());
         assert!(hmrf.plot_field(1, "test_field_c1.svg").is_ok());
         assert!(hmrf.plot_field(2, "test_field_c2.svg").is_ok());
+        assert!(hmrf.plot_field(3, "test_field_c3.svg").is_ok());
     }
 
     #[test]

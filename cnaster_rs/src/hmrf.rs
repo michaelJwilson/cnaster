@@ -116,7 +116,7 @@ impl HMRF {
                     }
                 }
 
-                // Compute probabilities: P \propto exp(-beta * energy) 
+                // Compute probabilities: P \propto exp(-beta * energy)
                 // avoiding overflow by subtracting min_energy
                 let mut probs = vec![0.0; self.num_colors];
                 for c in 0..self.num_colors {
@@ -176,11 +176,7 @@ impl HMRF {
             }
 
             // Accept with min(1, exp(-beta * dH))
-            let acceptance_prob = if dH <= 0.0 {
-                1.0
-            } else {
-                (-beta * dH).exp()
-            };
+            let acceptance_prob = if dH <= 0.0 { 1.0 } else { (-beta * dH).exp() };
 
             if rng.gen::<f64>() < acceptance_prob {
                 for &node in &cluster {
@@ -375,11 +371,13 @@ pub mod tests {
         let mut x_weights = Vec::new();
         for _ in 0..n_x_parts {
             let mut u = rng.gen::<f64>();
-            if u == 0.0 { u = 1e-10; }
+            if u == 0.0 {
+                u = 1e-10;
+            }
             x_weights.push(-u.ln());
         }
         let x_sum: f64 = x_weights.iter().sum();
-        
+
         let mut x_boundaries = vec![0.0];
         let mut current_x = 0.0;
         for w in x_weights {
@@ -389,26 +387,44 @@ pub mod tests {
         x_boundaries[n_x_parts] = width as f64 + 1.0; // Ensure edge coverage
 
         // Dirichlet sample the y coordinates into a partition 2
-        let mut u1 = rng.gen::<f64>(); if u1 == 0.0 { u1 = 1e-10; }
-        let mut u2 = rng.gen::<f64>(); if u2 == 0.0 { u2 = 1e-10; }
+        let mut u1 = rng.gen::<f64>();
+        if u1 == 0.0 {
+            u1 = 1e-10;
+        }
+        let mut u2 = rng.gen::<f64>();
+        if u2 == 0.0 {
+            u2 = 1e-10;
+        }
         let y_boundary = (-u1.ln() / (-u1.ln() - u2.ln())) * (height as f64);
 
         // Drive the field such that Hnm = max_h for a given m in each partition
         let mut h_field = vec![vec![0.0; num_colors]; n_spots];
+        let mut partition_counts = vec![0; num_colors];
+
         for y in 0..height {
             for x in 0..width {
                 let i = y * width + x;
-                
+
                 let mut x_part = 0;
                 while (x as f64) >= x_boundaries[x_part + 1] {
                     x_part += 1;
                 }
-                
+
                 let y_part = if (y as f64) < y_boundary { 0 } else { 1 };
-                
+
                 let color_idx = y_part * n_x_parts + x_part;
                 h_field[i][color_idx] = max_h;
+                partition_counts[color_idx] += 1;
             }
+        }
+
+        println!("Partition proportions (Field Assignments):");
+        for (i, &count) in partition_counts.iter().enumerate() {
+            println!(
+                "  Partition {}: {:.2}%",
+                i,
+                (count as f64 / n_spots as f64) * 100.0
+            );
         }
 
         // NB generate adjacency list for square lattice
@@ -454,8 +470,8 @@ pub mod tests {
 
     #[test]
     fn test_plot_mock_hmrf() {
-        let width = 25;
-        let height = 25;
+        let width = 100;
+        let height = 100;
         let hmrf = generate_mock_array(width, height, 4, 1.0, None, 42);
 
         assert!(hmrf.plot_labels("test_labels.svg").is_ok());
@@ -482,20 +498,20 @@ pub mod tests {
     fn test_icm_annealing() {
         let width = 100;
         let height = 100;
-        
+
         let mut hmrf = generate_mock_array(width, height, 4, 2.0, Some(1.0), 1234);
 
         println!("Initial Energy: {}", hmrf.potts_energy(1.0));
         assert!(hmrf.plot_labels("icm_annealing_init.svg").is_ok());
 
         let betas = vec![0.0, 1.0, 2.0, 5.0, 50.0];
-        let icm_iters_per_temp = 10;
+        let icm_iters_per_temp = 1_000;
 
         for (i, &beta) in betas.iter().enumerate() {
             println!("ICM annealing step {} (beta context: {})", i, beta);
-            
+
             hmrf.icm(icm_iters_per_temp);
-            
+
             println!("  Energy: {}", hmrf.potts_energy(1.0));
             println!("  Clone proportions: {:?}", hmrf.clone_proportions());
 
@@ -508,23 +524,24 @@ pub mod tests {
     fn test_gibbs_annealing() {
         let width = 100;
         let height = 100;
-        
-        let mut hmrf = generate_mock_array(width, height, 4, 2.0, Some(1.0), 1234);
 
-        assert!(hmrf.plot_labels("annealing_init.svg").is_ok());
+        let mut hmrf = generate_mock_array(width, height, 4, 10.0, Some(0.0), 1234);
 
-        let betas = vec![0.0, 1.0, 2.0, 5.0, 50.0];
-        let gibbs_iters_per_temp = 25;
+        assert!(hmrf.plot_labels("gibbs_annealing_init.svg").is_ok());
 
+        let betas = vec![0.0, 5.0, 50.0, 1000.0];
+        let gibbs_iters_per_temp = 1_000;
+
+        // NB beta = 0 is random flipping; <clone proportion> = 1/num_colors; high energy.
         for (i, &beta) in betas.iter().enumerate() {
             println!("Gibbs annealing step {} with beta: {}", i, beta);
-            
+
             hmrf.gibbs_sample(beta, gibbs_iters_per_temp);
-            
+
             println!("  Energy: {}", hmrf.potts_energy(1.0));
             println!("  Clone proportions: {:?}", hmrf.clone_proportions());
 
-            let filename = format!("annealing_beta_{}.svg", beta);
+            let filename = format!("gibbs_annealing_beta_{}.svg", beta);
             assert!(hmrf.plot_labels(&filename).is_ok());
         }
     }
@@ -538,17 +555,17 @@ pub mod tests {
 
         assert!(hmrf.plot_labels("wolff_annealing_init.svg").is_ok());
 
-        let betas = vec![0.0, 1.0, 2.0, 5.0, 50.0];
-        let num_cluster_updates = 5_000;
+        let betas = vec![0.0, 1.0, 2.0, 5.0, 50.0, 1000.0];
+        let num_cluster_updates = 1_000;
 
         for (i, &beta) in betas.iter().enumerate() {
             println!("Wolff annealing step {} with beta: {}", i, beta);
-            
+
             hmrf.wolff_sample(beta, num_cluster_updates);
-            
+
             println!("  Energy: {}", hmrf.potts_energy(1.0));
             println!("  Clone proportions: {:?}", hmrf.clone_proportions());
-            
+
             let filename = format!("wolff_annealing_beta_{}.svg", beta);
             assert!(hmrf.plot_labels(&filename).is_ok());
         }
@@ -569,12 +586,12 @@ pub mod tests {
 
         for (i, &beta) in betas.iter().enumerate() {
             println!("Mean field decode step {} with beta: {}", i, beta);
-            
+
             hmrf.mean_field_decode(beta, max_iters, tol);
-            
+
             println!("  Energy: {}", hmrf.potts_energy(1.0));
             println!("  Clone proportions: {:?}", hmrf.clone_proportions());
-            
+
             let filename = format!("mfd_beta_{}.svg", beta);
             assert!(hmrf.plot_labels(&filename).is_ok());
         }

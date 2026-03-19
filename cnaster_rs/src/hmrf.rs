@@ -2,6 +2,7 @@ use plotters::prelude::*;
 use rand::distributions::WeightedIndex;
 use rand::prelude::Distribution;
 use rand::{rngs::StdRng, Rng, SeedableRng};
+use std::collections::VecDeque;
 
 pub struct HMRF {
     pub labels: Vec<usize>,
@@ -125,6 +126,66 @@ impl HMRF {
                 // Sample a new color based on the computed probabilities using WeightedIndex
                 let dist = WeightedIndex::new(&probs).unwrap();
                 self.labels[i] = dist.sample(&mut rng);
+            }
+        }
+    }
+
+    /// Wolff cluster sampling algorithm with Metropolis acceptance for the external field.
+    pub fn wolff_sample(&mut self, beta: f64, num_clusters: usize) {
+        let mut rng = rand::thread_rng();
+        let n_nodes = self.labels.len();
+
+        for _ in 0..num_clusters {
+            // Sample a node at random
+            let start_node = rng.gen_range(0..n_nodes);
+            let m_prime = self.labels[start_node];
+
+            // Select a new color m uniformly from the (num_colors - 1) other choices
+            let mut m = rng.gen_range(0..(self.num_colors - 1));
+            if m >= m_prime {
+                m += 1;
+            }
+
+            let mut cluster = Vec::new();
+            let mut queue = VecDeque::new();
+            let mut in_cluster = vec![false; n_nodes];
+
+            cluster.push(start_node);
+            queue.push_back(start_node);
+            in_cluster[start_node] = true;
+
+            // Construct BFS from that node for all nodes with the same label
+            while let Some(current) = queue.pop_front() {
+                for &(neighbor, j_weight) in &self.adj_list[current] {
+                    if !in_cluster[neighbor] && self.labels[neighbor] == m_prime {
+                        // Sample according to edge probability P(bond) = 1 - exp(-beta * J)
+                        let p_bond = 1.0 - (-beta * j_weight).exp();
+                        if rng.gen::<f64>() < p_bond {
+                            in_cluster[neighbor] = true;
+                            cluster.push(neighbor);
+                            queue.push_back(neighbor);
+                        }
+                    }
+                }
+            }
+
+            // Calculate dH = sum of (H_k,m - H_k,m') \propto energy for nodes C'
+            let mut dH = 0.0;
+            for &node in &cluster {
+                dH += self.h_field[node][m] - self.h_field[node][m_prime];
+            }
+
+            // Accept with min(1, exp(-beta * dH))
+            let acceptance_prob = if dH <= 0.0 {
+                1.0
+            } else {
+                (-beta * dH).exp()
+            };
+
+            if rng.gen::<f64>() < acceptance_prob {
+                for &node in &cluster {
+                    self.labels[node] = m;
+                }
             }
         }
     }
@@ -350,5 +411,30 @@ pub mod tests {
         }
 
         println!("Final Cost after Annealing: {}", hmrf.potts_energy(betas.last().copied().unwrap()));
+    }
+
+    #[test]
+    fn test_wolff_annealing() {
+        let width = 100;
+        let height = 100;
+        // Moderate external field to create interesting patterns, uniform J=1.0
+        let mut hmrf = generate_mock_array(width, height, 4, 2.0, Some(1.0), 1234);
+
+        assert!(hmrf.plot_labels("wolff_annealing_init.svg").is_ok());
+
+        let betas = vec![0.0, 1.0, 2.0, 5.0, 50.0];
+        // Each cluster covers multiple nodes, adjust iterations accordingly
+        let num_cluster_updates = 250;
+
+        for (i, &beta) in betas.iter().enumerate() {
+            println!("Wolff annealing step {} with beta: {}", i, beta);
+            
+            hmrf.wolff_sample(beta, num_cluster_updates);
+            
+            let filename = format!("wolff_annealing_beta_{}.svg", beta);
+            assert!(hmrf.plot_labels(&filename).is_ok());
+        }
+
+        println!("Final Cost after Wolff Annealing: {}", hmrf.potts_energy(betas.last().copied().unwrap()));
     }
 }

@@ -201,18 +201,10 @@ impl HMRF {
     /// Calculate the marginal probabilities of each label using the mean-field approximation.
     pub fn mean_field(&self, beta: f64, max_iters: usize, tol: f64) -> Vec<Vec<f64>> {
         let n_nodes = self.labels.len();
-        let mut q = vec![vec![0.0; self.num_colors]; n_nodes];
 
-        // Initialize from current labels to break symmetry (soft one-hot encoding)
-        for i in 0..n_nodes {
-            for c in 0..self.num_colors {
-                q[i][c] = if self.labels[i] == c {
-                    0.99
-                } else {
-                    0.01 / (self.num_colors as f64 - 1.0).max(1.0)
-                };
-            }
-        }
+        // Initialize with uniform probabilities for all colors
+        let uniform_prob = 1.0 / self.num_colors as f64;
+        let mut q = vec![vec![uniform_prob; self.num_colors]; n_nodes];
 
         for _ in 0..max_iters {
             let mut max_diff = 0.0_f64;
@@ -691,7 +683,7 @@ pub mod tests {
 
         assert!(hmrf.plot_labels("mfd_init.svg").is_ok());
 
-        let betas = vec![0.0, 1.0, 2.0, 5.0, 50.0];
+        let betas = vec![0.0, 5.0, 50.0, 1000.0];
         let max_iters = 100;
         let tol = 1e-4;
 
@@ -703,7 +695,7 @@ pub mod tests {
             println!("  Energy: {}", hmrf.potts_energy(1.0));
             println!("  Clone proportions: {:?}", hmrf.clone_proportions());
 
-            let filename = format!("mfd_beta_{}.svg", beta);
+            let filename = format!("mean_field_beta_{}.svg", beta);
             assert!(hmrf.plot_labels(&filename).is_ok());
         }
     }

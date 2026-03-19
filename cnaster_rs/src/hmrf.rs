@@ -254,22 +254,26 @@ impl HMRF {
         q
     }
 
-    /// Decode the labels by taking the maximum marginal probability from the mean-field approximation.
-    pub fn mean_field_decode(&mut self, beta: f64, max_iters: usize, tol: f64) {
-        let q = self.mean_field(beta, max_iters, tol);
-
-        for (i, marginals) in q.iter().enumerate() {
-            let mut best_c = 0;
+    /// Decode the labels by taking the maximum marginal probability from a generic marginal array.
+    pub fn decode_marginals(&mut self, marginals_per_node: &[Vec<f64>]) {
+        let mut rng = rand::thread_rng();
+        
+        for (i, marginals) in marginals_per_node.iter().enumerate() {
+            let mut best_cs = Vec::new();
             let mut max_q = -1.0;
 
             for (c, &prob) in marginals.iter().enumerate() {
-                if prob > max_q {
+                if prob > max_q + 1e-9 {
                     max_q = prob;
-                    best_c = c;
+                    best_cs.clear();
+                    best_cs.push(c);
+                } else if (prob - max_q).abs() <= 1e-9 {
+                    best_cs.push(c);
                 }
             }
 
-            self.labels[i] = best_c;
+            // Stochastically tie-break if probabilities are identical
+            self.labels[i] = best_cs[rng.gen_range(0..best_cs.len())];
         }
     }
 
@@ -681,7 +685,7 @@ pub mod tests {
     fn test_mean_field_decode() {
         let mut hmrf = create_test_mock();
 
-        assert!(hmrf.plot_labels("mfd_init.svg").is_ok());
+        assert!(hmrf.plot_labels("mean_field_init.svg").is_ok());
 
         let betas = vec![0.0, 5.0, 50.0, 1000.0];
         let max_iters = 100;
@@ -690,7 +694,8 @@ pub mod tests {
         for (i, &beta) in betas.iter().enumerate() {
             println!("Mean field decode step {} with beta: {}", i, beta);
 
-            hmrf.mean_field_decode(beta, max_iters, tol);
+            let q = hmrf.mean_field(beta, max_iters, tol);
+            hmrf.decode_marginals(&q);
 
             println!("  Energy: {}", hmrf.potts_energy(1.0));
             println!("  Clone proportions: {:?}", hmrf.clone_proportions());

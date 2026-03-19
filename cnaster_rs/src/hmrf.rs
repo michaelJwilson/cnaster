@@ -457,14 +457,6 @@ pub mod tests {
         for &label in &labels {
             color_counts[label] += 1;
         }
-        println!("Color proportions:");
-        for (i, &count) in color_counts.iter().enumerate() {
-            println!(
-                "  Color {}: {:.2}%",
-                i,
-                (count as f64 / n_spots as f64) * 100.0
-            );
-        }
 
         // Dirichlet sample the x coordinates into a partition m / 2
         let n_x_parts = num_colors / 2;
@@ -677,7 +669,7 @@ pub mod tests {
         assert!(hmrf.plot_labels("wolff_annealing_init.svg").is_ok());
 
         let betas = vec![0.0, 5.0, 50.0, 1000.0];
-        let num_cluster_updates = 5_000;
+        let num_cluster_updates = 10_000;
 
         // NB beta = 0 is random flipping; <clone proportion> = 1/num_colors; high energy.
         for (i, &beta) in betas.iter().enumerate() {

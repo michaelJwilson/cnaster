@@ -51,6 +51,14 @@ impl HMRF {
         beta * energy
     }
 
+    /// Randomize all labels uniformly across the grid.
+    pub fn randomize_labels(&mut self) {
+        let mut rng = rand::thread_rng();
+        for label in &mut self.labels {
+            *label = rng.gen_range(0..self.num_colors);
+        }
+    }
+
     pub fn plot_labels(&self, filename: &str) -> Result<(), Box<dyn std::error::Error>> {
         let root = SVGBackend::new(filename, (800, 800)).into_drawing_area();
         root.fill(&WHITE)?;
@@ -118,10 +126,7 @@ impl HMRF {
     /// Iterated Conditional Modes (ICM) to find a local minimum of the MRF energy.
     pub fn icm(&mut self, beta: f64, max_iters: usize) {
         if beta == 0.0 {
-            let mut rng = rand::thread_rng();
-            for label in &mut self.labels {
-                *label = rng.gen_range(0..self.num_colors);
-            }
+            self.randomize_labels();
             return;
         }
 
@@ -443,13 +448,7 @@ pub mod tests {
         let mut rng = StdRng::seed_from_u64(seed);
         let n_spots = width * height;
 
-        let labels: Vec<usize> = (0..n_spots).map(|_| rng.gen_range(0..num_colors)).collect();
-
-        // Print color proportions
-        let mut color_counts = vec![0; num_colors];
-        for &label in &labels {
-            color_counts[label] += 1;
-        }
+        let mut labels = vec![0; n_spots];
 
         // Dirichlet sample the x coordinates into a partition m / 2
         let n_x_parts = num_colors / 2;
@@ -505,11 +504,12 @@ pub mod tests {
                 }
 
                 h_field[i][color_idx] = min_h;
+                labels[i] = color_idx;
                 partition_counts[color_idx] += 1;
             }
         }
 
-        println!("Partition proportions (Field Assignments):");
+        println!("Partition proportions (Field Assignments & Initial Labels):");
         for (i, &count) in partition_counts.iter().enumerate() {
             println!(
                 "  Partition {}: {:.2}%",
@@ -563,6 +563,53 @@ pub mod tests {
         create_mock(100, 100, 4, -10.0, 0.50, Some(5.0), 1234)
     }
 
+    pub fn linear_beta_schedule(min_beta: f64, max_beta: f64, total_iters: usize) -> Vec<f64> {
+        if total_iters == 0 {
+            return vec![];
+        }
+        if total_iters == 1 {
+            return vec![max_beta];
+        }
+        let step = (max_beta - min_beta) / (total_iters - 1) as f64;
+        (0..total_iters).map(|i| min_beta + step * (i as f64)).collect()
+    }
+
+    /// Polynomial beta scheduler. When power > 1.0, beta stays lower for longer, favoring exploration.
+    pub fn polynomial_beta_schedule(
+        min_beta: f64,
+        max_beta: f64,
+        total_iters: usize,
+        power: f64,
+    ) -> Vec<f64> {
+        if total_iters == 0 {
+            return vec![];
+        }
+        if total_iters == 1 {
+            return vec![max_beta];
+        }
+        (0..total_iters).map(|i| {
+            let fraction = i as f64 / (total_iters - 1) as f64;
+            min_beta + (max_beta - min_beta) * fraction.powf(power)
+        }).collect()
+    }
+
+    /// Exponential beta scheduler. Equivalent to exponential decay of Temperature.
+    pub fn exponential_beta_schedule(min_beta: f64, max_beta: f64, total_iters: usize) -> Vec<f64> {
+        if total_iters == 0 {
+            return vec![];
+        }
+        if total_iters == 1 {
+            return vec![max_beta];
+        }
+        let start = if min_beta <= 0.0 { 1e-3 } else { min_beta }; // Prevent div by 0
+        let ratio = (max_beta / start).powf(1.0 / (total_iters - 1) as f64);
+        (0..total_iters).map(|i| {
+            let mut b = start * ratio.powi(i as i32);
+            if min_beta == 0.0 && i == 0 { b = 0.0; } // Ensure true 0 start if requested
+            b
+        }).collect()
+    }
+
     #[test]
     fn test_plot_mock_hmrf() {
         let hmrf = create_test_mock();
@@ -613,45 +660,29 @@ pub mod tests {
     fn test_gibbs_annealing() {
         let mut hmrf = create_test_mock();
 
+        println!("Optimal Energy: {}", hmrf.potts_energy(1.0));
+
+        hmrf.randomize_labels();
+
         assert!(hmrf.plot_labels("gibbs_annealing_init.svg").is_ok());
 
-        let betas = vec![0.0, 5.0, 50.0, 1000.0];
-        let gibbs_iters_per_temp = 1_000;
+        let total_iters = 4_000;
+        // Use an exponential schedule to spend the vast majority of time sampling at low beta
+        let schedule = exponential_beta_schedule(0.0, 1000.0, total_iters);
 
-        // NB beta = 0 is random flipping; <clone proportion> = 1/num_colors; high energy.
-        for (i, &beta) in betas.iter().enumerate() {
-            println!("Gibbs annealing step {} with beta: {}", i, beta);
+        for (i, &beta) in schedule.iter().enumerate() {
+            // Perform exactly 1 iteration per beta level
+            hmrf.gibbs_sample(beta, 1);
 
-            hmrf.gibbs_sample(beta, gibbs_iters_per_temp);
+            // Record snapshot every 1,000 loops
+            if (i + 1) % 1000 == 0 {
+                println!("Gibbs annealing iteration {} with beta: {:.2}", i + 1, beta);
+                println!("  Energy: {}", hmrf.potts_energy(1.0));
+                println!("  Clone proportions: {:?}", hmrf.clone_proportions());
 
-            println!("  Energy: {}", hmrf.potts_energy(1.0));
-            println!("  Clone proportions: {:?}", hmrf.clone_proportions());
-
-            let filename = format!("gibbs_annealing_beta_{}.svg", beta);
-            assert!(hmrf.plot_labels(&filename).is_ok());
-        }
-    }
-
-    #[test]
-    fn test_swendsen_wang_annealing() {
-        let mut hmrf = create_test_mock();
-
-        assert!(hmrf.plot_labels("swendsen_wang_annealing_init.svg").is_ok());
-
-        let betas = vec![0.0, 5.0, 50.0, 1000.0];
-        let sw_iters_per_temp = 1_000;
-
-        // NB beta = 0 is random flipping; <clone proportion> = 1/num_colors; high energy.
-        for (i, &beta) in betas.iter().enumerate() {
-            println!("SW annealing step {} with beta: {}", i, beta);
-
-            hmrf.swendsen_wang(beta, sw_iters_per_temp);
-
-            println!("  Energy: {}", hmrf.potts_energy(1.0));
-            println!("  Clone proportions: {:?}", hmrf.clone_proportions());
-
-            let filename = format!("swendsen_wang_annealing_beta_{}.svg", beta);
-            assert!(hmrf.plot_labels(&filename).is_ok());
+                let filename = format!("gibbs_annealing_beta_{}.svg", beta as i32);
+                assert!(hmrf.plot_labels(&filename).is_ok());
+            }
         }
     }
 
@@ -659,22 +690,55 @@ pub mod tests {
     fn test_wolff_annealing() {
         let mut hmrf = create_test_mock();
 
+        println!("Optimal Energy: {}", hmrf.potts_energy(1.0));
+
+        hmrf.randomize_labels();
+
         assert!(hmrf.plot_labels("wolff_annealing_init.svg").is_ok());
 
-        let betas = vec![0.0, 5.0, 50.0, 1000.0];
-        let num_cluster_updates = 10_000;
+        let total_iters = 4_000;
+        let schedule = exponential_beta_schedule(0.0, 1000.0, total_iters);
 
-        // NB beta = 0 is random flipping; <clone proportion> = 1/num_colors; high energy.
-        for (i, &beta) in betas.iter().enumerate() {
-            println!("Wolff annealing step {} with beta: {}", i, beta);
+        for (i, &beta) in schedule.iter().enumerate() {
+            // Perform 10 cluster updates per beta level since Wolff only flips one cluster at a time
+            hmrf.wolff_sample(beta, 10);
 
-            hmrf.wolff_sample(beta, num_cluster_updates);
+            if (i + 1) % 1000 == 0 {
+                println!("Wolff annealing iteration {} with beta: {:.2}", i + 1, beta);
+                println!("  Energy: {}", hmrf.potts_energy(1.0));
+                println!("  Clone proportions: {:?}", hmrf.clone_proportions());
 
-            println!("  Energy: {}", hmrf.potts_energy(1.0));
-            println!("  Clone proportions: {:?}", hmrf.clone_proportions());
+                let filename = format!("wolff_annealing_beta_{}.svg", beta as i32);
+                assert!(hmrf.plot_labels(&filename).is_ok());
+            }
+        }
+    }
 
-            let filename = format!("wolff_annealing_beta_{}.svg", beta);
-            assert!(hmrf.plot_labels(&filename).is_ok());
+    #[test]
+    fn test_swendsen_wang_annealing() {
+        let mut hmrf = create_test_mock();
+
+        println!("Optimal Energy: {}", hmrf.potts_energy(1.0));
+
+        hmrf.randomize_labels();
+
+        assert!(hmrf.plot_labels("swendsen_wang_annealing_init.svg").is_ok());
+
+        let total_iters = 4_000;
+        let schedule = exponential_beta_schedule(0.0, 1000.0, total_iters);
+
+        for (i, &beta) in schedule.iter().enumerate() {
+            // Perform exactly 1 iteration per beta level
+            hmrf.swendsen_wang(beta, 1);
+
+            if (i + 1) % 1000 == 0 {
+                println!("SW annealing iteration {} with beta: {:.2}", i + 1, beta);
+                println!("  Energy: {}", hmrf.potts_energy(1.0));
+                println!("  Clone proportions: {:?}", hmrf.clone_proportions());
+
+                let filename = format!("swendsen_wang_annealing_beta_{}.svg", beta as i32);
+                assert!(hmrf.plot_labels(&filename).is_ok());
+            }
         }
     }
 
@@ -682,6 +746,7 @@ pub mod tests {
     fn test_mean_field() {
         let mut hmrf = create_test_mock();
 
+        println!("Initial Energy: {}", hmrf.potts_energy(1.0));
         assert!(hmrf.plot_labels("mean_field_init.svg").is_ok());
 
         let betas = vec![0.0, 5.0, 50.0, 1000.0];

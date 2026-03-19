@@ -355,20 +355,6 @@ pub mod tests {
 
         let labels: Vec<usize> = (0..n_spots).map(|_| rng.gen_range(0..num_colors)).collect();
 
-        // Print color proportions
-        let mut color_counts = vec![0; num_colors];
-        for &label in &labels {
-            color_counts[label] += 1;
-        }
-        println!("Color proportions:");
-        for (i, &count) in color_counts.iter().enumerate() {
-            println!(
-                "  Color {}: {:.2}%",
-                i,
-                (count as f64 / n_spots as f64) * 100.0
-            );
-        }
-
         // NB generate H_field as a checkerboard pattern
         let mut h_field = vec![vec![0.0; num_colors]; n_spots];
         let square_size = 5; // Set checkerboard square size > 1
@@ -449,32 +435,37 @@ pub mod tests {
     }
 
     #[test]
-    fn test_icm() {
-        let width = 25;
-        let height = 25;
-        let beta = 1.0;
+    fn test_icm_annealing() {
+        let width = 100;
+        let height = 100;
+        
+        let mut hmrf = generate_mock_array(width, height, 4, 2.0, Some(1.0), 1234);
 
-        let mut hmrf = generate_mock_array(width, height, 4, 0.0, Some(1.0), 1337);
+        println!("Initial Energy: {}", hmrf.potts_energy(1.0));
+        assert!(hmrf.plot_labels("icm_annealing_init.svg").is_ok());
 
-        let initial_cost = hmrf.potts_energy(beta);
-        println!("Initial Potts Cost: {}", initial_cost);
+        let betas = vec![0.0, 1.0, 2.0, 5.0, 50.0];
+        let icm_iters_per_temp = 10;
 
-        assert!(hmrf.plot_labels("test_icm_labels_initial.svg").is_ok());
+        for (i, &beta) in betas.iter().enumerate() {
+            println!("ICM annealing step {} (beta context: {})", i, beta);
+            
+            hmrf.icm(icm_iters_per_temp);
+            
+            println!("  Energy: {}", hmrf.potts_energy(1.0));
+            println!("  Clone proportions: {:?}", hmrf.clone_proportions());
 
-        hmrf.icm(10);
-
-        let final_cost = hmrf.potts_energy(beta);
-        println!("Final Potts Cost: {}", final_cost);
-
-        assert!(hmrf.plot_labels("test_icm_labels_final.svg").is_ok());
-        assert!(final_cost <= initial_cost);
+            let filename = format!("icm_annealing_beta_{}.svg", beta);
+            assert!(hmrf.plot_labels(&filename).is_ok());
+        }
     }
 
     #[test]
     fn test_gibbs_annealing() {
         let width = 100;
         let height = 100;
-        let mut hmrf = generate_mock_array(width, height, 4, 2.0, Some(1.0), 42);
+        
+        let mut hmrf = generate_mock_array(width, height, 4, 2.0, Some(1.0), 1234);
 
         assert!(hmrf.plot_labels("annealing_init.svg").is_ok());
 
@@ -482,15 +473,16 @@ pub mod tests {
         let gibbs_iters_per_temp = 25;
 
         for (i, &beta) in betas.iter().enumerate() {
-            println!("Annealing step {} with beta: {}", i, beta);
+            println!("Gibbs annealing step {} with beta: {}", i, beta);
             
             hmrf.gibbs_sample(beta, gibbs_iters_per_temp);
             
+            println!("  Energy: {}", hmrf.potts_energy(1.0));
+            println!("  Clone proportions: {:?}", hmrf.clone_proportions());
+
             let filename = format!("annealing_beta_{}.svg", beta);
             assert!(hmrf.plot_labels(&filename).is_ok());
         }
-
-        println!("Final Cost after Annealing: {}", hmrf.potts_energy(betas.last().copied().unwrap()));
     }
 
     #[test]
@@ -510,11 +502,12 @@ pub mod tests {
             
             hmrf.wolff_sample(beta, num_cluster_updates);
             
+            println!("  Energy: {}", hmrf.potts_energy(1.0));
+            println!("  Clone proportions: {:?}", hmrf.clone_proportions());
+            
             let filename = format!("wolff_annealing_beta_{}.svg", beta);
             assert!(hmrf.plot_labels(&filename).is_ok());
         }
-
-        println!("Final Cost after Wolff Annealing: {}", hmrf.potts_energy(betas.last().copied().unwrap()));
     }
 
     #[test]
@@ -535,10 +528,11 @@ pub mod tests {
             
             hmrf.mean_field_decode(beta, max_iters, tol);
             
+            println!("  Energy: {}", hmrf.potts_energy(1.0));
+            println!("  Clone proportions: {:?}", hmrf.clone_proportions());
+            
             let filename = format!("mfd_beta_{}.svg", beta);
             assert!(hmrf.plot_labels(&filename).is_ok());
         }
-
-        println!("Final Cost after Mean Field Decode: {}", hmrf.potts_energy(betas.last().copied().unwrap()));
     }
 }

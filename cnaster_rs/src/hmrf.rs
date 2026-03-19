@@ -51,6 +51,44 @@ impl HMRF {
         beta * energy
     }
 
+    /// Calculates the median total edge weight per node and scales the edge weights of
+    /// every node such that the total is equal to this value.
+    pub fn harden_edges(&mut self) {
+        let n_nodes = self.adj_list.len();
+        if n_nodes == 0 {
+            return;
+        }
+
+        let mut node_totals = Vec::with_capacity(n_nodes);
+        for edges in &self.adj_list {
+            let total: f64 = edges.iter().map(|&(_, w)| w).sum();
+            node_totals.push(total);
+        }
+
+        let mut sorted_totals = node_totals.clone();
+        sorted_totals.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+
+        let median = if n_nodes % 2 == 0 {
+            (sorted_totals[n_nodes / 2 - 1] + sorted_totals[n_nodes / 2]) / 2.0
+        } else {
+            sorted_totals[n_nodes / 2]
+        };
+
+        if median <= 0.0 {
+            return;
+        }
+
+        for i in 0..n_nodes {
+            let total = node_totals[i];
+            if total > 0.0 {
+                let scale = median / total;
+                for edge in &mut self.adj_list[i] {
+                    edge.1 *= scale;
+                }
+            }
+        }
+    }
+
     /// Randomize all labels uniformly across the grid.
     pub fn randomize_labels(&mut self) {
         let mut rng = rand::thread_rng();
@@ -442,6 +480,7 @@ pub mod tests {
         min_h: f64,
         error_prob: f64,
         uniform_j: Option<f64>,
+        harden_edges: bool,
         seed: u64,
     ) -> HMRF {
         assert!(num_colors % 2 == 0, "num_colors must be an even number");
@@ -546,7 +585,7 @@ pub mod tests {
             }
         }
 
-        HMRF {
+        let mut hmrf = HMRF {
             labels,
             adj_list,
             h_field,
@@ -556,11 +595,17 @@ pub mod tests {
             width,
             height,
             min_h,
+        };
+
+        if harden_edges {
+            hmrf.harden_edges();
         }
+
+        hmrf
     }
 
     pub fn create_test_mock() -> HMRF {
-        create_mock(100, 100, 4, -10.0, 0.50, Some(5.0), 1234)
+        create_mock(100, 100, 4, -10.0, 0.50, Some(5.0), true, 1234)
     }
 
     pub fn linear_beta_schedule(min_beta: f64, max_beta: f64, total_iters: usize) -> Vec<f64> {

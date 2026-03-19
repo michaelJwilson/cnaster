@@ -2,7 +2,6 @@ use plotters::prelude::*;
 use rand::distributions::WeightedIndex;
 use rand::prelude::Distribution;
 use rand::{rngs::StdRng, Rng, SeedableRng};
-use rayon::prelude::*;
 use std::collections::VecDeque;
 
 pub struct HMRF {
@@ -50,6 +49,70 @@ impl HMRF {
 
         energy += interaction_energy;
         beta * energy
+    }
+
+    pub fn plot_labels(&self, filename: &str) -> Result<(), Box<dyn std::error::Error>> {
+        let root = SVGBackend::new(filename, (800, 800)).into_drawing_area();
+        root.fill(&WHITE)?;
+
+        let mut chart = ChartBuilder::on(&root)
+            .build_cartesian_2d(0f64..(self.width as f64), 0f64..(self.height as f64))?;
+
+        let colors = [&RED, &BLUE, &GREEN, &YELLOW, &CYAN, &MAGENTA, &BLACK];
+
+        chart.draw_series((0..self.height).flat_map(|y| {
+            (0..self.width).map(move |x| {
+                let idx = y * self.width + x;
+                let label = self.labels[idx];
+                let color = colors[label % colors.len()];
+
+                Rectangle::new(
+                    [(x as f64, y as f64), ((x + 1) as f64, (y + 1) as f64)],
+                    color.filled(),
+                )
+            })
+        }))?;
+
+        root.present()?;
+        Ok(())
+    }
+
+    pub fn plot_field(
+        &self,
+        color_idx: usize,
+        filename: &str,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let root = SVGBackend::new(filename, (800, 800)).into_drawing_area();
+        root.fill(&WHITE)?;
+
+        let mut chart = ChartBuilder::on(&root)
+            .build_cartesian_2d(0f64..(self.width as f64), 0f64..(self.height as f64))?;
+
+        chart.draw_series((0..self.height).flat_map(|y| {
+            (0..self.width).flat_map(move |x| {
+                let idx = y * self.width + x;
+                let val = self.h_field[idx][color_idx];
+
+                // Map H field min_h to a grayscale intensity [0, 255]
+                let norm = if self.min_h < 0.0 {
+                    (val / self.min_h).clamp(0.0, 1.0)
+                } else {
+                    0.0
+                };
+                let intensity = (255.0 * (1.0 - norm)) as u8; // Higher values = darker cells
+                let color = RGBColor(intensity, intensity, intensity);
+
+                let rect_bounds = [(x as f64, y as f64), ((x + 1) as f64, (y + 1) as f64)];
+
+                vec![
+                    Rectangle::new(rect_bounds, color.filled()),
+                    Rectangle::new(rect_bounds, BLACK.stroke_width(1)),
+                ]
+            })
+        }))?;
+
+        root.present()?;
+        Ok(())
     }
 
     /// Iterated Conditional Modes (ICM) to find a local minimum of the MRF energy.
@@ -198,6 +261,91 @@ impl HMRF {
         }
     }
 
+    pub fn swendsen_wang(&mut self, beta: f64, max_iters: usize) {
+        let n_nodes = self.labels.len();
+        let mut rng = rand::thread_rng();
+
+        for _ in 0..max_iters {
+            // 1. Initialize Union-Find
+            let mut parent: Vec<usize> = (0..n_nodes).collect();
+            let mut rank = vec![0; n_nodes];
+
+            let mut find = |mut i: usize, parent: &mut [usize]| -> usize {
+                let mut root = i;
+                while root != parent[root] {
+                    root = parent[root];
+                }
+                while i != root {
+                    let nxt = parent[i];
+                    parent[i] = root; // path compression
+                    i = nxt;
+                }
+                root
+            };
+
+            // 2. Evaluate bonds and union sequentially
+            for i in 0..n_nodes {
+                let c_i = self.labels[i];
+                for &(j, weight) in &self.adj_list[i] {
+                    if i < j && self.labels[j] == c_i {
+                        let p_bond = 1.0 - (-beta * weight).exp();
+                        if rng.gen::<f64>() < p_bond {
+                            let root_i = find(i, &mut parent);
+                            let root_j = find(j, &mut parent);
+                            if root_i != root_j {
+                                if rank[root_i] < rank[root_j] {
+                                    parent[root_i] = root_j;
+                                } else if rank[root_i] > rank[root_j] {
+                                    parent[root_j] = root_i;
+                                } else {
+                                    parent[root_j] = root_i;
+                                    rank[root_i] += 1;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 3. Cluster formation
+            let mut clusters: std::collections::HashMap<usize, Vec<usize>> =
+                std::collections::HashMap::new();
+            for i in 0..n_nodes {
+                let root = find(i, &mut parent);
+                clusters.entry(root).or_default().push(i);
+            }
+
+            // 4. Cluster sampling based on external field
+            for cluster in clusters.values() {
+                let mut cluster_energies = vec![0.0; self.num_colors];
+                let mut min_energy = f64::INFINITY;
+
+                for c in 0..self.num_colors {
+                    let mut energy = 0.0;
+                    for &node in cluster {
+                        energy += self.h_field[node][c];
+                    }
+                    cluster_energies[c] = energy;
+                    if energy < min_energy {
+                        min_energy = energy;
+                    }
+                }
+
+                let mut probs = vec![0.0; self.num_colors];
+                for c in 0..self.num_colors {
+                    probs[c] = (-beta * (cluster_energies[c] - min_energy)).exp();
+                }
+
+                let dist = WeightedIndex::new(&probs).unwrap();
+                let new_color = dist.sample(&mut rng);
+
+                for &node in cluster {
+                    self.labels[node] = new_color;
+                }
+            }
+        }
+    }
+
     /// Calculate the marginal probabilities of each label using the mean-field approximation.
     pub fn mean_field(&self, beta: f64, max_iters: usize, tol: f64) -> Vec<Vec<f64>> {
         let n_nodes = self.labels.len();
@@ -257,7 +405,7 @@ impl HMRF {
     /// Decode the labels by taking the maximum marginal probability from a generic marginal array.
     pub fn decode_marginals(&mut self, marginals_per_node: &[Vec<f64>]) {
         let mut rng = rand::thread_rng();
-        
+
         for (i, marginals) in marginals_per_node.iter().enumerate() {
             let mut best_cs = Vec::new();
             let mut max_q = -1.0;
@@ -275,157 +423,6 @@ impl HMRF {
             // Stochastically tie-break if probabilities are identical
             self.labels[i] = best_cs[rng.gen_range(0..best_cs.len())];
         }
-    }
-
-    /// Serial Swendsen-Wang cluster sampling algorithm using Union-Find.
-    /// Parallelism is omitted as disjoint-set operations are sequential and 
-    /// intermediate bond allocations cause unacceptable overhead.
-    pub fn swendsen_wang(&mut self, beta: f64, max_iters: usize) {
-        let n_nodes = self.labels.len();
-        let mut rng = rand::thread_rng();
-
-        for _ in 0..max_iters {
-            // 1. Initialize Union-Find
-            let mut parent: Vec<usize> = (0..n_nodes).collect();
-            let mut rank = vec![0; n_nodes];
-
-            let mut find = |mut i: usize, parent: &mut [usize]| -> usize {
-                let mut root = i;
-                while root != parent[root] {
-                    root = parent[root];
-                }
-                while i != root {
-                    let nxt = parent[i];
-                    parent[i] = root; // path compression
-                    i = nxt;
-                }
-                root
-            };
-
-            // 2. Evaluate bonds and union sequentially
-            for i in 0..n_nodes {
-                let c_i = self.labels[i];
-                for &(j, weight) in &self.adj_list[i] {
-                    if i < j && self.labels[j] == c_i {
-                        let p_bond = 1.0 - (-beta * weight).exp();
-                        if rng.gen::<f64>() < p_bond {
-                            let root_i = find(i, &mut parent);
-                            let root_j = find(j, &mut parent);
-                            if root_i != root_j {
-                                if rank[root_i] < rank[root_j] {
-                                    parent[root_i] = root_j;
-                                } else if rank[root_i] > rank[root_j] {
-                                    parent[root_j] = root_i;
-                                } else {
-                                    parent[root_j] = root_i;
-                                    rank[root_i] += 1;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            // 3. Cluster formation
-            let mut clusters: std::collections::HashMap<usize, Vec<usize>> = std::collections::HashMap::new();
-            for i in 0..n_nodes {
-                let root = find(i, &mut parent);
-                clusters.entry(root).or_default().push(i);
-            }
-
-            // 4. Cluster sampling based on external field
-            for cluster in clusters.values() {
-                let mut cluster_energies = vec![0.0; self.num_colors];
-                let mut min_energy = f64::INFINITY;
-
-                for c in 0..self.num_colors {
-                    let mut energy = 0.0;
-                    for &node in cluster {
-                        energy += self.h_field[node][c];
-                    }
-                    cluster_energies[c] = energy;
-                    if energy < min_energy {
-                        min_energy = energy;
-                    }
-                }
-
-                let mut probs = vec![0.0; self.num_colors];
-                for c in 0..self.num_colors {
-                    probs[c] = (-beta * (cluster_energies[c] - min_energy)).exp();
-                }
-
-                let dist = WeightedIndex::new(&probs).unwrap();
-                let new_color = dist.sample(&mut rng);
-
-                for &node in cluster {
-                    self.labels[node] = new_color;
-                }
-            }
-        }
-    }
-
-    pub fn plot_labels(&self, filename: &str) -> Result<(), Box<dyn std::error::Error>> {
-        let root = SVGBackend::new(filename, (800, 800)).into_drawing_area();
-        root.fill(&WHITE)?;
-
-        let mut chart = ChartBuilder::on(&root)
-            .build_cartesian_2d(0f64..(self.width as f64), 0f64..(self.height as f64))?;
-
-        let colors = [&RED, &BLUE, &GREEN, &YELLOW, &CYAN, &MAGENTA, &BLACK];
-
-        chart.draw_series((0..self.height).flat_map(|y| {
-            (0..self.width).map(move |x| {
-                let idx = y * self.width + x;
-                let label = self.labels[idx];
-                let color = colors[label % colors.len()];
-
-                Rectangle::new(
-                    [(x as f64, y as f64), ((x + 1) as f64, (y + 1) as f64)],
-                    color.filled(),
-                )
-            })
-        }))?;
-
-        root.present()?;
-        Ok(())
-    }
-
-    pub fn plot_field(
-        &self,
-        color_idx: usize,
-        filename: &str,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        let root = SVGBackend::new(filename, (800, 800)).into_drawing_area();
-        root.fill(&WHITE)?;
-
-        let mut chart = ChartBuilder::on(&root)
-            .build_cartesian_2d(0f64..(self.width as f64), 0f64..(self.height as f64))?;
-
-        chart.draw_series((0..self.height).flat_map(|y| {
-            (0..self.width).flat_map(move |x| {
-                let idx = y * self.width + x;
-                let val = self.h_field[idx][color_idx];
-
-                // Map H field min_h to a grayscale intensity [0, 255]
-                let norm = if self.min_h < 0.0 {
-                    (val / self.min_h).clamp(0.0, 1.0)
-                } else {
-                    0.0
-                };
-                let intensity = (255.0 * (1.0 - norm)) as u8; // Higher values = darker cells
-                let color = RGBColor(intensity, intensity, intensity);
-
-                let rect_bounds = [(x as f64, y as f64), ((x + 1) as f64, (y + 1) as f64)];
-
-                vec![
-                    Rectangle::new(rect_bounds, color.filled()),
-                    Rectangle::new(rect_bounds, BLACK.stroke_width(1)),
-                ]
-            })
-        }))?;
-
-        root.present()?;
-        Ok(())
     }
 }
 
@@ -501,7 +498,7 @@ pub mod tests {
                 let y_part = if (y as f64) < y_boundary { 0 } else { 1 };
 
                 let mut color_idx = y_part * n_x_parts + x_part;
-                
+
                 // Introduce structural noise based on error_prob
                 if rng.gen::<f64>() < error_prob {
                     color_idx = rng.gen_range(0..num_colors);
@@ -682,7 +679,7 @@ pub mod tests {
     }
 
     #[test]
-    fn test_mean_field_decode() {
+    fn test_mean_field() {
         let mut hmrf = create_test_mock();
 
         assert!(hmrf.plot_labels("mean_field_init.svg").is_ok());

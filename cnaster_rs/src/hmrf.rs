@@ -1,4 +1,6 @@
 use plotters::prelude::*;
+use rand::distributions::WeightedIndex;
+use rand::prelude::Distribution;
 use rand::{rngs::StdRng, Rng, SeedableRng};
 
 pub struct HMRF {
@@ -52,7 +54,7 @@ impl HMRF {
                     // Cost contribution from external field
                     let mut local_cost = self.h_field[i][c];
 
-                    // Pairwise interaction contribution: penalize different colors (as in potts_energy)
+                    // Pairwise interaction contribution
                     for &(j, weight) in &self.adj_list[i] {
                         if c != self.labels[j] {
                             local_cost += weight;
@@ -73,6 +75,56 @@ impl HMRF {
 
             if !changed {
                 break;
+            }
+        }
+    }
+
+    /// Calculate the proportions of each label (color) currently on the grid.
+    pub fn clone_proportions(&self) -> Vec<f64> {
+        let mut counts = vec![0; self.num_colors];
+        for &label in &self.labels {
+            counts[label] += 1;
+        }
+        let total = self.labels.len() as f64;
+        counts.into_iter().map(|c| c as f64 / total).collect()
+    }
+
+    /// Gibbs sampling to sample from the MRF distribution and optionally find low energy states.
+    pub fn gibbs_sample(&mut self, beta: f64, max_iters: usize) {
+        let mut rng = rand::thread_rng();
+
+        for _ in 0..max_iters {
+            for i in 0..self.labels.len() {
+                let mut local_energies = vec![0.0; self.num_colors];
+                let mut min_energy = f64::INFINITY;
+
+                for c in 0..self.num_colors {
+                    // Energy contribution from external field
+                    let mut local_energy = self.h_field[i][c];
+
+                    // Pairwise interaction energy
+                    for &(j, weight) in &self.adj_list[i] {
+                        if c != self.labels[j] {
+                            local_energy += weight;
+                        }
+                    }
+
+                    local_energies[c] = local_energy;
+                    if local_energy < min_energy {
+                        min_energy = local_energy;
+                    }
+                }
+
+                // Compute probabilities: P \propto exp(-beta * energy) 
+                // avoiding overflow by subtracting min_energy
+                let mut probs = vec![0.0; self.num_colors];
+                for c in 0..self.num_colors {
+                    probs[c] = (-beta * (local_energies[c] - min_energy)).exp();
+                }
+
+                // Sample a new color based on the computed probabilities using WeightedIndex
+                let dist = WeightedIndex::new(&probs).unwrap();
+                self.labels[i] = dist.sample(&mut rng);
             }
         }
     }
@@ -254,20 +306,48 @@ pub mod tests {
     }
 
     #[test]
-    fn test_spinglass_icm() {
+    fn test_icm() {
         let width = 25;
         let height = 25;
         let beta = 1.0;
-        let mut hmrf = generate_mock_array(width, height, 4, 1.0, None, 1337);
+        // Zero external field (0.0), uniform J=1.0
+        let mut hmrf = generate_mock_array(width, height, 4, 0.0, Some(1.0), 1337);
 
         let initial_cost = hmrf.potts_energy(beta);
         println!("Initial Potts Cost: {}", initial_cost);
+
+        assert!(hmrf.plot_labels("test_icm_labels_initial.svg").is_ok());
 
         hmrf.icm(10);
 
         let final_cost = hmrf.potts_energy(beta);
         println!("Final Potts Cost: {}", final_cost);
 
+        assert!(hmrf.plot_labels("test_icm_labels_final.svg").is_ok());
         assert!(final_cost <= initial_cost);
+    }
+
+    #[test]
+    fn test_gibbs_annealing() {
+        let width = 30;
+        let height = 30;
+        // Moderate external field to create interesting patterns, uniform J=1.0
+        let mut hmrf = generate_mock_array(width, height, 4, 2.0, Some(1.0), 42);
+
+        assert!(hmrf.plot_labels("annealing_init.svg").is_ok());
+
+        // beta = 1/T. Low beta means high temperature
+        let betas = vec![0.1, 0.5, 1.0, 2.0, 5.0];
+        let gibbs_iters_per_temp = 5;
+
+        for (i, &beta) in betas.iter().enumerate() {
+            println!("Annealing step {} with beta: {}", i, beta);
+            hmrf.gibbs_sample(beta, gibbs_iters_per_temp);
+            
+            let filename = format!("annealing_step_{}_beta_{}.svg", i, beta);
+            assert!(hmrf.plot_labels(&filename).is_ok());
+        }
+
+        println!("Final Cost after Annealing: {}", hmrf.potts_energy(betas.last().copied().unwrap()));
     }
 }

@@ -2,6 +2,7 @@ use plotters::prelude::*;
 use rand::distributions::WeightedIndex;
 use rand::prelude::Distribution;
 use rand::{rngs::StdRng, Rng, SeedableRng};
+use rayon::prelude::*;
 use std::collections::VecDeque;
 
 pub struct HMRF {
@@ -13,7 +14,7 @@ pub struct HMRF {
     pub num_colors: usize,
     pub width: usize,
     pub height: usize,
-    pub max_h: f64,
+    pub min_h: f64,
 }
 
 impl HMRF {
@@ -269,6 +270,93 @@ impl HMRF {
         }
     }
 
+    /// Serial Swendsen-Wang cluster sampling algorithm using Union-Find.
+    /// Parallelism is omitted as disjoint-set operations are sequential and 
+    /// intermediate bond allocations cause unacceptable overhead.
+    pub fn swendsen_wang(&mut self, beta: f64, max_iters: usize) {
+        let n_nodes = self.labels.len();
+        let mut rng = rand::thread_rng();
+
+        for _ in 0..max_iters {
+            // 1. Initialize Union-Find
+            let mut parent: Vec<usize> = (0..n_nodes).collect();
+            let mut rank = vec![0; n_nodes];
+
+            let mut find = |mut i: usize, parent: &mut [usize]| -> usize {
+                let mut root = i;
+                while root != parent[root] {
+                    root = parent[root];
+                }
+                while i != root {
+                    let nxt = parent[i];
+                    parent[i] = root; // path compression
+                    i = nxt;
+                }
+                root
+            };
+
+            // 2. Evaluate bonds and union sequentially
+            for i in 0..n_nodes {
+                let c_i = self.labels[i];
+                for &(j, weight) in &self.adj_list[i] {
+                    if i < j && self.labels[j] == c_i {
+                        let p_bond = 1.0 - (-beta * weight).exp();
+                        if rng.gen::<f64>() < p_bond {
+                            let root_i = find(i, &mut parent);
+                            let root_j = find(j, &mut parent);
+                            if root_i != root_j {
+                                if rank[root_i] < rank[root_j] {
+                                    parent[root_i] = root_j;
+                                } else if rank[root_i] > rank[root_j] {
+                                    parent[root_j] = root_i;
+                                } else {
+                                    parent[root_j] = root_i;
+                                    rank[root_i] += 1;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 3. Cluster formation
+            let mut clusters: std::collections::HashMap<usize, Vec<usize>> = std::collections::HashMap::new();
+            for i in 0..n_nodes {
+                let root = find(i, &mut parent);
+                clusters.entry(root).or_default().push(i);
+            }
+
+            // 4. Cluster sampling based on external field
+            for cluster in clusters.values() {
+                let mut cluster_energies = vec![0.0; self.num_colors];
+                let mut min_energy = f64::INFINITY;
+
+                for c in 0..self.num_colors {
+                    let mut energy = 0.0;
+                    for &node in cluster {
+                        energy += self.h_field[node][c];
+                    }
+                    cluster_energies[c] = energy;
+                    if energy < min_energy {
+                        min_energy = energy;
+                    }
+                }
+
+                let mut probs = vec![0.0; self.num_colors];
+                for c in 0..self.num_colors {
+                    probs[c] = (-beta * (cluster_energies[c] - min_energy)).exp();
+                }
+
+                let dist = WeightedIndex::new(&probs).unwrap();
+                let new_color = dist.sample(&mut rng);
+
+                for &node in cluster {
+                    self.labels[node] = new_color;
+                }
+            }
+        }
+    }
+
     pub fn plot_labels(&self, filename: &str) -> Result<(), Box<dyn std::error::Error>> {
         let root = SVGBackend::new(filename, (800, 800)).into_drawing_area();
         root.fill(&WHITE)?;
@@ -311,9 +399,9 @@ impl HMRF {
                 let idx = y * self.width + x;
                 let val = self.h_field[idx][color_idx];
 
-                // Map H field max_h to a grayscale intensity [0, 255]
-                let norm = if self.max_h > 0.0 {
-                    (val / self.max_h).clamp(0.0, 1.0)
+                // Map H field min_h to a grayscale intensity [0, 255]
+                let norm = if self.min_h < 0.0 {
+                    (val / self.min_h).clamp(0.0, 1.0)
                 } else {
                     0.0
                 };
@@ -342,7 +430,8 @@ pub mod tests {
         width: usize,
         height: usize,
         num_colors: usize,
-        max_h: f64,
+        min_h: f64,
+        error_prob: f64,
         uniform_j: Option<f64>,
         seed: u64,
     ) -> HMRF {
@@ -397,7 +486,7 @@ pub mod tests {
         }
         let y_boundary = (-u1.ln() / (-u1.ln() - u2.ln())) * (height as f64);
 
-        // Drive the field such that Hnm = max_h for a given m in each partition
+        // Drive the field such that Hnm = min_h for a given m in each partition
         let mut h_field = vec![vec![0.0; num_colors]; n_spots];
         let mut partition_counts = vec![0; num_colors];
 
@@ -412,8 +501,14 @@ pub mod tests {
 
                 let y_part = if (y as f64) < y_boundary { 0 } else { 1 };
 
-                let color_idx = y_part * n_x_parts + x_part;
-                h_field[i][color_idx] = max_h;
+                let mut color_idx = y_part * n_x_parts + x_part;
+                
+                // Introduce structural noise based on error_prob
+                if rng.gen::<f64>() < error_prob {
+                    color_idx = rng.gen_range(0..num_colors);
+                }
+
+                h_field[i][color_idx] = min_h;
                 partition_counts[color_idx] += 1;
             }
         }
@@ -464,7 +559,7 @@ pub mod tests {
             num_colors,
             width,
             height,
-            max_h,
+            min_h,
         }
     }
 
@@ -472,14 +567,14 @@ pub mod tests {
     fn test_plot_mock_hmrf() {
         let width = 100;
         let height = 100;
-        let hmrf = generate_mock_array(width, height, 4, 1.0, None, 42);
+        let hmrf = generate_mock_array(width, height, 4, -1.0, 0.1, None, 42);
 
         assert!(hmrf.plot_labels("test_labels.svg").is_ok());
 
-        assert!(hmrf.plot_field(0, "test_field_c0.svg").is_ok());
-        assert!(hmrf.plot_field(1, "test_field_c1.svg").is_ok());
-        assert!(hmrf.plot_field(2, "test_field_c2.svg").is_ok());
-        assert!(hmrf.plot_field(3, "test_field_c3.svg").is_ok());
+        assert!(hmrf.plot_field(0, "mock_field_c0.svg").is_ok());
+        assert!(hmrf.plot_field(1, "mock_field_c1.svg").is_ok());
+        assert!(hmrf.plot_field(2, "mock_field_c2.svg").is_ok());
+        assert!(hmrf.plot_field(3, "mock_field_c3.svg").is_ok());
     }
 
     #[test]
@@ -487,7 +582,7 @@ pub mod tests {
         let width = 25;
         let height = 25;
         let beta = 1.0;
-        let hmrf = generate_mock_array(width, height, 4, 1.0, None, 1337);
+        let hmrf = generate_mock_array(width, height, 4, -1.0, 0.1, None, 1337);
 
         let cost = hmrf.potts_energy(beta);
 
@@ -499,7 +594,7 @@ pub mod tests {
         let width = 100;
         let height = 100;
 
-        let mut hmrf = generate_mock_array(width, height, 4, 2.0, Some(1.0), 1234);
+        let mut hmrf = generate_mock_array(width, height, 4, -2.0, 0.1, Some(1.0), 1234);
 
         println!("Initial Energy: {}", hmrf.potts_energy(1.0));
         assert!(hmrf.plot_labels("icm_annealing_init.svg").is_ok());
@@ -525,7 +620,7 @@ pub mod tests {
         let width = 100;
         let height = 100;
 
-        let mut hmrf = generate_mock_array(width, height, 4, 10.0, Some(0.0), 1234);
+        let mut hmrf = generate_mock_array(width, height, 4, -10.0, 0.50, Some(5.0), 1234);
 
         assert!(hmrf.plot_labels("gibbs_annealing_init.svg").is_ok());
 
@@ -547,17 +642,44 @@ pub mod tests {
     }
 
     #[test]
+    fn test_swendsen_wang_annealing() {
+        let width = 100;
+        let height = 100;
+
+        let mut hmrf = generate_mock_array(width, height, 4, -10.0, 0.50, Some(5.0), 1234);
+
+        assert!(hmrf.plot_labels("swendsen_wang_annealing_init.svg").is_ok());
+
+        let betas = vec![0.0, 5.0, 50.0, 1000.0];
+        let sw_iters_per_temp = 1_000;
+
+        // NB beta = 0 is random flipping; <clone proportion> = 1/num_colors; high energy.
+        for (i, &beta) in betas.iter().enumerate() {
+            println!("SW annealing step {} with beta: {}", i, beta);
+
+            hmrf.swendsen_wang(beta, sw_iters_per_temp);
+
+            println!("  Energy: {}", hmrf.potts_energy(1.0));
+            println!("  Clone proportions: {:?}", hmrf.clone_proportions());
+
+            let filename = format!("swendsen_wang_annealing_beta_{}.svg", beta);
+            assert!(hmrf.plot_labels(&filename).is_ok());
+        }
+    }
+
+    #[test]
     fn test_wolff_annealing() {
         let width = 100;
         let height = 100;
 
-        let mut hmrf = generate_mock_array(width, height, 4, 2.0, Some(1.0), 1234);
+        let mut hmrf = generate_mock_array(width, height, 4, -10.0, 0.50, Some(5.0), 1234);
 
         assert!(hmrf.plot_labels("wolff_annealing_init.svg").is_ok());
 
-        let betas = vec![0.0, 1.0, 2.0, 5.0, 50.0, 1000.0];
-        let num_cluster_updates = 1_000;
+        let betas = vec![0.0, 5.0, 50.0, 1000.0];
+        let num_cluster_updates = 5_000;
 
+        // NB beta = 0 is random flipping; <clone proportion> = 1/num_colors; high energy.
         for (i, &beta) in betas.iter().enumerate() {
             println!("Wolff annealing step {} with beta: {}", i, beta);
 
@@ -576,7 +698,7 @@ pub mod tests {
         let width = 100;
         let height = 100;
 
-        let mut hmrf = generate_mock_array(width, height, 4, 2.0, Some(1.0), 1234);
+        let mut hmrf = generate_mock_array(width, height, 4, -2.0, 0.1, Some(1.0), 1234);
 
         assert!(hmrf.plot_labels("mfd_init.svg").is_ok());
 

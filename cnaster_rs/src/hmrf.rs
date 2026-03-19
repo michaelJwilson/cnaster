@@ -33,6 +33,18 @@ pub fn potts_cost(
 mod tests {
     use super::*;
 
+    pub struct MockData {
+        pub labels: Vec<usize>,
+        pub adj_list: Vec<Vec<(usize, f64)>>,
+        pub h_field: Vec<Vec<f64>>,
+        pub x: Vec<f64>,
+        pub y: Vec<f64>,
+        pub num_colors: usize,
+        pub width: usize,
+        pub height: usize,
+        pub max_h: f64,
+    }
+
     fn generate_mock_array(
         width: usize,
         height: usize,
@@ -40,7 +52,7 @@ mod tests {
         max_h: f64,
         uniform_j: Option<f64>,
         seed: u64,
-    ) -> (Vec<usize>, Vec<Vec<(usize, f64)>>, Vec<Vec<f64>>) {
+    ) -> MockData {
         let mut rng = StdRng::seed_from_u64(seed);
         let n_spots = width * height;
 
@@ -60,10 +72,15 @@ mod tests {
 
         // NB generate adjacency list for square lattice
         let mut adj_list = vec![vec![]; n_spots];
+        let mut x_coords = vec![0.0; n_spots];
+        let mut y_coords = vec![0.0; n_spots];
         for y in 0..height {
             for x in 0..width {
                 let i = y * width + x;
                 
+                x_coords[i] = x as f64;
+                y_coords[i] = y as f64;
+
                 // Only evaluate right and down neighbors to construct symmetric edges once
                 if x + 1 < width {
                     let j = i + 1;
@@ -81,7 +98,17 @@ mod tests {
             }
         }
         
-        (labels, adj_list, h_field)
+        MockData {
+            labels,
+            adj_list,
+            h_field,
+            x: x_coords,
+            y: y_coords,
+            num_colors,
+            width,
+            height,
+            max_h,
+        }
     }
 
     #[test]
@@ -89,9 +116,9 @@ mod tests {
         let width = 25;
         let height = 25;
         let beta = 1.0;
-        let (labels, adj_list, h_field) = generate_mock_array(width, height, 4, 1.0, None, 1337);
+        let mock_data = generate_mock_array(width, height, 4, 1.0, None, 1337);
 
-        let cost = potts_cost(&labels, &adj_list, &h_field, beta);
+        let cost = potts_cost(&mock_data.labels, &mock_data.adj_list, &mock_data.h_field, beta);
 
         println!("Potts Cost: {}", cost);
     }

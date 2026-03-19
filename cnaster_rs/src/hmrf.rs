@@ -424,7 +424,7 @@ pub mod tests {
 
         let betas = vec![0.0, 1.0, 2.0, 5.0, 50.0];
         // Each cluster covers multiple nodes, adjust iterations accordingly
-        let num_cluster_updates = 250;
+        let num_cluster_updates = 5_000;
 
         for (i, &beta) in betas.iter().enumerate() {
             println!("Wolff annealing step {} with beta: {}", i, beta);

@@ -18,6 +18,16 @@ pub struct HMRF {
 }
 
 impl HMRF {
+    /// Calculate the proportions of each label (color) currently on the grid.
+    pub fn clone_proportions(&self) -> Vec<f64> {
+        let mut counts = vec![0; self.num_colors];
+        for &label in &self.labels {
+            counts[label] += 1;
+        }
+        let total = self.labels.len() as f64;
+        counts.into_iter().map(|c| c as f64 / total).collect()
+    }
+
     pub fn potts_energy(&self, beta: f64) -> f64 {
         let mut energy = 0.0;
 
@@ -43,7 +53,15 @@ impl HMRF {
     }
 
     /// Iterated Conditional Modes (ICM) to find a local minimum of the MRF energy.
-    pub fn icm(&mut self, max_iters: usize) {
+    pub fn icm(&mut self, beta: f64, max_iters: usize) {
+        if beta == 0.0 {
+            let mut rng = rand::thread_rng();
+            for label in &mut self.labels {
+                *label = rng.gen_range(0..self.num_colors);
+            }
+            return;
+        }
+
         for _ in 0..max_iters {
             let mut changed = false;
 
@@ -63,6 +81,9 @@ impl HMRF {
                         }
                     }
 
+                    local_cost *= beta;
+
+                    // NB defauls to last if equal, which is allowable for symmetry breaking.
                     if local_cost < min_cost {
                         min_cost = local_cost;
                         best_c = c;
@@ -79,16 +100,6 @@ impl HMRF {
                 break;
             }
         }
-    }
-
-    /// Calculate the proportions of each label (color) currently on the grid.
-    pub fn clone_proportions(&self) -> Vec<f64> {
-        let mut counts = vec![0; self.num_colors];
-        for &label in &self.labels {
-            counts[label] += 1;
-        }
-        let total = self.labels.len() as f64;
-        counts.into_iter().map(|c| c as f64 / total).collect()
     }
 
     /// Gibbs sampling to sample from the MRF distribution and optionally find low energy states.
@@ -599,13 +610,14 @@ pub mod tests {
         println!("Initial Energy: {}", hmrf.potts_energy(1.0));
         assert!(hmrf.plot_labels("icm_annealing_init.svg").is_ok());
 
-        let betas = vec![0.0, 1.0, 2.0, 5.0, 50.0];
+        // NB only equal to, or greater than 0, matters.
+        let betas = vec![0.0, 50.0];
         let icm_iters_per_temp = 1_000;
 
         for (i, &beta) in betas.iter().enumerate() {
             println!("ICM annealing step {} (beta context: {})", i, beta);
 
-            hmrf.icm(icm_iters_per_temp);
+            hmrf.icm(beta, icm_iters_per_temp);
 
             println!("  Energy: {}", hmrf.potts_energy(1.0));
             println!("  Clone proportions: {:?}", hmrf.clone_proportions());

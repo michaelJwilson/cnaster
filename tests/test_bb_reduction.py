@@ -55,3 +55,79 @@ def test_mle(mock_bb_dataset, benchmark):
 
     np.testing.assert_allclose(result.x[0], exp_alpha, rtol=1e-1)
     np.testing.assert_allclose(result.x[1], exp_beta, rtol=1e-1)
+
+
+def get_model_vectors(kmax, dkmax, nmax, alpha, beta):
+    tau = alpha + beta
+    base = np.arange(nmax)
+
+    A = np.log(alpha + base[kmax - 1])
+    B = np.log(beta + base[dkmax - 1])
+    N = np.log(tau + base[nmax - 1])
+
+    return A, B, N
+
+
+def get_window_matrix(wi, ci, ci_max):
+    # NB each row is sum_i wi for ci = i;
+    W = np.zeros((ci_max, ci_max))
+    for i in range(ci_max):
+        mask = ci == i
+        result = np.sum(wi[mask])
+
+        for j in range(i):
+            W[i, j] = result
+
+    return W
+
+
+def weighted_nll_fast(params, Aw, Bw, Nw):
+    alpha, beta = params
+
+    kmax = Aw.shape[0]
+    dkmax = Bw.shape[0]
+    nmax = Nw.shape[0]
+
+    A, B, N = get_model_vectors(kmax, dkmax, nmax, alpha, beta)
+
+    return -(Aw @ A + Bw @ B - Nw @ N)
+
+
+def test_mle_fast(mock_bb_dataset, benchmark):
+    (ki, ni), (exp_alpha, exp_beta) = mock_bb_dataset
+    wi = np.ones_like(ki, dtype=float)
+
+    kmax = np.max(ki)
+    dkmax = np.max(ni - ki)
+    nmax = np.max(ni)
+
+    Aw = get_window_matrix(wi, ki, kmax)
+    Bw = get_window_matrix(wi, ni - ki, dkmax)
+    Nw = get_window_matrix(wi, ni, nmax)
+
+    alpha = beta = 1.0
+    x0 = [alpha, beta]
+
+    """
+    result = benchmark(
+        minimize,
+        weighted_nll_fast,
+        x0,
+        args=(Aw, Bw, Nw),
+        method="L-BFGS-B",
+        bounds=[(1e-5, None), (1e-5, None)],
+    )
+    """
+
+    result = minimize(
+        weighted_nll_fast,
+        x0,
+        args=(Aw, Bw, Nw),
+        method="L-BFGS-B",
+        bounds=[(1e-5, None), (1e-5, None)],
+    )
+
+    assert result.success
+
+    np.testing.assert_allclose(result.x[0], exp_alpha, rtol=1e-1)
+    np.testing.assert_allclose(result.x[1], exp_beta, rtol=1e-1)

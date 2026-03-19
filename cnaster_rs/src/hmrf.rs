@@ -1,3 +1,4 @@
+use plotters::prelude::*;
 use rand::{rngs::StdRng, Rng, SeedableRng};
 
 pub struct HMRF {
@@ -36,13 +37,78 @@ impl HMRF {
         energy += interaction_energy;
         -beta * energy
     }
+
+    pub fn plot_labels(&self, filename: &str) -> Result<(), Box<dyn std::error::Error>> {
+        let root = SVGBackend::new(filename, (800, 800)).into_drawing_area();
+        root.fill(&WHITE)?;
+
+        let mut chart = ChartBuilder::on(&root)
+            .build_cartesian_2d(0f64..(self.width as f64), 0f64..(self.height as f64))?;
+
+        let colors = [&RED, &BLUE, &GREEN, &YELLOW, &CYAN, &MAGENTA, &BLACK];
+
+        chart.draw_series((0..self.height).flat_map(|y| {
+            (0..self.width).map(move |x| {
+                let idx = y * self.width + x;
+                let label = self.labels[idx];
+                let color = colors[label % colors.len()];
+
+                Rectangle::new(
+                    [(x as f64, y as f64), ((x + 1) as f64, (y + 1) as f64)],
+                    color.filled(),
+                )
+            })
+        }))?;
+
+        root.present()?;
+        Ok(())
+    }
+
+    /// Plot an external field slice as a grayscale heatmap (darker = higher H magnitude).
+    pub fn plot_field(
+        &self,
+        color_idx: usize,
+        filename: &str,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let root = SVGBackend::new(filename, (800, 800)).into_drawing_area();
+        root.fill(&WHITE)?;
+
+        let mut chart = ChartBuilder::on(&root)
+            .build_cartesian_2d(0f64..(self.width as f64), 0f64..(self.height as f64))?;
+
+        chart.draw_series((0..self.height).flat_map(|y| {
+            (0..self.width).flat_map(move |x| {
+                let idx = y * self.width + x;
+                let val = self.h_field[idx][color_idx];
+
+                // Map H field max_h to a grayscale intensity [0, 255]
+                let norm = if self.max_h > 0.0 {
+                    (val / self.max_h).clamp(0.0, 1.0)
+                } else {
+                    0.0
+                };
+                let intensity = (255.0 * (1.0 - norm)) as u8; // Higher values = darker cells
+                let color = RGBColor(intensity, intensity, intensity);
+
+                let rect_bounds = [(x as f64, y as f64), ((x + 1) as f64, (y + 1) as f64)];
+
+                vec![
+                    Rectangle::new(rect_bounds, color.filled()),
+                    Rectangle::new(rect_bounds, BLACK.stroke_width(1)),
+                ]
+            })
+        }))?;
+
+        root.present()?;
+        Ok(())
+    }
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
     use super::*;
 
-    fn generate_mock_array(
+    pub fn generate_mock_array(
         width: usize,
         height: usize,
         num_colors: usize,
@@ -55,13 +121,28 @@ mod tests {
 
         let labels: Vec<usize> = (0..n_spots).map(|_| rng.gen_range(0..num_colors)).collect();
 
+        // Print color proportions
+        let mut color_counts = vec![0; num_colors];
+        for &label in &labels {
+            color_counts[label] += 1;
+        }
+        println!("Color proportions:");
+        for (i, &count) in color_counts.iter().enumerate() {
+            println!(
+                "  Color {}: {:.2}%",
+                i,
+                (count as f64 / n_spots as f64) * 100.0
+            );
+        }
+
         // NB generate H_field as a checkerboard pattern
         let mut h_field = vec![vec![0.0; num_colors]; n_spots];
+        let square_size = 5; // Set checkerboard square size > 1
         for y in 0..height {
             for x in 0..width {
                 let i = y * width + x;
-                if num_colors > 0 {
-                    let color_idx = ((x + y) % 2).min(num_colors - 1);
+                if num_colors > 1 {
+                    let color_idx = ((x / square_size + y / square_size) % 2).min(num_colors - 1);
                     h_field[i][color_idx] = max_h;
                 }
             }
@@ -118,5 +199,18 @@ mod tests {
         let cost = hmrf.potts_cost(beta);
 
         println!("Potts Cost: {}", cost);
+    }
+
+    #[test]
+    fn test_plot_mock_hmrf() {
+        let width = 25;
+        let height = 25;
+        let hmrf = generate_mock_array(width, height, 3, 1.0, None, 42);
+
+        assert!(hmrf.plot_labels("test_labels.svg").is_ok());
+
+        assert!(hmrf.plot_field(0, "test_field_c0.svg").is_ok());
+        assert!(hmrf.plot_field(1, "test_field_c1.svg").is_ok());
+        assert!(hmrf.plot_field(2, "test_field_c2.svg").is_ok());
     }
 }

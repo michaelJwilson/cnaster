@@ -329,22 +329,23 @@ pub mod tests {
 
     #[test]
     fn test_gibbs_annealing() {
-        let width = 30;
-        let height = 30;
+        let width = 100;
+        let height = 100;
         // Moderate external field to create interesting patterns, uniform J=1.0
         let mut hmrf = generate_mock_array(width, height, 4, 2.0, Some(1.0), 42);
 
         assert!(hmrf.plot_labels("annealing_init.svg").is_ok());
 
         // beta = 1/T. Low beta means high temperature
-        let betas = vec![0.1, 0.5, 1.0, 2.0, 5.0];
-        let gibbs_iters_per_temp = 5;
+        let betas = vec![0.0, 1.0, 2.0, 5.0, 50.0];
+        let gibbs_iters_per_temp = 25;
 
         for (i, &beta) in betas.iter().enumerate() {
             println!("Annealing step {} with beta: {}", i, beta);
+            
             hmrf.gibbs_sample(beta, gibbs_iters_per_temp);
             
-            let filename = format!("annealing_step_{}_beta_{}.svg", i, beta);
+            let filename = format!("annealing_beta_{}.svg", beta);
             assert!(hmrf.plot_labels(&filename).is_ok());
         }
 

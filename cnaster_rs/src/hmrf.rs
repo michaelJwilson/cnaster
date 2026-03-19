@@ -116,7 +116,7 @@ impl HMRF {
                     }
                 }
 
-                // Compute probabilities: P \propto exp(-beta * energy) 
+                // Compute probabilities: P \propto exp(-beta * energy)
                 // avoiding overflow by subtracting min_energy
                 let mut probs = vec![0.0; self.num_colors];
                 for c in 0..self.num_colors {
@@ -176,11 +176,7 @@ impl HMRF {
             }
 
             // Accept with min(1, exp(-beta * dH))
-            let acceptance_prob = if dH <= 0.0 {
-                1.0
-            } else {
-                (-beta * dH).exp()
-            };
+            let acceptance_prob = if dH <= 0.0 { 1.0 } else { (-beta * dH).exp() };
 
             if rng.gen::<f64>() < acceptance_prob {
                 for &node in &cluster {
@@ -392,49 +388,52 @@ pub mod tests {
     fn test_gibbs_annealing() {
         let width = 100;
         let height = 100;
-        // Moderate external field to create interesting patterns, uniform J=1.0
         let mut hmrf = generate_mock_array(width, height, 4, 2.0, Some(1.0), 42);
 
         assert!(hmrf.plot_labels("annealing_init.svg").is_ok());
 
-        // beta = 1/T. Low beta means high temperature
         let betas = vec![0.0, 1.0, 2.0, 5.0, 50.0];
         let gibbs_iters_per_temp = 25;
 
         for (i, &beta) in betas.iter().enumerate() {
             println!("Annealing step {} with beta: {}", i, beta);
-            
+
             hmrf.gibbs_sample(beta, gibbs_iters_per_temp);
-            
+
             let filename = format!("annealing_beta_{}.svg", beta);
             assert!(hmrf.plot_labels(&filename).is_ok());
         }
 
-        println!("Final Cost after Annealing: {}", hmrf.potts_energy(betas.last().copied().unwrap()));
+        println!(
+            "Final Cost after Annealing: {}",
+            hmrf.potts_energy(betas.last().copied().unwrap())
+        );
     }
 
     #[test]
     fn test_wolff_annealing() {
         let width = 100;
         let height = 100;
-        // Moderate external field to create interesting patterns, uniform J=1.0
+
         let mut hmrf = generate_mock_array(width, height, 4, 2.0, Some(1.0), 1234);
 
         assert!(hmrf.plot_labels("wolff_annealing_init.svg").is_ok());
 
         let betas = vec![0.0, 1.0, 2.0, 5.0, 50.0];
-        // Each cluster covers multiple nodes, adjust iterations accordingly
         let num_cluster_updates = 5_000;
 
         for (i, &beta) in betas.iter().enumerate() {
             println!("Wolff annealing step {} with beta: {}", i, beta);
-            
+
             hmrf.wolff_sample(beta, num_cluster_updates);
-            
+
             let filename = format!("wolff_annealing_beta_{}.svg", beta);
             assert!(hmrf.plot_labels(&filename).is_ok());
         }
 
-        println!("Final Cost after Wolff Annealing: {}", hmrf.potts_energy(betas.last().copied().unwrap()));
+        println!(
+            "Final Cost after Wolff Annealing: {}",
+            hmrf.potts_energy(betas.last().copied().unwrap())
+        );
     }
 }

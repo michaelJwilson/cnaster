@@ -14,7 +14,7 @@ pub struct HMRF {
 }
 
 impl HMRF {
-    pub fn potts_cost(&self, beta: f64) -> f64 {
+    pub fn potts_energy(&self, beta: f64) -> f64 {
         let mut energy = 0.0;
 
         // External field contribution: -H_{i, c_i}
@@ -35,7 +35,46 @@ impl HMRF {
         }
 
         energy += interaction_energy;
-        -beta * energy
+        beta * energy
+    }
+
+    /// Iterated Conditional Modes (ICM) to find a local minimum of the MRF energy.
+    pub fn icm(&mut self, max_iters: usize) {
+        for _ in 0..max_iters {
+            let mut changed = false;
+
+            for i in 0..self.labels.len() {
+                let old_c = self.labels[i];
+                let mut best_c = old_c;
+                let mut min_cost = f64::INFINITY;
+
+                for c in 0..self.num_colors {
+                    // Cost contribution from external field
+                    let mut local_cost = self.h_field[i][c];
+
+                    // Pairwise interaction contribution: penalize different colors (as in potts_energy)
+                    for &(j, weight) in &self.adj_list[i] {
+                        if c != self.labels[j] {
+                            local_cost += weight;
+                        }
+                    }
+
+                    if local_cost < min_cost {
+                        min_cost = local_cost;
+                        best_c = c;
+                    }
+                }
+
+                if best_c != old_c {
+                    self.labels[i] = best_c;
+                    changed = true;
+                }
+            }
+
+            if !changed {
+                break;
+            }
+        }
     }
 
     pub fn plot_labels(&self, filename: &str) -> Result<(), Box<dyn std::error::Error>> {
@@ -190,18 +229,6 @@ pub mod tests {
     }
 
     #[test]
-    fn test_spinglass_potts_cost() {
-        let width = 25;
-        let height = 25;
-        let beta = 1.0;
-        let hmrf = generate_mock_array(width, height, 4, 1.0, None, 1337);
-
-        let cost = hmrf.potts_cost(beta);
-
-        println!("Potts Cost: {}", cost);
-    }
-
-    #[test]
     fn test_plot_mock_hmrf() {
         let width = 25;
         let height = 25;
@@ -212,5 +239,35 @@ pub mod tests {
         assert!(hmrf.plot_field(0, "test_field_c0.svg").is_ok());
         assert!(hmrf.plot_field(1, "test_field_c1.svg").is_ok());
         assert!(hmrf.plot_field(2, "test_field_c2.svg").is_ok());
+    }
+
+    #[test]
+    fn test_spinglass_potts_energy() {
+        let width = 25;
+        let height = 25;
+        let beta = 1.0;
+        let hmrf = generate_mock_array(width, height, 4, 1.0, None, 1337);
+
+        let cost = hmrf.potts_energy(beta);
+
+        println!("Potts Cost: {}", cost);
+    }
+
+    #[test]
+    fn test_spinglass_icm() {
+        let width = 25;
+        let height = 25;
+        let beta = 1.0;
+        let mut hmrf = generate_mock_array(width, height, 4, 1.0, None, 1337);
+
+        let initial_cost = hmrf.potts_energy(beta);
+        println!("Initial Potts Cost: {}", initial_cost);
+
+        hmrf.icm(10);
+
+        let final_cost = hmrf.potts_energy(beta);
+        println!("Final Potts Cost: {}", final_cost);
+
+        assert!(final_cost <= initial_cost);
     }
 }

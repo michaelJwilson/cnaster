@@ -116,7 +116,7 @@ impl HMRF {
                     }
                 }
 
-                // Compute probabilities: P \propto exp(-beta * energy)
+                // Compute probabilities: P \propto exp(-beta * energy) 
                 // avoiding overflow by subtracting min_energy
                 let mut probs = vec![0.0; self.num_colors];
                 for c in 0..self.num_colors {
@@ -176,13 +176,100 @@ impl HMRF {
             }
 
             // Accept with min(1, exp(-beta * dH))
-            let acceptance_prob = if dH <= 0.0 { 1.0 } else { (-beta * dH).exp() };
+            let acceptance_prob = if dH <= 0.0 {
+                1.0
+            } else {
+                (-beta * dH).exp()
+            };
 
             if rng.gen::<f64>() < acceptance_prob {
                 for &node in &cluster {
                     self.labels[node] = m;
                 }
             }
+        }
+    }
+
+    /// Calculate the marginal probabilities of each label using the mean-field approximation.
+    pub fn mean_field(&self, beta: f64, max_iters: usize, tol: f64) -> Vec<Vec<f64>> {
+        let n_nodes = self.labels.len();
+        let mut q = vec![vec![0.0; self.num_colors]; n_nodes];
+
+        // Initialize from current labels to break symmetry (soft one-hot encoding)
+        for i in 0..n_nodes {
+            for c in 0..self.num_colors {
+                q[i][c] = if self.labels[i] == c {
+                    0.99
+                } else {
+                    0.01 / (self.num_colors as f64 - 1.0).max(1.0)
+                };
+            }
+        }
+
+        for _ in 0..max_iters {
+            let mut max_diff = 0.0_f64;
+
+            // Asynchronous updates (Gauss-Seidel) for better convergence
+            for i in 0..n_nodes {
+                let mut local_energies = vec![0.0; self.num_colors];
+                let mut min_energy = f64::INFINITY;
+
+                for c in 0..self.num_colors {
+                    let mut expected_energy = self.h_field[i][c];
+
+                    for &(j, weight) in &self.adj_list[i] {
+                        // Expected interaction penalty is weight * probability neighbor is NOT c
+                        expected_energy += weight * (1.0 - q[j][c]);
+                    }
+
+                    local_energies[c] = expected_energy;
+                    if expected_energy < min_energy {
+                        min_energy = expected_energy;
+                    }
+                }
+
+                let mut sum_p = 0.0;
+                let mut new_qi = vec![0.0; self.num_colors];
+                for c in 0..self.num_colors {
+                    let p = (-beta * (local_energies[c] - min_energy)).exp();
+                    new_qi[c] = p;
+                    sum_p += p;
+                }
+
+                for c in 0..self.num_colors {
+                    new_qi[c] /= sum_p;
+                    let diff = (new_qi[c] - q[i][c]).abs();
+                    if diff > max_diff {
+                        max_diff = diff;
+                    }
+                    q[i][c] = new_qi[c];
+                }
+            }
+
+            if max_diff < tol {
+                break;
+            }
+        }
+
+        q
+    }
+
+    /// Decode the labels by taking the maximum marginal probability from the mean-field approximation.
+    pub fn mean_field_decode(&mut self, beta: f64, max_iters: usize, tol: f64) {
+        let q = self.mean_field(beta, max_iters, tol);
+
+        for (i, marginals) in q.iter().enumerate() {
+            let mut best_c = 0;
+            let mut max_q = -1.0;
+
+            for (c, &prob) in marginals.iter().enumerate() {
+                if prob > max_q {
+                    max_q = prob;
+                    best_c = c;
+                }
+            }
+
+            self.labels[i] = best_c;
         }
     }
 
@@ -212,7 +299,6 @@ impl HMRF {
         Ok(())
     }
 
-    /// Plot an external field slice as a grayscale heatmap (darker = higher H magnitude).
     pub fn plot_field(
         &self,
         color_idx: usize,
@@ -367,7 +453,7 @@ pub mod tests {
         let width = 25;
         let height = 25;
         let beta = 1.0;
-        // Zero external field (0.0), uniform J=1.0
+
         let mut hmrf = generate_mock_array(width, height, 4, 0.0, Some(1.0), 1337);
 
         let initial_cost = hmrf.potts_energy(beta);
@@ -397,17 +483,14 @@ pub mod tests {
 
         for (i, &beta) in betas.iter().enumerate() {
             println!("Annealing step {} with beta: {}", i, beta);
-
+            
             hmrf.gibbs_sample(beta, gibbs_iters_per_temp);
-
+            
             let filename = format!("annealing_beta_{}.svg", beta);
             assert!(hmrf.plot_labels(&filename).is_ok());
         }
 
-        println!(
-            "Final Cost after Annealing: {}",
-            hmrf.potts_energy(betas.last().copied().unwrap())
-        );
+        println!("Final Cost after Annealing: {}", hmrf.potts_energy(betas.last().copied().unwrap()));
     }
 
     #[test]
@@ -424,16 +507,38 @@ pub mod tests {
 
         for (i, &beta) in betas.iter().enumerate() {
             println!("Wolff annealing step {} with beta: {}", i, beta);
-
+            
             hmrf.wolff_sample(beta, num_cluster_updates);
-
+            
             let filename = format!("wolff_annealing_beta_{}.svg", beta);
             assert!(hmrf.plot_labels(&filename).is_ok());
         }
 
-        println!(
-            "Final Cost after Wolff Annealing: {}",
-            hmrf.potts_energy(betas.last().copied().unwrap())
-        );
+        println!("Final Cost after Wolff Annealing: {}", hmrf.potts_energy(betas.last().copied().unwrap()));
+    }
+
+    #[test]
+    fn test_mean_field_decode() {
+        let width = 100;
+        let height = 100;
+
+        let mut hmrf = generate_mock_array(width, height, 4, 2.0, Some(1.0), 1234);
+
+        assert!(hmrf.plot_labels("mfd_init.svg").is_ok());
+
+        let betas = vec![0.0, 1.0, 2.0, 5.0, 50.0];
+        let max_iters = 100;
+        let tol = 1e-4;
+
+        for (i, &beta) in betas.iter().enumerate() {
+            println!("Mean field decode step {} with beta: {}", i, beta);
+            
+            hmrf.mean_field_decode(beta, max_iters, tol);
+            
+            let filename = format!("mfd_beta_{}.svg", beta);
+            assert!(hmrf.plot_labels(&filename).is_ok());
+        }
+
+        println!("Final Cost after Mean Field Decode: {}", hmrf.potts_energy(betas.last().copied().unwrap()));
     }
 }

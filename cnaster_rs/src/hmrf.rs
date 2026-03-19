@@ -605,13 +605,13 @@ pub mod tests {
         let width = 100;
         let height = 100;
 
-        let mut hmrf = generate_mock_array(width, height, 4, -2.0, 0.1, Some(1.0), 1234);
+        let mut hmrf = generate_mock_array(width, height, 4, -10.0, 0.50, Some(5.0), 1234);
 
         println!("Initial Energy: {}", hmrf.potts_energy(1.0));
         assert!(hmrf.plot_labels("icm_annealing_init.svg").is_ok());
 
         // NB only equal to, or greater than 0, matters.
-        let betas = vec![0.0, 50.0];
+        let betas = vec![0.0, 1.0];
         let icm_iters_per_temp = 1_000;
 
         for (i, &beta) in betas.iter().enumerate() {

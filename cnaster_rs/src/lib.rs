@@ -5,6 +5,7 @@ mod config;
 mod ellipse;
 mod sim_config;
 mod emission;
+mod hmrf;
 
 use config::Config;
 use ellipse::CnaEllipse;

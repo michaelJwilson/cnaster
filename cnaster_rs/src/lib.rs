@@ -3,12 +3,13 @@ extern crate lazy_static;
 
 mod config;
 mod ellipse;
-mod sim_config;
 mod emission;
 mod hmrf;
+mod sim_config;
 
 use config::Config;
 use ellipse::CnaEllipse;
+use emission::sample_segment_umis;
 use itertools::iproduct;
 use ndarray::{Array1, Array2, Array3};
 use numpy::{IntoPyArray, PyArray1, PyArray2, ToPyArray};
@@ -20,7 +21,6 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt;
 use std::sync::Mutex;
-use emission::sample_segment_umis;
 
 lazy_static::lazy_static! {
     static ref GLOBAL_RNG: Mutex<StdRng> = Mutex::new(StdRng::from_entropy());

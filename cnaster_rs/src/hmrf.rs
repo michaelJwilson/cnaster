@@ -24,7 +24,7 @@ pub fn potts_cost(
             }
         }
     }
-    
+
     energy += interaction_energy;
     -beta * energy
 }
@@ -77,7 +77,7 @@ mod tests {
         for y in 0..height {
             for x in 0..width {
                 let i = y * width + x;
-                
+
                 x_coords[i] = x as f64;
                 y_coords[i] = y as f64;
 
@@ -88,7 +88,7 @@ mod tests {
                     adj_list[i].push((j, j_weight));
                     adj_list[j].push((i, j_weight));
                 }
-                
+
                 if y + 1 < height {
                     let j = i + width;
                     let j_weight = uniform_j.unwrap_or_else(|| rng.gen::<f64>());
@@ -97,7 +97,7 @@ mod tests {
                 }
             }
         }
-        
+
         MockData {
             labels,
             adj_list,
@@ -118,7 +118,12 @@ mod tests {
         let beta = 1.0;
         let mock_data = generate_mock_array(width, height, 4, 1.0, None, 1337);
 
-        let cost = potts_cost(&mock_data.labels, &mock_data.adj_list, &mock_data.h_field, beta);
+        let cost = potts_cost(
+            &mock_data.labels,
+            &mock_data.adj_list,
+            &mock_data.h_field,
+            beta,
+        );
 
         println!("Potts Cost: {}", cost);
     }

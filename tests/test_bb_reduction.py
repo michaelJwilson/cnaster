@@ -2,6 +2,7 @@ import pytest
 import numpy as np
 from scipy.stats import betabinom
 from scipy.optimize import minimize
+from scipy.special import gammaln
 from collections import namedtuple
 from numba import njit
 
@@ -135,6 +136,11 @@ def weighted_nll_fast(params, Aw, Bw, Nw):
     return -(np.sum(Aw @ A) + np.sum(Bw @ B) - np.sum(Nw @ N))
 
 
+def get_nll_zeropoint(wi, ki, ni):
+    # NB sum_i wi * [ln Gamma(ni+1) - ln Gamma(ki+1) - ln Gamma(ni-ki+1)]
+    return -np.sum(wi * (gammaln(ni + 1) - gammaln(ki + 1) - gammaln(ni - ki + 1)))
+
+
 def test_weighted_nll_fast(mock_bb_dataset):
     (ki, ni), (alpha, beta) = mock_bb_dataset
     wi = np.ones_like(ki, dtype=float)
@@ -142,8 +148,9 @@ def test_weighted_nll_fast(mock_bb_dataset):
     Aw, Bw, Nw = get_window_matrices(wi, ki, ni)
 
     # NB does not contain data terms, e.g. ln(x+1)
-    nll = weighted_nll_fast([alpha, beta], Aw, Bw, Nw)
-    exp_nll = 2876976.4476084057
+    zp = get_nll_zeropoint(wi, ki, ni)
+    nll = zp + weighted_nll_fast([alpha, beta], Aw, Bw, Nw)
+    exp_nll = weighted_nll((alpha, beta), ki, ni, wi)
 
     np.testing.assert_allclose(nll, exp_nll, rtol=1e-5)
 
@@ -167,6 +174,145 @@ def test_mle_fast(mock_bb_dataset, benchmark):
     )
 
     # print(result)
+
+    assert result.success
+
+    np.testing.assert_allclose(result.x[0], exp_alpha, rtol=1e-1)
+    np.testing.assert_allclose(result.x[1], exp_beta, rtol=1e-1)
+
+
+@njit
+def get_model_vectors_grad(kmax, dkmax, nmax, alpha, beta):
+    tau = alpha + beta
+    base = np.arange(nmax)
+
+    dA_dalpha = 1.0 / (alpha + base[:kmax])
+    dB_dbeta = 1.0 / (beta + base[:dkmax])
+    dN_dparam = 1.0 / (tau + base[:nmax])
+
+    return dA_dalpha, dB_dbeta, dN_dparam
+
+
+@njit
+def weighted_nll_fast_jac(params, Aw, Bw, Nw):
+    alpha, beta = params
+
+    amax = Aw.shape[1]
+    bmax = Bw.shape[1]
+    nmax = Nw.shape[1]
+
+    dA_dalpha, dB_dbeta, dN_dparam = get_model_vectors_grad(
+        amax, bmax, nmax, alpha, beta
+    )
+
+    grad_alpha = -(np.sum(Aw @ dA_dalpha) - np.sum(Nw @ dN_dparam))
+    grad_beta = -(np.sum(Bw @ dB_dbeta) - np.sum(Nw @ dN_dparam))
+
+    return np.array([grad_alpha, grad_beta])
+
+
+def test_mle_fast_grad(mock_bb_dataset, benchmark):
+    (ki, ni), (exp_alpha, exp_beta) = mock_bb_dataset
+    wi = np.ones_like(ki, dtype=float)
+
+    Aw, Bw, Nw = get_window_matrices(wi, ki, ni)
+
+    alpha = beta = 1.0
+    x0 = np.array([alpha, beta])
+
+    result = benchmark(
+        minimize,
+        weighted_nll_fast,
+        x0,
+        args=(Aw, Bw, Nw),
+        method="L-BFGS-B",
+        jac=weighted_nll_fast_jac,
+        bounds=[(1e-5, None), (1e-5, None)],
+    )
+
+    assert result.success
+
+    np.testing.assert_allclose(result.x[0], exp_alpha, rtol=1e-1)
+    np.testing.assert_allclose(result.x[1], exp_beta, rtol=1e-1)
+
+
+@njit
+def get_suffix_counts(wi, ci):
+    ci_max = int(np.max(ci))
+    totals = np.zeros(1 + ci_max)
+
+    # NB loop over data points.
+    for k in range(len(ci)):
+        idx = ci[k]
+        totals[idx] += wi[k]
+
+    # NB returns the cumulative counts S[j] = sum_{i: ci >= j} wi.
+    S = np.zeros(ci_max)
+    running_sum = 0.0
+    for j in range(ci_max - 1, -1, -1):
+        running_sum += totals[j + 1]
+        S[j] = running_sum
+
+    return S
+
+
+def get_minka_counts(wi, ki, ni):
+    Sa = get_suffix_counts(wi, ki.astype(np.int64))
+    Sb = get_suffix_counts(wi, (ni - ki).astype(np.int64))
+    Sn = get_suffix_counts(wi, ni.astype(np.int64))
+
+    return Sa, Sb, Sn
+
+
+@njit
+def weighted_nll_minka(params, Sa, Sb, Sn):
+    alpha, beta = params
+
+    amax = len(Sa)
+    bmax = len(Sb)
+    nmax = len(Sn)
+
+    A, B, N = get_model_vectors(amax, bmax, nmax, alpha, beta)
+
+    return -(np.sum(Sa * A) + np.sum(Sb * B) - np.sum(Sn * N))
+
+
+@njit
+def weighted_nll_minka_jac(params, Sa, Sb, Sn):
+    alpha, beta = params
+
+    amax = len(Sa)
+    bmax = len(Sb)
+    nmax = len(Sn)
+
+    dA_dalpha, dB_dbeta, dN_dparam = get_model_vectors_grad(
+        amax, bmax, nmax, alpha, beta
+    )
+
+    grad_alpha = -(np.sum(Sa * dA_dalpha) - np.sum(Sn * dN_dparam))
+    grad_beta = -(np.sum(Sb * dB_dbeta) - np.sum(Sn * dN_dparam))
+
+    return np.array([grad_alpha, grad_beta])
+
+
+def test_mle_minka_grad(mock_bb_dataset, benchmark):
+    (ki, ni), (exp_alpha, exp_beta) = mock_bb_dataset
+    wi = np.ones_like(ki, dtype=float)
+
+    Sa, Sb, Sn = get_minka_counts(wi, ki, ni)
+
+    alpha = beta = 1.0
+    x0 = np.array([alpha, beta])
+
+    result = benchmark(
+        minimize,
+        weighted_nll_minka,
+        x0,
+        args=(Sa, Sb, Sn),
+        method="L-BFGS-B",
+        jac=weighted_nll_minka_jac,
+        bounds=[(1e-5, None), (1e-5, None)],
+    )
 
     assert result.success
 

@@ -131,22 +131,23 @@ class SpatialCNVInference:
             if len(spots_in_c) == 0:
                 continue
                 
+            # Precompute log-likelihoods for all segments and states as a batch 
+            mus = mu_base[spots_in_c, :, None] * theta['mu_multiplier'][None, None, :] # shape (Spots, G, K)
+            ll_nb_gk = jnp.sum(negbin_logpdf(u[spots_in_c, :, None], mus, theta['phi'][None, None, :]), axis=0) # shape (G, K)
+            ll_bb_gk = jnp.sum(betabin_logpdf(k_baf[spots_in_c, :, None], n_baf[spots_in_c, :, None], 
+                                              theta['alpha'][None, None, :], theta['beta'][None, None, :]), axis=0)
+            ll_gk = np.array(ll_nb_gk + ll_bb_gk)
+            
             for g in range(self.G):
-                state_log_probs = np.zeros(self.K)
-                for k in range(self.K):
-                    mu = mu_base[spots_in_c, g] * theta['mu_multiplier'][k]
-                    phi_k = theta['phi'][k]
-                    ll_nb = float(jnp.sum(negbin_logpdf(u[spots_in_c, g], mu, phi_k)))
-                    ll_bb = float(jnp.sum(betabin_logpdf(k_baf[spots_in_c, g], n_baf[spots_in_c, g], theta['alpha'][k], theta['beta'][k])))
-                    ll = ll_nb + ll_bb
+                state_log_probs = np.copy(ll_gk[g])
+                
+                # Add prior transitions
+                if g > 0:
+                    state_log_probs += self.trans_log_probs[new_profiles[c, g-1], :]
+                if g < self.G - 1:
+                    state_log_probs += self.trans_log_probs[:, new_profiles[c, g+1]]
                     
-                    prior_ll = 0.0
-                    if g > 0:
-                        prior_ll += self.trans_log_probs[new_profiles[c, g-1], k]
-                    if g < self.G - 1:
-                        prior_ll += self.trans_log_probs[k, new_profiles[c, g+1]]
-                        
-                    state_log_probs[k] = (ll + prior_ll) / temp_anneal
+                state_log_probs /= temp_anneal
                 
                 # Softmax sampling
                 state_log_probs -= np.max(state_log_probs)
@@ -190,13 +191,11 @@ class SpatialCNVInference:
                     sum_mu = mu_base_k[sub_idx].sum()
                     candidates[m] = (sum_u + 1e-3) / (sum_mu + 1e-3)
                     
-                # 3. Select new parameter by Gibbs sampling over the full D_k
-                log_weights = np.zeros(M_candidates)
-                for m in range(M_candidates):
-                    cand_mu = mu_base_k * candidates[m]
-                    ll_m = negbin_logpdf(u_k, cand_mu, theta['phi'][k]).sum()
-                    log_weights[m] = ll_m / temp_anneal
-                    
+                # 3. Select new parameter by Gibbs sampling over the full D_k batched
+                cand_mu = mu_base_k[:, None] * candidates[None, :] # shape (len(D_k), M)
+                ll_m = jnp.sum(negbin_logpdf(u_k[:, None], cand_mu, theta['phi'][k]), axis=0)
+                log_weights = np.array(ll_m) / temp_anneal
+                
                 log_weights -= np.max(log_weights)
                 probs = np.exp(log_weights)
                 probs /= probs.sum()
@@ -213,12 +212,12 @@ class SpatialCNVInference:
                 
                 # Propose overdispersion magnitudes M = alpha + beta
                 M_cands = np.array([2.0, 5.0, 10.0, 20.0, 50.0, 100.0])
-                log_weights_bb = np.zeros(len(M_cands))
-                for m_idx, M_val in enumerate(M_cands):
-                    cand_a = emp_p * M_val
-                    cand_b = (1.0 - emp_p) * M_val
-                    ll_bb = betabin_logpdf(k_k, n_k, cand_a, cand_b).sum()
-                    log_weights_bb[m_idx] = ll_bb / temp_anneal
+                cand_a = emp_p * M_cands
+                cand_b = (1.0 - emp_p) * M_cands
+                
+                # Batch evaluate batched log likelihoods
+                ll_bb = jnp.sum(betabin_logpdf(k_k[:, None], n_k[:, None], cand_a[None, :], cand_b[None, :]), axis=0)
+                log_weights_bb = np.array(ll_bb) / temp_anneal
                     
                 log_weights_bb -= np.max(log_weights_bb)
                 probs_bb = np.exp(log_weights_bb)
@@ -272,19 +271,22 @@ def run_annealing(model, data, steps=100, true_labels=None, true_profiles=None, 
 
 # --- 4. Shared Utilities & Tests ---
 
-def generate_spatial_mock_data(N_W=25, N_H=25, G=50, K=3, C=3, t_retention=0.90, J_true=1.0):
+def generate_spatial_mock_data(n_w=25, n_h=25, g=100, c=1000, K=4, C=5, t_retention=0.90, J_true=1.0):
     """Helper to generate mock spatial CNV data."""
     np.random.seed(42)
+    N_W = n_w
+    N_H = n_h
     N = N_W * N_H
+    G = g
     coords = np.array([(i % N_W, i // N_W) for i in range(N)])
     adj_array = np.full((N, 4), -1, dtype=np.int32)
     idx_track = np.zeros(N, dtype=int)
     for i in range(N):
         x, y = coords[i]
-        if x > 0: adj_array[i, idx_track[i]] = i - 1; idx_track[i] += 1
-        if x < N_W - 1: adj_array[i, idx_track[i]] = i + 1; idx_track[i] += 1
-        if y > 0: adj_array[i, idx_track[i]] = i - N_W; idx_track[i] += 1
-        if y < N_H - 1: adj_array[i, idx_track[i]] = i + N_W; idx_track[i] += 1
+        if x > 0 and i - 1 >= 0: adj_array[i, idx_track[i]] = i - 1; idx_track[i] += 1
+        if x < N_W - 1 and i + 1 < N: adj_array[i, idx_track[i]] = i + 1; idx_track[i] += 1
+        if y > 0 and i - N_W >= 0: adj_array[i, idx_track[i]] = i - N_W; idx_track[i] += 1
+        if y < N_H - 1 and i + N_W < N: adj_array[i, idx_track[i]] = i + N_W; idx_track[i] += 1
         
     model = SpatialCNVInference(N, G, K, C, adj_array, t_trans=t_retention)
     
@@ -294,24 +296,24 @@ def generate_spatial_mock_data(N_W=25, N_H=25, G=50, K=3, C=3, t_retention=0.90,
         true_labels = model.wolff_update(true_labels, dummy_field, J_true, 1.0)
     
     true_profiles = np.zeros((C, G), dtype=int)
-    for c in range(C):
-        true_profiles[c, 0] = np.random.randint(K)
-        for g in range(1, G):
+    for clone in range(C):
+        true_profiles[clone, 0] = np.random.randint(K)
+        for gen in range(1, G):
             if np.random.rand() < t_retention:
-                true_profiles[c, g] = true_profiles[c, g-1]
+                true_profiles[clone, gen] = true_profiles[clone, gen-1]
             else:
-                others = [k for k in range(K) if k != true_profiles[c, g-1]]
-                true_profiles[c, g] = np.random.choice(others)
+                others = [k for k in range(K) if k != true_profiles[clone, gen-1]]
+                true_profiles[clone, gen] = np.random.choice(others)
     
     true_theta = {
-        'mu_multiplier': np.array([0.5, 1.0, 1.5]),
-        'phi': np.array([0.05, 0.1, 0.2]),
-        'alpha': np.array([2.0, 10.0, 18.0]),
-        'beta': np.array([18.0, 10.0, 2.0])
+        'mu_multiplier': np.linspace(0.5, 0.5 + 0.5 * (K - 1), K),
+        'phi': np.linspace(0.05, 0.2, K),
+        'alpha': np.linspace(2.0, 18.0, K),
+        'beta': np.linspace(18.0, 2.0, K)
     }
     
     # T_n: Spot coverage (scaled up by G to keep segment depth comparable after lambda_g normalization)
-    eff_cov = np.random.uniform(500.0 * G, 1500.0 * G, size=N) 
+    eff_cov = np.random.uniform(0.5 * c * G, 1.5 * c * G, size=N) 
     # \lambda_g: Baseline normal expression, normalized to sum to 1
     rel_cov = np.random.uniform(0.5, 2.0, size=G)
     rel_cov /= rel_cov.sum()
@@ -319,28 +321,30 @@ def generate_spatial_mock_data(N_W=25, N_H=25, G=50, K=3, C=3, t_retention=0.90,
     mu_base = np.outer(eff_cov, rel_cov)
     
     u_data = np.zeros((N, G))
-    n_baf = np.random.poisson(300, size=(N, G))
+    n_baf = np.random.poisson(c * 0.3, size=(N, G))
     k_baf = np.zeros((N, G))
     
     for spot in range(N):
-        for g in range(G):
-            st = true_profiles[true_labels[spot], g]
-            mu = mu_base[spot, g] * true_theta['mu_multiplier'][st]
+        for gen in range(G):
+            st = true_profiles[true_labels[spot], gen]
+            mu = mu_base[spot, gen] * true_theta['mu_multiplier'][st]
             phi = true_theta['phi'][st]
             r_nb = 1.0 / phi
             p_nb = 1.0 / (1.0 + mu * phi)
-            u_data[spot, g] = np.random.negative_binomial(r_nb, p_nb)
+            u_data[spot, gen] = np.random.negative_binomial(r_nb, p_nb)
             
             p_baf = np.random.beta(true_theta['alpha'][st], true_theta['beta'][st])
-            k_baf[spot, g] = np.random.binomial(n_baf[spot, g], p_baf)
+            k_baf[spot, gen] = np.random.binomial(n_baf[spot, gen], p_baf)
             
     data = (jnp.array(u_data), jnp.array(mu_base), jnp.array(k_baf), jnp.array(n_baf))
     return model, data, true_labels, true_profiles, true_theta, coords, J_true, t_retention
 
 @pytest.mark.parametrize("inference_target", ["labels", "profiles", "theta_nb", "theta_bb", "theta", "all"])
-def test_inference_subproblems(inference_target):
+def test_inference_subproblems(inference_target, n_w=25, n_h=25, g=100, j_prior=1.0, t_ret=0.90):
     """Test inference of components selectively or jointly, minimizing repetitive code."""
-    model, data, true_labels, true_profiles, true_theta, coords, J_true, t_retention = generate_spatial_mock_data()
+    model, data, true_labels, true_profiles, true_theta, coords, J_true, t_retention = generate_spatial_mock_data(
+        n_w=n_w, n_h=n_h, g=g, t_retention=t_ret, J_true=j_prior
+    )
     
     # Fix variables based on the target of inference
     fix_labels = inference_target not in ("labels", "all")
@@ -363,12 +367,12 @@ def test_inference_subproblems(inference_target):
     mu_base_np = np.array(mu_base)
     
     def calc_ll(lbls, profs, th):
-        ll = 0.0
-        for n in range(N):
-            for g in range(G):
-                st = profs[lbls[n], g]
-                ll += negbin_logpdf(u[n, g], mu_base[n, g] * th['mu_multiplier'][st], th['phi'][st])
-                ll += betabin_logpdf(k_baf[n, g], n_baf[n, g], th['alpha'][st], th['beta'][st])
+        st = profs[lbls, :]
+        mu = mu_base * th['mu_multiplier'][st]
+        phi = th['phi'][st]
+        a = th['alpha'][st]
+        b = th['beta'][st]
+        ll = jnp.sum(negbin_logpdf(u, mu, phi) + betabin_logpdf(k_baf, n_baf, a, b))
         return float(ll)
 
     print(f"\n--- Target: {inference_target.upper()} ---")
@@ -427,19 +431,24 @@ def test_inference_subproblems(inference_target):
     fig, axes = plt.subplots(3, 2, figsize=(14, 15))
     
     target_name_map = {"theta_bb": "BB", "theta_nb": "NB", "theta": "NB & BB", "labels": "Labels", "profiles": "Profiles", "all": "All"}
-    fig.suptitle(f"Inferred {target_name_map.get(inference_target, inference_target)}", fontsize=18, fontweight='bold')
+    fig.suptitle(f"Inferred {target_name_map.get(inference_target, inference_target)}", fontsize=18)
     
     cmap_discrete = plt.cm.get_cmap('tab10', C)
     
-    sc1 = axes[0, 0].scatter(coords[:, 0], coords[:, 1], c=true_labels, cmap=cmap_discrete, vmin=-0.5, vmax=C-0.5, s=100, marker='s')
+    ordered_true_clones = np.argsort(np.bincount(true_labels, minlength=C))[::-1]
+    display_map = {c: rank for rank, c in enumerate(ordered_true_clones)}
+    plot_true_labels = np.array([display_map[l] for l in true_labels])
+    plot_aligned_labels = np.array([display_map[l] for l in aligned_labels])
+    
+    sc1 = axes[0, 0].scatter(coords[:, 0], coords[:, 1], c=plot_true_labels, cmap=cmap_discrete, vmin=-0.5, vmax=C-0.5, s=100, marker='s')
     axes[0, 0].set_title(f"True Clones (Potts Prior, J={J_true})")
     axes[0, 0].invert_yaxis()
-    plt.colorbar(sc1, ax=axes[0, 0], ticks=range(C), label="Clone")
+    plt.colorbar(sc1, ax=axes[0, 0], ticks=range(C), label="Clone Rank")
 
-    sc2 = axes[0, 1].scatter(coords[:, 0], coords[:, 1], c=aligned_labels, cmap=cmap_discrete, vmin=-0.5, vmax=C-0.5, s=100, marker='s')
+    sc2 = axes[0, 1].scatter(coords[:, 0], coords[:, 1], c=plot_aligned_labels, cmap=cmap_discrete, vmin=-0.5, vmax=C-0.5, s=100, marker='s')
     axes[0, 1].set_title(f"Inferred Clones (Assumed J={J_true})")
     axes[0, 1].invert_yaxis()
-    plt.colorbar(sc2, ax=axes[0, 1], ticks=range(C), label="Clone")
+    plt.colorbar(sc2, ax=axes[0, 1], ticks=range(C), label="Clone Rank")
     
     segments = np.arange(G)
     axes[1, 0].set_title(f"True BAF (t_retention={t_retention})")
@@ -447,44 +456,48 @@ def test_inference_subproblems(inference_target):
     
     spot_baf = k_baf_np / np.maximum(n_baf_np, 1)
     
-    for c in range(C):
+    for rank in range(C):
+        c = ordered_true_clones[rank]
         spots_true = np.where(true_labels == c)[0]
         if len(spots_true) > 0:
-            color = cmap_discrete(c)
+            color = cmap_discrete(rank)
             x_vals = np.repeat(segments[np.newaxis, :], len(spots_true), axis=0).flatten()
             y_vals = spot_baf[spots_true, :].flatten()
             axes[1, 0].scatter(x_vals + np.random.uniform(-0.2, 0.2, size=len(x_vals)), y_vals, color=color, alpha=0.5, s=10, marker='.')
             true_p = [true_theta['alpha'][true_profiles[c, g]] / (true_theta['alpha'][true_profiles[c, g]] + true_theta['beta'][true_profiles[c, g]]) for g in segments]
-            axes[1, 0].plot(segments, true_p, linestyle='-', linewidth=2, color=color, label=f"Clone {c}")
+            axes[1, 0].plot(segments, true_p, linestyle='-', linewidth=2, color=color, label=f"Clone {rank}")
 
-    for c_inf in range(C):
-        spots_inf = np.where(inferred_labels == c_inf)[0]
-        if len(spots_inf) > 0:
-            c_mapped = c_map[c_inf]
-            color = cmap_discrete(c_mapped)
-            x_vals = np.repeat(segments[np.newaxis, :], len(spots_inf), axis=0).flatten()
-            y_vals = spot_baf[spots_inf, :].flatten()
-            axes[1, 1].scatter(x_vals + np.random.uniform(-0.2, 0.2, size=len(x_vals)), y_vals, color=color, alpha=0.5, s=10, marker='.')
-            
-            inf_profile = inferred_profiles[c_inf]
-            inf_p = []
-            inf_p_std = []
-            for g in segments:
-                a = inferred_theta['alpha'][inf_profile[g]]
-                b = inferred_theta['beta'][inf_profile[g]]
-                p = a / (a + b)
-                avg_n = np.mean(n_baf_np[spots_inf, g])
-                # Beta-Binomial variance for k/n
-                var_bb = (p * (1 - p) / avg_n) * (1 + (avg_n - 1) / (a + b + 1))
+    for rank in range(C):
+        c_true = ordered_true_clones[rank]
+        c_infs = [c_i for c_i in range(C) if c_map[c_i] == c_true]
+        
+        for c_inf in c_infs:
+            spots_inf = np.where(inferred_labels == c_inf)[0]
+            if len(spots_inf) > 0:
+                color = cmap_discrete(rank)
+                x_vals = np.repeat(segments[np.newaxis, :], len(spots_inf), axis=0).flatten()
+                y_vals = spot_baf[spots_inf, :].flatten()
+                axes[1, 1].scatter(x_vals + np.random.uniform(-0.2, 0.2, size=len(x_vals)), y_vals, color=color, alpha=0.5, s=10, marker='.')
                 
-                inf_p.append(p)
-                inf_p_std.append(np.sqrt(var_bb))
+                inf_profile = inferred_profiles[c_inf]
+                inf_p = []
+                inf_p_std = []
+                for g in segments:
+                    a = inferred_theta['alpha'][inf_profile[g]]
+                    b = inferred_theta['beta'][inf_profile[g]]
+                    p = a / (a + b)
+                    avg_n = np.mean(n_baf_np[spots_inf, g])
+                    # Beta-Binomial variance for k/n
+                    var_bb = (p * (1 - p) / avg_n) * (1 + (avg_n - 1) / (a + b + 1))
+                    
+                    inf_p.append(p)
+                    inf_p_std.append(np.sqrt(var_bb))
+                    
+                inf_p = np.array(inf_p)
+                inf_p_std = np.array(inf_p_std)
                 
-            inf_p = np.array(inf_p)
-            inf_p_std = np.array(inf_p_std)
-            
-            axes[1, 1].plot(segments, inf_p, linestyle='-', linewidth=2, color=color, label=f"Clone {c_mapped}")
-            axes[1, 1].fill_between(segments, inf_p - inf_p_std, inf_p + inf_p_std, color=color, alpha=0.3)
+                axes[1, 1].plot(segments, inf_p, linestyle='-', linewidth=2, color=color, label=f"Clone {rank}")
+                axes[1, 1].fill_between(segments, inf_p - inf_p_std, inf_p + inf_p_std, color=color, alpha=0.3)
             
     for ax in [axes[1, 0], axes[1, 1]]:
         ax.set_xlabel("g")
@@ -498,43 +511,47 @@ def test_inference_subproblems(inference_target):
     
     spot_rdr = u_np / np.maximum(mu_base_np, 1e-3)
     
-    for c in range(C):
+    for rank in range(C):
+        c = ordered_true_clones[rank]
         spots_true = np.where(true_labels == c)[0]
         if len(spots_true) > 0:
-            color = cmap_discrete(c)
+            color = cmap_discrete(rank)
             x_vals = np.repeat(segments[np.newaxis, :], len(spots_true), axis=0).flatten()
             y_vals = spot_rdr[spots_true, :].flatten()
             axes[2, 0].scatter(x_vals + np.random.uniform(-0.2, 0.2, size=len(x_vals)), y_vals, color=color, alpha=0.5, s=10, marker='.')
             true_rdr_p = [true_theta['mu_multiplier'][true_profiles[c, g]] for g in segments]
-            axes[2, 0].plot(segments, true_rdr_p, linestyle='-', linewidth=2, color=color, label=f"Clone {c}")
+            axes[2, 0].plot(segments, true_rdr_p, linestyle='-', linewidth=2, color=color, label=f"Clone {rank}")
 
-    for c_inf in range(C):
-        spots_inf = np.where(inferred_labels == c_inf)[0]
-        if len(spots_inf) > 0:
-            c_mapped = c_map[c_inf]
-            color = cmap_discrete(c_mapped)
-            x_vals = np.repeat(segments[np.newaxis, :], len(spots_inf), axis=0).flatten()
-            y_vals = spot_rdr[spots_inf, :].flatten()
-            axes[2, 1].scatter(x_vals + np.random.uniform(-0.2, 0.2, size=len(x_vals)), y_vals, color=color, alpha=0.5, s=10, marker='.')
-            
-            inf_profile = inferred_profiles[c_inf]
-            inf_rdr_p = []
-            inf_rdr_std = []
-            for g in segments:
-                m = inferred_theta['mu_multiplier'][inf_profile[g]]
-                phi = inferred_theta['phi'][inf_profile[g]]
-                mb = np.mean(mu_base_np[spots_inf, g])
-                # Negative Binomial variance for u/mb = (mb*m + phi*(mb*m)^2) / mb^2 = m/mb + phi*m^2
-                var_rdr = (m / mb) + phi * (m**2)
+    for rank in range(C):
+        c_true = ordered_true_clones[rank]
+        c_infs = [c_i for c_i in range(C) if c_map[c_i] == c_true]
+        
+        for c_inf in c_infs:
+            spots_inf = np.where(inferred_labels == c_inf)[0]
+            if len(spots_inf) > 0:
+                color = cmap_discrete(rank)
+                x_vals = np.repeat(segments[np.newaxis, :], len(spots_inf), axis=0).flatten()
+                y_vals = spot_rdr[spots_inf, :].flatten()
+                axes[2, 1].scatter(x_vals + np.random.uniform(-0.2, 0.2, size=len(x_vals)), y_vals, color=color, alpha=0.5, s=10, marker='.')
                 
-                inf_rdr_p.append(m)
-                inf_rdr_std.append(np.sqrt(var_rdr))
+                inf_profile = inferred_profiles[c_inf]
+                inf_rdr_p = []
+                inf_rdr_std = []
+                for g in segments:
+                    m = inferred_theta['mu_multiplier'][inf_profile[g]]
+                    phi = inferred_theta['phi'][inf_profile[g]]
+                    mb = np.mean(mu_base_np[spots_inf, g])
+                    # Negative Binomial variance for u/mb = (mb*m + phi*(mb*m)^2) / mb^2 = m/mb + phi*m^2
+                    var_rdr = (m / mb) + phi * (m**2)
+                    
+                    inf_rdr_p.append(m)
+                    inf_rdr_std.append(np.sqrt(var_rdr))
+                    
+                inf_rdr_p = np.array(inf_rdr_p)
+                inf_rdr_std = np.array(inf_rdr_std)
                 
-            inf_rdr_p = np.array(inf_rdr_p)
-            inf_rdr_std = np.array(inf_rdr_std)
-            
-            axes[2, 1].plot(segments, inf_rdr_p, linestyle='-', linewidth=2, color=color, label=f"Clone {c_mapped}")
-            axes[2, 1].fill_between(segments, inf_rdr_p - inf_rdr_std, inf_rdr_p + inf_rdr_std, color=color, alpha=0.3)
+                axes[2, 1].plot(segments, inf_rdr_p, linestyle='-', linewidth=2, color=color, label=f"Clone {rank}")
+                axes[2, 1].fill_between(segments, inf_rdr_p - inf_rdr_std, inf_rdr_p + inf_rdr_std, color=color, alpha=0.3)
             
     for ax in [axes[2, 0], axes[2, 1]]:
         ax.set_xlabel("g")
@@ -567,14 +584,20 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run Spatial CNV Inference Test")
     parser.add_argument("--target", type=str, default=None, 
                         help="Inference target: labels, profiles, theta_nb, theta_bb, theta, all. If not provided, runs all.")
+    parser.add_argument("--n_w", type=int, default=25, help="Number of spots in width")
+    parser.add_argument("--n_h", type=int, default=25, help="Number of spots in height")
+    parser.add_argument("--g", type=int, default=100, help="Number of segments")
+    parser.add_argument("--j", type=float, default=1.0, help="Spatial prior J_true")
+    parser.add_argument("--t", type=float, default=0.90, help="Transition retention t_retention")
+    
     args = parser.parse_args()
 
     targets = ["labels", "profiles", "theta_nb", "theta_bb", "theta", "all"]
     if args.target:
         if args.target in targets:
-            test_inference_subproblems(args.target)
+            test_inference_subproblems(args.target, n_w=args.n_w, n_h=args.n_h, g=args.g, j_prior=args.j, t_ret=args.t)
         else:
             print(f"Invalid target. Choose from {targets}")
     else:
         for t in targets:
-            test_inference_subproblems(t)
+            test_inference_subproblems(t, n_w=args.n_w, n_h=args.n_h, g=args.g, j_prior=args.j, t_ret=args.t)

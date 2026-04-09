@@ -1101,6 +1101,10 @@ class hmm_nophasing:
             f"maxlike_nb_bb with BFGS\nn_states={n_states};\nX.shape={X.shape};\nfixed_dispersion={fix_NB_dispersion};\nshared dispersion={shared_NB_dispersion};\noptimize_nb={optimize_nb};\nuse_logit={use_logit};\ninitial cost={cost(x0):.6e}"
         )
 
+        print(np.max(X[:,1,:]))
+        
+        exit(0)
+        
         options = {
             "maxiter": kwargs.get("max_iter", 10_000),
             # "maxfun": kwargs.get("max_fun", 5_000),

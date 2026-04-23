@@ -16,7 +16,7 @@ ndarray = {version = "0.15", features = ["rayon"] }
 once_cell = "1.10"
 num_cpus = "1.0"
 itertools = "0.12"
-rand = "0.8.5"
+rand = "0.8.6"
 ordered-float = "2.10.0"
 nalgebra = "*"
 serde = {version = "1.0.219", features = ["derive"]}

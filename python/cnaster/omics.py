@@ -121,7 +121,7 @@ def form_gene_snp_table(
 
     # TODO retaining 84.623% of SNPs with known gene (given Gencode filtered by AnnData) for num_preceeding_rows=50.
     logger.info(
-        f"Retaining {100.0 * np.mean(isin[~df_gene_snp.is_interval]):.3f}% of SNPs with known gene (given Gencode filtered by AnnData) for num_preceeding_rows={num_preceeding_rows}."
+        f"Retaining {100.0 * np.mean(isin[~df_gene_snp.is_interval]):.3f}% of snps with matched gene (given reference filtered by visium panel) for num_preceeding_rows={num_preceeding_rows}."
     )
 
     logger.info(
@@ -130,7 +130,7 @@ def form_gene_snp_table(
 
     df_gene_snp = df_gene_snp[isin]
 
-    logger.info(f"Created gene-SNP table:\n{df_gene_snp.head()}")
+    logger.info(f"Created gene-snp query table:\n{df_gene_snp.head()}")
 
     return df_gene_snp
 
@@ -227,13 +227,14 @@ def summarize_blocks(
     if sort_key is not None:
         block_summary = block_summary.sort_values(sort_key, ascending=False)
 
-    logger.info(f"Breakdown of genes/SNPs/UMI per {block_key} sorted by {sort_key}:")
+    logger.info(f"Breakdown of genes/snps/umi per {block_key} sorted by {sort_key}:")
     logger.info(
-        f"{'Block ID':<10}\t{'Chr':>4}\t{'Start':>12}\t{'Length':>12} [Mbp]\t{'SNPs':>8}\t{'Genes':>8}\t{'Total UMI':>12}\t{'SNP UMI':>12}\t{'Normal UMI':>12}\t{'Normal SNP UMI':>12}"
+        f"{'block id':<10}\t{'chr':>4}\t{'start':>12}\t{'length':>12} [Mbp]\t{'snps':>8}\t{'genes':>8}\t{'total umi':>12}\t{'snp umi':>12}\t{'normal umi':>12}\t{'normal snp umi':>12}"
     )
     logger.info("-" * 136)
 
-    max_rows = 50
+    # TODO MAGIC keyword
+    max_rows = 25
 
     for ii, (block_id, row) in enumerate(block_summary.iterrows()):
         logger.info(
@@ -252,14 +253,14 @@ def summarize_blocks(
         f"median genes/block: {block_summary['num_genes'].median():.1f},\n"
         f"median umis/block: {block_summary['total_umi'].median():.1f},\n"
         f"median snp-umis/block: {block_summary['snp_umi'].median():.1f},\n"
-        f"total blocks: {len(block_summary)},\n"
-        f"total umis: {block_summary['total_umi'].sum()},\n"
-        f"total snp-umis: {block_summary['snp_umi'].sum()},\n"
-        f"total normal umis: {block_summary['normal_umi'].sum()},\n"
-        f"total normal snp-umis: {block_summary['normal_snp_umi'].sum()},\n"
-        f"fraction blocks with 0 UMIs: {(block_summary['total_umi'] == 0).mean():.3f},\n"
-        f"fraction blocks with <100 UMIs: {(block_summary['total_umi'] < 100).mean():.3f},\n"
-        f"fraction blocks with BAF UMIs but no UMIs: {((block_summary['snp_umi'] > 0) & (block_summary['total_umi'] == 0)).mean():.3f}\n"
+        f"total blocks: {len(block_summary):_},\n"
+        f"total umis: {block_summary['total_umi'].sum():_},\n"
+        f"total snp-umis: {block_summary['snp_umi'].sum():_},\n"
+        f"total normal umis: {block_summary['normal_umi'].sum():_},\n"
+        f"total normal snp-umis: {block_summary['normal_snp_umi'].sum():_},\n"
+        f"blocks with 0 umis: {(block_summary['total_umi'] == 0).mean():.1%},\n"
+        f"blocks with <100 umis: {(block_summary['total_umi'] < 100).mean():.1%},\n"
+        f"blocks with snp-umis, but no gene-umis: {((block_summary['snp_umi'] > 0) & (block_summary['total_umi'] == 0)).mean():.1%}\n"
     )
 
     if block_summary.index.isna().any():
@@ -287,7 +288,7 @@ def assign_initial_blocks(
         "is_interval"=True is a gene, otherwise SNP.
         "gene" contains the name of a gene, or the gene a SNP belongs.
     """
-    logger.info(f"Assigning initial blocks")
+    logger.info(f"Creating initial genome segmentation based solely on overlapping genes.")
 
     # NB first level: partition of genome by gene range (if two genes overlap, they are grouped to one range);
     # NB == is_gene.
@@ -367,7 +368,7 @@ def assign_initial_blocks(
     assert np.all(df_gene_snp["initial_block_id"].values) >= 0, "Found genes/sites with no assigned block."
 
     logger.info(
-        "Assigned SNPs to initial blocks (intervals formed by overlapping genes)."
+        "Assigned snps to initial genome segments (segments == genes, merged on overlap)."
     )
 
     summarize_blocks(
@@ -379,7 +380,9 @@ def assign_initial_blocks(
         block_key="initial_block_id",
     )
 
-    # NB second level: extend the first level blocks based on haplotype-aggregated counts such that the minimum snp-covering umi counts >= initial_min_umi.
+    logger.info(f"Updating genome segmentation to ensure min. snp-covering umi={initial_min_umi} threshold is satisfied for the new segments.")
+
+    # NB second level: extend the first level blocks based on haplotype-aggregated counts such that the min. snp-covering umi counts >= initial_min_umi.
     #    maps site_id, {chr}_{pos}_{ref}_{alt} to integer index.
     map_snp_index = {site: index for index, site in enumerate(unique_snp_ids)}
     initial_block_chr = df_gene_snp.CHR.to_numpy()[
@@ -418,14 +421,14 @@ def assign_initial_blocks(
 
             if reach_end:
                 logger.warning(
-                    f"Reached last block with {this_snp_umis}/{initial_min_umi} required SNP UMIs."
+                    f"Reached last block with {this_snp_umis}/{initial_min_umi} required snp umis."
                 )
                 break
 
             if change_chr:
                 t -= 1
 
-                # re-count SNP-covering UMIs
+                # re-count snp-covering UMIs
                 involved_snps_ids = df_gene_snp.snp_id.iloc[
                     block_ranges[s][0] : block_ranges[t - 1][1]
                 ]
@@ -443,7 +446,7 @@ def assign_initial_blocks(
                 )
 
                 logger.warning(
-                    f"Reached contig end with {this_snp_umis}/{initial_min_umi} required SNP UMIs."
+                    f"Reached contig end with {this_snp_umis}/{initial_min_umi} required snp umis."
                 )
 
                 break
@@ -473,7 +476,7 @@ def assign_initial_blocks(
         df_gene_snp.iloc[x[0] : x[1], -1] = i
 
     logger.info(
-        f"Updating block assignment based on input phased genotypes and min. snp-covering UMI threshold={initial_min_umi}"
+        f"Updated genome segmentation given (phased) genotypes and min. snp-covering umi={initial_min_umi} per segment."
     )
 
     summarize_blocks(
@@ -589,7 +592,7 @@ def summarize_counts_for_blocks_legacy(
         single_total_bb_RD,
     )
 
-@cacher("blocked_counts.hdf5")
+# @cacher("blocked_counts.hdf5")
 def summarize_counts_for_blocks(
     df_gene_snp,
     adata,
@@ -597,12 +600,12 @@ def summarize_counts_for_blocks(
     cell_snp_Ballele,
     unique_snp_ids,
 ):
-    logger.info(f"Summarizing counts for blocks")
+    logger.info(f"Aggregating (snp, umi) counts for genome segmentation.")
 
     # NB precompute mapping: snp_id -> index
     map_snp_index = {x: i for i, x in enumerate(unique_snp_ids)}
 
-    # NB filter to SNPs only (drop genes).
+    # NB filter to snps only (drop genes).
     df_snps = df_gene_snp[df_gene_snp.snp_id.notna()].copy()
     df_snps["snp_idx"] = df_snps.snp_id.map(map_snp_index)
 
@@ -653,6 +656,7 @@ def summarize_counts_for_blocks(
             if gene_mask.any():
                 single_X[block_id, 0, :] = gene_counts[:, gene_mask].sum(axis=1)
 
+    # NB list of (unique) blocks grouped by contig.
     lengths = df_gene_snp.groupby("CHR")["block_id"].nunique().to_numpy()
 
     assert single_X.ndim == 3

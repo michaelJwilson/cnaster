@@ -17,7 +17,7 @@ from cnaster.utils import cast_clone_label, write_fig
 from cnaster.config import start_time
 from cnaster.logger import get_logger
 import matplotlib as mpl
-from matplotlib.colors import LinearSegmentedColormap, ListedColormap
+# from matplotlib.colors import LinearSegmentedColormap, ListedColormap
 
 
 logger = get_logger(__name__, start_time=start_time)
@@ -351,7 +351,7 @@ def plot_clones_genomic_simple(
     pointsize=5,
     linewidth=1,
 ):
-    logger.info("Plotting simplified RDR & BAF scatter plots per clone.")
+    logger.info("Plotting rdr & baf data (per clone) w/o fits.")
 
     X, base_nb_mean, total_bb_RD, tumor_prop = merge_pseudobulk_by_index_mix(
         single_X,
@@ -374,6 +374,7 @@ def plot_clones_genomic_simple(
     # NB check if base_nb_mean is defined and has valid data
     has_rdr = base_nb_mean is not None and np.max(base_nb_mean) > 0
 
+    # NB construct fig. given number of non-empty clones and has rdr. >>>>>
     n_pairs = len(nonempty_clones)
     axes_per_clone = 2 if has_rdr else 1
     n_axes_total = axes_per_clone * n_pairs
@@ -396,10 +397,12 @@ def plot_clones_genomic_simple(
         row += 1
         if (i % axes_per_clone == axes_per_clone - 1) and (i < n_axes_total - 1):
             row += 1
+    # <<<<<<
 
     if sample_list is not None:
         fig.suptitle(", ".join(sample_list), x=0.5, y=0.98, fontsize=16, ha="center")
 
+    # NB x-axis defined by lengths.
     unique_chrs = 1 + np.arange(len(lengths))
 
     for s, c in enumerate(nonempty_clones):
@@ -415,7 +418,7 @@ def plot_clones_genomic_simple(
                 ax=axes[ax_idx],
             )
 
-            axes[ax_idx].set_ylabel("RDR")
+            axes[ax_idx].set_ylabel("rdr")
             axes[ax_idx].set_ylim([-0.5, rdr_ylim])
             axes[ax_idx].set_xlim([0, n_obs])
 
@@ -439,7 +442,7 @@ def plot_clones_genomic_simple(
             ax=axes[baf_idx],
         )
 
-        axes[baf_idx].set_ylabel("BAF")
+        axes[baf_idx].set_ylabel("baf")
         axes[baf_idx].set_ylim([-0.05, 1.05])
         axes[baf_idx].set_yticks(np.arange(0.0, 1.1, 0.2))
         axes[baf_idx].set_xlim([0, n_obs])
@@ -470,6 +473,7 @@ def plot_clones_genomic_simple(
         if single_tumor_prop is not None:
             theta_text = f"$\\hat{{\\theta}}={tumor_prop[s]:.2f}$"
 
+        # NB add informative text, e.g. number of spots, total umis, total snp-umis, tumor prop.
         ax.text(
             0.0,
             1.02,
@@ -480,8 +484,8 @@ def plot_clones_genomic_simple(
             transform=ax.transAxes,
         )
 
+        # NB if model fits (continuous mu, ps) are given, add them.
         if res is not None:
-            # NB for all clones
             max_pred = np.argmax(res["log_gamma"], axis=0)
             this_pred = max_pred[(s * n_obs) : (s * n_obs + n_obs)] % res["n_states"]
 
@@ -497,7 +501,6 @@ def plot_clones_genomic_simple(
                     )
 
                 axes[baf_idx].plot(seg, [ps[state], ps[state]], c="k", linewidth=1.0)
-
                 axes[baf_idx].plot(
                     seg,
                     [1.0 - ps[state], 1.0 - ps[state]],
@@ -506,6 +509,7 @@ def plot_clones_genomic_simple(
                     linestyle="--",
                 )
 
+    # NB add contig labels on x-axis.
     for i in range(len(lengths)):
         start_len = np.sum(lengths[:(i)])
         axes[-1].text(
@@ -521,6 +525,7 @@ def plot_clones_genomic_simple(
             axes[k].axvline(x=np.sum(lengths[:(i)]), c="k", linewidth=1)
 
     fig.tight_layout()
+
     return fig
 
 

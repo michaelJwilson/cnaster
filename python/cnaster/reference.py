@@ -34,6 +34,10 @@ def get_reference_genes(hgtable_file):
 
     # TODO HACK use legacy only for now.
     if True or config.run.legacy:
+        logger.info_once(
+            f"Assuming legacy gene annotation={hgtable_file}."
+        )
+
         # NB read gene info and keep only chr1-chr22 and genes appearing in adata
         #    name2  chrom  cdsStart    cdsEnd
         df_hgtable = pd.read_csv(hgtable_file, header=0, index_col=0, sep="\t")

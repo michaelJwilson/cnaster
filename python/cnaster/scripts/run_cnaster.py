@@ -94,7 +94,7 @@ logger = get_logger(__name__, start_time=start_time)
 
 
 def run_cnaster(config_path, over_rides=None):
-    logger.info("----  Welcome to cnaster  ----")
+    logger.info("----  Welcome to cna-maste  ----")
     
     config = YAMLConfig.from_file(config_path)
     config.over_ride(over_rides)
@@ -106,13 +106,14 @@ def run_cnaster(config_path, over_rides=None):
 
     output_dir, plots_dir = configure_output_dir(config)
 
-    # TODO
-    random_seed = int(config.hmrf.random_state)
-    logger.info(f"Set (numpy) random seed={random_seed}")
-    np.random.seed(random_seed)
-    random.seed(random_seed)
-    set_numba_seed(random_seed)
+    logger.info(f"Set (numpy) random seed={config.hmrf.random_state}")
 
+    # TODO fix reproducibility - set random seed globally.
+    np.random.seed(config.hmrf.random_state)
+    random.seed(config.hmrf.random_state)
+    set_numba_seed(config.hmrf.random_state)
+
+    # NB legacy simulated data loading - generates matrices for all steps of the pipeline.
     # (
     #     lengths,
     #     single_X,
@@ -145,10 +146,13 @@ def run_cnaster(config_path, over_rides=None):
     # # NB renormalize cumulative edge weight to median in each case.
     # adjacency_mat = renormalize_adjacency_mat(adjacency_mat)
     
-    # NB start run_parse_n_load::parse_visium::load_joint_data
+    # NB start equivalent to run_parse_n_load::parse_visium::load_joint_data
+    #
     #    adata: (barcode x gene) transcripts ('count') + 'tumor_annotation' + 'X_pos' + slice ('sample').
-    #    cell_snp_Aallele: haplotype H0 counts (barcode x snp).
-    #    cell_snp_Ballele: haplotype H1 counts (barcode x snp).
+    #    cell_snp_Aallele: haplotype h0 counts (barcode x snp).
+    #    cell_snp_Ballele: haplotype h1 counts (barcode x snp).
+    #
+    #    DEPRECATE
     #    unique_snp_ids: {contig}_{pos}_{R}_{A} for all snps.
     (
         coords,
@@ -166,27 +170,16 @@ def run_cnaster(config_path, over_rides=None):
         min_snp_umis=config.quality.spot_min_snp_umis,
         min_percent_expressed_spots=config.quality.min_percent_expressed_spots,
     )
-    
-    pause()
 
-    # cell_snp_Aallele, cell_snp_Ballele = perturb_phase(
-    #     cell_snp_Aallele, cell_snp_Ballele, 0.1
-    # )
+    pause()
 
     # NB sample list derived from adata.obs['sample'] - removes adjacent duplicates.
     #    sample_ids: unique enum for each entry in sample_list.  One per adata.obs entry.
     sample_list, sample_ids = get_sample_list(adata)
     single_tumor_prop = read_tumor_prop(adata, config=config)
 
-    # recomb_rates = get_reference_recomb_rates(config.references.geneticmap_file)
-    #
-    # write_fig(
-    #     f"{plots_dir}/recombination_rates.pdf",
-    #     plot_recombination_rates(recomb_rates),
-    #     transparent=True,bbox_inches="tight"
-    # )
-
     # NB parse_visium::combine_gene_snps
+    #    columns:
     #    chr, start, end, snp_id, gene, is_interval (is_gene).
     df_gene_snp = form_gene_snp_table(
         unique_snp_ids, config.references.hgtable_file, adata
@@ -242,7 +235,7 @@ def run_cnaster(config_path, over_rides=None):
         config.phasing.logphase_shift,
     )
 
-    # NB all spots in one pseudobulk clone.                                                                                                                                                                     
+    # NB pseudobulk formed of all spots.                                                                                                                                                                   
     initial_clone_pseudobulk = [[ii for ii in range(len(coords))]]
     pseudobulk_clones_genomic = plot_clones_genomic_simple(
         single_X,
@@ -258,18 +251,17 @@ def run_cnaster(config_path, over_rides=None):
     write_fig(
         fig_path, pseudobulk_clones_genomic, transparent=True, bbox_inches="tight"
     )
-    
+
     pause()
 
     # NB known clone annotation per spot.
     if config.annotation.clone_label is not None:
         initial_clone_index_baf, _ = get_clone_label_annotation(config)
 
-        # TODO HACK!
+        # NB assumes the known clone labels for phasing.
         initial_clone_for_phasing = initial_clone_index_baf
     else:
-        # NB reference assignment, not a copy.
-        # initial_clone_index_baf = initial_clone_for_phasing
+        # NB reference assignment, not a copy?
         initial_clone_index_baf = None
 
         # NB  rectangular partition across multiple slices.
@@ -281,10 +273,12 @@ def run_cnaster(config_path, over_rides=None):
             y_part=config.phasing.npart_phasing,
         )
 
-    if True and "he_label" in adata.obsm:
-        logger.info(f"Initializing clone partition with he image.")
+    if "he_label" in adata.obsm:
+        logger.info(f"Refining initial clone partition with h&e derived segmentation.")
 
         spatial_assignment = get_clone_assignment(coords, initial_clone_for_phasing)
+
+        # NB per-spot h&e label derived from gray-scale percentiles.
         he_assignment = adata.obsm["he_label"].flatten()
         
         clone_assignment, _ = pd.factorize(
@@ -295,78 +289,6 @@ def run_cnaster(config_path, over_rides=None):
             clone_assignment, np.unique(clone_assignment),
         )
 
-    # # NB identify informative segments for filtering based on pseudobulk likelihood.
-    # X, base_nb_mean, total_bb_RD, _ =  merge_pseudobulk_by_index_mix(
-    #     single_X,
-    #     single_base_nb_mean,
-    #     single_total_bb_RD,
-    #     initial_clone_pseudobulk,
-    #     single_tumor_prop,
-    # )
-
-    # mask = single_total_bb_RD > 0
-
-    # # LEGACY
-    # settings = get_em_solver_params()
-
-    # res = Weighted_BetaBinom(
-    #     X[:, 1, :].flatten(), np.ones(len(X[:, 1, :].flatten())), weights=np.ones(len(X[:, 1, :].flatten())), exposure=total_bb_RD.flatten()
-    # ).fit(**settings)
-
-    # # NB sum over spots conditioned on segment.
-    # ln_pbetabinom = scipy.stats.betabinom.logpmf(
-    #     X[:, 1, :],
-    #     total_bb_RD,
-    #     res.params[0] * res.params[1],
-    #     (1.0 - res.params[0]) * res.params[1],
-    # ).sum(axis=-1)
-
-    # # NB 30% least likely segments filtered as outliers.
-    # segment_retention_mask = ln_pbetabinom < np.percentile(ln_pbetabinom, 30)
-
-    # logger.info(f"Filtered {np.mean(~segment_retention_mask)*100:.2f}% segments as outliers based on pseudobulk BAF likelihood.")
-
-    # # NB identify 'normal' spots based on informative segments only.
-    # initial_clone_fine_partition, _ = fixed_rectangle_partition(
-    #     coords,
-    #     10, # TODO
-    #     10, # TODO
-    #     single_tumor_prop=None,
-    # )
-
-    # X, base_nb_mean, total_bb_RD, _ =  merge_pseudobulk_by_index_mix(
-    #     single_X,
-    #     single_base_nb_mean,
-    #     single_total_bb_RD,
-    #     initial_clone_fine_partition,
-    #     single_tumor_prop,
-    # )
-
-    # # NB best-fit dispersion depends on spot segmentation - do not limit to informative segments.
-    # res = Weighted_BetaBinom(
-    #     X[:, 1, :].flatten(), np.ones(len(X[:, 1, :].flatten())), weights=np.ones(len(X[:, 1, :].flatten())), exposure=total_bb_RD.flatten()
-    # ).fit(**settings)
-
-    # # NB calculate prob. per spot using only informative segments
-    # spot_ln_pbinom = scipy.stats.betabinom.logpmf(
-    #     X[segment_retention_mask, 1, :],
-    #     total_bb_RD[segment_retention_mask, :],
-    #     res.params[0] * res.params[1],
-    #     (1.0 - res.params[0]) * res.params[1],
-    # ).sum(axis=0)
-
-    # # NB
-    # normal_candidates = np.where(spot_ln_pbinom > np.percentile(spot_ln_pbinom, 80))[0]
-    # normal_candidates = np.concatenate([initial_clone_fine_partition[i] for i in normal_candidates]).tolist()
-
-    # updated_clones = [normal_candidates]
-    # for indices in initial_clone_for_phasing:
-    #     filtered_indices = np.setdiff1d(indices, normal_candidates)
-    #     if len(filtered_indices) > 0:
-    #         updated_clones.append(filtered_indices)
-
-    # TODO HACK
-    # initial_clone_for_phasing = updated_clones
     assignment = get_clone_assignment(coords, initial_clone_for_phasing)
     assignment = pd.Series([f"clone {x}" for x in assignment])
 
@@ -396,6 +318,8 @@ def run_cnaster(config_path, over_rides=None):
     write_fig(
         fig_path, prephasing_clones_genomic, transparent=True, bbox_inches="tight"
     )
+
+    exit(0)
 
     if config.phasing.run:
         if config.run.legacy:

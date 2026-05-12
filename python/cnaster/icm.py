@@ -107,10 +107,14 @@ def build_wolff_cluster(
     temp=1.0,
 ):
     """
-    Construct a cluster around this spot of all neighbors with the
-    same assignment; add them to the cluster with probability P_add
-    and further add the neighbors of these spots with the same spin
-    and probability; use a queue.
+    Construct a sub-cluster at a root spot with BFS from the cluster
+    root.  Addition to the sub_cluster occurs with prob. 
+    
+    p_add = 1 - exp(-edge_weight / temp) 
+    
+    if the neighbor has the same spin as the root.  
+    
+    Returns the cluster and the log-probability of the forward move.
     """
     visited, cluster, queue = [this_spot], [this_spot], [this_spot]
     current_assignment = new_assignment[this_spot]
@@ -126,7 +130,8 @@ def build_wolff_cluster(
 
         for neighbor, edge_weight in zip(neighbors, weights):
             # NB we have considered this neighbor already - an effort
-            #    to build smaller clusters with less cost.
+            #    to build smaller clusters with less cost and less
+            #    book keeping.
             if neighbor in visited:
                 continue
             else:
@@ -147,6 +152,8 @@ def build_wolff_cluster(
     return np.array(sorted(list(cluster))), lnprob_forward
 
 
+# DEPRECATE:  mis-guided effort for detailed balance by hand?  J energy cost
+#             by construction, H energy cost by acceptance.
 @njit(cache=True)
 def get_cluster_lnprob_backward(
     new_assignment,
@@ -176,7 +183,7 @@ def get_cluster_lnprob_backward(
             else:
                 visited.append(neighbor)
 
-            # NB propagate wave front.
+            # NB propagate wave front / frontier.
             if neighbor in cluster:
                 queue.append(neighbor)
             elif new_assignment[neighbor] == cluster_assignment:
@@ -201,7 +208,7 @@ def calc_cluster_assignment_cost(
     # NB all spots in cluster have the same initial spin.
     w_node = np.zeros(n_clones, dtype=np.float64)
     w_edge = np.zeros(n_clones, dtype=np.float64)
-    n_spots = single_llf.shape[0]
+    # n_spots = single_llf.shape[0]
 
     start_k = 0
 
@@ -269,7 +276,7 @@ def wolff_update(
 
     # NB at high temp. returns a single spin by construction; at low temp. will return max.
     #    clique with shared spin.
-    cluster, lnprob_forward = build_wolff_cluster(
+    cluster, _ = build_wolff_cluster(
         new_assignment,
         adjacency_spots,
         adjacency_neighbors,

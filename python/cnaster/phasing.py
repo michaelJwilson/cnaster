@@ -15,6 +15,10 @@ from cnaster.logger import get_logger
 
 logger = get_logger(__name__, start_time=start_time)
 
+# cell_snp_Aallele, cell_snp_Ballele = perturb_phase(
+#     cell_snp_Aallele, cell_snp_Ballele, 0.1
+# )
+
 # NB mirrors calicost.phasing.initial_phase_given_partition; 
 @cacher("initial_phase.hdf5")
 def initial_phase_given_partition(

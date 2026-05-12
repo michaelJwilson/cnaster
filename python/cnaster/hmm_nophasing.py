@@ -13,10 +13,10 @@ from cnaster.hmm_utils import (
     compute_posterior_obs,
     compute_posterior_transition_nophasing,
     construct_unique_matrix,
-    convert_params_disp,
+    # convert_params_disp,
     mylogsumexp,
     np_sum_ax_squeeze,
-    get_em_solver_params,
+    # get_em_solver_params,
 )
 from cnaster.count_encoder import CountEncoder
 from cnaster.hmm_emission_eval import compute_emissions
@@ -51,6 +51,11 @@ class hmm_nophasing:
     def compute_emission_probability_nb_betabinom_coded(
         nbEncoder, bbEncoder, log_mu, alphas, p_binom, taus
     ):
+        """
+        Computes the emission probability for a compression of the
+        unique instances; subsequently, broadcasting to the entire
+        array.
+        """
         n_states = log_mu.shape[0]
 
         # NB assumes a single spot, index 0.
@@ -132,9 +137,11 @@ class hmm_nophasing:
                         X[idx_nonzero_rdr, 0, s], n, p
                     )
 
+                # TODO brittle.
                 if ("logmu_shift" in kwargs) and ("sample_length" in kwargs):
                     this_weighted_tp = []
 
+                    # TODO assumes clone (and contig?) stacked
                     for c in range(len(kwargs["sample_length"])):
                         range_s = np.sum(kwargs["sample_length"][:c])
                         range_t = np.sum(kwargs["sample_length"][: (c + 1)])
@@ -302,6 +309,7 @@ class hmm_nophasing:
         # NB log_gamma (n_states * n_observations), potentially concatenated by clone.
         return compute_posterior_obs(log_alpha, log_beta)
 
+    # DEPRECATE
     def get_transition_posteriors(
         self, lengths, log_transmat, log_startprob, log_emission, log_sitewise_transmat
     ):
@@ -557,13 +565,16 @@ class hmm_nophasing:
             f"Assumed initial p_binom and dispersion:\n{np.hstack((p_binom, taus))}"
         )
 
-        # DEPRECATE
+        # DEPRECATE utilize a pre-existing state posterior.
         log_gamma = kwargs.get("log_gamma", None)
 
         logger.info(f"Assumed initial log_gamma?  {log_gamma is not None}")
 
-        # NB unique_values is a list of length n_spots, each element is an array of shape (n_unique_pairs, 2) with columns of rounded (obs_count, total_count).
-        #    mapping_matrices is a list of length n_spots, each element is a sparse matrix of shape (n_obs, n_unique_pairs) mapping obs. to compressed space per spot.
+        # NB unique_values is a list of length "n_spots", read clones, each element is an array of
+        #    shape (n_unique_pairs, 2) with columns of rounded (obs_count, total_count).
+        #
+        #    mapping_matrices is a list of length n_spots, read clones, each element is a sparse matrix
+        #    of shape (n_obs, n_unique_pairs) mapping obs. to compressed space per spot.
         unique_values_nb, mapping_matrices_nb = construct_unique_matrix(
             X[:, 0, :], base_nb_mean
         )
@@ -590,7 +601,8 @@ class hmm_nophasing:
                     X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus
                 )
             else:
-                # NB adjust copy-number state mu for RDR adjusted normalization.
+                # NB estimates the spot library size in the absence of CNAs by scaling copy state log_mu;
+                #    the correction is clone specific.
                 if ((log_gamma is not None) or (r > 0)) and ("m" in self.params):
                     logmu_shift = []
 
@@ -746,7 +758,8 @@ class hmm_nophasing:
                         shared_BB_dispersion=shared_BB_dispersion,
                     )
                 else:
-                    # NB compute mu as adjusted RDR
+                # NB estimates the spot library size in the absence of CNAs by scaling copy state log_mu;
+                #    the correction is clone specific.
                     if "m" in self.params:
                         mu = []
                         for c in range(len(kwargs["sample_length"])):

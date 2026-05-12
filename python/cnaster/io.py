@@ -27,6 +27,27 @@ pl.Config.set_tbl_cols(-1)
 
 
 def get_sample_sheet(sample_sheet_path):
+    """
+    Read the sample sheet from a CSV file; expects
+    
+    'bam',
+    'sample_id', 
+    'spaceranger_dir', 
+    snp_dir',
+
+    in order to retrieve called snps and space-ranger
+    derived transcript counts.
+
+    Parameters
+    ----------
+    sample_sheet_path : str
+        Path to the sample sheet CSV file.
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame containing the sample metadata.
+    """
     df_meta = pd.read_csv(sample_sheet_path, sep=r"\s+", comment="#")
 
     required_columns = {"bam", "sample_id", "spaceranger_dir", "snp_dir"}
@@ -56,9 +77,10 @@ def get_barcodes(barcode_file):
 
     if found_file is None:
         raise RuntimeError(
-            "Failed to retrieves barcodes.txt (or its known alternative extensions)"
+            f"Failed to retrieves barcodes.txt (or its known alternative extensions: ().tsv.gz, .tsv, .txt.gz) from {barcode_file})"
         )
 
+    # NB spot bar-codes combined across slices (TBC).
     if found_file.endswith(".tsv.gz"):
         df_barcodes = pd.read_csv(
             found_file,
@@ -74,19 +96,20 @@ def get_barcodes(barcode_file):
     return df_barcodes
 
 
-# TODO check (e.g. sample sheet with john): AAACAAGTATCTCCCA-1_HT112C1-U1 == {spot}-1_{sample_id}-{slice}.
+# TODO check (e.g. sample sheet with john): 
+#             AAACAAGTATCTCCCA-1_HT112C1-U1 == {spot}-1_{sample_id}-{slice}.
 def get_aggregated_barcodes(barcode_file, known_sample_id=None):
     df_barcodes = get_barcodes(barcode_file)
 
     sample_id_defined = df_barcodes.combined_barcode.str.contains("_").all()
 
-    # NB per-slice Visium 10x defined barcode.
+    # NB Visium 10x provided spot barcode for each slice.
     df_barcodes["barcode"] = [
         x.split("_")[0] for x in df_barcodes.combined_barcode.to_numpy()
     ]
 
+    # NB {sample_id}-{slice}
     if sample_id_defined:
-        logger.info(f"Found defined sample_ids")
         df_barcodes["sample_id"] = [
             x.split("_")[-1] for x in df_barcodes.combined_barcode.to_numpy()
         ]
@@ -94,11 +117,9 @@ def get_aggregated_barcodes(barcode_file, known_sample_id=None):
         logger.warning(
             f"Unable to resolve sample_ids from aggregated barcodes.  Assuming known sample_id={known_sample_id}."
         )
-        df_barcodes["sample_id"] = (
-            known_sample_id if known_sample_id is not None else "UNKNOWN"
-        )
+        df_barcodes["sample_id"] = known_sample_id or "UNKNOWN"
 
-    # TODO HACK
+    # TODO HACK assumes {sample_id}-{slice} is not provided, i.e. single slice.
     df_barcodes["barcode"] = df_barcodes.combined_barcode
     df_barcodes["sample_id"] = known_sample_id
 
@@ -113,6 +134,10 @@ def get_aggregated_barcodes(barcode_file, known_sample_id=None):
 def join_tables_xy(
     first: pl.DataFrame, second: pl.DataFrame, columns_to_merge: list[str]
 ) -> pl.DataFrame:
+    """
+    Joins second to first with {columns_to_merge}, such that the match in
+    second is closest in (x,y) to the instance of first.
+    """
     first_xy = np.column_stack([first["x"].to_numpy(), first["y"].to_numpy()])
     second_xy = np.column_stack([second["x"].to_numpy(), second["y"].to_numpy()])
 
@@ -129,10 +154,11 @@ def join_tables_xy(
 
     return first.with_columns(new_columns)
 
-
+# TODO move to h&e dedicated script.
 def get_he_image(spaceranger_dir, res="hires", pos=None, num_labels=4):
     assert res in ("lowres", "hires")
     # scalefactor = target_size / max (original image height, original image width),
+    #
     # e.g. {
     #    "spot_diameter_fullres": 58.45684684229273,
     #    "bin_size_um": 16.0,
@@ -142,7 +168,6 @@ def get_he_image(spaceranger_dir, res="hires", pos=None, num_labels=4):
     #    "tissue_hires_scalef": 0.071874365,
     #    "regist_target_img_scalef": 0.071874365
     # }
-
     sf_path = Path(f"{spaceranger_dir}/spatial/scalefactors_json.json")
     img_path = Path(f"{spaceranger_dir}/spatial/tissue_{res}_image.png")
 
@@ -217,7 +242,6 @@ def get_he_image(spaceranger_dir, res="hires", pos=None, num_labels=4):
 
 
 def get_spatial_positions(spaceranger_dir, filter_in_tissue=True):
-    """ """
     # TODO x,y vs row,col?  sub-pixel position?
     names = ("barcode", "in_tissue", "x", "y", "pixel_row", "pixel_col")
 
@@ -244,7 +268,7 @@ def get_spatial_positions(spaceranger_dir, filter_in_tissue=True):
         logger.info(f"Reading {spaceranger_dir}/spatial/tissue_positions_list.csv")
 
     elif Path(f"{spaceranger_dir}/spatial/tissue_positions.parquet").exists():
-        # NB 11,222,500 rows vs 4,992 rows for visium.
+        # NB 11,222,500 rows vs 4,992 rows for visium HD.
         #    see https://www.10xgenomics.com/support/software/space-ranger/latest/analysis/outputs/spatial-outputs
         #
         #
@@ -390,6 +414,7 @@ def get_spaceranger_counts(spaceranger_dir):
     return adatatmp
 
 
+# DEPRECATE
 # TODO massively inefficient?
 # NB mirrors https://github.com/raphael-group/CalicoST/blob/c1abcae3e3657e01e547ee4529e3b9d039221453/src/calicost/utils_IO.py#L127
 def get_alignments(alignment_files, df_meta, df_agg_barcode, significance=1.0e-6):
@@ -445,10 +470,11 @@ def get_alignments(alignment_files, df_meta, df_agg_barcode, significance=1.0e-6
 
 def map_unique_snps_enum(unique_snp_ids):
     """
-    Given unique_snp_ids (array) of {contig}_{pos}_{ref}_{alt} for all snps,
-    where ref = alt = N is a potentially anonymized snp (unknown base),
-    map each snp to a unique id of the form {contig}_{pos}_{enum}, where enum
-    allows for erroneous repeats, but is typically 0.
+    Given unique_snp_ids (array) of {contig}_{pos}_{r}_{a} for all snps,
+    where r = a = 'N' is a unknown marker.
+
+    map each to a unique id of the form {contig}_{pos}_{enum}, where enum
+    allows for erroneous repeats, but is 0 in almost all cases.
     """
     # NB log the number of unique snps and warn on any repeats
     bonafide_unique_snps, cnts = np.unique(unique_snp_ids, return_counts=True)
@@ -536,6 +562,7 @@ def load_input_data(
 
     """
     # TODO HACK >>>>>>>>
+    # NB mapper for {slice}-less sample_id to sample_id (TBC).
     try:
         sample_id_patcher = {
             sample_id.split("-")[1]: sample_id for sample_id in df_meta.sample_id.to_numpy()
@@ -588,7 +615,7 @@ def load_input_data(
         # NB (x,y) positions for each barcode (one per row).  limited to "in tissue" by default.
         df_this_pos = get_spatial_positions(df_meta["spaceranger_dir"].iloc[i])
 
-        # NEW
+        # NB adds H&E derived features if available.
         df_this_pos = get_he_image(df_meta["spaceranger_dir"].iloc[i], pos=df_this_pos)
 
         # NB read filtered_feature_bc_matrix.h5(ad) from spaceranger_dir for this sample - UMIs (spot barcode, gene).
@@ -658,7 +685,7 @@ def load_input_data(
     isin = snp_barcodes.barcodes.isin(shared_barcodes).to_numpy()
 
     logger.info(
-        f"Retaining {100.0 * np.mean(isin):.3f}% of SNP barcodes (shared between UMIs and SNPs)."
+        f"Retaining {100.0 * np.mean(isin):.3f}% of barcodes with snp calls (shared between umis and snps)."
     )
 
     # TODO barcode inconsistent between snps and umis.                                                                                                                                                                                
@@ -676,7 +703,7 @@ def load_input_data(
     isin = adata.obs.index.isin(shared_barcodes)
 
     logger.info(
-        f"Retaining {100.0 * np.mean(isin):.3f}% of UMI barcodes (shared between UMIs and SNPs)."
+        f"Retaining {100.0 * np.mean(isin):.3f}% of umi barcodes (shared between umis and snps)."
     )
 
     if not isin.all():
@@ -699,7 +726,7 @@ def load_input_data(
     indicator = np.sum(adata.layers["count"], axis=1) >= min_snp_umis
 
     logger.info(
-        f"Retaining {100.0 * np.mean(indicator):.3f}% of spots with sufficient UMIs (>= {min_snp_umis})."
+        f"Retaining {100.0 * np.mean(indicator):.3f}% of spots with sufficient umis (>= {min_snp_umis})."
     )
 
     # NB retain barcodes with sufficient SNP covering UMIs per spot.
@@ -710,7 +737,7 @@ def load_input_data(
     )
 
     logger.info(
-        f"Retaining {100.0 * np.mean(indicator):.3f}% of spots with sufficient snp-UMIs (>= {min_snp_umis})."
+        f"Retaining {100.0 * np.mean(indicator):.3f}% of spots with sufficient snp-umis (>= {min_snp_umis})."
     )
 
     adata = adata[indicator, :]
@@ -724,14 +751,14 @@ def load_input_data(
         ]
 
     # TODO HACK
-    logger.info(f"Found total UMI = {np.sum(adata.layers['count']):_} in input data.")
+    logger.info(f"Found total umi = {np.sum(adata.layers['count']):_} for input.")
 
     spot_umis = np.sum(adata.layers["count"], axis=1)
     percentiles = [0, 1, 5, 10, 25, 50, 75, 90, 95, 99, 100]
     perc_vals = np.percentile(spot_umis, percentiles)
 
     pairs = "\n".join(f"{p:.3f} [%]\t{v:_.0f}" for p, v in zip(percentiles, perc_vals))
-    logger.info(f"UMIs per spot percentiles:\n{pairs}")
+    logger.info(f"umis per spot percentiles:\n{pairs}")
 
     # NB filter out genes that are expressed in < min_percent_expressed_spots spots.
     indicator = (
@@ -746,13 +773,13 @@ def load_input_data(
     # TODO gencode gene list is not all sampled by (3') visium umis.
     # TODO excludes 50% of genes, but retains 99.97% of UMIs; resolves gene definition to house-keeping?
     logger.info(
-        f"Retaining {100.0 * np.mean(indicator):.3f}% of genes with sufficient expression across spots ({100.0 * ratio:.2f}% of total UMIs) @ {min_percent_expressed_spots} fraction of spots."
+        f"Retaining {100.0 * np.mean(indicator):.3f}% of genes with sufficient expression across spots ({100.0 * ratio:.2f}% of total umis) @ {min_percent_expressed_spots} fraction of spots."
     )
 
     adata = adata[:, indicator]
 
     logger.info(
-        f"Median spot UMI after filtering genes based on num. spots expressed = {np.median(np.sum(adata.layers['count'], axis=1)):_.3f}"
+        f"Median spot umi after filtering genes based on num. spots expressed = {np.median(np.sum(adata.layers['count'], axis=1)):_.3f}"
     )
 
     if filter_gene_file is not None:
@@ -769,7 +796,7 @@ def load_input_data(
         adata = adata[:, indicator_filter]
 
         logger.info(
-            f"Median spot UMI after filtering genes = {np.median(np.sum(adata.layers['count'], axis=1)):_.3f}"
+            f"Median spot umi after filtering genes = {np.median(np.sum(adata.layers['count'], axis=1)):_.3f}"
         )
 
         # TODO?
@@ -807,7 +834,7 @@ def load_input_data(
                 indicator_filter[i] = False
 
         logger.info(
-            f"Retaining {100.0 * np.mean(indicator_filter):.2f}% of SNPs based on input filter ranges."
+            f"Retaining {100.0 * np.mean(indicator_filter):.2f}% of snps based on input filter ranges."
         )
 
         cell_snp_Aallele = cell_snp_Aallele[:, indicator_filter]
@@ -821,19 +848,19 @@ def load_input_data(
         #         https://en.wikipedia.org/wiki/Local_outlier_factor
         clf = LocalOutlierFactor(n_neighbors=200)
 
-        # NB  prediction on barcode summed transcripts for each gene.
+        # NB  prediction on barcode-summed transcripts for each gene; i.e. outlier gene detection.
         label = clf.fit_predict(np.sum(adata.layers["count"], axis=0).reshape(-1, 1))
 
         to_zero = np.where(label == -1)[0]
 
-        # NB ratio of total UMIs across all spots for gene selection vs all.
+        # NB ratio of total UMIs across all spots for genes-to-be-nulled vs all.
         ratio = np.sum(adata.layers["count"][:, to_zero]) / np.sum(
             adata.layers["count"]
         )
 
-        # TODO removed 235 outlier genes (51.310% of UMIs)!!
+        # NB removed 235 outlier genes (51.310% of UMIs)!!  for both "normal" and "tumor" spots.
         logger.info(
-            f"Removed {len(to_zero)} outlier genes ({100.0 * ratio:.3f}% of UMIs) based on {clf.__class__.__name__}."
+            f"Removed {len(to_zero)} outlier genes ({100.0 * ratio:.3f}% of umis) based on {clf.__class__.__name__}."
         )
 
         if len(to_zero) > 0:
@@ -922,6 +949,7 @@ def load_input_data(
     assert len(unique_snp_ids) == cell_snp_Aallele.shape[1]
     assert cell_snp_Aallele.shape[1] == cell_snp_Ballele.shape[1]
 
+    # DEPRECATE?
     ProcessedData = namedtuple(
         "ProcessedData",
         [

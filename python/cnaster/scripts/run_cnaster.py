@@ -319,8 +319,6 @@ def run_cnaster(config_path, over_rides=None):
         fig_path, prephasing_clones_genomic, transparent=True, bbox_inches="tight"
     )
 
-    exit(0)
-
     if config.phasing.run:
         if config.run.legacy:
             logger.warning("Assuming (magic) five baf states for phasing.")
@@ -421,6 +419,8 @@ def run_cnaster(config_path, over_rides=None):
     write_fig(
         fig_path, postphasing_clones_genomic, transparent=True, bbox_inches="tight"
     )
+
+    exit(0)
 
     pseudobulk_clones_genomic = plot_clones_genomic_simple(
         single_X,

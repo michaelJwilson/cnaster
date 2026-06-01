@@ -70,13 +70,13 @@ from cnaster.logger import get_logger
 from cnaster.plotting import (
     plot_clones_genomic,
     plot_clones_spatial,
-    plot_clones_genomic_simple,
     # plot_gene_snp_spatial,
     # plot_gene_snp_spatial,
     plot_adjacency,
     # plot_recombination_rates,
     plot_copy_states,
 )
+from cnaster.plot_genomic import plot_clones_genomic_raw
 from cnaster.annotation import get_clone_label_annotation
 
 # from cnaster.reference import get_reference_recomb_rates
@@ -237,7 +237,7 @@ def run_cnaster(config_path, over_rides=None):
 
     # NB pseudobulk formed of all spots.                                                                                                                                                                   
     initial_clone_pseudobulk = [[ii for ii in range(len(coords))]]
-    pseudobulk_clones_genomic = plot_clones_genomic_simple(
+    pseudobulk_clones_genomic = plot_clones_genomic_raw(
         single_X,
         single_base_nb_mean,
         single_total_bb_RD,
@@ -304,7 +304,7 @@ def run_cnaster(config_path, over_rides=None):
     write_fig(fig_path, phasing_clones_fig, transparent=True, bbox_inches="tight")
     
     # TODO copy rename.
-    prephasing_clones_genomic = plot_clones_genomic_simple(
+    prephasing_clones_genomic = plot_clones_genomic_raw(
         single_X,
         single_base_nb_mean,
         single_total_bb_RD,
@@ -630,7 +630,7 @@ def run_cnaster(config_path, over_rides=None):
     write_fig(fig_path, bafonly_clones_fig, transparent=True, bbox_inches="tight")
 
     # TODO copy rename.
-    bafonly_clones_genomic = plot_clones_genomic_simple(
+    bafonly_clones_genomic = plot_clones_genomic_raw(
         single_X,
         single_base_nb_mean,
         single_total_bb_RD,
@@ -701,7 +701,7 @@ def run_cnaster(config_path, over_rides=None):
     )
 
     # TODO copy rename.
-    merged_bafonly_clones_genomic = plot_clones_genomic_simple(
+    merged_bafonly_clones_genomic = plot_clones_genomic_raw(
         single_X,
         single_base_nb_mean,
         single_total_bb_RD,

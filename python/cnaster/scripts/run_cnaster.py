@@ -413,8 +413,6 @@ def run_cnaster(config_path, over_rides=None):
         fig_path, postphasing_clones_genomic, transparent=True, bbox_inches="tight"
     )
 
-    exit(0)
-
     pseudobulk_clones_genomic = plot_clones_genomic_raw(
         single_X,
         single_base_nb_mean,
@@ -814,7 +812,8 @@ def run_cnaster(config_path, over_rides=None):
     # NB filter out genomic segments with potential allele-specific
     #    expression based on normal spot candidates;
     # 
-    # 
+    # TODO normal mis-classification lead to dropped segments due to
+    #      identifying CNAs as allele-specific expression.
     (
         lengths,
         single_X,
@@ -836,10 +835,11 @@ def run_cnaster(config_path, over_rides=None):
     # NB table of per-bin intervals with set(genes) and set(sites).
     df_bininfo = binned_gene_snp(df_gene_snp)
 
-    # NB update to post-noral filtering single_X.
+    # NB update to post-normal filtering single_X.
     copy_single_X_rdr = single_X[:, 0, :]
 
-    # NB filter out high-UMI DE genes, which may bias RDR estimates.
+    # NB filter out high-umi differentially expressed genes, which may
+    #    bias RDR estimates.
     if config.quality.filter_normal_diffexp:
         copy_single_X_rdr, _ = filter_normal_diffexp(
             exp_counts,
@@ -853,19 +853,8 @@ def run_cnaster(config_path, over_rides=None):
 
     pause()
 
-    # TODO runs slow.
-    # summarize_blocks(
-    #     df_gene_snp,
-    #     adata,
-    #     cell_snp_Aallele,
-    #     cell_snp_Ballele,
-    #     unique_snp_ids,
-    #     block_key="bin_id",
-    #     normal_candidates=normal_candidate,
-    # )
-
     # TODO HACK >>>>>>  do not filter, but merge segments, with insufficient normal umi counts.
-    #                   assumes ...  what assumption on phasing, baf switches?
+    #                   assumes ...  what assumption on phasing, baf-switches?
     df_gene_snp = create_bin_ranges(
         df_gene_snp,
         adata,
@@ -888,6 +877,8 @@ def run_cnaster(config_path, over_rides=None):
     # TODO separate transmat.
     phase_indicator = np.ones(single_X.shape[0])
 
+    # NB new segmentation and associated counts given normal candidate-based
+    #    filtering of baf-derived segments.
     (
         lengths,
         single_X,
@@ -908,8 +899,8 @@ def run_cnaster(config_path, over_rides=None):
     copy_single_X_rdr = single_X[:, 0, :]
     # <<<<<<<<<<<<
 
-    # NB >>>>>  determine normal baseline expression, zeros single_X_rdr entries
-    #           with insufficient normal counts, given config.quality.min_normal_count_perbin.
+    # NB >>>>>  zeros single_X_rdr entries with insufficient normal counts,
+    #           given config.quality.min_normal_count_perbin.
     _, copy_single_X_rdr, copy_single_base_nb_mean = determine_normal_baseline(
         copy_single_X_rdr,
         normal_candidate,
@@ -926,12 +917,15 @@ def run_cnaster(config_path, over_rides=None):
 
     pause()
 
+    exit(0)
+
     logger.info(
-        f"Refinining {n_baf_clones} baf-identified clones with rdr data assuming n_clones_rdr={config.hmrf.n_clones_rdr}"
+        f"Refinining {n_baf_clones} baf-identified clones with umi data assuming n_clones_rdr={config.hmrf.n_clones_rdr}"
     )
 
     clone_res = {}
 
+    # NB umi-based refinement of baf-identified clones tries a potentially split only;
     for bafc in range(n_baf_clones):
         logger.info(
             f"-----  Refining baf-identified clone {bafc}/{n_baf_clones}  -----"

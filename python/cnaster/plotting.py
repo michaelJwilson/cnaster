@@ -1,24 +1,23 @@
 import copy
-import seaborn as sns
-import numpy as np
-import matplotlib.pyplot as plt
-import pandas as pd
-
-import matplotlib.gridspec as gridspec
-
-# import cnaster.log_linear
 from functools import cmp_to_key
+
+import matplotlib as mpl
 import matplotlib.colors as mcolors
+import matplotlib.gridspec as gridspec
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import seaborn as sns
 from matplotlib.lines import Line2D
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
-from cnaster.integer_copy import get_ordered_acn
-from cnaster.utils import cast_clone_label, write_fig
-from cnaster.config import start_time
-from cnaster.logger import get_logger
-import matplotlib as mpl
-# from matplotlib.colors import LinearSegmentedColormap, ListedColormap
 
+from cnaster.config import start_time
+from cnaster.integer_copy import get_ordered_acn
+from cnaster.logger import get_logger
+from cnaster.plot_genomic import (plot_ascn_profile, plot_clones_genomic,
+                                  plot_clones_genomic_raw)
+from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
+from cnaster.utils import cast_clone_label, write_fig
 
 logger = get_logger(__name__, start_time=start_time)
 
@@ -554,7 +553,7 @@ def plot_clones_genomic(
 
     if plot_baf_errors not in (None, "wald", "beta"):
         raise ValueError(f"plot_baf_errors must be one of None, 'wald', or 'beta'")
-    
+
     if plot_rdr_errors not in (None, "poisson"):
         raise ValueError(f"plot_rdr_errors must be one of None, or 'poisson'")
 
@@ -687,12 +686,12 @@ def plot_clones_genomic(
             # Poisson error: sqrt(N) / N_base
             # The plotted value is N / N_base. The standard deviation of N is sqrt(N).
             # So the standard deviation of the ratio is sqrt(N) / N_base.
-            
+
             n_obs_counts = X[:, 0, c]
             n_base = base_nb_mean[:, c]
-            
+
             # Avoid division by zero in error calculation if any base is 0 (unlikely but safe)
-            with np.errstate(divide='ignore', invalid='ignore'):
+            with np.errstate(divide="ignore", invalid="ignore"):
                 std_err_rdr = np.sqrt(n_obs_counts) / n_base
                 std_err_rdr[~np.isfinite(std_err_rdr)] = 0.0
 
@@ -708,7 +707,7 @@ def plot_clones_genomic(
                 ecolor=point_colors,
                 elinewidth=0.5,
                 alpha=0.75,
-                zorder=0
+                zorder=0,
             )
 
         sns.scatterplot(
@@ -720,7 +719,7 @@ def plot_clones_genomic(
             edgecolor="none",
             linewidth=linewidth,
             ax=axes[2 * s],
-            zorder=1
+            zorder=1,
         )
 
         # axes[2 * s].set_yscale("linlog", threshold=1.0, base=2.0)
@@ -758,7 +757,7 @@ def plot_clones_genomic(
         if plot_baf_errors is not None:
             n_counts = total_bb_RD[:, c]
             n_counts[n_counts == 0] = 1  # Avoid division by zero
-            
+
             # Map hue categories to colors
             color_map = {i: palette[i] for i in range(len(palette))}
             point_colors = [color_map[h] for h in hue.codes]
@@ -766,7 +765,7 @@ def plot_clones_genomic(
             if plot_baf_errors == "wald":
                 # Wald interval standard error: sqrt(p(1-p)/n)
                 std_err = np.sqrt(baf_vals * (1 - baf_vals) / n_counts)
-            
+
             elif plot_baf_errors == "beta":
                 # Beta posterior standard deviation with Uniform Prior Beta(1,1)
                 # Posterior is Beta(alpha, beta) where alpha = k + 1, beta = n - k + 1
@@ -774,7 +773,7 @@ def plot_clones_genomic(
                 n = total_bb_RD[:, c]
                 alpha = k + 1
                 beta = n - k + 1
-                
+
                 # std dev of Beta distribution: sqrt( (a*b) / ( (a+b)^2 * (a+b+1) ) )
                 alpha_beta_sum = alpha + beta
                 std_err = np.sqrt(
@@ -789,7 +788,7 @@ def plot_clones_genomic(
                 ecolor=point_colors,
                 elinewidth=0.5,
                 alpha=0.75,
-                zorder=0
+                zorder=0,
             )
 
         sns.scatterplot(
@@ -802,7 +801,7 @@ def plot_clones_genomic(
             alpha=0.8,
             legend=False,
             ax=axes[2 * s + 1],
-            zorder=1
+            zorder=1,
         )
 
         """
@@ -845,7 +844,7 @@ def plot_clones_genomic(
             alpha=0.8,
             legend=False,
             ax=axes[2 * s + 1],
-            zorder=1
+            zorder=1,
         )
 
         axes[2 * s + 1].set_ylabel(f"\nBAF")
@@ -1380,8 +1379,15 @@ def plot_he(frame, output_path):
         elif col == "category":
             num_labels = len(np.unique(frame["label"]))
             cmap = mpl.colormaps["tab20c"].resampled(num_labels)
-            
-            sc = ax.scatter(frame["x"], -frame["y"], c=frame["label"], s=2, cmap=cmap, norm=plt.Normalize(vmin=0, vmax=num_labels-1))
+
+            sc = ax.scatter(
+                frame["x"],
+                -frame["y"],
+                c=frame["label"],
+                s=2,
+                cmap=cmap,
+                norm=plt.Normalize(vmin=0, vmax=num_labels - 1),
+            )
             cbar = plt.colorbar(sc, ax=ax, ticks=np.arange(num_labels))
         else:
             sc = ax.scatter(frame["x"], -frame["y"], c=frame[col], s=2, cmap=cmap)
@@ -1390,11 +1396,10 @@ def plot_he(frame, output_path):
         ax.set_title(col.capitalize())
         ax.set_xlabel("x")
         ax.set_ylabel("y")
-        
-    for ax in axes[len(color_columns):]:
+
+    for ax in axes[len(color_columns) :]:
         ax.axis("off")
 
     plt.tight_layout()
     fig.savefig(output_path, dpi=750, bbox_inches="tight")
     plt.close(fig)
-

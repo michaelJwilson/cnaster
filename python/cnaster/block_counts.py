@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
 import numpy as np
 
 
@@ -12,15 +13,11 @@ class GenomicBlockCounts:
     - n_blocks: Number of genomic intervals/blocks.
     - n_spots: Number of spatial spots/barcodes.
     """
-
     lengths: np.ndarray  # (n_contigs,) Blocks per contig
     X: np.ndarray  # (n_blocks, 2, n_spots) Raw counts
     base_nb_mean: np.ndarray  # (n_blocks, n_spots) Expected normal baseline
     total_bb_RD: np.ndarray  # (n_blocks, n_spots) Total SNP reads (H0 + H1)
 
-    # ---------------------------------------------------------
-    # Property Accessors (Hides the magic numbers of `X`)
-    # ---------------------------------------------------------
     @property
     def umi_counts(self) -> np.ndarray:
         """Total gene expression UMIs per block and spot. Shape: (n_blocks, n_spots)"""
@@ -36,9 +33,6 @@ class GenomicBlockCounts:
         """Haplotype B (H1) counts per block and spot. Shape: (n_blocks, n_spots)"""
         return self.total_bb_RD - self.allele_a_counts
 
-    # ---------------------------------------------------------
-    # Shape Helpers
-    # ---------------------------------------------------------
     @property
     def n_blocks(self) -> int:
         return self.X.shape[0]
@@ -47,9 +41,6 @@ class GenomicBlockCounts:
     def n_spots(self) -> int:
         return self.X.shape[2]
 
-    # ---------------------------------------------------------
-    # Business Logic Helpers
-    # ---------------------------------------------------------
     def get_baf(self, fill_value: float = 0.5) -> np.ndarray:
         """Safely calculate B-Allele Frequency, handling division by zero."""
         with np.errstate(divide="ignore", invalid="ignore"):
@@ -61,3 +52,6 @@ class GenomicBlockCounts:
         with np.errstate(divide="ignore", invalid="ignore"):
             rdr = self.umi_counts / self.base_nb_mean
         return np.nan_to_num(rdr, nan=fill_value)
+
+    # TODO
+    # merge_pseudobulk_by_index_mix

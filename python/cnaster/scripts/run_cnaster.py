@@ -898,7 +898,8 @@ def run_cnaster(config_path, over_rides=None):
 
         prefix = f"clone{bafc}"
 
-        # NB spots assigned to this baf-only clone (after merging based on Neyman-Pearson similarity).
+        # NB only spots assigned to this baf-only clone (after merging based on Neyman-Pearson similarity),
+        #    can have their clone label updated.
         idx_spots = np.where(merged_baf_assignment == bafc)[0]
 
         """
@@ -951,7 +952,7 @@ def run_cnaster(config_path, over_rides=None):
         for c, idx in enumerate(initial_clone_index):
             initial_assignment[idx] = c
 
-        # NB barcodes contained within this BAF-identified clone.
+        # NB barcodes contained within this baf-identified clone.
         clone_res[prefix] = {
             "barcodes": barcodes[idx_spots],
             "num_iterations": 0,
@@ -1006,14 +1007,13 @@ def run_cnaster(config_path, over_rides=None):
 
         pause()
 
-    logger.info(f"Found initial solutions for baf-identified clones refined by rdr.")
-    logger.info(f"Combining results across clones.")
+    logger.info(f"Found rdr-refinement of baf-identified clones.  Combining across clones.")
 
     # NB combined assignment for all spots.
     res_combine = {"prev_assignment": np.zeros(single_X.shape[2], dtype=int)}
     offset_clone = 0
 
-    # NB Neyman-Pearson and min. spot merging across baf clones split by rdr.
+    # NB Neyman-Pearson and min. spot merging across baf clones refined/split by rdr.
     for bafc in range(n_baf_clones):
         prefix = f"clone{bafc}"
         res = clone_res[prefix]
@@ -1029,6 +1029,8 @@ def run_cnaster(config_path, over_rides=None):
 
             # NB merging is a null op.
             merged_res = copy.copy(res)
+
+            # NB BuG? assumes above c == 0?
             merged_res["new_assignment"] = np.zeros(len(idx_spots), dtype=int)
 
             # NB c must be zero here (1 clone, zero-indexed).
@@ -1041,11 +1043,13 @@ def run_cnaster(config_path, over_rides=None):
                 (-1, 1)
             )
         else:
+            # NB clone indices for the rdr-refined (baf-identified) clone split.
             clone_index = [
                 np.where(res["new_assignment"] == c)[0]
                 for c in np.sort(np.unique(res["new_assignment"]))
             ]
 
+            # NB construct counts given this new 
             X, base_nb_mean, total_bb_RD, tumor_prop = merge_pseudobulk_by_index_mix(
                 single_X[:, :, idx_spots],
                 single_base_nb_mean[:, idx_spots],
@@ -1149,7 +1153,7 @@ def run_cnaster(config_path, over_rides=None):
             # NB assignment has been fixed, but emission states updated; retain previous assignment.
             merged_res["new_assignment"] = copy.copy(fixed_assignment)
 
-            # NB combined only between similar states in the RDR split clones by updating res["pred_cnv"]
+            # NB combines only between similar states in the rdr-split clones by updating res["pred_cnv"]
             merged_res = combine_similar_states_across_clones(
                 X,
                 base_nb_mean,
@@ -1198,28 +1202,13 @@ def run_cnaster(config_path, over_rides=None):
                 }
             )
         else:
-            res_combine.update(
-                {
-                    "new_log_mu": np.hstack(
-                        [res_combine["new_log_mu"]]
-                        + n_merged_clones * [merged_res["new_log_mu"]]
-                    ),
-                    "new_alphas": np.hstack(
-                        [res_combine["new_alphas"]]
-                        + n_merged_clones * [merged_res["new_alphas"]]
-                    ),
-                    "new_p_binom": np.hstack(
-                        [res_combine["new_p_binom"]]
-                        + n_merged_clones * [merged_res["new_p_binom"]]
-                    ),
-                    "new_taus": np.hstack(
-                        [res_combine["new_taus"]]
-                        + n_merged_clones * [merged_res["new_taus"]]
-                    ),
-                    "log_gamma": np.dstack([res_combine["log_gamma"], log_gamma]),
-                    "pred_cnv": np.hstack([res_combine["pred_cnv"], pred_cnv]),
-                }
-            )
+            updates = {
+                key: np.hstack([res_combine[key]] + n_merged_clones * [merged_res[key]])
+                for key in ["new_log_mu", "new_alphas", "new_p_binom", "new_taus"]
+            }
+            updates["log_gamma"] = np.dstack([res_combine["log_gamma"], log_gamma])
+            updates["pred_cnv"] = np.hstack([res_combine["pred_cnv"], pred_cnv])
+            res_combine.update(updates)
 
         res_combine["prev_assignment"][idx_spots] = (
             merged_res["new_assignment"] + offset_clone

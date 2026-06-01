@@ -9,7 +9,7 @@ from matplotlib.patches import Rectangle
 from cnaster.config import start_time
 from cnaster.logger import get_logger
 from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
-from cnaster.utils import cast_clone_label
+from cnaster.utils import cast_clone_label, get_intervals
 from cnaster.palette import get_full_palette
 
 logger = get_logger(__name__, start_time=start_time)

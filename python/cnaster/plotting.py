@@ -11,34 +11,11 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 from cnaster.config import start_time
 from cnaster.logger import get_logger
-from cnaster.utils import cast_clone_label, write_fig
+from cnaster.utils import cast_clone_label, write_fig, get_intervals
 
 logger = get_logger(__name__, start_time=start_time)
 
 plt.rcParams["font.family"] = "DejaVu Serif"
-
-
-def get_intervals(pred_cnv):
-    """
-    Find contiguous intervals in the array pred_cnv where the
-    copy number state is the same.  Returns the list of intervals
-    and their state.
-    """
-    intervals, labs = [], []
-    s = 0
-
-    while s < len(pred_cnv):
-        t = np.where(pred_cnv[s:] != pred_cnv[s])[0]
-        if len(t) == 0:
-            intervals.append((s, len(pred_cnv)))
-            labs.append(pred_cnv[s])
-            s = len(pred_cnv)
-        else:
-            t = t[0]
-            intervals.append((s, s + t))
-            labs.append(pred_cnv[s])
-            s = s + t
-    return intervals, labs
 
 
 def plot_gene_snp_spatial(

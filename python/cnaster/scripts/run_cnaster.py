@@ -54,7 +54,7 @@ from numba import njit
 
 # from cnaster.sim import load_tables_to_matrices
 from cnaster.hmm import pipeline_baum_welch
-from cnaster.hmm_initialize import plot_cna_mixture
+# from cnaster.hmm_initialize import plot_cna_mixture
 from cnaster.utils import (
     configure_output_dir,
     merge_dicts,
@@ -69,7 +69,6 @@ from cnaster.integer_copy import (
 from cnaster.logger import get_logger
 from cnaster.plotting import (
     plot_clones_spatial,
-    # plot_gene_snp_spatial,
     # plot_gene_snp_spatial,
     plot_adjacency,
     # plot_recombination_rates,
@@ -177,25 +176,12 @@ def run_cnaster(config_path, over_rides=None):
     single_tumor_prop = read_tumor_prop(adata, config=config)
 
     # NB parse_visium::combine_gene_snps
-    #    columns:
-    #    chr, start, end, snp_id, gene, is_interval (is_gene).
+    #    [ chr, start, end, snp_id, gene, is_interval (is_gene) ]
     df_gene_snp = form_gene_snp_table(
         unique_snp_ids, config.references.hgtable_file, adata
     )
 
     pause()
-
-    # plot_gene_snp_spatial(
-    #     adata,
-    #     cell_snp_Aallele,
-    #     cell_snp_Ballele,
-    #     df_gene_snp,
-    #     unique_snp_ids,
-    #     plots_dir,
-    #     pointsize=5,
-    #     cmap="viridis",
-    #     base_height=4,
-    # )
 
     # NB parse_visium::create_haplotype_block_ranges
     df_gene_snp = assign_initial_blocks(
@@ -209,7 +195,9 @@ def run_cnaster(config_path, over_rides=None):
 
     pause()
 
-    # NB num. of blocks per contig; SN-based H0 and H0+H1 counts block; total UMIs per block.
+    # NB num. of blocks per contig;
+    #    snp-based H0 and H0+H1 counts block;
+    #    total umis per block.
     (
         lengths,
         single_X,

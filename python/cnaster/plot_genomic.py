@@ -1,8 +1,3 @@
-import copy
-from functools import cmp_to_key
-
-import matplotlib as mpl
-import matplotlib.colors as mcolors
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 import numpy as np
@@ -10,13 +5,11 @@ import pandas as pd
 import seaborn as sns
 from matplotlib.lines import Line2D
 from matplotlib.patches import Rectangle
-from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 from cnaster.config import start_time
-from cnaster.integer_copy import get_ordered_acn
 from cnaster.logger import get_logger
 from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
-from cnaster.utils import cast_clone_label, write_fig
+from cnaster.utils import cast_clone_label
 
 logger = get_logger(__name__, start_time=start_time)
 

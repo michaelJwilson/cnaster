@@ -195,6 +195,7 @@ def run_cnaster(config_path, over_rides=None):
 
     pause()
 
+    # TODO utilize <BLOCK COUNTS>
     # NB num. of blocks per contig;
     #    snp-based H0 and H0+H1 counts block;
     #    total umis per block.
@@ -239,6 +240,12 @@ def run_cnaster(config_path, over_rides=None):
     )
 
     pause()
+
+    #
+    # ==================================================
+    # baf-derived phasing (assuming initial clones)
+    # ==================================================
+    # 
 
     # NB known clone annotation per spot.
     if config.annotation.clone_label is not None:
@@ -286,10 +293,10 @@ def run_cnaster(config_path, over_rides=None):
         sample_ids=sample_ids,
     )
 
+    # NB plot of the clones assumed for initial phasing.
     fig_path = f"{plots_dir}/phasing_clones_spatial.pdf"
     write_fig(fig_path, phasing_clones_fig, transparent=True, bbox_inches="tight")
     
-    # TODO copy rename.
     prephasing_clones_genomic = plot_clones_genomic_raw(
         single_X,
         single_base_nb_mean,
@@ -458,7 +465,7 @@ def run_cnaster(config_path, over_rides=None):
     # NB by construction, require normal spots (based on BAF to determine baseline).
     assert np.all(single_base_nb_mean == 0)
 
-    # TODO
+    # TODO UGH HACK
     copy_single_X_rdr = copy.copy(single_X[:, 0, :])
 
     # NB zeros
@@ -470,22 +477,7 @@ def run_cnaster(config_path, over_rides=None):
 
     # TODO HACK? adata.layers["count"]
     if initial_clone_index_baf is None:
-        # NB non-contiguous assignment of clones to an unequal grid partitioning
-        #    of input coordinates.
-        # initial_clone_index_baf, clone_id = rectangle_initialize_initial_clone(
-        #     coords, config.hmrf.n_clones, random_state=0
-        # )
-
-        x_part = 3
-        y_part = 3
-
-        # initial_clone_index_baf, _ = fixed_rectangle_partition(
-        #     coords,
-        #     x_part,
-        #     y_part,
-        #     single_tumor_prop=None,
-        #     threshold=0.5,  # random_state=int(config.hmrf.random_state,)
-        # )
+        x_part, y_part = 3, 3
 
         initial_clone_index_baf, _ = best_equal_partition(
             coords,
@@ -495,6 +487,20 @@ def run_cnaster(config_path, over_rides=None):
             threshold=0.5,
         )
 
+        # NB potential initialization strategies, common initial_clone_index_baf, clone_id return:
+        # 
+        #    initial_clone_index_baf, clone_id = rectangle_initialize_initial_clone(
+        #       coords, config.hmrf.n_clones, random_state=0
+        #    )
+        #
+        # initial_clone_index_baf, _ = fixed_rectangle_partition(
+        #     coords,
+        #     x_part,
+        #     y_part,
+        #     single_tumor_prop=None,
+        #     threshold=0.5,  # random_state=int(config.hmrf.random_state,)
+        # )
+        #
         # initial_clone_index_baf, _, _ = sufficient_umis_initial_clone(
         #     coords,
         #     single_X[:,0,:],
@@ -504,14 +510,7 @@ def run_cnaster(config_path, over_rides=None):
         #     random_state=int(config.hmrf.random_state),
         # )
 
-        # updated_clones = [normal_candidates]
-        # for indices in initial_clone_index_baf:
-        #     filtered_indices = np.setdiff1d(indices, normal_candidates)
-        #     if len(filtered_indices) > 0:
-        #         updated_clones.append(filtered_indices)
-        # initial_clone_index_baf = updated_clones
-
-    # NB trigger summary for initial clones, per single_X=1 etc.
+    # NB triggers summary for initial clones, per single_X=1, etc; drop return.
     merge_pseudobulk_by_index_mix(
         single_X,
         single_base_nb_mean,
@@ -534,6 +533,7 @@ def run_cnaster(config_path, over_rides=None):
         base_height=3,
     )
 
+    # NB initial clone assignment for baf-only inference.
     fig_path = f"{plots_dir}/initial_clones_spatial.pdf"
     write_fig(fig_path, initial_clones_fig, transparent=True, bbox_inches="tight")
 
@@ -543,11 +543,18 @@ def run_cnaster(config_path, over_rides=None):
         "Solving hmm & hmrf for copy states and clone assignment with baf only."
     )
 
-    # NB baf-only run: zero transcript counts for all segments/spots.
+    #
+    # ===================================================================
+    # baf-derived inference of clone assignment and copy number profiles
+    # ===================================================================
+    # 
+
+    # NB zero transcript counts for all segments/spots.
     # TODO can drop zero of single_X?  would be useful ...
     single_X[:, 0, :] = 0
     single_base_nb_mean[:, :] = 0
 
+    # TODO utilize <BLOCK COUNTS>
     res = hmrfmix_concatenate_pipeline(
         single_X,
         lengths,
@@ -596,7 +603,7 @@ def run_cnaster(config_path, over_rides=None):
         f"Inferred {len(np.unique(res['new_assignment']))} clones given baf data."
     )
 
-    # TODO HACK
+    # TODO HACK DEPRECATE?
     if tumor_prop is not None:
         tumor_prop = np.repeat(tumor_prop, X.shape[0]).reshape(-1, 1)
 
@@ -612,6 +619,7 @@ def run_cnaster(config_path, over_rides=None):
         base_height=3,
     )
 
+    # NB inferred clones from baf-only run.
     fig_path = f"{output_dir}/plots/bafonly_clones_spatial.pdf"
     write_fig(fig_path, bafonly_clones_fig, transparent=True, bbox_inches="tight")
 
@@ -628,6 +636,7 @@ def run_cnaster(config_path, over_rides=None):
         remove_xticks=True,
     )
 
+    # NB inferred per-clone copy number profiles from baf-only run.
     fig_path = f"{plots_dir}/bafonly_clones_genomic.pdf"
     write_fig(fig_path, bafonly_clones_genomic, transparent=True, bbox_inches="tight")
 
@@ -681,6 +690,7 @@ def run_cnaster(config_path, over_rides=None):
         base_height=3,
     )
 
+    # NB inferred clones from baf-only run, after neyman-pearson "model selection"
     fig_path = f"{output_dir}/plots/merged_bafonly_clones_spatial.pdf"
     write_fig(
         fig_path, merged_bafonly_clones_fig, transparent=True, bbox_inches="tight"
@@ -706,6 +716,7 @@ def run_cnaster(config_path, over_rides=None):
         linewidth=1,
     )
 
+    # NB inferred copy number profiles from baf-only run, after neyman-pearson "model selection"
     fig_path = f"{plots_dir}/merged_bafonly_clones_genomic.pdf"
     write_fig(
         fig_path, merged_bafonly_clones_genomic, transparent=True, bbox_inches="tight"
@@ -713,7 +724,7 @@ def run_cnaster(config_path, over_rides=None):
 
     pause()
 
-    # NB construct clone labels.
+    # NB construct data frame with assigned clone label for all samples.
     df_clone_label = pd.DataFrame(
         {
             "sample_id": [barcode.split("_")[-1] for barcode in barcodes],
@@ -745,13 +756,14 @@ def run_cnaster(config_path, over_rides=None):
     n_obs = single_X.shape[0]
 
     # NB clone assignment based on BAF only, after merging similar clones.
+    #    number of assigned / selected clones may be less than max. possible ("M").
     merged_baf_assignment = copy.copy(merged_res["new_assignment"])
     n_baf_clones = len(np.unique(merged_baf_assignment))
 
-    # NB MAP copy state.
+    # NB predicted copy state (MAP).
     pred = np.argmax(merged_res["log_gamma"], axis=0)
 
-    # NB split into per-clone list vs clone-concatenated array.
+    # NB split into by-clone list vs clone-concatenated array.
     pred = np.array(
         [pred[(c * n_obs) : (c * n_obs + n_obs)] for c in range(n_baf_clones)]
     )
@@ -761,6 +773,7 @@ def run_cnaster(config_path, over_rides=None):
     )
 
     # DEPRECATE?  baf-only clones are determined with hmm_nophasing.
+    # NB contains model baf profiles, accounted for baf-derived phase switching.
     merged_baf_profiles = np.array(
         [
             np.where(
@@ -774,7 +787,7 @@ def run_cnaster(config_path, over_rides=None):
 
     pause()
 
-    # NB normal candidates by baf only.
+    # NB normal candidates by baf only (boolean array for n_spots).
     normal_candidate = determine_normal_candidates(
         config,
         merged_res,
@@ -789,10 +802,19 @@ def run_cnaster(config_path, over_rides=None):
 
     pause()
 
-    # TODO HACK
+    #
+    # ===================================================================
+    # clone assignment and copy number profile refinement with UMIs
+    # ===================================================================
+    # 
+
+    # TODO HACK returns umi information for refinment run with umis.
     single_X[:, 0, :] = copy_single_X_rdr
 
-    # NB filter out genomic segments with potential allele-specific expression based on normal spot candidates.
+    # NB filter out genomic segments with potential allele-specific
+    #    expression based on normal spot candidates;
+    # 
+    # 
     (
         lengths,
         single_X,

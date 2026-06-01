@@ -925,7 +925,7 @@ def hmrfmix_concatenate_pipeline(
             write_fig(fig_path, clones_fig, transparent=True, bbox_inches="tight")
 
             # TODO copy rename.                                                                                                                                                                                                                                 
-            clones_genomic = plot_clones_genomic_simple(
+            clones_genomic = plot_clones_genomic_raw(
                 single_X,
                 single_base_nb_mean,
                 single_total_bb_RD,

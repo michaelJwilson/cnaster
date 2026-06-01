@@ -600,6 +600,11 @@ def summarize_counts_for_blocks(
     cell_snp_Ballele,
     unique_snp_ids,
 ):
+    """
+    Aggregates gene-level total UMI counts (from spatial transcriptomics) 
+    and site-level allele counts (A and B haplotypes from matched SNPs)
+    into broader local segments (blocks).
+    """
     logger.info(f"Aggregating (snp, umi) counts for genome segmentation.")
 
     # NB precompute mapping: snp_id -> index
@@ -1011,7 +1016,7 @@ def greedy_binning_nobreak(
     return bin_ids
 
 
-@cacher("binned_gene_snp_table.tsv")
+# @cacher("binned_gene_snp_table.tsv")
 def create_bin_ranges(
     df_gene_snp,
     adata,
@@ -1114,7 +1119,7 @@ def create_bin_ranges(
     frac_normal = normal_candidates.mean() if normal_candidates is not None else np.nan
 
     logger.info(
-        f"Creating bin ranges: max_length={max_binlength:_}, "
+        f"Creating (phased) bin ranges: max_length={max_binlength:_}, "
         f"min_umi={secondary_min_umi}, "
         f"min_snp_umi={secondary_min_snp_umi}, "
         f"min_normal_umi={secondary_min_normal_umi}, "
@@ -1170,18 +1175,6 @@ def create_bin_ranges(
     df_gene_snp["bin_id"] = getattr(df_gene_snp, key).map(
         {i: x for i, x in enumerate(bin_ids)}
     )
-    """
-    TODO slow
-    summarize_blocks(
-        df_gene_snp,
-        adata,
-        cell_snp_Aallele,
-        cell_snp_Ballele,
-        unique_snp_ids,
-        block_key="bin_id",
-        normal_candidates=normal_candidates,
-    )
-    """
 
     return df_gene_snp
 
@@ -1333,7 +1326,7 @@ def summarize_counts_for_bins_legacy(
     )
 
 
-@cacher("binned_counts.hdf5")
+# @cacher("binned_counts.hdf5")
 def summarize_counts_for_bins(
     df_gene_snp,
     adata,

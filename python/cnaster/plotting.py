@@ -11,8 +11,6 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 from cnaster.config import start_time
 from cnaster.logger import get_logger
-from cnaster.plot_genomic import (plot_ascn_profile, plot_clones_genomic,
-                                  plot_clones_genomic_raw)
 from cnaster.utils import cast_clone_label, write_fig
 
 logger = get_logger(__name__, start_time=start_time)

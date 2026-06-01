@@ -68,7 +68,6 @@ from cnaster.integer_copy import (
 )
 from cnaster.logger import get_logger
 from cnaster.plotting import (
-    plot_clones_genomic,
     plot_clones_spatial,
     # plot_gene_snp_spatial,
     # plot_gene_snp_spatial,
@@ -76,12 +75,11 @@ from cnaster.plotting import (
     # plot_recombination_rates,
     plot_copy_states,
 )
-from cnaster.plot_genomic import plot_clones_genomic_raw
+from cnaster.plot_genomic import plot_clones_genomic_raw, plot_clones_genomic
 from cnaster.annotation import get_clone_label_annotation
 
 # from cnaster.reference import get_reference_recomb_rates
 # from cnaster.perturb import perturb_phase
-# from cnaster.hmm_emission import Weighted_BetaBinom
 # from cnaster.hmm_utils import get_em_solver_params
 
 
@@ -134,7 +132,7 @@ def run_cnaster(config_path, over_rides=None):
 
     # original_single_X = single_X.copy()
 
-    # # TODO HACK check against above.
+    # TODO HACK check against above.
     # smooth_mat, adjacency_mat = choose_adjacency_by_readcounts(
     #     coords, single_total_bb_RD
     # )
@@ -143,7 +141,7 @@ def run_cnaster(config_path, over_rides=None):
 
     # logger.info(f"Found adjacency matrix:\n{adjacency_mat}")
 
-    # # NB renormalize cumulative edge weight to median in each case.
+    # NB renormalize cumulative edge weight to median in each case; as corners are under-weighted.
     # adjacency_mat = renormalize_adjacency_mat(adjacency_mat)
     
     # NB start equivalent to run_parse_n_load::parse_visium::load_joint_data

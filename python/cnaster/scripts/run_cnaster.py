@@ -1184,31 +1184,24 @@ def run_cnaster(config_path, over_rides=None):
             ).T
 
         # NB res_combine has the "prev_assignment" key only.
+        keys = ["new_log_mu", "new_alphas", "new_p_binom", "new_taus"]
+        
         if len(res_combine) == 1:
-            res_combine.update(
-                {
-                    "new_log_mu": np.hstack(
-                        n_merged_clones * [merged_res["new_log_mu"]]
-                    ),
-                    "new_alphas": np.hstack(
-                        n_merged_clones * [merged_res["new_alphas"]]
-                    ),
-                    "new_p_binom": np.hstack(
-                        n_merged_clones * [merged_res["new_p_binom"]]
-                    ),
-                    "new_taus": np.hstack(n_merged_clones * [merged_res["new_taus"]]),
-                    "log_gamma": log_gamma,
-                    "pred_cnv": pred_cnv,
-                }
-            )
+            updates = {
+                k: np.hstack(n_merged_clones * [merged_res[k]]) 
+                for k in keys
+            }
+            updates["log_gamma"] = log_gamma
+            updates["pred_cnv"] = pred_cnv
         else:
             updates = {
-                key: np.hstack([res_combine[key]] + n_merged_clones * [merged_res[key]])
-                for key in ["new_log_mu", "new_alphas", "new_p_binom", "new_taus"]
+                k: np.hstack([res_combine[k]] + n_merged_clones * [merged_res[k]]) 
+                for k in keys
             }
             updates["log_gamma"] = np.dstack([res_combine["log_gamma"], log_gamma])
             updates["pred_cnv"] = np.hstack([res_combine["pred_cnv"], pred_cnv])
-            res_combine.update(updates)
+            
+        res_combine.update(updates)
 
         res_combine["prev_assignment"][idx_spots] = (
             merged_res["new_assignment"] + offset_clone

@@ -404,7 +404,7 @@ def run_cnaster(config_path, over_rides=None):
     pause()
 
     # TODO copy rename.
-    postphasing_clones_genomic = plot_clones_genomic_simple(
+    postphasing_clones_genomic = plot_clones_genomic_raw(
         single_X,
         single_base_nb_mean,
         single_total_bb_RD,
@@ -420,7 +420,9 @@ def run_cnaster(config_path, over_rides=None):
         fig_path, postphasing_clones_genomic, transparent=True, bbox_inches="tight"
     )
 
-    pseudobulk_clones_genomic = plot_clones_genomic_simple(
+    exit(0)
+
+    pseudobulk_clones_genomic = plot_clones_genomic_raw(
         single_X,
         single_base_nb_mean,
         single_total_bb_RD,

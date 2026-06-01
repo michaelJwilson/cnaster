@@ -3,94 +3,21 @@ from functools import cmp_to_key
 
 import matplotlib as mpl
 import matplotlib.colors as mcolors
-import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 import seaborn as sns
 from matplotlib.lines import Line2D
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 from cnaster.config import start_time
-from cnaster.integer_copy import get_ordered_acn
 from cnaster.logger import get_logger
 from cnaster.plot_genomic import (plot_ascn_profile, plot_clones_genomic,
                                   plot_clones_genomic_raw)
-from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
 from cnaster.utils import cast_clone_label, write_fig
 
 logger = get_logger(__name__, start_time=start_time)
 
 plt.rcParams["font.family"] = "DejaVu Serif"
-
-
-# TODO immutable?
-def get_ordered_acn():
-    return [
-        (0, 0),
-        (1, 0),
-        (1, 1),
-        (2, 0),
-        (2, 1),
-        (3, 0),
-        (2, 2),
-        (3, 1),
-        (4, 0),
-        (3, 2),
-        (4, 1),
-        (5, 0),
-        (3, 3),
-        (4, 2),
-        (5, 1),
-        (6, 0),
-    ]
-
-
-def get_full_palette(palette="tab20b"):
-    colors = [
-        "darkblue",
-        "lightblue",
-        "lightgray",
-        "dimgray",
-        "lightgoldenrodyellow",
-        "gold",
-        "navajowhite",
-        "orange",
-        "darkorange",
-        "salmon",
-        "red",
-        "darkred",
-        "plum",
-        "orchid",
-        "purple",
-        "indigo",
-    ]
-
-    ordered_acn = get_ordered_acn()
-    ordered_acn_rev = [xx[::-1] for xx in ordered_acn]
-
-    # TODO HACK
-    colors = sns.color_palette("tab20b", len(ordered_acn)).as_hex()
-    # np.random.shuffle(colors)
-
-    palette = dict(zip(ordered_acn, colors))
-
-    """
-    # TODO
-    palette = {}
-    palette.update({(0, 0): "darkblue"})
-    palette.update({(1, 0): "lightblue"})
-    palette.update({(1, 1): "lightgray", (2, 0): "dimgray"})
-    palette.update({(2, 1): "lightgoldenrodyellow", (3, 0): "gold"})
-    palette.update({(2, 2): "navajowhite", (3, 1): "orange", (4, 0): "darkorange"})
-    palette.update({(3, 2): "salmon", (4, 1): "red", (5, 0): "darkred"})
-    palette.update(
-        {(3, 3): "plum", (4, 2): "orchid", (5, 1): "purple", (6, 0): "indigo"}
-    )
-
-    assert palette == new_palette
-    """
-    return palette, ordered_acn
 
 
 def get_intervals(pred_cnv):

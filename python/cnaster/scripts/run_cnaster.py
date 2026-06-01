@@ -420,8 +420,6 @@ def run_cnaster(config_path, over_rides=None):
         fig_path, postphasing_clones_genomic, transparent=True, bbox_inches="tight"
     )
 
-    exit(0)
-
     pseudobulk_clones_genomic = plot_clones_genomic_simple(
         single_X,
         single_base_nb_mean,

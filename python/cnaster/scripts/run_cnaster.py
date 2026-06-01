@@ -1,81 +1,47 @@
 import argparse
 import copy
-import time
+import functools
 import random
-import scipy
+import time
 
 import numpy as np
 import pandas as pd
 import scipy
-import functools
-from cnaster.config import start_time, YAMLConfig, set_global_config
-from cnaster.hmm_nophasing import hmm_nophasing
-from cnaster.hmrf import (
-    hmrfmix_concatenate_pipeline,
-    merge_by_minspots,
-    aggr_hmrf_reassignment,
-    # hmrf_reassignment_posterior,
-    aggr_hmrfmix_reassignment,
-    # hmrfmix_reassignment_posterior,
-    reindex_clones,
-)
-from cnaster.hmrf_utils import get_clone_indices, get_clone_assignment
-from cnaster.io import load_input_data, get_sample_list, read_tumor_prop
-from cnaster.omics import (
-    assign_initial_blocks,
-    create_bin_ranges,
-    form_gene_snp_table,
-    get_sitewise_transmat,
-    summarize_counts_for_bins,
-    summarize_counts_for_blocks,
-)
-from cnaster.phasing import initial_phase_given_partition
-from cnaster.spatial import (
-    # fixed_rectangle_partition,
-    best_equal_partition,
-    initialize_clones,
-    multislice_adjacency,
-    rectangle_initialize_initial_clone,
-    # sufficient_umis_initial_clone,
-)
-from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
-from cnaster.neyman_pearson import (
-    neyman_pearson_similarity,
-    combine_similar_states_across_clones,
-)
-from cnaster.normal_spot import (
-    determine_normal_candidates,
-    determine_normal_baseline,
-    normal_baf_bin_filter,
-    filter_normal_diffexp,
-    binned_gene_snp,
-)
 from numba import njit
 
+from cnaster.annotation import get_clone_label_annotation
+from cnaster.config import YAMLConfig, set_global_config, start_time
 # from cnaster.sim import load_tables_to_matrices
 from cnaster.hmm import pipeline_baum_welch
-# from cnaster.hmm_initialize import plot_cna_mixture
-from cnaster.utils import (
-    configure_output_dir,
-    merge_dicts,
-    write_tsv,
-    write_fig,
-    pause,
-)
-from cnaster.integer_copy import (
-    hill_climbing_integer_copynumber_oneclone,
-    hill_climbing_integer_copynumber_fixdiploid,
-)
+from cnaster.hmm_nophasing import hmm_nophasing
+from cnaster.hmrf import (  # hmrf_reassignment_posterior,; hmrfmix_reassignment_posterior,
+    aggr_hmrf_reassignment, aggr_hmrfmix_reassignment,
+    hmrfmix_concatenate_pipeline, merge_by_minspots, reindex_clones)
+from cnaster.hmrf_utils import get_clone_assignment, get_clone_indices
+from cnaster.integer_copy import (hill_climbing_integer_copynumber_fixdiploid,
+                                  hill_climbing_integer_copynumber_oneclone)
+from cnaster.io import get_sample_list, load_input_data, read_tumor_prop
 from cnaster.logger import get_logger
-from cnaster.plotting import (
-    plot_clones_spatial,
-    # plot_gene_snp_spatial,
-    plot_adjacency,
-    # plot_recombination_rates,
-    plot_copy_states,
-)
-from cnaster.plot_genomic import plot_clones_genomic_raw, plot_clones_genomic
-from cnaster.annotation import get_clone_label_annotation
+from cnaster.neyman_pearson import (combine_similar_states_across_clones,
+                                    neyman_pearson_similarity)
+from cnaster.normal_spot import (binned_gene_snp, determine_normal_baseline,
+                                 determine_normal_candidates,
+                                 filter_normal_diffexp, normal_baf_bin_filter)
+from cnaster.omics import (assign_initial_blocks, create_bin_ranges,
+                           form_gene_snp_table, get_sitewise_transmat,
+                           summarize_counts_for_bins,
+                           summarize_counts_for_blocks)
+from cnaster.phasing import initial_phase_given_partition
+from cnaster.plot_genomic import plot_clones_genomic, plot_clones_genomic_raw
+from cnaster.plotting import (  # plot_gene_snp_spatial,; plot_recombination_rates,
+    plot_adjacency, plot_clones_spatial, plot_copy_states)
+from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
+from cnaster.spatial import (  # fixed_rectangle_partition,; sufficient_umis_initial_clone,
+    best_equal_partition, initialize_clones, multislice_adjacency,
+    rectangle_initialize_initial_clone)
+# from cnaster.hmm_initialize import plot_cna_mixture
+from cnaster.utils import (configure_output_dir, merge_dicts, pause, write_fig,
+                           write_tsv)
 
 # from cnaster.reference import get_reference_recomb_rates
 # from cnaster.perturb import perturb_phase
@@ -92,7 +58,7 @@ logger = get_logger(__name__, start_time=start_time)
 
 def run_cnaster(config_path, over_rides=None):
     logger.info("----  Welcome to cna-maste  ----")
-    
+
     config = YAMLConfig.from_file(config_path)
     config.over_ride(over_rides)
     config.issue_warnings()
@@ -142,7 +108,7 @@ def run_cnaster(config_path, over_rides=None):
 
     # NB renormalize cumulative edge weight to median in each case; as corners are under-weighted.
     # adjacency_mat = renormalize_adjacency_mat(adjacency_mat)
-    
+
     # NB start equivalent to run_parse_n_load::parse_visium::load_joint_data
     #
     #    adata: (barcode x gene) transcripts ('count') + 'tumor_annotation' + 'X_pos' + slice ('sample').
@@ -222,7 +188,7 @@ def run_cnaster(config_path, over_rides=None):
         config.phasing.logphase_shift,
     )
 
-    # NB pseudobulk formed of all spots.                                                                                                                                                                   
+    # NB pseudobulk formed of all spots.
     initial_clone_pseudobulk = [[ii for ii in range(len(coords))]]
     pseudobulk_clones_genomic = plot_clones_genomic_raw(
         single_X,
@@ -245,7 +211,7 @@ def run_cnaster(config_path, over_rides=None):
     # ==================================================
     # baf-derived phasing (assuming initial clones)
     # ==================================================
-    # 
+    #
 
     # NB known clone annotation per spot.
     if config.annotation.clone_label is not None:
@@ -273,13 +239,12 @@ def run_cnaster(config_path, over_rides=None):
 
         # NB per-spot h&e label derived from gray-scale percentiles.
         he_assignment = adata.obsm["he_label"].flatten()
-        
-        clone_assignment, _ = pd.factorize(
-            list(zip(he_assignment, spatial_assignment))
-        )
-        
+
+        clone_assignment, _ = pd.factorize(list(zip(he_assignment, spatial_assignment)))
+
         initial_clone_for_phasing = initial_clone_index_baf = get_clone_indices(
-            clone_assignment, np.unique(clone_assignment),
+            clone_assignment,
+            np.unique(clone_assignment),
         )
 
     assignment = get_clone_assignment(coords, initial_clone_for_phasing)
@@ -296,7 +261,7 @@ def run_cnaster(config_path, over_rides=None):
     # NB plot of the clones assumed for initial phasing.
     fig_path = f"{plots_dir}/phasing_clones_spatial.pdf"
     write_fig(fig_path, phasing_clones_fig, transparent=True, bbox_inches="tight")
-    
+
     prephasing_clones_genomic = plot_clones_genomic_raw(
         single_X,
         single_base_nb_mean,
@@ -435,8 +400,8 @@ def run_cnaster(config_path, over_rides=None):
         sample_ids,
         sample_list,
         coords,
-        single_total_bb_RD, # NEGLECTED?
-        exp_counts, # NEGLECTED?
+        single_total_bb_RD,  # NEGLECTED?
+        exp_counts,  # NEGLECTED?
         across_slice_adjacency_mat,
         construct_adjacency_method=config.hmrf.construct_adjacency_method,
         maxspots_pooling=config.hmrf.maxspots_pooling,
@@ -486,7 +451,7 @@ def run_cnaster(config_path, over_rides=None):
         )
 
         # NB potential initialization strategies, common initial_clone_index_baf, clone_id return:
-        # 
+        #
         #    initial_clone_index_baf, clone_id = rectangle_initialize_initial_clone(
         #       coords, config.hmrf.n_clones, random_state=0
         #    )
@@ -545,7 +510,7 @@ def run_cnaster(config_path, over_rides=None):
     # ===================================================================
     # baf-derived inference of clone assignment and copy number profiles
     # ===================================================================
-    # 
+    #
 
     # NB zero transcript counts for all segments/spots.
     # TODO can drop zero of single_X?  would be useful ...
@@ -804,14 +769,14 @@ def run_cnaster(config_path, over_rides=None):
     # ===================================================================
     # clone assignment and copy number profile refinement with UMIs
     # ===================================================================
-    # 
+    #
 
     # TODO HACK returns umi information for refinment run with umis.
     single_X[:, 0, :] = copy_single_X_rdr
 
     # NB filter out genomic segments with potential allele-specific
     #    expression based on normal spot candidates;
-    # 
+    #
     # TODO normal mis-classification lead to dropped segments due to
     #      identifying CNAs as allele-specific expression.
     (
@@ -958,7 +923,9 @@ def run_cnaster(config_path, over_rides=None):
 
             continue
         """
-        sufficient_snp_umi_for_split = np.sum(single_total_bb_RD[:, idx_spots]) >= 20 * single_X.shape[0]
+        sufficient_snp_umi_for_split = (
+            np.sum(single_total_bb_RD[:, idx_spots]) >= 20 * single_X.shape[0]
+        )
 
         # NB initialize new set of clones within this baf identified clone.
         # TODO tumor_prop, i.e. _mix.

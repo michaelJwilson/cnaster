@@ -242,7 +242,8 @@ def run_cnaster(config_path, over_rides=None):
         # NB per-spot h&e label derived from gray-scale percentiles.
         he_assignment = adata.obsm["he_label"].flatten()
 
-        # TODO comment.
+        # TODO FutureWarning: factorize with argument that is not not a Series, Index, ExtensionArray, or np.ndarray is deprecated and will raise in a future version.z
+        # TODO comments;
         clone_assignment, _ = pd.factorize(list(zip(he_assignment, spatial_assignment)))
 
         initial_clone_for_phasing = initial_clone_index_baf = get_clone_indices(
@@ -311,7 +312,7 @@ def run_cnaster(config_path, over_rides=None):
         )
 
         logger.info(
-            f"Solved for initial phase given Eagle & BAF in {(time.time() - start_time):.2f} seconds."
+            f"Solved for initial phase given pop. phasing (eagle) & observed baf in {(time.time() - start_time):.2f} seconds."
         )
     else:
         phase_indicator = np.zeros(single_X.shape[0])
@@ -343,7 +344,7 @@ def run_cnaster(config_path, over_rides=None):
 
     pause()
 
-    logger.info(f"Recalculating counts given new baf-phasing intervals.")
+    logger.info(f"Recalculating counts for new (phased) baf inferred genome segmentation.")
 
     # TODO summarize_counts_for_blocks can be adapted to summarize_counts_for_bins, 
     #      given new df_gene_snp with "bin_id" and "phase" columns.

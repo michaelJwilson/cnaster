@@ -873,7 +873,7 @@ class hmm_nophasing:
             "log_gamma": log_gamma,
         }
 
-    def run_baum_welch_nb_bb(
+    def run_baum_welch_nb_bb_new(
         self,
         X,
         lengths,
@@ -907,6 +907,7 @@ class hmm_nophasing:
         nbEncoder = CountEncoder(X[:, 0, :], base_nb_mean)
         bbEncoder = CountEncoder(X[:, 1, :], total_bb_RD)
 
+        # NB solved for med. 26.0 and max. 75849.0 total counts for bbEncoder.
         logger.info(f"Solved for med. {np.median(nbEncoder.total_count)} and max. {np.max(nbEncoder.total_count)} total counts for nbEncoder.")
         logger.info(f"Solved for med. {np.median(bbEncoder.total_count)} and max. {np.max(bbEncoder.total_count)} total counts for bbEncoder.")
 

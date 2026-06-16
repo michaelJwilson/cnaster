@@ -216,6 +216,7 @@ def summarize_lattice_structure(coords, sample_ids=None, sample_list=None):
         sorted_neighbors = sorted_neighbors[:coordination_number]
         sorted_displacements = sorted_neighbors - np.array([[center_x, center_y]])
 
+        # TODO REQUIRED FINAL
         logger.info(f"Sample {i}: estimated lattice spacing nx, ny = {nx:_}, {ny:_}")
         logger.info(
             f"Lattice coordination number={coordination_number} with displacements from center spot at ({center_x:.1f}, {center_y:.1f})=\n{sorted_displacements}"

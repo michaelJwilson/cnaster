@@ -162,7 +162,8 @@ def summarize_blocks(
         end=("END", "max"),
     )
 
-    block_summary["length"] = block_summary["end"] - block_summary["start"]
+    # NB Mbp -> Kbp.
+    block_summary["length"] = (block_summary["end"] - block_summary["start"]) / 1_000.
 
     gene_names = adata.var.index.to_numpy()
     gene_index_map = {g: i for i, g in enumerate(gene_names)}
@@ -227,9 +228,9 @@ def summarize_blocks(
     if sort_key is not None:
         block_summary = block_summary.sort_values(sort_key, ascending=False)
 
-    logger.info(f"Breakdown of genes/snps/umi per {block_key} sorted by {sort_key}:")
+    logger.info(f"Breakdown of genes/snps/umi per {block_key} sorted by {sort_key} (top {max_rows}):")
     logger.info(
-        f"{'block id':<10}\t{'chr':>4}\t{'start':>12}\t{'length':>12} [Mbp]\t{'snps':>8}\t{'genes':>8}\t{'total umi':>12}\t{'snp umi':>12}\t{'normal umi':>12}\t{'normal snp umi':>12}"
+        f"{'block id':<10}\t{'chr':>4}\t{'start':>12}\t{'length':>12} [Kbp]\t{'snps':>8}\t{'genes':>8}\t{'total umi':>12}\t{'snp umi':>12}\t{'normal umi':>12}\t{'normal snp umi':>12}"
     )
     logger.info("-" * 136)
 
@@ -243,12 +244,12 @@ def summarize_blocks(
         )
 
         if ii > max_rows:
-            logger.warning(f"Suppressed breakdown to {max_rows} rows.")
             break
 
     logger.info(
         f"\n"
-        f"median block length: {block_summary['length'].median() / 1.e6:.1f} [Mbp],\n"
+        f"median block length: {block_summary['length'].median() / 1.e6:.1f} [Kbp],\n"
+        f"mean block length: {block_summary['length'].mean() / 1.e6:.1f} [Kbp],\n"
         f"median snps/block: {block_summary['num_snps'].median():.1f},\n"
         f"median genes/block: {block_summary['num_genes'].median():.1f},\n"
         f"median umis/block: {block_summary['total_umi'].median():.1f},\n"
@@ -267,7 +268,7 @@ def summarize_blocks(
         logger.warning(f"Found ill-defined group:/n{block_summary.loc[np.nan]}")
 
 
-@cacher("blocked_gene_snp_table.tsv")
+# @cacher("blocked_gene_snp_table.tsv")
 def assign_initial_blocks(
     df_gene_snp,
     adata,
@@ -476,7 +477,7 @@ def assign_initial_blocks(
         df_gene_snp.iloc[x[0] : x[1], -1] = i
 
     logger.info(
-        f"Updated genome segmentation given (phased) genotypes and min. snp-covering umi={initial_min_umi} per segment."
+        f"Updated genome segmentation given (population phased) genotypes and min. snp-covering umi={initial_min_umi} per segment."
     )
 
     summarize_blocks(

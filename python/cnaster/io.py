@@ -760,8 +760,9 @@ def load_input_data(
     percentiles = [0, 1, 5, 10, 25, 50, 75, 90, 95, 99, 100]
     perc_vals = np.percentile(spot_umis, percentiles)
 
-    pairs = "\n".join(f"{p:.3f} [%]\t{v:_.0f}" for p, v in zip(percentiles, perc_vals))
-    logger.info(f"umis per spot percentiles:\n{pairs}")
+    pairs = "\n".join(f"{p:.3f} [%]\t{v:_.0f}" for p, v in zip(perc_vals, percentiles))
+
+    logger.info(f"Per-spot umi percentiles:\n{pairs}")
 
     # NB filter out genes that are expressed in < min_percent_expressed_spots spots.
     indicator = (
@@ -773,10 +774,12 @@ def load_input_data(
     # NB ratio of total UMIs across all spots for gene selection vs all.
     ratio = np.sum(adata.X[:, indicator]) / np.sum(adata.X)
 
-    # TODO gencode gene list is not all sampled by (3') visium umis.
+    # TODO gencode gene list is not all sampled by (3') visium umis?
     # TODO excludes 50% of genes, but retains 99.97% of UMIs; resolves gene definition to house-keeping?
+    # 
+    # NB removes cell-specific genes that are not expressed by a sufficient fraction of spots (mixed).
     logger.info(
-        f"Retaining {100.0 * np.mean(indicator):.3f}% of genes with sufficient expression across spots ({100.0 * ratio:.2f}% of total umis) @ {min_percent_expressed_spots} fraction of spots."
+        f"Retaining {100.0 * np.mean(indicator):.3f}% of genes ({100.0 * ratio:.2f}% of total umis) with sufficient expression across spots @ {min_percent_expressed_spots} fraction of spots."
     )
 
     adata = adata[:, indicator]
@@ -898,6 +901,7 @@ def load_input_data(
                     f"  {i+1:2d}. {gene_name:<20} {gene_pct:6.3f}% UMIs {warning}"
                 )
 
+        # TODO copy? ... ImplicitModificationWarning: Trying to modify attribute `.layers` of view, initializing view as actual.
         # NB  zero count of outlier genes (!)  Should retain snp-umi counts ...
         adata.layers["count"][:, to_zero] = 0
 

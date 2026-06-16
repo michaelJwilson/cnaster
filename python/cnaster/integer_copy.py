@@ -220,19 +220,29 @@ def hill_climbing_integer_copynumber_oneclone(
 
             # NB loop over states
             for k in range(params.shape[0]):
+                # NB skip states that are "enforced".
                 if k in enforce_states:
                     continue
+
+                # NB best. objective and corresponding copy numbers.
                 this_best_obj = best_obj
                 this_best_k = copy.copy(params[k, :])
+
+                # NB update the best copy numbers (in params) with a new potential candidate.
                 for candi in candidates:
                     params[k, :] = candi
                     obj = f(params, ploidy)
+
                     if obj < this_best_obj:
                         this_best_obj = obj
                         this_best_k = candi
+
+                # NB we've found a better objective in a sweep of the k best (A,B).
                 increased = increased | (this_best_obj < best_obj)
                 params[k, :] = this_best_k
                 best_obj = this_best_obj
+
+            # NB stop if sweep through states yielded no improvement.
             if not increased:
                 break
         else:
@@ -240,7 +250,8 @@ def hill_climbing_integer_copynumber_oneclone(
 
         return params, best_obj
 
-    # NB candidate integer copy states
+    # NB candidate integer copy states (up to max_copy, with non-zero copies,
+    #    and respecting max_allele_copy).
     candidates = np.array(
         [
             [i, j]
@@ -254,7 +265,7 @@ def hill_climbing_integer_copynumber_oneclone(
         f"Solving for max_allele_copy={max_allele_copy}, max_total_copy={max_total_copy}, max ploidy={max_medploidy} for candidate states:\n{candidates}"
     )
 
-    # find the best copy number states starting from various ploidy
+    # NB find the best copy number states starting from various ploidies,
     best_obj = np.inf
     best_integer_copies = np.zeros((n_states, 2), dtype=int)
 

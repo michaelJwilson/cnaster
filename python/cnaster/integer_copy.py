@@ -86,7 +86,7 @@ def find_diploid_balanced_state(
 
 
 def hill_climbing_integer_copynumber_oneclone(
-    new_log_mu,
+    new_log_mu, 
     base_nb_mean,
     new_p_binom,
     pred_cnv,
@@ -97,6 +97,11 @@ def hill_climbing_integer_copynumber_oneclone(
     EPS_BAF=0.05,
     expression_weight=False,
 ):
+    """
+    Given the k inferred best log_mu and p_binom values from the max. likelihood calculation,
+    find the best integer copy number states with hill climbing and some constraints on the 
+    allowed integer copy states.
+    """
     n_states = len(new_log_mu)
 
     logger.info(f"Assuming expression weight={expression_weight}.")
@@ -120,9 +125,9 @@ def hill_climbing_integer_copynumber_oneclone(
     points_per_state = np.bincount(pred_cnv, minlength=n_states) + EPS_POINTS
     points_per_state_norm = np.sum(points_per_state, axis=0)
 
-    config = get_global_config()
+    # config = get_global_config()
     # rdr_weight = float(config.int_copy_num.rdr_weight)
-    mu_threshold = 0.3
+    mu_threshold = 0.3 # MAGIC
 
     # NB the inferred normal candidate state index.
     idx_diploid_normal = find_diploid_balanced_state(
@@ -229,6 +234,7 @@ def hill_climbing_integer_copynumber_oneclone(
                 this_best_k = copy.copy(params[k, :])
 
                 # NB update the best copy numbers (in params) with a new potential candidate.
+                # TODO UGH candidates in a closure scope, see below.
                 for candi in candidates:
                     params[k, :] = candi
                     obj = f(params, ploidy)
@@ -262,7 +268,7 @@ def hill_climbing_integer_copynumber_oneclone(
     )
 
     logger.info(
-        f"Solving for max_allele_copy={max_allele_copy}, max_total_copy={max_total_copy}, max ploidy={max_medploidy} for candidate states:\n{candidates}"
+        f"Solving best ploidy and integer copies for max_allele_copy={max_allele_copy}, max_total_copy={max_total_copy}, max ploidy={max_medploidy} given candidate states:\n{candidates}"
     )
 
     # NB find the best copy number states starting from various ploidies,
@@ -270,8 +276,12 @@ def hill_climbing_integer_copynumber_oneclone(
     best_integer_copies = np.zeros((n_states, 2), dtype=int)
 
     for ploidy in range(1, max_medploidy + 1):
+        # NB perfectly balanced (or slightly off-balance, if odd) set of allele copies where the total copy
+        #    number for every single state perfectly matches the current overall ploidy.
         initial_params = np.ones((n_states, 2), dtype=int) * int(ploidy / 2)
         initial_params[:, 1] = ploidy - initial_params[:, 0]
+
+        # NB enforce input (A,B) for given states.
         for k, v in enforce_states.items():
             initial_params[k] = v
         params, obj = hill_climb(initial_params, ploidy)
@@ -280,7 +290,7 @@ def hill_climbing_integer_copynumber_oneclone(
             best_integer_copies = copy.copy(params)
 
             logger.info(
-                f"Found best solution with cost={best_obj:.6f} and integer copies:\n{best_integer_copies}"
+                f"Found best solution for ploidy={ploidy} with cost={best_obj:.6f} and integer copies:\n{best_integer_copies}"
             )
 
     logger.info(
@@ -330,6 +340,7 @@ def hill_climbing_integer_copynumber_fixdiploid(
     def is_nondiploidnormal(k):
         """
         Check if state k is non-diploid normal under the criteria that:
+        
         (1) BAF is away from 0.5 by nonbalance_bafdist distance
         (2) RDR is away from 1 by nondiploid_rdrdist distance
         """

@@ -1832,7 +1832,7 @@ def main():
         "-o",
         action="append",
         default=[],
-        help="Over ride config keys in dot notation, e.g. -o paths.sample_sheet=/path/to/sheet.csv",
+        help="Override configuration keys with dot notation, e.g. -o paths.sample_sheet=/path/to/sheet.csv",
     )
 
     args = parser.parse_args()

@@ -221,6 +221,8 @@ def get_he_image(spaceranger_dir, res="hires", pos=None, num_labels=4):
         return (x - np.min(x)) / (np.max(x) - np.min(x))
 
     rgb = tissue_frame.select(["red", "green", "blue"]).to_numpy()
+
+    # TODO standard lib?
     gray = 0.2125 * rgb[:, 0] + 0.7154 * rgb[:, 1] + 0.0721 * rgb[:, 2]
     cropped_gray = crop_values(gray)
 
@@ -229,6 +231,7 @@ def get_he_image(spaceranger_dir, res="hires", pos=None, num_labels=4):
 
     labels = np.digitize(cropped_gray, bins=bins)
 
+    # TODO rename he_label.
     # NB 0.0 < x < 83_339.869; 0 < y < 53_009.165
     tissue_frame = tissue_frame.with_columns(
         pl.Series("gray", gray),
@@ -236,7 +239,7 @@ def get_he_image(spaceranger_dir, res="hires", pos=None, num_labels=4):
         pl.Series("label", labels),
     )
 
-    logger.info(f"Merged with he with result:\n{tissue_frame}")
+    logger.info(f"Merged with h&e with result:\n{tissue_frame}")
 
     return tissue_frame.to_pandas()
 

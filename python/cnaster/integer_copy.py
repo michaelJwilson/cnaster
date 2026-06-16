@@ -1,6 +1,5 @@
 import copy
 import numpy as np
-import logging
 from cnaster.config import get_global_config
 from cnaster.config import start_time
 from cnaster.logger import get_logger
@@ -19,7 +18,6 @@ logger = get_logger(__name__, start_time=start_time)
 # DEFAULT_MU_THRESHOLD = 0.3
 
 
-# TODO immutable?
 def get_ordered_acn():
     return (
         (0, 0),
@@ -42,6 +40,10 @@ def get_ordered_acn():
 
 
 def get_acn_baf_rdr(acn):
+    """
+    Given allelic-copies (A, B) for each segment as an array,
+    return the baf and rdr.
+    """
     acn = np.array(acn)
     total_copy = acn[:, 0] + acn[:, 1]
 
@@ -58,25 +60,27 @@ def find_diploid_balanced_state(
 ):
     n_states = len(new_log_mu)
 
-    # NB find candidate diploid balanced state under the criteria that:
-    #    (1) #bins in that state > 0.1 * total #bins
-    #    (2) BAF is close to 0.5 by EPS_BAF distance
+    # NB candidate diploid balanced state
     candidate = np.where(
         (
-            np.bincount(pred_cnv, minlength=n_states)
-            >= min_prop_threshold * len(pred_cnv)
+            np.bincount(pred_cnv, minlength=n_states) # count the occurences for all states
+            >= min_prop_threshold * len(pred_cnv) # threshold on fraction of occurence
         )
-        & (np.abs(new_p_binom - 0.5) <= EPS_BAF)
+        & (np.abs(new_p_binom - 0.5) <= EPS_BAF) # threshold on normal-like baf
     )[0]
     if len(candidate) == 0:
         raise ValueError("No candidate diploid balanced state found!")
     else:
-        # NB the diploid balanced states is the one in candidate with smallest new_log_mu
+        # NB the diploid balanced states has the smallest inferred log_mu (supposedly).
+        min_log_mu = np.min(new_log_mu[candidate]) 
         normal_candidate = candidate[np.argmin(new_log_mu[candidate])]
 
         logger.info(
             f"Found candidate normal state with new_log_mu={new_log_mu[normal_candidate]} and p_binom={new_p_binom[normal_candidate]}"
         )
+
+        if min_log_mu < 0.95:
+            logger.warning(f"Assumed normal candidate has non-normal rdr: {min_log_mu:.4f}")
 
         return normal_candidate
 
@@ -97,11 +101,13 @@ def hill_climbing_integer_copynumber_oneclone(
 
     logger.info(f"Assuming expression weight={expression_weight}.")
 
+    # NB weight be (non-uniform) normal expression.
     if not expression_weight:
         lambd = base_nb_mean / np.sum(base_nb_mean)
     else:
         lambd = np.ones_like(lambd) / len(lambd)
 
+    # NB fraction of library size from each state, assuming normal copy numbers.
     weight_per_state = np.array([np.sum(lambd[pred_cnv == s]) for s in range(n_states)])
 
     logger.info(f"Found weight per state:\n{weight_per_state}")
@@ -109,6 +115,8 @@ def hill_climbing_integer_copynumber_oneclone(
     mu = np.exp(new_log_mu)
 
     EPS_POINTS = 0.1
+
+    # NB count the number of occurences of each copy state, with min. occurence (default 0.1)
     points_per_state = np.bincount(pred_cnv, minlength=n_states) + EPS_POINTS
     points_per_state_norm = np.sum(points_per_state, axis=0)
 
@@ -116,6 +124,7 @@ def hill_climbing_integer_copynumber_oneclone(
     # rdr_weight = float(config.int_copy_num.rdr_weight)
     mu_threshold = 0.3
 
+    # NB the inferred normal candidate state index.
     idx_diploid_normal = find_diploid_balanced_state(
         new_log_mu,
         new_p_binom,
@@ -132,9 +141,10 @@ def hill_climbing_integer_copynumber_oneclone(
         order_penalty=False,
         unbalanced_penalty=False,
     ):
+        # params of shape (n_states, 2)
         total_copies = np.sum(params, axis=1)
 
-        # params of size (n_states, 2)
+        # objective returns a large number if any total copies is zero (TBC).
         if np.any(total_copies == 0):
             return len(pred_cnv) * 1e6
 
@@ -146,7 +156,7 @@ def hill_climbing_integer_copynumber_oneclone(
         frac_baf = params[:, 0] / total_copies
 
         # DEPRECATE
-        # NB penalty on setting unbalanced states when BAF is close to 0.5
+        # NB penalty on setting unbalanced states when baf is close to 0.5
         # if np.sum(params[:, 0] == params[:, 1]) > 0:
         #    baf_threshold = max(
         #        EPS_BAF,
@@ -166,13 +176,18 @@ def hill_climbing_integer_copynumber_oneclone(
         #     + np.sum(derived_ploidy > ploidy + 0.5) * len(pred_cnv)
         # )
 
+        # NB L1 norm on matching the prediction based on integer copies and inferred values,
+        #    weighted by state.
         result = np.abs(1.0 - frac_rdr / mu).dot(points_per_state) + np.abs(
             1.0 - frac_baf / new_p_binom
         ).dot(points_per_state)
 
+        # NB (large) penalty on exceeding the ploidy
         if derived_ploidy > ploidy:
             result += np.abs(1.0 - derived_ploidy / ploidy) * len(pred_cnv)
 
+        # NB integer copy numbers have a natural ordering that should be preserved.
+        #    penalty if the matching does not respect this order.  
         if order_penalty:
             crucial_ordered_pairs_1 = (mu[:, None] - mu[None, :] > mu_threshold) * (
                 total_copies[:, None] - total_copies[None, :] < 0
@@ -185,6 +200,7 @@ def hill_climbing_integer_copynumber_oneclone(
             result += np.sum(crucial_ordered_pairs_1) * len(pred_cnv)
             result += np.sum(crucial_ordered_pairs_2) * len(pred_cnv)
 
+        # NB penalty on A != B when inferred baf is (very) close to 0.5.
         if unbalanced_penalty:
             baf_threshold = EPS_BAF
 

@@ -1402,6 +1402,7 @@ def run_cnaster(config_path, over_rides=None):
             threshold=config.hmrf.tumorprop_threshold,
         )
 
+        # NB loop over clone and ploidy.
         for s, cid in enumerate(final_clone_ids):
             if np.sum(base_nb_mean[:, s]) == 0:
                 logger.warning("Final clone {cid} has no assigned transcripts.")
@@ -1560,7 +1561,7 @@ def run_cnaster(config_path, over_rides=None):
                 )
             }
 
-            # NB create a dataframe with the gene names and the best A and B copies for each gene.
+            # NB create a dataframe with the gene names and the best (A, B) copies for each gene.
             tmpdf = pd.DataFrame(
                 {
                     "gene": df_gene_snp[df_gene_snp.is_interval].gene,
@@ -1601,7 +1602,7 @@ def run_cnaster(config_path, over_rides=None):
         # NB output gene-level copy number
         write_tsv(opath, df_genelevel_cnv, header=True, index=True)
 
-        # NB output genome segment-level copy number
+        # NB output genome segment-level copy number; 
         allele_specific_copy = pd.concat(allele_specific_copy)
         df_seglevel_cnv = pd.DataFrame(
             {
@@ -1610,6 +1611,8 @@ def run_cnaster(config_path, over_rides=None):
                 "END": df_bininfo.END.values,
             }
         )
+
+        # NB best integer copies for each clone and each ploidy.
         df_seglevel_cnv = df_seglevel_cnv.join(allele_specific_copy.T)
 
         a_cols = [c for c in df_seglevel_cnv.columns if c.endswith(" A")]
@@ -1618,13 +1621,14 @@ def run_cnaster(config_path, over_rides=None):
             axis=1
         )
 
+        # NB display the segment-level copy number for the selected segments.
         with pd.option_context(
             "display.expand_frame_repr",
             False,
             "display.max_columns",
             None,
             "display.width",
-            100000,
+            100_000,
             "display.max_colwidth",
             None,
         ):
@@ -1636,7 +1640,7 @@ def run_cnaster(config_path, over_rides=None):
         opath = f"{output_dir}/cnv{medfix[o]}_seglevel.tsv"
         write_tsv(opath, df_seglevel_cnv, header=True, index=False)
 
-        # NB output per-state copy number
+        # NB output per-state integer copy numbers.
         state_cnv = functools.reduce(
             lambda left, right: pd.merge(
                 left, right, left_index=True, right_index=True, how="inner"
@@ -1711,7 +1715,6 @@ def run_cnaster(config_path, over_rides=None):
         palette_name="chisel",
     )
 
-    # TODO
     fig_path = f"{output_dir}/plots/clones_genomic.pdf"
     write_fig(fig_path, rdr_baf_fig, transparent=True, bbox_inches="tight")
 
@@ -1732,7 +1735,7 @@ def run_cnaster(config_path, over_rides=None):
     #     palette_name="chisel",
     # )
 
-    # # TODO
+    # TODO
     # fig_path = f"{output_dir}/plots/initial_clones_genomic.pdf"
     # write_fig(fig_path, initial_rdr_baf_fig, transparent=True, bbox_inches="tight")
 
@@ -1765,11 +1768,12 @@ def run_cnaster(config_path, over_rides=None):
     fig_path = f"{output_dir}/plots/clones_spatial.pdf"
     write_fig(fig_path, clones_fig, transparent=True, bbox_inches="tight")
 
+    # DUPLICATE see above.
     clone_index = [
         np.where(res_combine["new_assignment"] == c)[0]
         for c, _ in enumerate(final_clone_ids)
     ]
-    # NB create pseudobulk for each clone.
+    # DUPLICATE see above.
     X, base_nb_mean, total_bb_RD, _ = merge_pseudobulk_by_index_mix(
         single_X,
         single_base_nb_mean,

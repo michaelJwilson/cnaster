@@ -166,6 +166,8 @@ def run_cnaster(config_path, over_rides=None):
         min_snp_umis=config.quality.spot_min_snp_umis,
         min_percent_expressed_spots=config.quality.min_percent_expressed_spots,
     )
+
+    exit(0)
     
     pause()
 

@@ -1437,7 +1437,7 @@ def run_cnaster(config_path, over_rides=None):
 
             # TODO finalize integer copy number determination.
             if max_medploidy is not None:
-                best_integer_copies, loss = hill_climbing_integer_copynumber_oneclone(
+                best_integer_copies, loss, best_ploidy = hill_climbing_integer_copynumber_oneclone(
                     adjusted_log_mu,
                     base_nb_mean[:, s],
                     res_combine["new_p_binom"][:, s],
@@ -1448,6 +1448,7 @@ def run_cnaster(config_path, over_rides=None):
                 (
                     best_integer_copies,
                     loss,
+                    best_ploidy,
                 ) = hill_climbing_integer_copynumber_fixdiploid(
                     adjusted_log_mu,
                     base_nb_mean[:, s],
@@ -1463,7 +1464,7 @@ def run_cnaster(config_path, over_rides=None):
                 # continue
 
             logger.info(
-                f"Solved for (max. med ploidy, clone) = ({max_medploidy}, {s}) with integer copy number loss = {loss:.4e}"
+                f"Solved for (max. med ploidy, clone) = ({max_medploidy}, {s}) with integer copy number loss = {loss:.4e} and best ploidy = {best_ploidy}"
             )
 
             # TODO constructor >>>>>

@@ -1373,19 +1373,27 @@ def run_cnaster(config_path, over_rides=None):
 
     pause()
 
-    # NB assumed ploidy for integer copy number problem
+    #
+    # =========================================================================================
+    # integer copy number determination gived inferrered per-state (rdr,baf) and assumed ploidy.
+    # =========================================================================================
+    #
+
+    # NB assumed ploidy for integer copy number problem, expects e.g. "diploid", "triploid", "tetraploid"
     medfix = [""] + [f"_{pp}" for pp in config.int_copy_num.ploidy.split(",")]
 
     int_ploidy_map = {"": None, "diploid": 2, "triploid": 3, "tetraploid": 4}
+
+    # TODO remove _ and replacement; result is e.g. [None, 2, 3, 4] for ploidy="diploid,triploid,tetraploid".
     int_ploidy = [int_ploidy_map[key.replace("_", "")] for key in medfix]
 
-    # TODO for integer copy number determination given ploidy assumption.
+    # TODO solution for each ploidy, enumerated by "o".
     for o, max_medploidy in enumerate(int_ploidy):
         logger.info(
             f"Solving integer copy number problem for max_medploidy={max_medploidy}."
         )
 
-        # NB A/B integer copy number per bin and per state
+        # NB A/B integer copy number per genome segment, per state and per gene, refreshed for each ploidy.
         allele_specific_copy, state_cnv = [], []
         df_genelevel_cnv = None
 
@@ -1395,14 +1403,14 @@ def run_cnaster(config_path, over_rides=None):
             single_base_nb_mean,
             single_total_bb_RD,
             [
-                np.where(res_combine["new_assignment"] == cid)[0]
+                np.where(res_combine["new_assignment"] == cid)[0] # TODO
                 for cid in final_clone_ids
             ],
             single_tumor_prop,
             threshold=config.hmrf.tumorprop_threshold,
         )
 
-        # NB loop over clone and ploidy.
+        # NB loop over clone (and parent ploidy).
         for s, cid in enumerate(final_clone_ids):
             if np.sum(base_nb_mean[:, s]) == 0:
                 logger.warning("Final clone {cid} has no assigned transcripts.")
@@ -1410,16 +1418,17 @@ def run_cnaster(config_path, over_rides=None):
 
             this_pred_cnv = res_combine["pred_cnv"][:, s]
 
-            # NB log state usage
+            # TODO HACK log state usage.
             us, cnts = np.unique(this_pred_cnv, return_counts=True)
 
-            # TODO HACK
             logger.info(
                 f"Found state usage for clone {cid}:\n{pd.DataFrame({'state': us, 'counts': cnts})}"
             )
 
             # NB adjust log_mu such that sum_bin lambda * np.exp(log_mu) = 1.
             lambd = base_nb_mean[:, s] / np.sum(base_nb_mean[:, s])
+
+            # NB scales inferred log_mu for this clone according to the library expression.
             adjusted_log_mu = (
                 np.log(
                     np.exp(res_combine["new_log_mu"][:, s])
@@ -1436,6 +1445,9 @@ def run_cnaster(config_path, over_rides=None):
             )
 
             # TODO finalize integer copy number determination.
+            # 
+            # NB converts inferred (rdr, baf) profiles for this clone to integer copy numbers given (max) ploidy assumption
+            #    and fixed normal state as (1,1).
             if max_medploidy is not None:
                 best_integer_copies, loss, best_ploidy = hill_climbing_integer_copynumber_oneclone(
                     adjusted_log_mu,
@@ -1467,7 +1479,7 @@ def run_cnaster(config_path, over_rides=None):
                 f"Solved for (max. med ploidy, clone) = ({max_medploidy}, {s}) with integer copy number loss = {loss:.4e} and best ploidy = {best_ploidy}"
             )
 
-            # TODO constructor >>>>>
+            # TODO constructor >>>>>  refreshed on each new ploidy.
             # 
             # NB best copy states for each clone and each ploidy.
             allele_specific_copy.append(
@@ -1590,14 +1602,12 @@ def run_cnaster(config_path, over_rides=None):
 
             pause()
 
+        # NB complete loop over clones, assumed a ploidy constraint.
         if len(state_cnv) == 0:
             logger.warning(f"Found empty state integer copy numbers for clone{s}!")
             continue
 
-        # logger.info(
-        #     f"Solved for integer copy numbers @ genes:\n{df_genelevel_cnv.head()}"
-        # )
-
+        # NB write the gene-level integer copies for this assumed ploidy constraint.
         opath = f"{output_dir}/cnv{medfix[o]}_genelevel.tsv"
 
         # NB output gene-level copy number
@@ -1638,6 +1648,7 @@ def run_cnaster(config_path, over_rides=None):
                 df_seglevel_cnv[mask].to_string(index=False),
             )
 
+        # NB write integer copies for the current genome segmentation and this ploidy constraint.
         opath = f"{output_dir}/cnv{medfix[o]}_seglevel.tsv"
         write_tsv(opath, df_seglevel_cnv, header=True, index=False)
 
@@ -1664,6 +1675,7 @@ def run_cnaster(config_path, over_rides=None):
                 state_cnv.to_string(index=False),
             )
 
+        # NB write integer copies for the inferred states and this ploidy constraint.
         opath = f"{output_dir}/cnv{medfix[o]}_perstate.tsv"
         write_tsv(opath, state_cnv, header=True, index=False)
 
@@ -1675,6 +1687,13 @@ def run_cnaster(config_path, over_rides=None):
             bbox_inches="tight",
         )
 
+    # NB complete inner loop over clones, and loop of assumed ploidy.
+    #    i.e. now assuming the last of the possible ploidy constraints,
+    #         for instance "tetraploid"
+    #
+    # TODO could be before integer copy number solution; no dependency on integer copy number results.
+    # 
+    # TODO constructor given barcodes, coords, new_assignment, single_tumor_prop.
     df_clone_label = pd.DataFrame(
         {
             "sample_id": [barcode.split("_")[-1] for barcode in barcodes],
@@ -1694,12 +1713,14 @@ def run_cnaster(config_path, over_rides=None):
         lambda g: g.sort_values(["x", "y"])
     )
 
+    # NB does not depend on assumed ploidy.
     opath = f"{output_dir}/clone_labels.tsv"
 
     logger.info(f"Writing inferred clone labels to {opath},\n{df_clone_label.head()}")
 
     write_tsv(opath, df_clone_label, header=True, index=True, index_label="barcode")
 
+    # NB assumes a ploidy constraint, currently defaults to last, e.g. "tetraploid".
     rdr_baf_fig = plot_clones_genomic(
         df_seglevel_cnv,
         lengths,
@@ -1716,6 +1737,7 @@ def run_cnaster(config_path, over_rides=None):
         palette_name="chisel",
     )
 
+    # TODO assumes a ploidy constraint.
     fig_path = f"{output_dir}/plots/clones_genomic.pdf"
     write_fig(fig_path, rdr_baf_fig, transparent=True, bbox_inches="tight")
 
@@ -1754,7 +1776,7 @@ def run_cnaster(config_path, over_rides=None):
         single_tumor_prop,
     )
 
-    # NB clones fig.
+    # NB clones fig., assumes no ploidy constraint.
     assignment = pd.Series([f"clone {x}" for x in res_combine["new_assignment"]])
     clones_fig = plot_clones_spatial(
         coords,

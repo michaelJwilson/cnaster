@@ -64,7 +64,7 @@ def run_cnaster(config_path, over_rides=None):
     config.issue_warnings()
 
     logger.info(f"Read configuration:\n{config}")
-
+    
     set_global_config(config)
 
     output_dir, plots_dir = configure_output_dir(config)
@@ -133,7 +133,7 @@ def run_cnaster(config_path, over_rides=None):
         min_snp_umis=config.quality.spot_min_snp_umis,
         min_percent_expressed_spots=config.quality.min_percent_expressed_spots,
     )
-
+    
     pause()
 
     # NB sample list derived from adata.obs['sample'] - removes adjacent duplicates.

@@ -1,4 +1,6 @@
 cnaster_rs/target
+cnaster_rs/plots
+
 docs/nb/.ipynb_checkpoints/
 
 python/cnaster/__pycache__/

@@ -7,6 +7,13 @@ from cnaster.logger import get_logger
 
 logger = get_logger(__name__, start_time=start_time)
 
+# recomb_rates = get_reference_recomb_rates(config.references.geneticmap_file)
+#
+# write_fig(
+#     f"{plots_dir}/recombination_rates.pdf",
+#     plot_recombination_rates(recomb_rates),
+#     transparent=True,bbox_inches="tight"
+# )
 
 def compute_numbat_phase_switch_prob(
     position_cM, chr_pos_vector, nu=1.0, min_prob=None

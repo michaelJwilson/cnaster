@@ -15,7 +15,8 @@ from cnaster.utils import count_calls, get_output_dir, write_fig
 from cnaster.hmm_initialize import plot_cna_mixture, cna_mixture_init
 from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
 from cnaster.config import get_global_config
-from cnaster.plotting import plot_clones_spatial, plot_clones_genomic, plot_clones_genomic_simple
+from cnaster.plotting import plot_clones_spatial
+from cnaster.plot_genomic import plot_clones_genomic, plot_clones_genomic_raw
 from cnaster.deprecated.hmrf import (
     aggr_hmrfmix_reassignment_concatenate as dep_aggr_hmrfmix_reassignment_concatenate,
 )
@@ -632,7 +633,7 @@ def hmrfmix_concatenate_pipeline(
             f"Found nb_mean=0 across all spots,segments; corresponds to BAF only run."
         )
 
-    # NB normalized baseline expression.
+    # NB normalized baseline expression;
     with np.errstate(divide="ignore", invalid="ignore"):
         lambd = np.sum(single_base_nb_mean, axis=1) / norm
 
@@ -699,7 +700,7 @@ def hmrfmix_concatenate_pipeline(
             init_taus = new_init_taus
 
         logger.info(
-            f"Solved for HMM initialized parameters:\n{init_log_mu}\n{init_p_binom}"
+            f"Solved for hmm initialized parameters:\n{init_log_mu}\n{init_p_binom}"
         )
         logger.info(
             f"Plotting initial copy state mixture for instance {hmrfmix_concatenate_pipeline.call_count-1} with X.shape={X.shape}."
@@ -924,7 +925,7 @@ def hmrfmix_concatenate_pipeline(
             write_fig(fig_path, clones_fig, transparent=True, bbox_inches="tight")
 
             # TODO copy rename.                                                                                                                                                                                                                                 
-            clones_genomic = plot_clones_genomic_simple(
+            clones_genomic = plot_clones_genomic_raw(
                 single_X,
                 single_base_nb_mean,
                 single_total_bb_RD,

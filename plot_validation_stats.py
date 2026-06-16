@@ -204,8 +204,8 @@ def plot_metrics(df, method, output_dir=None):
     fig.savefig(out_path, bbox_inches="tight", dpi=300)
 
 def main():
-    # method = "calicost"
-    method = "cnaster"
+    method = "calicost"
+    # method = "cnaster"
     
     stats_dir = f"/Users/mw9568/Work/ragr/sim/stats/{method}"
     df = load_validation_stats(stats_dir)

@@ -63,10 +63,10 @@ def merge_pseudobulk_by_index_mix(
             rdrs = np.nan * np.ones_like(X[:, 0, k])
 
         logger.info(
-            f"Found median (finite) BAF={np.median(bafs[np.isfinite(bafs)]):.3f} for clone {k}."
+            f"Found median (finite) baf={np.median(bafs[np.isfinite(bafs)]):.3f} for clone {k}."
         )
         logger.info(
-            f"Found {len(idx)} spots, mean UMIs per spot={np.sum(X[:, 0, k]) / len(idx):.3f} and mean snp-covering UMIs per spot={np.sum(total_bb_RD[:, k]) / len(idx):.3f} for clone {k}"
+            f"Found {len(idx)} spots, mean umis per spot={np.sum(X[:, 0, k]) / len(idx):.3f} and mean snp-covering umis per spot={np.sum(total_bb_RD[:, k]) / len(idx):.3f} for clone {k}"
         )
 
         if np.any(valid_rdr):
@@ -77,14 +77,14 @@ def merge_pseudobulk_by_index_mix(
                 atol=1e-6,
             ):
                 logger.warning(
-                    f"Expected consistency between normal baseline normalization total UMI for the clone, {np.nansum(X[:,0,k])} != {np.sum(base_nb_mean[:,k])}"
+                    f"Expected consistency between normal baseline normalization total umi for the clone, {np.nansum(X[:,0,k])} != {np.sum(base_nb_mean[:,k])}"
                 )
 
             logger.info(
-                f"Found median UMIs={np.median(X[:, 0, k])} and median RDR={np.median(rdrs[valid_rdr]):.3f} for clone {k} with {100. * np.mean(valid_rdr > 0.0):.3f}% valid."
+                f"Found median umis={np.median(X[:, 0, k])} and median RDR={np.median(rdrs[valid_rdr]):.3f} for clone {k} with {100. * np.mean(valid_rdr > 0.0):.3f}% valid."
             )
             logger.info(
-                f"Found UMI percentiles=\n{np.percentile(X[:, 0, k], percentiles)}\nfor\n{percentiles} [%]."
+                f"Found umi percentiles=\n{np.percentile(X[:, 0, k], percentiles)}\nfor\n{percentiles} [%]."
             )
 
     if normal_clone_index is not None:

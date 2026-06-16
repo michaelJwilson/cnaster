@@ -202,13 +202,16 @@ def filter_normal_diffexp(
     quantile_threshold=80,
 ):
     """
-    Cluster input UMIs per slice into "normal" vs "tumor" spots based on PCA + kmeans,
+    Cluster input transcripts per slice into "normal" vs "tumor" spots based on pca + kmeans,
     utilizing pre-labeled "normal" candidates to identify the "normal" cluster.
 
-    Drop UMI counts per gene that are differentially expressed between this "normal" determination
+    Drop gene transcripts that are differentially expressed between this "normal" cluster
 ˚   and the "tumor" spots based on log fold change.
 
-    Returns new matrix of (bin, spot) counts after filtering genes with estimated differential expression.
+    Returns new counts structure of (genomic bins x spots) after filtering genes with estimated
+    differential expression, namely
+
+        new_single_X_rdr
     """
     adata = anndata.AnnData(exp_counts)
     adata.layers["count"] = exp_counts.values
@@ -375,8 +378,19 @@ def normal_baf_bin_filter(
     min_betabinom_tau=30,
 ):
     """
-    Calculate new (block, spot) counts after filtering genomic bins that have non-normal-like 
-    baf.  This may be the case if mixed with non-normal spots or allele-specific expression.
+    Calculates new aggregated counts (genome blocks x spots) after filtering genomic bins
+    adjudged to have non-normal-like baf in the __normal clone__.  
+    
+    This may be the case if the 'normal' clone is erroneously identified; its mixed with
+    non-normal spots or there is allele-specific expression.
+
+    Returns:
+        lengths,
+        single_X,
+        single_base_nb_mean,
+        single_total_bb_RD,
+        log_sitewise_transmat,
+        df_gene_snp,
     """
     if confidence_interval is None:
         confidence_interval = ast.literal_eval(
@@ -464,7 +478,9 @@ def normal_baf_bin_filter(
         lengths
     ), f"{df_gene_snp['bin_id'].notna().sum()} != {sum(lengths)}"
 
-    # NB phase switch probability from genetic distance
+    # TODO constructor for recombination rates and associated trasnfer matrices.
+    # 
+    # NB   phase switch probability from genetic distance
     sorted_chr_pos_first = df_gene_snp.groupby("bin_id").agg(
         {"CHR": "first", "START": "first"}
     )

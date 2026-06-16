@@ -1,0 +1,90 @@
+paths:
+  sample_sheet: None
+  output_dir : /Users/mw9568/Work/ragr/sim/nomixing_calicost_related/numcnas1.2_cnasize1e7_ploidy2_random0/
+  cache_dir : /n/fs/scratch/mw9568/cnaster/.cache
+
+# tumorprop_file : /n/fs/scratch/mw9568/cnaster/loh_estimator_tumor_prop.tsv
+preprocessing:
+  normalidx_file : None
+  tumorprop_file : None
+
+run:
+  bafonly : False
+
+references:
+  geneticmap_file : /u/mw9568/research/data/references/genetic_map_GRCh38_merged.tab.gz
+  hgtable_file : /u/mw9568/research/data/references/hgTables_hg38_gencode.txt
+  filtergenelist_file : /u/mw9568/research/data/references/ig_gene_list.txt
+  filterregion_file : /u/mw9568/research/data/references/HLA_regions.bed
+
+quality:
+  secondary_min_umi : 300
+
+# TODO HACK npart_phasing : 3 -> 1
+phasing:
+  nu : 1.0
+  logphase_shift : -2.0
+  npart_phasing : 1
+
+# TODO HACK max_iter_outer : 20 ->
+#           spatial_weight : 1.0 ->
+hmrf:
+  n_clones : 3
+  n_clones_rdr : 2
+  min_spots_per_clone : 100
+  min_avgumi_per_clone : 10
+  maxspots_pooling : 7
+  tumorprop_threshold : 0.5
+  max_iter_outer : 20
+  nodepotential : max
+  initialization_method : rectangle
+  num_hmrf_initialization_start : 0
+  num_hmrf_initialization_end : 1
+  spatial_weight : 1.0
+  inertia : 0
+  construct_adjacency_method : hexagon
+  construct_adjacency_w : 1.0
+
+# TODO HACK max_iter : 30 ->
+#           solver: nm ->
+#           t: 0.99999 ->
+#           tol: 0.0001 ->
+hmm:
+  solver: "L-BFGS-B"
+  n_states : 7
+  params : smp
+  t : 0.99999
+  t_phaseing : 0.99999
+  fix_NB_dispersion : False
+  shared_NB_dispersion : True
+  fix_BB_dispersion : False
+  shared_BB_dispersion : True
+  compression_decimals: 3
+  max_iter : 30
+  tol : 0.001
+  gmm_random_state : 0
+  gmm_maxiter: 30
+  np_threshold : 1.0
+  np_eventminlen : 10
+  em_maxiter: 1500
+  em_xtol: 1e-4
+  em_ftol: 1e-4
+  em_xrtol: 1e-4
+  em_disp: 0
+
+# NB N sub-set of states will use the first N
+# TODO HACK start_disp : 1.0e-2 ->
+nbinom:
+  start_params: 0.1,0.1,0.1,0.1,0.1,0.1,0.1
+  start_disp: 1.0e-2
+
+# TODO HACK start_disp: 1 ->
+betabinom:
+  start_params: 0.5,0.5,0.5,0.5,0.5,0.5,0.5
+  start_disp:  20.0
+
+# TODO HACK ploidy : "diploid,triploid,tetraploid" ->
+int_copy_num:
+  nonbalance_bafdist : 1.0
+  nondiploid_rdrdist : 10.0
+  ploidy : "diploid"

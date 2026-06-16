@@ -348,3 +348,26 @@ def pause(config=None):
 
     if bool(config.run.pause):
         input("<Enter>")
+
+
+def get_intervals(pred_cnv):
+    """
+    Find contiguous intervals in the array pred_cnv where the
+    copy number state is the same.  Returns the list of intervals
+    and their state.
+    """
+    intervals, labs = [], []
+    s = 0
+
+    while s < len(pred_cnv):
+        t = np.where(pred_cnv[s:] != pred_cnv[s])[0]
+        if len(t) == 0:
+            intervals.append((s, len(pred_cnv)))
+            labs.append(pred_cnv[s])
+            s = len(pred_cnv)
+        else:
+            t = t[0]
+            intervals.append((s, s + t))
+            labs.append(pred_cnv[s])
+            s = s + t
+    return intervals, labs

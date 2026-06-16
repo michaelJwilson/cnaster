@@ -100,7 +100,9 @@ def hill_climbing_integer_copynumber_oneclone(
     """
     Given the k inferred best log_mu and p_binom values from the max. likelihood calculation,
     find the best integer copy number states with hill climbing and some constraints on the 
-    allowed integer copy states.
+    allowed integer copy states, e.g. state ordering, ploidy and implied rdr, baf.
+    
+    Returns the best integer copy states, the best objective, and the best ploidy.
     """
     n_states = len(new_log_mu)
 
@@ -129,6 +131,7 @@ def hill_climbing_integer_copynumber_oneclone(
     # rdr_weight = float(config.int_copy_num.rdr_weight)
     mu_threshold = 0.3 # MAGIC
 
+    """
     # NB the inferred normal candidate state index.
     idx_diploid_normal = find_diploid_balanced_state(
         new_log_mu,
@@ -137,6 +140,7 @@ def hill_climbing_integer_copynumber_oneclone(
         min_prop_threshold=0.1,  # MAGIC
         EPS_BAF=EPS_BAF,
     )
+    """
 
     # scalefactor = 2.0 / mu[idx_diploid_normal]
 
@@ -288,7 +292,6 @@ def hill_climbing_integer_copynumber_oneclone(
             initial_params[k] = v
         params, obj = hill_climb(initial_params, ploidy)
 
-
         # NB should log and return best ploidy also.
         if obj < best_obj:
             best_obj = obj
@@ -326,6 +329,15 @@ def hill_climbing_integer_copynumber_fixdiploid(
     enforce_states={},  # MUTABLE DEFAULT
     max_samples=20,  # MAGIC
 ):
+    """
+    Given the k inferred best log_mu and p_binom values from the max. likelihood calculation,
+    find the best integer copy number states with hill climbing and some constraints on the 
+    allowed integer copy states, e.g. state ordering, ploidy and implied rdr, baf.
+
+    Enforces the "best normal" state to be (1,1) and assumes measures relative to this state.
+    
+    Returns the best integer copy states, the best objective, and the best ploidy.
+    """
     n_states = len(new_log_mu)
 
     EPS_POINTS = 0.1

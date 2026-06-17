@@ -8,7 +8,7 @@ from scipy.spatial import cKDTree
 from cnaster.logger import get_logger
 from cnaster.config import start_time
 
-logger = get_logger(__name__)
+logger = get_logger(__name__, start_time=start_time)
 
 
 def join_tables_xy(

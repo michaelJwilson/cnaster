@@ -92,9 +92,13 @@ def _annotate_clone_stats(
     paired_ax=None,
 ):
     """Annotates the axis with clone identity and spot/UMI statistics."""
+    # A uniform negative horizontal offset ensures alignment is consistently 
+    # to the left of the RDR/BAF y-labels. Adjust -0.08 if you need more/less gap.
+    x_offset = -0.08  
+    
     if paired_ax is None:
         ax.text(
-            -0.04,
+            x_offset,
             0.5,
             cast_clone_label(str(clone_label)),
             ha="center",
@@ -102,21 +106,22 @@ def _annotate_clone_stats(
             fontsize=12,
             rotation="vertical",
             transform=ax.transAxes,
+            clip_on=False
         )
     else:
-        # Align clone label to the center of the combined RDR+BAF panel.
-        bbox_top = ax.get_position()
-        bbox_bottom = paired_ax.get_position()
-        x_text = bbox_top.x0 - 0.04 * bbox_top.width
-        y_text = 0.5 * (bbox_top.y1 + bbox_bottom.y0)
-        ax.figure.text(
-            x_text,
-            y_text,
+        # Align horizontally to the left of the RDR/BAF labels and vertically 
+        # to the axis line separating the top (RDR) and bottom (BAF) plots.
+        # y=0.0 in the top ax's coordinates corresponds exactly to that separating line.
+        ax.text(
+            x_offset,
+            0.0,
             cast_clone_label(str(clone_label)),
             ha="center",
             va="center",
             fontsize=12,
             rotation="vertical",
+            transform=ax.transAxes,
+            clip_on=False
         )
 
     theta_text = (

@@ -83,7 +83,7 @@ def pipeline_baum_welch(
     remain_kwargs = {k: v for k, v in kwargs.items() if k in ["lambd", "sample_length"]}
 
     logger.info(f"Assuming kwargs={remain_kwargs.keys()}")
-    
+
     res = hmm_model.run_baum_welch_nb_bb(
         X,
         lengths,
@@ -247,5 +247,5 @@ def pipeline_baum_welch(
         "log_gamma": log_gamma,
         "pred_cnv": pred_cnv,
         "llf": llf,
-        "n_states" : n_states
+        "n_states": n_states,
     }

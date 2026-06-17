@@ -163,7 +163,7 @@ def summarize_blocks(
     )
 
     # NB Mbp -> Kbp.
-    block_summary["length"] = (block_summary["end"] - block_summary["start"]) / 1_000.
+    block_summary["length"] = (block_summary["end"] - block_summary["start"]) / 1_000.0
 
     gene_names = adata.var.index.to_numpy()
     gene_index_map = {g: i for i, g in enumerate(gene_names)}
@@ -228,10 +228,12 @@ def summarize_blocks(
     if sort_key is not None:
         block_summary = block_summary.sort_values(sort_key, ascending=False)
 
-    # TODO MAGIC keyword                                                                                                                                                                        
+    # TODO MAGIC keyword
     max_rows = 25
-        
-    logger.info(f"Breakdown of genes/snps/umi per {block_key} sorted by {sort_key} (top {max_rows}):")
+
+    logger.info(
+        f"Breakdown of genes/snps/umi per {block_key} sorted by {sort_key} (top {max_rows}):"
+    )
     logger.info(
         f"{'block id':<10}\t{'chr':>4}\t{'start':>12}\t{'length':>12} [Kbp]\t{'snps':>8}\t{'genes':>8}\t{'total umi':>12}\t{'snp umi':>12}\t{'normal umi':>12}\t{'normal snp umi':>12}"
     )
@@ -289,7 +291,9 @@ def assign_initial_blocks(
         "is_interval"=True is a gene, otherwise SNP.
         "gene" contains the name of a gene, or the gene a SNP belongs.
     """
-    logger.info(f"Creating initial genome segmentation based solely on overlapping genes.")
+    logger.info(
+        f"Creating initial genome segmentation based solely on overlapping genes."
+    )
 
     # NB first level: partition of genome by gene range (if two genes overlap, they are grouped to one range);
     # NB == is_gene.
@@ -366,7 +370,9 @@ def assign_initial_blocks(
     for i, x in enumerate(block_ranges):
         df_gene_snp.iloc[x[0] : x[1], -1] = i
 
-    assert np.all(df_gene_snp["initial_block_id"].values) >= 0, "Found genes/sites with no assigned block."
+    assert (
+        np.all(df_gene_snp["initial_block_id"].values) >= 0
+    ), "Found genes/sites with no assigned block."
 
     logger.info(
         "Assigned snps to initial genome segments (segments == genes, merged on overlap)."
@@ -381,7 +387,9 @@ def assign_initial_blocks(
         block_key="initial_block_id",
     )
 
-    logger.info(f"Updating genome segmentation to ensure min. snp-covering umi={initial_min_umi} threshold is satisfied for the new segments.")
+    logger.info(
+        f"Updating genome segmentation to ensure min. snp-covering umi={initial_min_umi} threshold is satisfied for the new segments."
+    )
 
     # NB second level: extend the first level blocks based on haplotype-aggregated counts such that the min. snp-covering umi counts >= initial_min_umi.
     #    maps site_id, {chr}_{pos}_{ref}_{alt} to integer index.
@@ -593,6 +601,7 @@ def summarize_counts_for_blocks_legacy(
         single_total_bb_RD,
     )
 
+
 # @cacher("blocked_counts.hdf5")
 def summarize_counts_for_blocks(
     df_gene_snp,
@@ -602,7 +611,7 @@ def summarize_counts_for_blocks(
     unique_snp_ids,
 ):
     """
-    Aggregates gene-level total UMI counts (from spatial transcriptomics) 
+    Aggregates gene-level total UMI counts (from spatial transcriptomics)
     and site-level allele counts (A and B haplotypes from matched SNPs)
     into broader local segments (blocks).
     """
@@ -658,7 +667,7 @@ def summarize_counts_for_blocks(
 
             # NB genes in df_gene_snp must be present in visium.
             gene_mask = np.isin(gene_names, genes)
-            
+
             if gene_mask.any():
                 single_X[block_id, 0, :] = gene_counts[:, gene_mask].sum(axis=1)
 
@@ -667,7 +676,10 @@ def summarize_counts_for_blocks(
 
     assert single_X.ndim == 3
 
-    BlockSummary = namedtuple("BlockSummary", ["lengths", "single_X", "single_base_nb_mean", "single_total_bb_RD"])
+    BlockSummary = namedtuple(
+        "BlockSummary",
+        ["lengths", "single_X", "single_base_nb_mean", "single_total_bb_RD"],
+    )
 
     return BlockSummary(
         lengths=lengths,
@@ -1069,7 +1081,9 @@ def create_bin_ranges(
     df_gene_snp : pd.DataFrame
         Updated with bin_id column.
     """
-    logger.info(f"Aggregating blocks to bins given baf-inferred phasing to satisfy umi, length, etc. constraints.")
+    logger.info(
+        f"Aggregating blocks to bins given baf-inferred phasing to satisfy umi, length, etc. constraints."
+    )
 
     # TODO BUG dropna?
     # NB block intervals

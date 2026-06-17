@@ -13,6 +13,7 @@ class GenomicBlockCounts:
     - n_blocks: Number of genomic intervals/blocks.
     - n_spots: Number of spatial spots/barcodes.
     """
+
     lengths: np.ndarray  # (n_contigs,) Blocks per contig
     X: np.ndarray  # (n_blocks, 2, n_spots) Raw counts
     base_nb_mean: np.ndarray  # (n_blocks, n_spots) Expected normal baseline

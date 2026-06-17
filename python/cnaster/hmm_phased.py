@@ -8,6 +8,7 @@ from cnaster.hmm_sitewise import (
     backward_marginalize_phased,
 )
 
+
 def switch_betabinom(log_emission_baf_nophase, k, n, alpha, beta):
     # NB expect:
     #    log_emission_baf_nophase.shape=(n_states, n_obs),
@@ -21,6 +22,7 @@ def switch_betabinom(log_emission_baf_nophase, k, n, alpha, beta):
         + loggamma(alpha[:, np.newaxis] + n - k)
         - loggamma(beta[:, np.newaxis] + n - k)
     )
+
 
 def compute_emission_probability_nb_betabinom_coded(
     nbEncoder, bbEncoder, log_mu, alphas, p_binom, taus

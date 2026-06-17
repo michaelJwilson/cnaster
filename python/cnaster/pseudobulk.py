@@ -5,6 +5,7 @@ from cnaster.logger import get_logger
 
 logger = get_logger(__name__, start_time=start_time)
 
+
 def merge_pseudobulk_by_index_mix(
     single_X,
     single_base_nb_mean,

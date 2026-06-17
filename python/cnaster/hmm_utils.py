@@ -11,6 +11,7 @@ logger = get_logger(__name__, start_time=start_time)
 # NB define global alias for legacy
 construct_unique_matrix = CountEncoder.construct_unique_encoding
 
+
 def get_em_solver_params():
     """
     Get the parameters for the emission solver.
@@ -115,6 +116,7 @@ def convert_params(mean, std):
 
     return n, p
 """
+
 
 @njit
 def convert_params_disp(mean, overdisp):

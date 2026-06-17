@@ -13,6 +13,7 @@ from collections import namedtuple
 from cnaster.filter import get_filter_genes, get_filter_ranges
 from cnaster.reference import exp_cancer_gene
 from cnaster.config import get_global_config
+
 # from cnaster.utils import cacher
 from sklearn.neighbors import LocalOutlierFactor
 from cnaster.config import start_time
@@ -27,10 +28,10 @@ pl.Config.set_tbl_cols(-1)
 def get_sample_sheet(sample_sheet_path):
     """
     Read the sample sheet from a CSV file; expects
-    
+
     'bam',
-    'sample_id', 
-    'spaceranger_dir', 
+    'sample_id',
+    'spaceranger_dir',
     snp_dir',
 
     in order to retrieve called snps and space-ranger
@@ -94,7 +95,7 @@ def get_barcodes(barcode_file):
     return df_barcodes
 
 
-# TODO check (e.g. sample sheet with john): 
+# TODO check (e.g. sample sheet with john):
 #             AAACAAGTATCTCCCA-1_HT112C1-U1 == {spot}-1_{sample_id}-{slice}.
 def get_aggregated_barcodes(barcode_file, known_sample_id=None):
     df_barcodes = get_barcodes(barcode_file)
@@ -392,8 +393,8 @@ def map_unique_snps_enum(unique_snp_ids):
             enum = 0
 
         # TODO HACK JOHN
-        contig = contig.replace("chr","")
-            
+        contig = contig.replace("chr", "")
+
         new_snp_id = f"{contig}_{pos}_{enum}"
         result.append(new_snp_id)
 
@@ -444,7 +445,7 @@ def load_input_data(
     )
 
     # TODO HACK JOHN
-    snp_barcodes["barcodes"] = snp_barcodes["barcodes"].map(                                                                                                                                                                
+    snp_barcodes["barcodes"] = snp_barcodes["barcodes"].map(
         lambda xx: xx.replace("_U1", "")
     )
 
@@ -476,7 +477,7 @@ def load_input_data(
     # TODO HACK JOHN
     # cell_snp_Aallele = cell_snp_Aallele.T
     # cell_snp_Ballele = cell_snp_Ballele.T
-    
+
     assert cell_snp_Aallele.shape == cell_snp_Ballele.shape
 
     cell_snp = (cell_snp_Aallele + cell_snp_Ballele).todense().sum(axis=1)
@@ -548,7 +549,7 @@ def load_input_data(
 
         if "gray" in df_this_pos.columns:
             adatatmp.obsm["he_gray"] = df_this_pos.gray.to_numpy()
-        
+
         # TODO he_label
         if "label" in df_this_pos.columns:
             adatatmp.obsm["he_label"] = df_this_pos.label.to_numpy()
@@ -577,11 +578,11 @@ def load_input_data(
         f"Retaining {100.0 * np.mean(isin):.3f}% of barcodes with snp calls (shared between umis and snps)."
     )
 
-    # TODO barcode inconsistent between snps and umis.                                                                                                                                                                                
+    # TODO barcode inconsistent between snps and umis.
     assert np.any(
         isin
     ), f"Found inconsistent barcodes between SNPs and UMIs, e.g. \n{list(snp_barcodes.barcodes)[:5]}\nvs\n{list(adata.obs.index)[:5]}"
-    
+
     # NB barcode (row) selection.
     if not isin.all():
         cell_snp_Aallele = cell_snp_Aallele[isin, :]
@@ -662,7 +663,7 @@ def load_input_data(
 
     # TODO gencode gene list is not all sampled by (3') visium umis?
     # TODO excludes 50% of genes, but retains 99.97% of UMIs; resolves gene definition to house-keeping?
-    # 
+    #
     # NB removes cell-specific genes that are not expressed by a sufficient fraction of spots (mixed).
     logger.info(
         f"Retaining {100.0 * np.mean(indicator):.3f}% of genes ({100.0 * ratio:.2f}% of total umis) with sufficient expression across spots @ {min_percent_expressed_spots} fraction of spots."

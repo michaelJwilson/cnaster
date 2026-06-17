@@ -196,7 +196,7 @@ def compute_bb_ab(exog, params):
     num_states = exog.shape[-1]
 
     p = np.dot(exog, params[:num_states])
-    t = np.dot(exog, params[ num_states:])
+    t = np.dot(exog, params[num_states:])
 
     a = p * t
     b = (1.0 - p) * t
@@ -293,7 +293,7 @@ class Weighted_NegativeBinomial_mix:
         exposure,
         fixed_dispersion=False,
         shared_dispersion=True,
-        max_rdr=5.0, # TODO HACK MAGIC
+        max_rdr=5.0,  # TODO HACK MAGIC
     ):
         exog = exog.copy()
 
@@ -347,7 +347,7 @@ class Weighted_NegativeBinomial_mix:
             params,
             reduce=True,
         )
-    
+
     def get_default_params(self, legacy=False):
         ms, single_dispersion = get_nbinom_start_params(legacy=legacy)
 
@@ -376,7 +376,7 @@ class Weighted_NegativeBinomial_mix:
                 bounds.append((EPSILON, 1e6))
 
         return bounds
-        
+
     def fit(
         self,
         start_params=None,

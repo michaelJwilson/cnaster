@@ -19,6 +19,7 @@ from cnaster.logger import get_logger
 
 logger = get_logger(__name__, start_time=start_time)
 
+
 def cacher(filename):
     def decorator(func):
         @wraps(func)
@@ -241,10 +242,11 @@ def get_output_dir(config=None):
 
     return f"{config.paths.output_dir}/clone{config.hmrf.n_clones}_rectangle{config.hmrf.random_state}_w{config.hmrf.spatial_weight:.1f}/"
 
+
 def configure_output_dir(config=None):
     # output_dir = f"{config.paths.output_dir}/clone{config.hmrf.n_clones}_rectangle{config.hmrf.random_state}_w{config.hmrf.spatial_weight:.1f}/"
     output_dir = get_output_dir(config)
-    
+
     if not (poutput_dir := Path(output_dir)).exists():
         logger.info(f"Creating {output_dir}")
 
@@ -258,6 +260,7 @@ def configure_output_dir(config=None):
         pplots_dir.mkdir(exist_ok=True)
 
     return output_dir, plots_dir
+
 
 def write_tsv(opath, df=None, header=True, index=False, index_label=None):
     if df is None:
@@ -274,8 +277,11 @@ def write_fig(opath, fig=None, transparent=True, bbox_inches="tight"):
         ax = fig.add_subplot(111)
 
     logger.info(f"Writing figure to:\n{opath}")
-    fig.savefig(opath, format="pdf", transparent=transparent, bbox_inches=bbox_inches, dpi=750)
+    fig.savefig(
+        opath, format="pdf", transparent=transparent, bbox_inches=bbox_inches, dpi=750
+    )
     plt.close(fig)
+
 
 @njit
 def top_hat_sum(arr, width):
@@ -353,10 +359,10 @@ def pause(config=None):
 def get_intervals(pred_cnv):
     """
     Find contiguous intervals in the state label array (pred_cnv)
-    --- typically real copy states (Z) or integer (A,B) states ---    
-    where the copy number state is the same.  
-    
-    Returns a list of intervals (start index, end index) into the array 
+    --- typically real copy states (Z) or integer (A,B) states ---
+    where the copy number state is the same.
+
+    Returns a list of intervals (start index, end index) into the array
     and the corresponding array of state label for each interval.
     """
     intervals, labs = [], []

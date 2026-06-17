@@ -107,7 +107,7 @@ def neyman_pearson_similarity(
     # TODO hmm config clash?
     if threshold is None:
         threshold = get_global_config().hmm.np_threshold
-    
+
     logger.info(
         f"Solving for Neyman-Pearson similiarity with threshold={threshold} and {hmmclass.__name__} instance with:\nnew_log_mu=\n{res['new_log_mu']}\nnew_p_binom=\n{res['new_p_binom']}"
     )

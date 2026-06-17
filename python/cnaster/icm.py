@@ -5,6 +5,7 @@ import time
 from pathlib import Path
 from numba import njit
 from dataclasses import dataclass, asdict, field
+
 # from collections import deque
 # from statistics import mean
 from cnaster.config import start_time
@@ -63,13 +64,13 @@ def get_clone_split(assignment):
     Return an array of clone proportion given an assignment.
     """
     unique_ids, counts = np.unique(assignment.astype(int), return_counts=True)
-    
+
     max_id = unique_ids.max()
     size = 1 + max_id
-    
+
     full_counts = np.zeros(size, dtype=int)
     full_counts[unique_ids] = counts
-    
+
     return full_counts / full_counts.sum()
 
 
@@ -108,12 +109,12 @@ def build_wolff_cluster(
 ):
     """
     Construct a sub-cluster at a root spot with BFS from the cluster
-    root.  Addition to the sub_cluster occurs with prob. 
-    
-    p_add = 1 - exp(-edge_weight / temp) 
-    
-    if the neighbor has the same spin as the root.  
-    
+    root.  Addition to the sub_cluster occurs with prob.
+
+    p_add = 1 - exp(-edge_weight / temp)
+
+    if the neighbor has the same spin as the root.
+
     Returns the cluster and the log-probability of the forward move.
     """
     visited, cluster, queue = [this_spot], [this_spot], [this_spot]
@@ -668,7 +669,9 @@ def merge_assignment(
                     best_merge_pair = (u, v)
 
     if best_merge_cost > -np.inf:
-        logger.info(f"Found best merge pair {best_merge_pair} with dC={best_merge_cost - current_total_cost:.6e}.")
+        logger.info(
+            f"Found best merge pair {best_merge_pair} with dC={best_merge_cost - current_total_cost:.6e}."
+        )
     else:
         logger.info(f"No beneficial merge found among {n_clones} clones.")
 
@@ -754,9 +757,15 @@ def icm_sweep(
             eligible = np.where(clone_counts >= min_clone_spots)[0]
 
             for c in range(n_clones):
-                if len(eligible) > 0 and clone_counts[c] < min_clone_spots and clone_counts[c] > 0:                    
+                if (
+                    len(eligible) > 0
+                    and clone_counts[c] < min_clone_spots
+                    and clone_counts[c] > 0
+                ):
                     spot_indices = np.where(new_assignment == c)[0]
-                    new_labels = eligible[np.random.randint(0, len(eligible), size=len(spot_indices))]
+                    new_labels = eligible[
+                        np.random.randint(0, len(eligible), size=len(spot_indices))
+                    ]
 
                     for idx, new_label in zip(spot_indices, new_labels):
                         new_assignment[idx] = new_label
@@ -771,6 +780,7 @@ def icm_sweep(
             break
 
     return niter, cost
+
 
 def icm_sweep_deque(
     single_llf,
@@ -799,11 +809,13 @@ def icm_sweep_deque(
     for idx in range(n_spots):
         clone_counts[new_assignment[idx]] += 1
 
-    logger.info(f"Starting icm sweep with clone proportion:\n{clone_counts / clone_counts.sum()}")
+    logger.info(
+        f"Starting icm sweep with clone proportion:\n{clone_counts / clone_counts.sum()}"
+    )
 
     # TODO
     min_spot_guard = 0
-    
+
     while queue:
         edits = 0
 
@@ -818,7 +830,7 @@ def icm_sweep_deque(
                 w_node += log_persample_weights[:, this_sample]
             w_edge[:] = 0.0
 
-            mask = (adj_spots == i)
+            mask = adj_spots == i
             neighbors = adj_neighbors[mask]
             weights = adj_weights[mask]
 
@@ -848,22 +860,36 @@ def icm_sweep_deque(
 
         batch_edit_rate = edits / n_spots
 
-        logger.info(f"Completed icm sweep batch with batch edit rate={batch_edit_rate:.6e}.")
+        logger.info(
+            f"Completed icm sweep batch with batch edit rate={batch_edit_rate:.6e}."
+        )
 
         # NB rdr-refinement guard for small baf-identified clones.
-        if (min_clone_spots > 0) and clone_counts.min() < min_clone_spots and clone_counts.min() > 0:
+        if (
+            (min_clone_spots > 0)
+            and clone_counts.min() < min_clone_spots
+            and clone_counts.min() > 0
+        ):
             eligible = np.where(clone_counts >= min_clone_spots)[0]
             for c in range(n_clones):
-                if len(eligible) > 0 and clone_counts[c] < min_clone_spots and clone_counts[c] > 0:
+                if (
+                    len(eligible) > 0
+                    and clone_counts[c] < min_clone_spots
+                    and clone_counts[c] > 0
+                ):
                     spot_indices = np.where(new_assignment == c)[0]
-                    new_labels = eligible[np.random.randint(0, len(eligible), size=len(spot_indices))]
+                    new_labels = eligible[
+                        np.random.randint(0, len(eligible), size=len(spot_indices))
+                    ]
                     for idx, new_label in zip(spot_indices, new_labels):
                         new_assignment[idx] = new_label
 
                         clone_counts[c] -= 1
                         clone_counts[new_label] += 1
 
-            logger.info(f"For enforcing min_clone_spot={min_clone_spots} with n_spots={n_spots}, found {len(eligible)} valid clone for reassignment & new clone proportion:\n{clone_counts / clone_counts.sum()}")
+            logger.info(
+                f"For enforcing min_clone_spot={min_clone_spots} with n_spots={n_spots}, found {len(eligible)} valid clone for reassignment & new clone proportion:\n{clone_counts / clone_counts.sum()}"
+            )
 
             # NB random assignmnent of small clones; force another iteration to reassign.
             if len(eligible) > 1:
@@ -873,7 +899,11 @@ def icm_sweep_deque(
         niter += 1
 
         # NB stop if no edits or only one clone remains.
-        if (batch_edit_rate <= tol) or np.count_nonzero(clone_counts) <= 1 or min_spot_guard > 10:
+        if (
+            (batch_edit_rate <= tol)
+            or np.count_nonzero(clone_counts) <= 1
+            or min_spot_guard > 10
+        ):
             break
 
     return niter, cost

@@ -10,6 +10,7 @@ from cnaster.config import start_time
 
 logger = get_logger(__name__)
 
+
 def join_tables_xy(
     first: pl.DataFrame, second: pl.DataFrame, columns_to_merge: list[str]
 ) -> pl.DataFrame:
@@ -32,6 +33,7 @@ def join_tables_xy(
     new_columns = new_columns + [pl.Series("dist", distances)]
 
     return first.with_columns(new_columns)
+
 
 def get_he_image(spaceranger_dir, res="hires", pos=None, num_labels=4):
     assert res in ("lowres", "hires")

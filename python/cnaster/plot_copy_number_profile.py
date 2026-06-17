@@ -5,6 +5,7 @@ import pandas as pd
 from matplotlib.patches import Rectangle
 from cnaster.palette import get_full_palette
 
+
 def _draw_mirrored_loh_chevrons(
     ax: plt.Axes, x0: float, y_b: float, w: float, h_sub: float, direction: int
 ):

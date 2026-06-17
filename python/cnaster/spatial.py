@@ -100,15 +100,23 @@ def best_equal_partition(
             best_var = var
             best_index = initial_clone_index
             best_assignment = clone_assignment
-            
-            logger.info(f"New best partition at trial {trial}: variance={best_var:.2f}, sizes={sizes}")
+
+            logger.info(
+                f"New best partition at trial {trial}: variance={best_var:.2f}, sizes={sizes}"
+            )
 
     logger.info(f"Best partition variance after {n_trials} trials: {best_var:.2f}")
     return best_index, best_assignment
 
 
 def initialize_clones(
-    coords, sample_ids, x_part, y_part, single_tumor_prop=None, threshold=None, random_state=None
+    coords,
+    sample_ids,
+    x_part,
+    y_part,
+    single_tumor_prop=None,
+    threshold=None,
+    random_state=None,
 ):
     logger.info(
         f"Initializing clones given fixed grid partitions and max. sample_id={np.max(sample_ids)}"
@@ -197,7 +205,9 @@ def summarize_lattice_structure(coords, sample_ids=None, sample_list=None):
         unique_dists, unique_cnts = np.unique(sorted_dists, return_counts=True)
 
         # NB cell positions of Visium HD will not be regular.
-        logger.info(f"Found lattice distances from center:\n{unique_dists[:10]}\nwith counts:\n{unique_cnts[:10]}")
+        logger.info(
+            f"Found lattice distances from center:\n{unique_dists[:10]}\nwith counts:\n{unique_cnts[:10]}"
+        )
 
         assert np.all(unique_dists > 0.0)
 
@@ -574,9 +584,7 @@ def choose_lattice_adjacency(
     )
 
     if coordination_num < min_coordination_num:
-        logger.warning(
-            f"Assuming minimum coordination number={min_coordination_num}."
-        )
+        logger.warning(f"Assuming minimum coordination number={min_coordination_num}.")
 
         coordination_num = min_coordination_num
 
@@ -836,7 +844,7 @@ def multislice_adjacency(
             unit_ysquared=unit_ysquared,
         )
         """
-        
+
         tmpsmooth_mat, tmpadjacency_mat = choose_lattice_adjacency(
             this_coords,
             single_total_bb_RD[:, index],

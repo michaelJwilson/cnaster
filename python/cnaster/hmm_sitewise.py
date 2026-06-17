@@ -18,6 +18,7 @@ from cnaster.hmm_utils import (
     np_sum_ax_squeeze,
 )
 from numba import njit
+
 # from cnaster.hmm_emission_eval import compute_emissions
 # from cnaster.config import get_global_config
 from cnaster.config import start_time
@@ -27,7 +28,7 @@ logger = get_logger(__name__, start_time=start_time)
 
 
 def switch_betabinom(log_emission_baf_nophase, k, n, alpha, beta):
-    # NB expect: 
+    # NB expect:
     #    log_emission_baf_nophase.shape=(n_states, n_obs, n_spots),
     #    k.shape=(n_obs, n_spots),
     #    total_bb_RD.shape=(n_obs, n_spots),
@@ -40,6 +41,7 @@ def switch_betabinom(log_emission_baf_nophase, k, n, alpha, beta):
         - loggamma(beta[:, np.newaxis, np.newaxis] + n - k)
     )
 
+
 def compute_emission_probability_nb_betabinom_phased(
     X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus
 ):
@@ -48,8 +50,10 @@ def compute_emission_probability_nb_betabinom_phased(
 
     assert n_spots == 1
 
-    # NB guard against 
-    assert p_binom.shape[1] == 1, f"Found p_binom={p_binom}, but expect singleton for axis=1"
+    # NB guard against
+    assert (
+        p_binom.shape[1] == 1
+    ), f"Found p_binom={p_binom}, but expect singleton for axis=1"
     assert taus.shape[1] == 1, f"Found taus={taus}, but expect singleton for axis=1"
 
     log_emission_rdr_nophase, log_emission_baf_nophase = compute_emissions(
@@ -71,8 +75,9 @@ def compute_emission_probability_nb_betabinom_phased(
         p_binom[:, 0] * taus[:, 0],
         (1.0 - p_binom[:, 0]) * taus[:, 0],
     )
-    
+
     return log_emission_rdr, log_emission_baf
+
 
 @njit
 def forward_marginalize_phased(
@@ -101,18 +106,18 @@ def forward_marginalize_phased(
         log_startprob.shape[0] == n_states
     ), f"startprob.shape={log_startprob.shape} does match n_states={n_states} expectation given log_emission.shape={log_emission.shape}."
 
-    assert log_emission.shape[0] % 2 == 0, f"Expect 2 * n_states for phasing;  detected odd {log_emission.shape}"
+    assert (
+        log_emission.shape[0] % 2 == 0
+    ), f"Expect 2 * n_states for phasing;  detected odd {log_emission.shape}"
 
-    log_sitewise_self_transmat = np.log(1. - np.exp(log_sitewise_transmat))
+    log_sitewise_self_transmat = np.log(1.0 - np.exp(log_sitewise_transmat))
 
     log_alpha = np.zeros((log_emission.shape[0], n_obs))
     buf = np.zeros(log_emission.shape[0])
     cumlen = 0
 
     # NB split prob. equally across phases, i.e. half each.
-    combined_log_startprob = np.log(0.5) + np.append(
-        log_startprob, log_startprob
-    )
+    combined_log_startprob = np.log(0.5) + np.append(log_startprob, log_startprob)
 
     combined_transmat = np.empty((2 * n_states, 2 * n_states))
 
@@ -146,17 +151,23 @@ def forward_marginalize_phased(
             # top-left block: phase 0 → phase 0
             # top-right block: phase 0 → phase 1
             # bottom-left block: phase 1 → phase 0
-            # bottom-right block: phase 1 → phase 1 
-            combined_transmat[:n_states, :n_states] = log_phases_switch_mat[0, 0] + log_transmat
-            combined_transmat[:n_states, n_states:] = log_phases_switch_mat[0, 1] + log_transmat
-            combined_transmat[n_states:, :n_states] = log_phases_switch_mat[1, 0] + log_transmat
-            combined_transmat[n_states:, n_states:] = log_phases_switch_mat[1, 1] + log_transmat
+            # bottom-right block: phase 1 → phase 1
+            combined_transmat[:n_states, :n_states] = (
+                log_phases_switch_mat[0, 0] + log_transmat
+            )
+            combined_transmat[:n_states, n_states:] = (
+                log_phases_switch_mat[0, 1] + log_transmat
+            )
+            combined_transmat[n_states:, :n_states] = (
+                log_phases_switch_mat[1, 0] + log_transmat
+            )
+            combined_transmat[n_states:, n_states:] = (
+                log_phases_switch_mat[1, 1] + log_transmat
+            )
 
             for j in np.arange(log_emission.shape[0]):
                 for i in np.arange(log_emission.shape[0]):
-                    buf[i] = (
-                        log_alpha[i, (cumlen + t - 1)] + combined_transmat[i, j]
-                    )
+                    buf[i] = log_alpha[i, (cumlen + t - 1)] + combined_transmat[i, j]
 
                 log_alpha[j, (cumlen + t)] = mylogsumexp(buf) + np.sum(
                     log_emission[j, (cumlen + t), :]
@@ -165,6 +176,7 @@ def forward_marginalize_phased(
         cumlen += le
 
     return log_alpha
+
 
 @njit
 def backward_marginalize_phased(
@@ -191,9 +203,11 @@ def backward_marginalize_phased(
         len(log_startprob) == n_states
     ), f"startprob.shape={log_startprob.shape} does match expectation given log_emission.shape={log_emission.shape}."
 
-    assert log_emission.shape[0] % 2 == 0, f"Expect 2 * n_states for phasing;  detected odd {log_emission.shape}"
+    assert (
+        log_emission.shape[0] % 2 == 0
+    ), f"Expect 2 * n_states for phasing;  detected odd {log_emission.shape}"
 
-    log_sitewise_self_transmat = np.log(1. - np.exp(log_sitewise_transmat))
+    log_sitewise_self_transmat = np.log(1.0 - np.exp(log_sitewise_transmat))
     combined_transmat = np.empty((2 * n_states, 2 * n_states))
 
     log_beta = np.zeros((log_emission.shape[0], n_obs))
@@ -217,11 +231,19 @@ def backward_marginalize_phased(
             )
 
             # NEW
-            combined_transmat[:n_states, :n_states] = log_phases_switch_mat[0, 0] + log_transmat
-            combined_transmat[:n_states, n_states:] = log_phases_switch_mat[0, 1] + log_transmat
-            combined_transmat[n_states:, :n_states] = log_phases_switch_mat[1, 0] + log_transmat
-            combined_transmat[n_states:, n_states:] = log_phases_switch_mat[1, 1] + log_transmat
-            
+            combined_transmat[:n_states, :n_states] = (
+                log_phases_switch_mat[0, 0] + log_transmat
+            )
+            combined_transmat[:n_states, n_states:] = (
+                log_phases_switch_mat[0, 1] + log_transmat
+            )
+            combined_transmat[n_states:, :n_states] = (
+                log_phases_switch_mat[1, 0] + log_transmat
+            )
+            combined_transmat[n_states:, n_states:] = (
+                log_phases_switch_mat[1, 1] + log_transmat
+            )
+
             for i in np.arange(log_emission.shape[0]):
                 for j in np.arange(log_emission.shape[0]):
                     buf[j] = (
@@ -232,6 +254,7 @@ def backward_marginalize_phased(
                 log_beta[i, (cumlen + t)] = mylogsumexp(buf)
         cumlen += le
     return log_beta
+
 
 class hmm_sitewise:
     def __init__(self, params="stmp", t=1.0 - 1.0e-4):
@@ -245,7 +268,7 @@ class hmm_sitewise:
         return compute_emission_probability_nb_betabinom_phased(
             X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus
         )
-    
+
     @staticmethod
     @njit
     def forward_lattice(

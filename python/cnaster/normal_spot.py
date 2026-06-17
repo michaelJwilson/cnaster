@@ -69,8 +69,8 @@ def determine_normal_candidates(
     if (config.preprocessing.normalidx_file is None) and (
         config.preprocessing.tumorprop_file is None
     ):
-        EPS_BAF = 0.05 # MAGIC
-        PERCENT_NORMAL = 40 # MAGIC
+        EPS_BAF = 0.05  # MAGIC
+        PERCENT_NORMAL = 40  # MAGIC
 
         logger.info(
             f"Identifying normal spots based on estimated BAF given EPS_BAF={EPS_BAF} and PERCENT_NORMAL={PERCENT_NORMAL}."
@@ -108,7 +108,7 @@ def determine_normal_candidates(
                 )
                 break
 
-            elif stdthreshold > 1.5 * prior_stdthreshold: # MAGIC
+            elif stdthreshold > 1.5 * prior_stdthreshold:  # MAGIC
                 logger.info(
                     f"Determined {PERCENT_NORMAL}% normal spots with sufficient UMIs, assigned to normal like clone."
                 )
@@ -202,16 +202,16 @@ def filter_normal_diffexp(
     quantile_threshold=80,
 ):
     """
-    Cluster input transcripts per slice into "normal" vs "tumor" spots based on pca + kmeans,
-    utilizing pre-labeled "normal" candidates to identify the "normal" cluster.
+        Cluster input transcripts per slice into "normal" vs "tumor" spots based on pca + kmeans,
+        utilizing pre-labeled "normal" candidates to identify the "normal" cluster.
 
-    Drop gene transcripts that are differentially expressed between this "normal" cluster
-˚   and the "tumor" spots based on log fold change.
+        Drop gene transcripts that are differentially expressed between this "normal" cluster
+    ˚   and the "tumor" spots based on log fold change.
 
-    Returns new counts structure of (genomic bins x spots) after filtering genes with estimated
-    differential expression, namely
+        Returns new counts structure of (genomic bins x spots) after filtering genes with estimated
+        differential expression, namely
 
-        new_single_X_rdr
+            new_single_X_rdr
     """
     adata = anndata.AnnData(exp_counts)
     adata.layers["count"] = exp_counts.values
@@ -298,7 +298,9 @@ def filter_normal_diffexp(
         # NB aggregate counts per normal/tumor designation.
         agg_counts = np.vstack(
             [
-                np.sum(tmpadata.layers["count"][tmpadata.obs["clone"] == label, :], axis=0)
+                np.sum(
+                    tmpadata.layers["count"][tmpadata.obs["clone"] == label, :], axis=0
+                )
                 for label in ["normal", "unsure", "tumor"]
             ]
         )
@@ -379,8 +381,8 @@ def normal_baf_bin_filter(
 ):
     """
     Calculates new aggregated counts (genome blocks x spots) after filtering genomic bins
-    adjudged to have non-normal-like baf in the __normal clone__.  
-    
+    adjudged to have non-normal-like baf in the __normal clone__.
+
     This may be the case if the 'normal' clone is erroneously identified; its mixed with
     non-normal spots or there is allele-specific expression.
 
@@ -423,7 +425,7 @@ def normal_baf_bin_filter(
 
     # NB remove bins if "normal" b-allele probabilities fall out of (5%-95%) confidence interval,
     #    this may be the case if mixed with non-normal spots or allele-specific expression present.
-    #    
+    #
     removal_indicator1 = tmpX < scipy.stats.betabinom.ppf(
         confidence_interval[0],
         tmptotal_bb_RD,
@@ -479,7 +481,7 @@ def normal_baf_bin_filter(
     ), f"{df_gene_snp['bin_id'].notna().sum()} != {sum(lengths)}"
 
     # TODO constructor for recombination rates and associated trasnfer matrices.
-    # 
+    #
     # NB   phase switch probability from genetic distance
     sorted_chr_pos_first = df_gene_snp.groupby("bin_id").agg(
         {"CHR": "first", "START": "first"}

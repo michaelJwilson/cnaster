@@ -76,14 +76,19 @@ def plot_ascn_legend(
     tick_len: float = 0.08,
     label_fontsize: int = 12,
 ):
-    """Draw a horizontal color bar legend for allele CN values."""
-    state_style, ordered_acn = get_full_palette()
-    boxes = list(ordered_acn) + ["7+"]
+    """Draw a horizontal color bar legend for single allele CN values."""
+    state_style, ordered_acn = get_full_palette("chisel_independent")
+    boxes = list(ordered_acn)
+    
+    # Safely append "7+" if it's not already in the list to avoid duplication
+    if "7+" not in boxes:
+        boxes.append("7+")
+        
     ax.axis("off")
     x0 = 0.0
 
     for i, label in enumerate(boxes):
-        color = state_style["default"] if label == "7+" else state_style[label]
+        color = state_style["default"] if label == "7+" else state_style.get(label, state_style["default"])
         rect = Rectangle(
             (x0 + i * box_w, 0.0),
             box_w,
@@ -159,7 +164,8 @@ def plot_copy_number_profile(
     df_cnv contains segment/bin level:
         CHR, clone{cid} Z, clone{cid} A, clone{cid} B
     """
-    state_style, _ = get_full_palette()
+    # Force independent mode
+    state_style, _ = get_full_palette("chisel_independent")
 
     # Extract clone IDs from column names
     a_cols = [c for c in df_cnv.columns if c.endswith(" A")]
@@ -237,22 +243,22 @@ def plot_copy_number_profile(
                 is_mirror = has_mirror[s]
                 direction = dirs[s]
 
-                # B Allele (Bottom sub-bar)
+                # B Allele (Bottom sub-bar - uses cnb)
                 ax.add_patch(
                     Rectangle(
                         (x0, y_b), w, h_sub,
-                        facecolor=state_style.get((cna, cnb), state_style["default"]),
+                        facecolor=state_style.get(cnb, state_style["default"]),
                         edgecolor="none",
                         linewidth=0,
                         alpha=1.0 if cnb == 0 else 0.5,
                     )
                 )
 
-                # A Allele (Top sub-bar)
+                # A Allele (Top sub-bar - uses cna)
                 ax.add_patch(
                     Rectangle(
                         (x0, y_a), w, h_sub,
-                        facecolor=state_style.get((cna, cnb), state_style["default"]),
+                        facecolor=state_style.get(cna, state_style["default"]),
                         edgecolor="none",
                         linewidth=0,
                         alpha=1.0 if cna == 0 else 0.5,

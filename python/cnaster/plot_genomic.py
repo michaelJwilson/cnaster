@@ -83,19 +83,41 @@ def _draw_chromosome_boundaries(axes, lengths, unique_chrs, chrtext_shift):
 
 
 def _annotate_clone_stats(
-    ax, clone_label, n_spots, n_umis, n_snp_umis, tumor_prop=None
+    ax,
+    clone_label,
+    n_spots,
+    n_umis,
+    n_snp_umis,
+    tumor_prop=None,
+    paired_ax=None,
 ):
     """Annotates the axis with clone identity and spot/UMI statistics."""
-    ax.text(
-        -0.04,
-        0.5,
-        cast_clone_label(str(clone_label)),
-        ha="center",
-        va="center",
-        fontsize=12,
-        rotation="vertical",
-        transform=ax.transAxes,
-    )
+    if paired_ax is None:
+        ax.text(
+            -0.04,
+            0.5,
+            cast_clone_label(str(clone_label)),
+            ha="center",
+            va="center",
+            fontsize=12,
+            rotation="vertical",
+            transform=ax.transAxes,
+        )
+    else:
+        # Align clone label to the center of the combined RDR+BAF panel.
+        bbox_top = ax.get_position()
+        bbox_bottom = paired_ax.get_position()
+        x_text = bbox_top.x0 - 0.04 * bbox_top.width
+        y_text = 0.5 * (bbox_top.y1 + bbox_bottom.y0)
+        ax.figure.text(
+            x_text,
+            y_text,
+            cast_clone_label(str(clone_label)),
+            ha="center",
+            va="center",
+            fontsize=12,
+            rotation="vertical",
+        )
 
     theta_text = (
         f"$\\hat{{\\theta}}={tumor_prop:.2f}$" if tumor_prop is not None else ""
@@ -209,6 +231,7 @@ def plot_clones_genomic_raw(
             np.sum(X[:, 0, s]),
             np.sum(total_bb_RD[:, s]),
             t_prop,
+            paired_ax=ax_baf if has_rdr else None,
         )
 
         # HMM Model Fits
@@ -483,6 +506,7 @@ def plot_clones_genomic(
             spots_per_clone[c],
             np.sum(X[:, 0, c]),
             np.sum(total_bb_RD[:, c]),
+            paired_ax=ax_baf,
         )
 
     _draw_chromosome_boundaries(axes, lengths, unique_chrs, chrtext_shift)

@@ -94,7 +94,7 @@ def _annotate_clone_stats(
     """Annotates the axis with clone identity and spot/UMI statistics."""
     # A uniform negative horizontal offset ensures alignment is consistently 
     # to the left of the RDR/BAF y-labels. Adjust -0.08 if you need more/less gap.
-    x_offset = -0.08  
+    x_offset = -0.04
     
     if paired_ax is None:
         ax.text(

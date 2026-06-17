@@ -173,7 +173,7 @@ def plot_clones_genomic_raw(
                 ax_rdr,
                 "\nRDR",
                 [-0.5, rdr_ylim],
-                np.arange(0, rdr_ylim + 0.5, 0.5),
+                np.arange(0, rdr_ylim + 1.0, 1.0),
                 remove_xticks,
                 n_obs,
             )
@@ -377,7 +377,7 @@ def plot_clones_genomic(
             ax_rdr,
             "\nRDR",
             [-0.5, rdr_ylim],
-            np.arange(0, rdr_ylim + 0.5, 0.5),
+            np.arange(0, rdr_ylim + 1.0, 1.0),
             remove_xticks,
             n_obs,
         )

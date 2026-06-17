@@ -24,16 +24,9 @@ def get_intervals(pred_cnv):
             labs.append(pred_cnv[s])
             s = len(pred_cnv)
         else:
-            # NB next label switch
             t = t[0]
-
-            # NB add the interval (run start index to run end index)
             intervals.append((s, s + t))
-
-            # NB add the corresponding state label for this new interval.
             labs.append(pred_cnv[s])
-
-            # NB update the index.
             s = s + t
 
     return intervals, labs
@@ -73,7 +66,6 @@ def _draw_mirrored_loh_chevrons(
             linewidth=1.2,
             alpha=0.5,
             solid_capstyle="round",
-            transform=ax.get_xaxis_transform(),
         )
 
 
@@ -151,12 +143,14 @@ def plot_ascn_legend(
     return ax
 
 
-def plot_ascn_profile(
-    ax: plt.Axes,
+def plot_copy_number_profile(
     df_cnv: pd.DataFrame,
+    ax: plt.Axes = None,
     height: float = 1.0,
     title: str = None,
     show_clone_name: bool = True,
+    plot_chrname: bool = True,
+    figsize: tuple = None,
 ):
     """
     Plot (allele-specific) per-clone CNA profiles where width is strictly
@@ -172,7 +166,16 @@ def plot_ascn_profile(
     clone_ids = [c.split(" ")[0][5:] for c in a_cols]
     num_clones = len(clone_ids)
 
-    # Dimensional setup
+    # Cleanly generate a single figure/axis if one wasn't passed in
+    if ax is None:
+        if figsize is None:
+            # Dynamically scale physical height so clones don't get squished
+            figsize = (20, max(3.0, num_clones * 1.2))
+        fig, ax = plt.subplots(figsize=figsize, dpi=300, facecolor="white")
+    else:
+        fig = ax.figure
+
+    # Dimensional setup for the continuous y-axis
     h = height / num_clones
     clone_gap = 0.10 * h
     h_pair = h - clone_gap
@@ -215,7 +218,6 @@ def plot_ascn_profile(
             dirs = dirs_mat[:, k]
 
             # Fast numeric encoding to feed into the 1D get_intervals array 
-            # to guarantee breaks happen when A, B, or the cross-clone mirror state changes.
             encoded_states = a_states * 1000 + b_states * 10 + has_mirror.astype(int)
             
             intervals, _ = get_intervals(encoded_states)
@@ -241,7 +243,6 @@ def plot_ascn_profile(
                         (x0, y_b), w, h_sub,
                         facecolor=state_style.get((cna, cnb), state_style["default"]),
                         edgecolor="none",
-                        transform=ax.get_xaxis_transform(),
                         linewidth=0,
                         alpha=1.0 if cnb == 0 else 0.5,
                     )
@@ -253,7 +254,6 @@ def plot_ascn_profile(
                         (x0, y_a), w, h_sub,
                         facecolor=state_style.get((cna, cnb), state_style["default"]),
                         edgecolor="none",
-                        transform=ax.get_xaxis_transform(),
                         linewidth=0,
                         alpha=1.0 if cna == 0 else 0.5,
                     )
@@ -265,7 +265,7 @@ def plot_ascn_profile(
         # Advance offset by the exact number of segments (rows) in this chromosome
         ch_offset += n_rows
 
-        # Chromosome dividing line
+        # Chromosome dividing line (Kept get_xaxis_transform so it spans top to bottom relative to Axes)
         if ch != chs[-1]:
             line = ax.vlines(
                 ch_offset, ymin=0, ymax=1.15,
@@ -276,7 +276,7 @@ def plot_ascn_profile(
 
     ch_coords.append(ch_offset)
 
-    # UI Formatting
+    # UI Formatting: Clone boundaries
     for k in range(num_clones):
         y_b_k = k * h + y_gap
         for y0 in (y_b_k, y_b_k + h_sub):
@@ -284,7 +284,7 @@ def plot_ascn_profile(
                 Rectangle(
                     (0, y0), ch_offset, h_sub,
                     facecolor="none", edgecolor="black",
-                    linewidth=0.5, transform=ax.get_xaxis_transform(),
+                    linewidth=0.5,
                 )
             )
 
@@ -294,8 +294,19 @@ def plot_ascn_profile(
     for spine in ax.spines.values():
         spine.set_visible(False)
 
-    # Deprecated plot_chrname, hiding ticks
-    ax.set_xticks([])
+    # Handle Chromosome text placement
+    if plot_chrname:
+        midpoints = [ch_coords[i] + (ch_coords[i + 1] - ch_coords[i]) // 2 for i in range(len(ch_coords) - 1)]
+        ax.set_xticks(midpoints)
+        
+        # Ensure 'chr' prefix is added if missing
+        chr_labels = [f"chr{ch}" if str(ch).isdigit() else str(ch) for ch in chs]
+        
+        # Match plot_clones_genomic styling (bottom label, 45 degree rotation, left aligned)
+        ax.set_xticklabels(chr_labels, rotation=45, fontsize=10, ha="left")
+        ax.tick_params(axis="x", labeltop=False, labelbottom=True, top=False, bottom=True)
+    else:
+        ax.set_xticks([])
 
     # Generate simplified Y-axis labels
     ax.set_yticks([h * (i + 0.5) for i in range(num_clones)])
@@ -317,4 +328,5 @@ def plot_ascn_profile(
     if title:
         ax.set_title(title)
 
-    return ax
+    # Returning both the figure and the axis object is best practice
+    return fig, ax

@@ -40,6 +40,7 @@ from cnaster.spatial import (  # fixed_rectangle_partition,; sufficient_umis_ini
     best_equal_partition, initialize_clones, multislice_adjacency,
     rectangle_initialize_initial_clone)
 # from cnaster.hmm_initialize import plot_cna_mixture
+from cnaster.plot_copy_number_profile import plot_copy_number_profile
 from cnaster.utils import (configure_output_dir, merge_dicts, pause, write_fig,
                            write_tsv)
 
@@ -1822,6 +1823,16 @@ def run_cnaster(config_path, over_rides=None):
         prefix="final",
     )
     """
+
+    fig_copy_number_profile = plot_copy_number_profile(
+        df_seglevel_cnv, # segment level: chr, start, end, real states (Z), A/B copies, & model (log_mu, p_binom) for each clone.
+    )
+
+    fig_path = f"{plots_dir}/copy_number_profile.pdf"
+    write_fig(
+        fig_path, fig_copy_number_profile, transparent=True, bbox_inches="tight"
+    )
+        
     logger.info(f"Done in {(time.time() - start_time)/60.:.2f} minutes.")
 
 

@@ -352,9 +352,12 @@ def pause(config=None):
 
 def get_intervals(pred_cnv):
     """
-    Find contiguous intervals in the array pred_cnv where the
-    copy number state is the same.  Returns the list of intervals
-    and their state.
+    Find contiguous intervals in the state label array (pred_cnv)
+    --- typically real copy states (Z) or integer (A,B) states ---    
+    where the copy number state is the same.  
+    
+    Returns a list of intervals (start index, end index) into the array 
+    and the corresponding array of state label for each interval.
     """
     intervals, labs = [], []
     s = 0
@@ -366,8 +369,16 @@ def get_intervals(pred_cnv):
             labs.append(pred_cnv[s])
             s = len(pred_cnv)
         else:
+            # NB next label switch
             t = t[0]
+
+            # NB add the interval (run start index to run end index)
             intervals.append((s, s + t))
+
+            # NB add the corresponding state label for this new interval.
             labs.append(pred_cnv[s])
+
+            # NB update the index.
             s = s + t
+
     return intervals, labs

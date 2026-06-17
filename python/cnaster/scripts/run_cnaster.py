@@ -1482,7 +1482,7 @@ def run_cnaster(config_path, over_rides=None):
 
             # TODO constructor >>>>>  refreshed on each new ploidy.
             # 
-            # NB best copy states for each clone and each ploidy.
+            # NB best _REAL_ (not integer) copy states for each clone and each ploidy.
             allele_specific_copy.append(
                 pd.DataFrame(
                     this_pred_cnv.reshape(1, -1),
@@ -1509,7 +1509,7 @@ def run_cnaster(config_path, over_rides=None):
                 )
             )
 
-            # NB best integer copies for each clone and each ploidy.
+            # NB best integer A-copies for each clone and each ploidy.
             allele_specific_copy.append(
                 pd.DataFrame(
                     best_integer_copies[this_pred_cnv, 0].reshape(1, -1),
@@ -1517,6 +1517,8 @@ def run_cnaster(config_path, over_rides=None):
                     columns=np.arange(n_obs),
                 )
             )
+
+            # NB best integer B-copies for each clone and each ploidy.
             allele_specific_copy.append(
                 pd.DataFrame(
                     best_integer_copies[this_pred_cnv, 1].reshape(1, -1),
@@ -1525,7 +1527,7 @@ def run_cnaster(config_path, over_rides=None):
                 )
             )
 
-            # NB best read depth for each clone and ploidy.
+            # NB best per-state read depth for each clone and ploidy.
             state_cnv.append(
                 pd.DataFrame(
                     res_combine["new_log_mu"][:, s].reshape(-1, 1),
@@ -1534,7 +1536,7 @@ def run_cnaster(config_path, over_rides=None):
                 )
             )
 
-            # NB best baf for each clone and ploidy.
+            # NB best per-state baf for each clone and ploidy.
             state_cnv.append(
                 pd.DataFrame(
                     res_combine["new_p_binom"][:, s].reshape(-1, 1),
@@ -1543,7 +1545,7 @@ def run_cnaster(config_path, over_rides=None):
                 )
             )
 
-            # NB best integer copies for each clone and ploidy.
+            # NB best per-state integer A-copies for each clone and ploidy.
             state_cnv.append(
                 pd.DataFrame(
                     best_integer_copies[:, 0].reshape(-1, 1),
@@ -1551,6 +1553,7 @@ def run_cnaster(config_path, over_rides=None):
                     index=np.arange(config.hmm.n_states),
                 )
             )
+            # NB best per-state integer B-copies for each clone and ploidy.
             state_cnv.append(
                 pd.DataFrame(
                     best_integer_copies[:, 1].reshape(-1, 1),
@@ -1629,6 +1632,8 @@ def run_cnaster(config_path, over_rides=None):
 
         a_cols = [c for c in df_seglevel_cnv.columns if c.endswith(" A")]
         b_cols = [c.replace(" A", " B") for c in a_cols]
+
+        # NB mask any segments with all normal (1) copies (TBC!!).
         mask = (df_seglevel_cnv[a_cols].ne(1) | df_seglevel_cnv[b_cols].ne(1)).any(
             axis=1
         )
@@ -1680,13 +1685,13 @@ def run_cnaster(config_path, over_rides=None):
         opath = f"{output_dir}/cnv{medfix[o]}_perstate.tsv"
         write_tsv(opath, state_cnv, header=True, index=False)
 
-        copy_states_fig = plot_copy_states(state_cnv)
-        write_fig(
-            f"{plots_dir}/copy_states{medfix[o]}.pdf",
-            copy_states_fig,
-            transparent=True,
-            bbox_inches="tight",
-        )
+        # copy_states_fig = plot_copy_states(state_cnv)
+        # write_fig(
+        #     f"{plots_dir}/copy_states{medfix[o]}.pdf",
+        #     copy_states_fig,
+        #     transparent=True,
+        #     bbox_inches="tight",
+        # )
 
     # NB complete inner loop over clones, and loop of assumed ploidy.
     #    i.e. now assuming the last of the possible ploidy constraints,
@@ -1723,7 +1728,7 @@ def run_cnaster(config_path, over_rides=None):
 
     # NB assumes a ploidy constraint, currently defaults to last, e.g. "tetraploid".
     rdr_baf_fig = plot_clones_genomic(
-        df_seglevel_cnv,
+        df_seglevel_cnv, # segment level: chr, start, end, real states (Z), A/B copies, & model (log_mu, p_binom) for each clone.
         lengths,
         single_X,
         single_base_nb_mean,

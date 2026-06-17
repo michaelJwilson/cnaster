@@ -1,9 +1,9 @@
-import logging
+
 
 import numpy as np
-from collections import namedtuple
+# from collections import namedtuple
 from cnaster.utils import cacher
-from cnaster.hmm import hmm_sitewise, pipeline_baum_welch
+from cnaster.hmm import pipeline_baum_welch, hmm_sitewise
 from cnaster.hmm_phased import hmm_phased
 from cnaster.hmm_nophasing import hmm_nophasing
 from cnaster.hmrf_utils import clone_stack_obs
@@ -20,7 +20,7 @@ logger = get_logger(__name__, start_time=start_time)
 # )
 
 # NB mirrors calicost.phasing.initial_phase_given_partition; 
-@cacher("initial_phase.hdf5")
+# @cacher("initial_phase.hdf5")
 def initial_phase_given_partition(
     single_X,
     lengths,

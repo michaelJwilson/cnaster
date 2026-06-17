@@ -199,7 +199,7 @@ class hmm_nophasing:
         Input
             log_emission: n_states * n_observations * n_spots.
             lengths: sum of lengths = n_observations.
-            log_transmat: n_states * n_states. Transition probability after log transformation.
+            log_transmat: n_states * n_states.  Transition probability.
             log_startprob: n_states. Start probability after log transformation.
         Output
             log_alpha: size n_states * n_observations. log alpha[j, t] = log P(o_1, ... o_t, q_t = j | lambda).
@@ -873,7 +873,7 @@ class hmm_nophasing:
             "log_gamma": log_gamma,
         }
 
-    def run_baum_welch_nb_bb_new(
+    def run_baum_welch_nb_bb(
         self,
         X,
         lengths,

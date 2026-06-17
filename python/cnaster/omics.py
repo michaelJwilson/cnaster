@@ -228,14 +228,14 @@ def summarize_blocks(
     if sort_key is not None:
         block_summary = block_summary.sort_values(sort_key, ascending=False)
 
+    # TODO MAGIC keyword                                                                                                                                                                        
+    max_rows = 25
+        
     logger.info(f"Breakdown of genes/snps/umi per {block_key} sorted by {sort_key} (top {max_rows}):")
     logger.info(
         f"{'block id':<10}\t{'chr':>4}\t{'start':>12}\t{'length':>12} [Kbp]\t{'snps':>8}\t{'genes':>8}\t{'total umi':>12}\t{'snp umi':>12}\t{'normal umi':>12}\t{'normal snp umi':>12}"
     )
     logger.info("-" * 136)
-
-    # TODO MAGIC keyword
-    max_rows = 25
 
     for ii, (block_id, row) in enumerate(block_summary.iterrows()):
         logger.info(

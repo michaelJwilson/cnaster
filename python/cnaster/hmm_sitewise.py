@@ -80,6 +80,7 @@ def forward_marginalize_phased(
 ):
     """
     Note that n_states is the CNV states, and there are 2 * n_states of paired states for (CNV, phasing) pairs.
+
     Input
         lengths: sum of lengths = n_observations.
         log_transmat: n_states * n_states. Transition probability after log transformation.
@@ -121,6 +122,9 @@ def forward_marginalize_phased(
         )
 
         for t in np.arange(1, le):
+            # NB log_phases_switch_mat is a 2×2 matrix for phase switch at this (genomic) step,
+            # Diagonal entries stay in the same phase (log_sitewise_self_transmat[t]),
+            # Off-diagonal entries switch phase (log_sitewise_transmat[t])
             log_phases_switch_mat = np.array(
                 [
                     [
@@ -134,7 +138,15 @@ def forward_marginalize_phased(
                 ]
             )
 
-            # NEW 
+            # NEW hadamard form.
+            # combined_transmat is defined for combinatorial (copy state, phase) states.
+            # First n rows/cols (TBC) represent phase 0 CNV states; next n represent phase 1.
+            # Each block is an n×n CNV transition matrix shifted by one phase-transition log-probability.
+            #
+            # top-left block: phase 0 → phase 0
+            # top-right block: phase 0 → phase 1
+            # bottom-left block: phase 1 → phase 0
+            # bottom-right block: phase 1 → phase 1 
             combined_transmat[:n_states, :n_states] = log_phases_switch_mat[0, 0] + log_transmat
             combined_transmat[:n_states, n_states:] = log_phases_switch_mat[0, 1] + log_transmat
             combined_transmat[n_states:, :n_states] = log_phases_switch_mat[1, 0] + log_transmat

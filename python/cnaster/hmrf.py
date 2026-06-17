@@ -1240,7 +1240,7 @@ def aggr_hmrf_reassignment(
 
     logger.info("Computing unary likelihood for HMRF reassignment.")
 
-    # UGH 
+    # TODO UGH FINAL takes forever to run.
     for i in range(n_spots):
         idx = smooth_mat[i, :].nonzero()[1]
 

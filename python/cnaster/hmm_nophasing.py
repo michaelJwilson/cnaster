@@ -1056,6 +1056,7 @@ class hmm_nophasing:
             # NB em cost is sum_iid of obs., sum_state of gamma * log_emission, which is negative log likelihood.
             return -np.sum(self.state_posteriors * self.log_emissions[..., 0])
 
+        '''
         def nll_forward(params):
             this_log_startprob, this_log_mu, this_p_binom, this_alphas, this_taus = (
                 self.unpack_params(
@@ -1116,6 +1117,7 @@ class hmm_nophasing:
                 curr += le
 
             return total_nll
+        '''
 
         # NB vanilla max. likelihood or baum welch.
         # cost, callback = nll_forward, None

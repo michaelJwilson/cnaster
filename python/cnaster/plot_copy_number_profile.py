@@ -335,4 +335,4 @@ def plot_copy_number_profile(
         ax.set_title(title)
 
     # Returning both the figure and the axis object is best practice
-    return fig, ax
+    return fig

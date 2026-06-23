@@ -540,8 +540,10 @@ def run_cnaster(config_path, over_rides=None):
         threshold=config.hmrf.tumorprop_threshold,
     )
 
-    clone_id = get_clone_assignment(coords, initial_clone_index_baf)
-    assignment = pd.Series([f"clone {x}" for x in clone_id])
+    # clone_id = get_clone_assignment(coords, initial_clone_index_baf)
+    assignment = pd.Series(
+        [f"clone {x}" for x in get_clone_assignment(coords, initial_clone_index_baf)]
+    )
 
     initial_clones_fig = plot_clones_spatial(
         coords,
@@ -564,7 +566,7 @@ def run_cnaster(config_path, over_rides=None):
     pause()
 
     logger.info(
-        "Solving hmm & hmrf for copy states and clone assignment with baf only."
+        "Solving hmm & hmrf for copy states and clone assignment assuming baf only."
     )
 
     # NB zero transcript counts for all segments/spots, to drop rdr dependence

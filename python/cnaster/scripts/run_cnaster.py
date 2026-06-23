@@ -690,7 +690,9 @@ def run_cnaster(config_path, over_rides=None):
 
     # NB merge according to min. number of spots per clone criterion;  single_X has dynamic shape (n_segments, 2, n_spots).
     n_obs = single_X.shape[0]
-    min_umicount_thresholds = n_obs * config.hmrf.min_avgumi_per_clone # MAGIC 31_420 SNP UMIs
+    min_umicount_thresholds = (
+        n_obs * config.hmrf.min_avgumi_per_clone
+    )  # MAGIC 31_420 SNP UMIs
 
     _, merged_res = merge_by_minspots(
         merged_res["new_assignment"],
@@ -1400,12 +1402,7 @@ def run_cnaster(config_path, over_rides=None):
     # NB infer integer allele-specific copy numbers
     final_clone_ids = np.sort(np.unique(res_combine["new_assignment"]))
 
-    # DEPRECATE
-    # NB add normal clone as 0 if not present
-    if 0 not in final_clone_ids:
-        final_clone_ids = np.append(0, final_clone_ids)
-        logger.error(f"Missing normal clones - prepended as 0 to final clone ids.")
-        raise RuntimeError()
+    assert 0 in final_clone_ids, "Normal clone (0) absent from final clone ids."
 
     logger.info(f"Utilizing final clone ids={final_clone_ids}")
 
@@ -1520,9 +1517,32 @@ def run_cnaster(config_path, over_rides=None):
                 f"Solved for (max. med ploidy, clone) = ({max_medploidy}, {s}) with integer copy number loss = {loss:.4e} and best ploidy = {best_ploidy}"
             )
 
-            # TODO constructor >>>>>  refreshed on each new ploidy.
-            #
-            # NB best _REAL_ (not integer) copy states for each clone and each ploidy.
+            for name, data in zip(
+                ("Z", "logmu", "p", "A", "B"),
+                [
+                    this_pred_cnv,  # NB best _REAL_ (not integer) copy states for each clone and each ploidy.
+                    res_combine["new_log_mu"][
+                        this_pred_cnv, s
+                    ],  # NB best model read depth for each clone and each ploidy.
+                    res_combine["new_p_binom"][
+                        this_pred_cnv, s
+                    ],  # NB best model baf for each clone and each ploidy.
+                    best_integer_copies[
+                        this_pred_cnv, 0
+                    ],  # NB best integer A-copies for each clone and each ploidy.
+                    best_integer_copies[
+                        this_pred_cnv, 1
+                    ],  # NB best integer B-copies for each clone and each ploidy.
+                ],
+            ):
+                allele_specific_copy.append(
+                    pd.DataFrame(
+                        data.reshape(1, -1),
+                        index=[f"clone{cid} {name}"],
+                        columns=np.arange(n_obs),
+                    )
+                )
+            """
             allele_specific_copy.append(
                 pd.DataFrame(
                     this_pred_cnv.reshape(1, -1),
@@ -1566,7 +1586,34 @@ def run_cnaster(config_path, over_rides=None):
                     columns=np.arange(n_obs),
                 )
             )
+            """
 
+            for name, data in zip(
+                ("logmu", "p", "A", "B"),
+                [
+                    res_combine["new_log_mu"][
+                        :, s
+                    ],  # NB best per-state read depth for each clone and ploidy.
+                    res_combine["new_p_binom"][
+                        :, s
+                    ],  # NB best per-state baf for each clone and ploidy.
+                    best_integer_copies[
+                        :, 0
+                    ],  # NB best per-state integer A-copies for each clone and ploidy.
+                    best_integer_copies[
+                        :, 1
+                    ],  # NB best per-state integer B-copies for each clone and ploidy.
+                ],
+            ):
+                state_cnv.append(
+                    pd.DataFrame(
+                        data.reshape(-1, 1),
+                        columns=[f"clone{cid} {name}"],
+                        index=np.arange(config.hmm.n_states),
+                    )
+                )
+
+            """
             # NB best per-state read depth for each clone and ploidy.
             state_cnv.append(
                 pd.DataFrame(
@@ -1601,7 +1648,21 @@ def run_cnaster(config_path, over_rides=None):
                     index=np.arange(config.hmm.n_states),
                 )
             )
+            """
 
+            df_genes = df_gene_snp[df_gene_snp.is_interval]
+
+            clone_copies = best_integer_copies[res_combine["pred_cnv"][:, s]]
+
+            tmpdf = pd.DataFrame(
+                {
+                    "gene": df_genes.gene,
+                    f"clone{s} A": clone_copies[df_genes["bin_id"], 0],
+                    f"clone{s} B": clone_copies[df_genes["bin_id"], 1],
+                }
+            ).set_index("gene")
+
+            """
             # NB mapper of best A copy for each genomic segment
             bin_Acopy_mappers = {
                 i: x
@@ -1630,6 +1691,7 @@ def run_cnaster(config_path, over_rides=None):
                     ),
                 }
             ).set_index("gene")
+            """
 
             # NB join the temporary dataframe with the existing gene-level copy number dataframe,
             #    i.e. if a subsequent clone or ploidy.
@@ -1659,19 +1721,11 @@ def run_cnaster(config_path, over_rides=None):
             index=True,
         )
 
-        # NB output genome segment-level copy number;
-        allele_specific_copy = pd.concat(allele_specific_copy)
-
-        df_seglevel_cnv = pd.DataFrame(
-            {
-                "CHR": df_bininfo.CHR.values,
-                "START": df_bininfo.START.values,
-                "END": df_bininfo.END.values,
-            }
+        # NB output genome segment-level copy number with
+        #    best integer copies for each clone and each ploidy.
+        df_seglevel_cnv = df_bininfo[["CHR", "START", "END"]].join(
+            pd.concat(allele_specific_copy).T
         )
-
-        # NB best integer copies for each clone and each ploidy.
-        df_seglevel_cnv = df_seglevel_cnv.join(allele_specific_copy.T)
 
         a_cols = [c for c in df_seglevel_cnv.columns if c.endswith(" A")]
         b_cols = [c.replace(" A", " B") for c in a_cols]

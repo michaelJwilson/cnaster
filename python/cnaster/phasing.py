@@ -18,7 +18,6 @@ logger = get_logger(__name__, start_time=start_time)
 #     cell_snp_Aallele, cell_snp_Ballele, 0.1
 # )
 
-
 # NB mirrors calicost.phasing.initial_phase_given_partition;
 # @cacher("initial_phase.hdf5")
 def initial_phase_given_partition(
@@ -63,11 +62,10 @@ def initial_phase_given_partition(
 
     # NB force baf < 0.5 by taking (1. - single_X[:,1,:]) where single_X[:,1,:]) / single_total_bb_RD > 0.5
     baf = X[:, 1, :] / total_bb_RD
-    minor_counts = np.where(baf > 0.5, total_bb_RD - X[:, 1, :], X[:, 1, :])
 
     minor_X = np.zeros_like(X)
     minor_X[:, 0, :] = X[:, 0, :]
-    minor_X[:, 1, :] = minor_counts
+    minor_X[:, 1, :] = np.where(baf > 0.5, total_bb_RD - X[:, 1, :], X[:, 1, :])
 
     # NB (initial clones, segments).
     n_clones = X.shape[2]
@@ -95,7 +93,7 @@ def initial_phase_given_partition(
         only_minor=True,
     )
 
-    # NB determines dispersion with no phasing.
+    # NB initial dispersion estimate assuming no phasing.
     res = pipeline_baum_welch(
         None,
         clone_stack_minor_X,
@@ -119,6 +117,7 @@ def initial_phase_given_partition(
         tol=tol,
     )
 
+    # TODO rename model_baf_profiles
     baf_profiles, phase_profiles = np.zeros((n_clones, X.shape[0])), np.zeros((n_clones, X.shape[0]))
 
     for i in range(n_clones):
@@ -138,7 +137,7 @@ def initial_phase_given_partition(
             total_bb_RD[:, i : (i + 1)],
             log_sitewise_transmat,
             tumor_prop=tumor_prop, # NB calicost assumes tumor_prop is None
-            hmmclass=hmm_sitewise,
+            hmmclass=hmm_sitewise, # NB assumes hmm_sitewise
             params="", # NB does not solve for p(!) or s.
             t=t,
             random_state=random_state,

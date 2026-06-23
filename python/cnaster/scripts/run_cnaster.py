@@ -1402,6 +1402,7 @@ def run_cnaster(config_path, over_rides=None):
     # NB infer integer allele-specific copy numbers
     final_clone_ids = np.sort(np.unique(res_combine["new_assignment"]))
 
+    # TODO stronger 0 .. N?
     assert 0 in final_clone_ids, "Normal clone (0) absent from final clone ids."
 
     logger.info(f"Utilizing final clone ids={final_clone_ids}")

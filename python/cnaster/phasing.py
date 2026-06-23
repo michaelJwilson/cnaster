@@ -189,6 +189,8 @@ def initial_phase_given_partition(
         assumed_normal = np.abs(baf_profiles[i, :] - 0.5) < EPS_BAF
 
         phase_profiles[i, :] = pred < n_states
+
+        # NB do not define phase for normal-like segments (for this clone).
         phase_profiles[i, assumed_normal] = -1
 
     minor_baf_profiles = np.where(baf_profiles < 0.5, baf_profiles, 1.0 - baf_profiles)

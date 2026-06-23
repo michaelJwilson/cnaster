@@ -10,6 +10,10 @@ from cnaster.hmm_sitewise import (
 
 
 def switch_betabinom(log_emission_baf_nophase, k, n, alpha, beta):
+    """
+    Efficient evaluation of the _phase_ betabinomial emission given
+    the unphased variety and model parameters.
+    """
     # NB expect:
     #    log_emission_baf_nophase.shape=(n_states, n_obs),
     #    k.shape=(n_obs,),
@@ -27,6 +31,10 @@ def switch_betabinom(log_emission_baf_nophase, k, n, alpha, beta):
 def compute_emission_probability_nb_betabinom_coded(
     nbEncoder, bbEncoder, log_mu, alphas, p_binom, taus
 ):
+    """
+    Efficient emission probability evaluation:  calculates for the
+    unique observations and then decodes to the full set.
+    """
     n_states = log_mu.shape[0]
 
     # NB assumes a single spot, index 0.
@@ -78,6 +86,9 @@ def compute_emission_probability_nb_betabinom_coded(
 def compute_emission_probability_nb_betabinom_phased_coded(
     nbEncoder, bbEncoder, log_mu, alphas, p_binom, taus
 ):
+    """
+    Efficient emission probability evaluation for the phased betabinomial model.
+    """
     n_states = p_binom.shape[0]
 
     # NB guard against
@@ -112,7 +123,8 @@ def compute_emission_probability_nb_betabinom_phased_coded(
 
     return log_emission_rdr, log_emission_baf
 
-
+# TODO?
+# NB phased HMM class inherits run_baum_welch from the unphased variety, but overrides emission and forward/backward.
 class hmm_phased(hmm_nophasing):
     def __init__(self, params="stmp", t=1 - 1e-4):
         super().__init__(params=params, t=t)

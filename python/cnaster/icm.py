@@ -1,4 +1,3 @@
-# import logging
 import numpy as np
 import csv
 import time
@@ -7,7 +6,6 @@ from numba import njit
 from dataclasses import dataclass, asdict, field
 
 # from collections import deque
-# from statistics import mean
 from cnaster.config import start_time
 from cnaster.logger import get_logger
 from collections import deque
@@ -98,6 +96,7 @@ def unpack_adjacency(adj_list):
     return adj_spots, adj_neighbors, adj_weights
 
 
+# TODO MOVE wolff
 @njit(cache=True)
 def build_wolff_cluster(
     new_assignment,
@@ -108,14 +107,14 @@ def build_wolff_cluster(
     temp=1.0,
 ):
     """
-    Construct a sub-cluster at a root spot with BFS from the cluster
-    root.  Addition to the sub_cluster occurs with prob.
+    Construct a sub-cluster at a root spot with BFS from the cluster root.
+    Addition to the sub_cluster occurs with prob.
 
-    p_add = 1 - exp(-edge_weight / temp)
+    p_add = 1. - exp(-edge_weight / temp)
 
     if the neighbor has the same spin as the root.
 
-    Returns the cluster and the log-probability of the forward move.
+    Returns the cluster and the log-probability of the (forward) move.
     """
     visited, cluster, queue = [this_spot], [this_spot], [this_spot]
     current_assignment = new_assignment[this_spot]
@@ -154,6 +153,7 @@ def build_wolff_cluster(
 
 
 # DEPRECATE:  mis-guided effort for detailed balance by hand?  J energy cost
+# TODO MOVE wolff
 #             by construction, H energy cost by acceptance.
 @njit(cache=True)
 def get_cluster_lnprob_backward(
@@ -255,6 +255,7 @@ def calc_cluster_assignment_cost(
     return w_node, w_edge
 
 
+# TODO MOVE wolff
 @njit(cache=True)
 def wolff_update(
     single_llf,
@@ -369,6 +370,7 @@ def wolff_update(
         return cost_zeropoint, current_assignment, cluster, acceptance
 
 
+# TODO MOVE wolff
 def wolff_sweep(
     single_llf,
     adj_spots,

@@ -95,7 +95,7 @@ def initial_phase_given_partition(
         only_minor=True,
     )
 
-    # NB currently determines dispersion for phasing calc.
+    # NB determines dispersion with no phasing.
     res = pipeline_baum_welch(
         None,
         clone_stack_minor_X,
@@ -119,14 +119,14 @@ def initial_phase_given_partition(
         tol=tol,
     )
 
-    baf_profiles = np.zeros((n_clones, X.shape[0]))
-    phase_profiles = np.zeros((n_clones, X.shape[0]))
+    baf_profiles, phase_profiles = np.zeros((n_clones, X.shape[0])), np.zeros((n_clones, X.shape[0]))
 
     for i in range(n_clones):
         logger.info(f"Solving for phasing of initial clone {i} of {n_clones}.")
 
         # NB assumes BAF = 0.5 for insufficient snp umi count; initial binning chosen so this is not the case
         #    for pseudobulk of all spots?
+        #
         # NB phasing of a single clone; independent BAF values.
         """
         res = pipeline_baum_welch(

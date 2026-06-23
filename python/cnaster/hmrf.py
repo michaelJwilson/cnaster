@@ -306,6 +306,7 @@ def aggr_hmrfmix_reassignment_concatenate(
 
     logger.info("Pooling hmrf data by smooth mat. (reduces necessary computation).")
 
+    # TODO no_pool flag 
     # NB pool data by smooth mat: reduces spots to calculate likelihood for, i.e. faster.
     pooled_X, pooled_base_nb_mean, pooled_total_bb_RD, _, weighted_tp = pool_hmrf_data(
         single_X,
@@ -576,7 +577,7 @@ def validation_summary(
         zero_point += ll
 
 
-@count_calls
+# @count_calls
 def hmrfmix_concatenate_pipeline(
     single_X,
     lengths,
@@ -613,7 +614,7 @@ def hmrfmix_concatenate_pipeline(
     # unit_ysquared=3,
     spatial_weight=1.0 / 6.0,
     tumorprop_threshold=0.5,
-    plot_progress=True,
+    plot_progress=False,
 ):
     # NB num. of genomic bins, num. pseudobulk (clones, spots, ...)
     n_obs, _, _ = single_X.shape
@@ -674,6 +675,7 @@ def hmrfmix_concatenate_pipeline(
 
     merge = False
 
+    # TODO initializes hmm (with gmm).
     if (init_log_mu is None) or (init_p_binom is None):
         new_init_log_mu, new_init_p_binom = gmm_init(
             n_states,
@@ -712,9 +714,10 @@ def hmrfmix_concatenate_pipeline(
         logger.info(
             f"Solved for hmm initialized parameters:\n{init_log_mu}\n{init_p_binom}"
         )
-        logger.info(
-            f"Plotting initial copy state mixture for instance {hmrfmix_concatenate_pipeline.call_count-1} with X.shape={X.shape}."
-        )
+
+        # logger.info(
+        #     f"Plotting initial copy state mixture for instance {hmrfmix_concatenate_pipeline.call_count-1} with X.shape={X.shape}."
+        # )
 
         n_states = init_p_binom.shape[0]
 
@@ -825,7 +828,7 @@ def hmrfmix_concatenate_pipeline(
             **remain_kwargs,
         )
 
-        # NB MAP copy state, no phasing.
+        # NB MAP copy state, irrespective of phasing. contrast to "pred_cnv". 
         pred = np.argmax(res["log_gamma"], axis=0)
 
         # NB TODO 'max' clone assignment.
@@ -846,26 +849,30 @@ def hmrfmix_concatenate_pipeline(
             merge=merge,
         )
 
-        # NB handle the case where one clone has zero spots.
+        # NB handle edge case where a "clone" is assigned none of the spots.
         if len(np.unique(new_assignment)) < X.shape[2]:
+            # DEPRECATE
             res["assignment_before_reindex"] = new_assignment
+
+            # NB imposes new order, if not previously sorted, rather than skip only.
             remaining_clones = np.sort(np.unique(new_assignment))
 
-            # NB map original clone id to new enumeration.
+            # NB map original clone id -> new enumeration.
             re_indexing = {c: i for i, c in enumerate(remaining_clones)}
 
             logger.warning(
-                f"Iteration {r}: detected clone loss:  re-indexing clones with map={re_indexing}"
+                f"Detected clone loss on iteration {r}:  re-indexing clones with {re_indexing}"
             )
 
             # NB re-index new_assignment to be consecutive given a missing clone.
+            # TODO faster way?
             new_assignment = np.array([re_indexing[x] for x in new_assignment])
 
             concat_idx = np.concatenate(
                 [np.arange(c * n_obs, c * n_obs + n_obs) for c in remaining_clones]
             )
 
-            # NB log_gamma and pred_cnv ordered by clone.
+            # NB log_gamma and pred_cnv by new clone order (concatenated).
             res["log_gamma"] = res["log_gamma"][:, concat_idx]
             res["pred_cnv"] = res["pred_cnv"][concat_idx]
 
@@ -887,7 +894,7 @@ def hmrfmix_concatenate_pipeline(
             threshold=tumorprop_threshold,
         )
 
-        # DEPRECATE? TODO.
+        # TODO clone stack can be an arg. to merge_pseudobulk_by_index_mix
         (
             clone_stack_X,
             clone_stack_base_nb_mean,
@@ -909,6 +916,7 @@ def hmrfmix_concatenate_pipeline(
         with np.printoptions(linewidth=np.inf):
             logger.info(f"Copy number state usage [%]:\n{100. * state_usage}")
 
+        '''
         if plot_progress:
             logger.info(f"Plotting progress for interation {r}.")
 
@@ -957,6 +965,7 @@ def hmrfmix_concatenate_pipeline(
 
             fig_path = f"{progress_dir}/{prefix}_genomic_iter{r}.pdf"
             write_fig(fig_path, clones_genomic, transparent=True, bbox_inches="tight")
+        '''
 
         # NB potential conflict with GOTO logic below.
         r += 1
@@ -1004,6 +1013,7 @@ def hmrfmix_concatenate_pipeline(
                     :, sidx
                 ] - scipy.special.logsumexp(log_persample_weights[:, sidx])
 
+    # TODO result class.
     return res
 
 

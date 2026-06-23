@@ -1,5 +1,3 @@
-import logging
-
 import numpy as np
 import scipy.linalg
 import scipy.sparse
@@ -625,7 +623,7 @@ def choose_lattice_adjacency(
     # NB smooth matrix: identity (each spot pools only itself)
     smooth_mat = scipy.sparse.identity(n_spots, dtype=np.int8, format="csr")
 
-    logger.info(f"Assumed identity smooth mat.")
+    logger.warning(f"Assumed identity smooth mat.")
 
     """
     # NB adjacency matrix: connect each spot to coordination_num nearest neighbors
@@ -808,7 +806,7 @@ def renormalize_adjacency_mat(adjacency_mat):
     return adj
 
 
-@cacher("adjacency.hdf5")
+# @cacher("adjacency.hdf5")
 def multislice_adjacency(
     sample_ids,
     sample_list,

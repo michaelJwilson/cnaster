@@ -209,9 +209,9 @@ def run_cnaster(config_path, over_rides=None):
     pause()
 
     #
-    # ==================================================
-    # baf-derived phasing (assuming initial clones)
-    # ==================================================
+    # ============================================================
+    # baf-derived phasing (assuming initial / h&e derived clones
+    # ============================================================
     #
 
     # NB known clone annotation per spot.
@@ -316,10 +316,11 @@ def run_cnaster(config_path, over_rides=None):
             f"Solved for initial phase given pop. phasing (eagle) & observed baf in {(time.time() - start_time):.2f} seconds."
         )
     else:
+        # TODO comment
         phase_indicator = np.zeros(single_X.shape[0])
         refined_lengths = lengths
 
-    # NB phase is None for genes and otherwise 0/1 for baf-inferred phase.
+    # NB phase is None for genes and otherwise 0/1 for snps given baf-inferred phase.
     df_gene_snp["phase"] = np.where(
         df_gene_snp.snp_id.isnull(),
         None,
@@ -327,7 +328,7 @@ def run_cnaster(config_path, over_rides=None):
     )
 
     # NB generates new genomic intervals ("bin_id") by genomic aggregation
-    #    accounting for baf-derived phasing.
+    #    accounting for baf-derived phasing and user defined thresholds.
     df_gene_snp = create_bin_ranges(
         df_gene_snp,
         adata,
@@ -372,7 +373,6 @@ def run_cnaster(config_path, over_rides=None):
 
     pause()
 
-    # TODO copy rename.
     postphasing_clones_genomic = plot_clones_genomic_raw(
         single_X,
         single_base_nb_mean,
@@ -406,6 +406,7 @@ def run_cnaster(config_path, over_rides=None):
 
     pause()
 
+    # TODO
     # NB smooth pooling matrix & distance based (exponential decay) adjacency.
     #    requires pre-defined single_total_bb_RD, but largely on data loading.
     adjacency_mat, smooth_mat = multislice_adjacency(
@@ -437,7 +438,7 @@ def run_cnaster(config_path, over_rides=None):
 
     pause()
 
-    # NB by construction, require normal spots (based on BAF to determine baseline).
+    # NB by construction, require normal spots (based on baf to determine baseline).
     assert np.all(single_base_nb_mean == 0)
 
     # TODO UGH HACK
@@ -563,6 +564,11 @@ def run_cnaster(config_path, over_rides=None):
         tumorprop_threshold=config.hmrf.tumorprop_threshold,
     )
 
+    logger.info(
+        f"Inferred {len(np.unique(res['new_assignment']))} clones given baf data."
+    )
+
+    # DEPRECATE?
     # NB single_X has dynamic shape (n_segments, 2, n_spots).
     n_obs = single_X.shape[0]
 
@@ -574,10 +580,6 @@ def run_cnaster(config_path, over_rides=None):
         get_clone_indices(res["new_assignment"], np.unique(res["new_assignment"])),
         single_tumor_prop,
         threshold=config.hmrf.tumorprop_threshold,
-    )
-
-    logger.info(
-        f"Inferred {len(np.unique(res['new_assignment']))} clones given baf data."
     )
 
     # TODO HACK DEPRECATE?
@@ -600,7 +602,6 @@ def run_cnaster(config_path, over_rides=None):
     fig_path = f"{output_dir}/plots/bafonly_clones_spatial.pdf"
     write_fig(fig_path, bafonly_clones_fig, transparent=True, bbox_inches="tight")
 
-    # TODO copy rename.
     bafonly_clones_genomic = plot_clones_genomic_raw(
         single_X,
         single_base_nb_mean,

@@ -1,9 +1,5 @@
-import logging
-
 import numpy as np
-import scipy.linalg
 import scipy.special
-import scipy.stats
 from cnaster.hmm_initialize import gmm_init
 from cnaster.hmm_sitewise import hmm_sitewise
 from cnaster.hmm_utils import compute_posterior_obs
@@ -12,7 +8,21 @@ from cnaster.logger import get_logger
 
 logger = get_logger(__name__, start_time=start_time)
 
-
+'''
+@dataclass
+class HMMResult:
+    params.new_log_mu: np.ndarray
+    params.new_alphas: np.ndarray
+    params.new_p_binom: np.ndarray
+    params.new_taus: np.ndarray
+    params.new_log_startprob: np.ndarray
+    params.new_log_transmat: np.ndarray
+    state.log_gamma: np.ndarray
+    state.pred_cnv: np.ndarray
+    llf: float
+    n_states: int
+'''
+    
 def pipeline_baum_welch(
     _,
     X,
@@ -236,7 +246,8 @@ def pipeline_baum_welch(
         f"Solved HMM with LLF={llf:.6e} for new_log_mu.shape={new_log_mu.shape} given X.shape={X.shape}"
     )
 
-    # NB TODO pred (when clones concatenated along an axis) assumes a clone (order) definition.
+    # TODO HMMResult
+    # NB pred (when clones concatenated along an axis) assumes a clone (order) definition.
     return {
         "new_log_mu": new_log_mu,
         "new_alphas": new_alphas,

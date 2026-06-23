@@ -1390,7 +1390,7 @@ def run_cnaster(config_path, over_rides=None):
     #
 
     # NB assumed ploidy for integer copy number problem, expects e.g. "diploid", "triploid", "tetraploid"
-    # medfix = [f"_{pp}" for pp in config.int_copy_num.ploidy.split(",")]
+    medfix = [""] + [pp for pp in config.int_copy_num.ploidy.split(",")]
 
     int_ploidy_map = {"diploid": 2, "triploid": 3, "tetraploid": 4}
 
@@ -1403,9 +1403,8 @@ def run_cnaster(config_path, over_rides=None):
             f"Solving integer copy number problem for max_medploidy={max_medploidy}."
         )
 
-        # NB A/B integer copy number per genome segment, per state and per gene, refreshed for each ploidy.
-        allele_specific_copy, state_cnv = [], []
-        df_genelevel_cnv = None
+        # NB A/B integer copy number per genome segment, per state and per gene, refreshed for each max. ploidy.
+        allele_specific_copy, state_cnv, df_genelevel_cnv = [], [], None
 
         # NB pseudobulk for each of the final clones.
         X, base_nb_mean, total_bb_RD, tumor_prop = merge_pseudobulk_by_index_mix(
@@ -1420,7 +1419,7 @@ def run_cnaster(config_path, over_rides=None):
             threshold=config.hmrf.tumorprop_threshold,
         )
 
-        # NB loop over clone (and parent ploidy).
+        # NB loop over clone (given max. ploidy).
         for s, cid in enumerate(final_clone_ids):
             if np.sum(base_nb_mean[:, s]) == 0:
                 logger.warning("Final clone {cid} has no assigned transcripts.")
@@ -1710,6 +1709,11 @@ def run_cnaster(config_path, over_rides=None):
     # TODO could be before integer copy number solution; no dependency on integer copy number results.
     # 
     # TODO constructor given barcodes, coords, new_assignment, single_tumor_prop.
+    df_clone_label = construct_df_clone_label(
+        barcodes, coords, res_combine["new_assignment"], single_tumor_prop
+    )
+
+    '''
     df_clone_label = pd.DataFrame(
         {
             "sample_id": [barcode.split("_")[-1] for barcode in barcodes],
@@ -1728,6 +1732,7 @@ def run_cnaster(config_path, over_rides=None):
     df_clone_label = df_clone_label.groupby("sample_id", group_keys=False).apply(
         lambda g: g.sort_values(["x", "y"])
     )
+    '''
 
     # NB does not depend on assumed ploidy.
     opath = f"{output_dir}/clone_labels.tsv"

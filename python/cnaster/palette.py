@@ -42,7 +42,7 @@ def get_full_palette(palette_name="chisel_joint"):
     """
     palette = {}
 
-    if palette_name == "chisel_joint":
+    if palette_name in ("chisel", "chisel_joint"):
         ordered_acn = get_ordered_acn(mode="joint")
         palette.update({(0, 0): "darkblue"})
         palette.update({(1, 0): "lightblue"})
@@ -54,7 +54,7 @@ def get_full_palette(palette_name="chisel_joint"):
         
     elif palette_name == "chisel_independent":
         ordered_acn = get_ordered_acn(mode="independent")
-        # Aligned to visually match the dominant colors of the joint palette
+
         palette.update({
             0: "darkblue",              # Matches (0,0) deletion
             1: "lightgray",             # Matches (1,1) normal diploid

@@ -1755,7 +1755,7 @@ def run_cnaster(config_path, over_rides=None):
         remove_xticks=True,
         chrtext_shift=-0.3,
         base_height=3.2,
-        palette_name="chisel_independent",
+        palette_name="chisel",
     )
 
     # TODO assumes a ploidy constraint.

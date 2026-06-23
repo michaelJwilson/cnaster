@@ -1651,14 +1651,15 @@ def run_cnaster(config_path, over_rides=None):
             """
 
             df_genes = df_gene_snp[df_gene_snp.is_interval]
+            bin_ids = df_genes["bin_id"].to_numpy(dtype=int)
 
             clone_copies = best_integer_copies[res_combine["pred_cnv"][:, s]]
 
             tmpdf = pd.DataFrame(
                 {
                     "gene": df_genes.gene,
-                    f"clone{s} A": clone_copies[df_genes["bin_id"], 0],
-                    f"clone{s} B": clone_copies[df_genes["bin_id"], 1],
+                    f"clone{s} A": clone_copies[bin_ids, 0],
+                    f"clone{s} B": clone_copies[bin_ids, 1],
                 }
             ).set_index("gene")
 

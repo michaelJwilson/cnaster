@@ -911,7 +911,7 @@ class hmm_nophasing:
         nbEncoder = CountEncoder(X[:, 0, :], base_nb_mean)
         bbEncoder = CountEncoder(X[:, 1, :], total_bb_RD)
 
-        # NB solved for med. 26.0 and max. 75849.0 total counts for bbEncoder.
+        # NB solved for med. 26.0 and max. 75_849.0 total counts for bbEncoder.
         logger.info(
             f"Solved for med. {np.median(nbEncoder.total_count)} and max. {np.max(nbEncoder.total_count)} total counts for nbEncoder."
         )
@@ -949,9 +949,10 @@ class hmm_nophasing:
             f"Assumed initial p_binom and dispersion:\n{np.hstack((p_binom, taus))}"
         )
 
-        # DEPRECATE
+        # DEPRECATE  utilize state posterior if given. 
         log_gamma = kwargs.get("log_gamma", None)
 
+        # NB pack parameters into a structure understood by scipy.optimize.minimize.
         x0 = self.pack_params(
             log_startprob,
             log_mu,
@@ -983,6 +984,8 @@ class hmm_nophasing:
         self.state_posteriors = None
         self.iterations = 0
 
+        # NB update state posteriors on (every other) scipy.optimize.minimize callback.
+        # TODO cadence of callback?
         def update_state_posteriors(intermediate_result: OptimizeResult = None):
             # TODO m-step for log_startprob and log_transmat.
             if (self.iterations > 0) and (self.iterations % 2 != 0):
@@ -1007,10 +1010,10 @@ class hmm_nophasing:
                 params,
                 n_states,
                 log_startprob,
-                log_mu,  # TODO init_log_mu
+                log_mu,  # TODO rename init_log_mu
                 p_binom,
-                alphas,  # TODO init_alphas
-                taus,  # TODO init_taus
+                alphas,  # TODO rename init_alphas
+                taus,  # TODO rename init_taus
                 optimize_nb=optimize_nb,
                 fix_NB_dispersion=fix_NB_dispersion,
                 shared_NB_dispersion=shared_NB_dispersion,
@@ -1114,11 +1117,9 @@ class hmm_nophasing:
 
             return total_nll
 
-        # {nll_forward, baum_welch_forward}
-        cost = nll_forward
-
-        # {None, update_state_posteriors}
-        callback = None
+        # NB vanilla max. likelihood or baum welch.
+        # cost, callback = nll_forward, None
+        cost, callback = baum_welch_forward, update_state_posteriors
 
         start_time_opt = time.time()
         logger.info(
@@ -1156,6 +1157,7 @@ class hmm_nophasing:
             f"nll: {res.fun:.6e}\n"
         )
 
+        '''
         try:
             if isinstance(res.hess_inv, np.ndarray):
                 hess_inv = res.hess_inv
@@ -1166,7 +1168,8 @@ class hmm_nophasing:
         except Exception as e:
             logger.warning(f"Failed to compute parameter errors: {e}")
             parameter_errors = None
-
+        '''
+            
         final_log_startprob, final_log_mu, final_p_binom, final_alphas, final_taus = (
             self.unpack_params(
                 res.x,

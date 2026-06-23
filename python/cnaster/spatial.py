@@ -121,10 +121,10 @@ def initialize_clones(
     if config is not None:
         # NB assumes the known clone labels for phasing.
         if config.annotation.clone_label is not None:
-            initial_clone_for_phasing, _ = get_clone_label_annotation(config)
+            clone_annotation, _ = get_clone_label_annotation(config)
 
-        # NB assumes the known clone labels for phasing.
-        return initial_clone_for_phasing
+            # NB assumes the known clone labels for phasing.
+            return clone_annotation
 
     logger.info(
         f"Initializing clones given fixed grid partitions and max. sample_id={np.max(sample_ids)}"

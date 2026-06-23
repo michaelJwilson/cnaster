@@ -593,7 +593,7 @@ def run_cnaster(config_path, over_rides=None):
         sample_ids=sample_ids,
         sample_list=sample_list,
         max_iter_outer=config.hmrf.max_iter_outer,
-        hmmclass=hmm_nophasing, # NB assumes no phasing.
+        hmmclass=hmm_nophasing,  # NB assumes no phasing.
         params="sp",
         t=config.hmm.t,
         random_state=config.hmm.gmm_random_state,
@@ -690,7 +690,9 @@ def run_cnaster(config_path, over_rides=None):
 
     # NB merge according to min. number of spots per clone criterion;  single_X has dynamic shape (n_segments, 2, n_spots).
     n_obs = single_X.shape[0]
-    min_umicount_thresholds=n_obs* config.hmrf.min_avgumi_per_clone,  # MAGIC 31_420 SNP UMIs
+    min_umicount_thresholds = (
+        n_obs * config.hmrf.min_avgumi_per_clone,
+    )  # MAGIC 31_420 SNP UMIs
 
     _, merged_res = merge_by_minspots(
         merged_res["new_assignment"],
@@ -755,26 +757,7 @@ def run_cnaster(config_path, over_rides=None):
     df_clone_label = construct_df_clone_label(
         barcodes, coords, merged_res["new_assignment"], single_tumor_prop
     )
-    """
-    df_clone_label = pd.DataFrame(
-        {
-            "sample_id": [barcode.split("_")[-1] for barcode in barcodes],
-            "x": coords[:, 0],
-            "y": coords[:, 1],
-            "clone_label": merged_res["new_assignment"],
-        },
-        index=barcodes,
-    )
 
-    # TODO assert aligned?
-    if config.preprocessing.tumorprop_file is not None:
-        df_clone_label["tumor_proportion"] = single_tumor_prop
-
-    # NB sort by (sample_id, (x,y)).
-    df_clone_label = df_clone_label.groupby("sample_id", group_keys=False).apply(
-        lambda g: g.sort_values(["x", "y"])
-    )
-    """
     write_tsv(
         f"{output_dir}/baf_clone_labels.tsv",
         df_clone_label,
@@ -833,8 +816,6 @@ def run_cnaster(config_path, over_rides=None):
         single_tumor_prop=None,
     )
 
-    index_normal = np.where(normal_candidate)[0]
-
     pause()
 
     #
@@ -851,6 +832,8 @@ def run_cnaster(config_path, over_rides=None):
     #
     # TODO normal mis-classification lead to dropped segments due to
     #      identifying CNAs as allele-specific expression.
+    normal_idx = np.where(normal_candidate)[0]
+
     (
         lengths,
         single_X,
@@ -865,7 +848,7 @@ def run_cnaster(config_path, over_rides=None):
         single_total_bb_RD,
         config.phasing.nu,
         config.phasing.logphase_shift,
-        index_normal,
+        normal_idx,
         config.references.geneticmap_file,
     )
 
@@ -892,7 +875,7 @@ def run_cnaster(config_path, over_rides=None):
 
     pause()
 
-    # TODO HACK >>>>>>  do not filter, but merge segments, with insufficient normal umi counts.
+    # TODO HACK >>>>>>  do not filter, but merge segments with insufficient normal umi counts.
     #                   assumes ...  what assumption on phasing, baf-switches?
     df_gene_snp = create_bin_ranges(
         df_gene_snp,
@@ -997,7 +980,7 @@ def run_cnaster(config_path, over_rides=None):
             continue
         """
 
-        # TODO?  single_X[idx_spots] would make more sense.
+        # TODO? single_X[idx_spots] would make more sense.
         sufficient_snp_umi_for_split = (
             np.sum(single_total_bb_RD[:, idx_spots]) >= 20 * single_X.shape[0]
         )
@@ -1010,8 +993,8 @@ def run_cnaster(config_path, over_rides=None):
             random_state=0,  # TODO HACK.
         )
 
-        # # TODO HACK?  splits each BAF clone along the x direction.
-        # # TODO BUG require min spots/umis etc ...
+        # TODO HACK?  splits each BAF clone along the x direction.
+        # TODO BUG require min spots/umis etc ...
         # x_part, y_part = config.hmrf.n_clones_rdr, 1
 
         # initial_clone_index, _ = fixed_rectangle_partition(
@@ -1265,9 +1248,9 @@ def run_cnaster(config_path, over_rides=None):
         keys = ["new_log_mu", "new_alphas", "new_p_binom", "new_taus"]
 
         if len(res_combine) == 1:
-            updates = {k: np.hstack(n_merged_clones * [merged_res[k]]) for k in keys}
-            updates["log_gamma"] = log_gamma
-            updates["pred_cnv"] = pred_cnv
+            updates = {
+                k: np.hstack(n_merged_clones * [merged_res[k]]) for k in keys
+            } | {"log_gamma": log_gamma, "pred_cnv": pred_cnv}
         else:
             updates = {
                 k: np.hstack([res_combine[k]] + n_merged_clones * [merged_res[k]])
@@ -1773,27 +1756,6 @@ def run_cnaster(config_path, over_rides=None):
     df_clone_label = construct_df_clone_label(
         barcodes, coords, res_combine["new_assignment"], single_tumor_prop
     )
-
-    """
-    df_clone_label = pd.DataFrame(
-        {
-            "sample_id": [barcode.split("_")[-1] for barcode in barcodes],
-            "x": coords[:, 0],
-            "y": coords[:, 1],
-            "clone_label": res_combine["new_assignment"],
-        },
-        index=barcodes,
-    )
-
-    # TODO assert aligned?
-    if config.preprocessing.tumorprop_file is not None:
-        df_clone_label["tumor_proportion"] = single_tumor_prop
-
-    # NB cannot sort before barcode-ordered assignments etc!
-    df_clone_label = df_clone_label.groupby("sample_id", group_keys=False).apply(
-        lambda g: g.sort_values(["x", "y"])
-    )
-    """
 
     # NB does not depend on assumed ploidy.
     write_tsv(

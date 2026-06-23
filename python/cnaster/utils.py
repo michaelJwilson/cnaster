@@ -262,11 +262,11 @@ def configure_output_dir(config=None):
     return output_dir, plots_dir
 
 
-def write_tsv(opath, df=None, header=True, index=False, index_label=None):
+def write_tsv(opath, df=None, header=True, index=False, index_label=None, prefix=""):
     if df is None:
         df = pd.DataFrame()
 
-    logger.info(f"Writing to {opath}.")
+    logger.info(f"Writing {prefix} to {opath},\n{df.head()}")
 
     df.to_csv(opath, sep="\t", header=header, index=index, index_label=index_label)
 

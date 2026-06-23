@@ -786,13 +786,14 @@ def run_cnaster(config_path, over_rides=None):
         lambda g: g.sort_values(["x", "y"])
     )
     """
-    opath = f"{output_dir}/baf_clone_labels.tsv"
-
-    logger.info(
-        f"Writing baf inferred clone labels to {opath},\n{df_clone_label.head()}"
+    write_tsv(
+        f"{output_dir}/baf_clone_labels.tsv",
+        df_clone_label,
+        header=True,
+        index=True,
+        index_label="barcode",
+        prefix="baf inferred clone labels",
     )
-
-    write_tsv(opath, df_clone_label, header=True, index=True, index_label="barcode")
 
     # NB single_X has dynamic shape (n_segments, 2, n_spots), according to spot and
     #    segment filtering / assumed segmentation.
@@ -1681,10 +1682,12 @@ def run_cnaster(config_path, over_rides=None):
             continue
 
         # NB write the gene-level integer copies for this assumed ploidy constraint.
-        opath = f"{output_dir}/cnv{medfix[o]}_genelevel.tsv"
-
-        # NB output gene-level copy number
-        write_tsv(opath, df_genelevel_cnv, header=True, index=True)
+        write_tsv(
+            f"{output_dir}/cnv{medfix[o]}_genelevel.tsv",
+            df_genelevel_cnv,
+            header=True,
+            index=True,
+        )
 
         # NB output genome segment-level copy number;
         allele_specific_copy = pd.concat(allele_specific_copy)
@@ -1725,8 +1728,12 @@ def run_cnaster(config_path, over_rides=None):
             )
 
         # NB write integer copies for the current genome segmentation and this ploidy constraint.
-        opath = f"{output_dir}/cnv{medfix[o]}_seglevel.tsv"
-        write_tsv(opath, df_seglevel_cnv, header=True, index=False)
+        write_tsv(
+            f"{output_dir}/cnv{medfix[o]}_seglevel.tsv",
+            df_seglevel_cnv,
+            header=True,
+            index=False,
+        )
 
         # NB output per-state integer copy numbers.
         state_cnv = functools.reduce(
@@ -1752,8 +1759,12 @@ def run_cnaster(config_path, over_rides=None):
             )
 
         # NB write integer copies for the inferred states and this ploidy constraint.
-        opath = f"{output_dir}/cnv{medfix[o]}_perstate.tsv"
-        write_tsv(opath, state_cnv, header=True, index=False)
+        write_tsv(
+            f"{output_dir}/cnv{medfix[o]}_perstate.tsv",
+            state_cnv,
+            header=True,
+            index=False,
+        )
 
         # copy_states_fig = plot_copy_states(state_cnv)
         # write_fig(
@@ -1796,11 +1807,14 @@ def run_cnaster(config_path, over_rides=None):
     """
 
     # NB does not depend on assumed ploidy.
-    opath = f"{output_dir}/clone_labels.tsv"
-
-    logger.info(f"Writing inferred clone labels to {opath},\n{df_clone_label.head()}")
-
-    write_tsv(opath, df_clone_label, header=True, index=True, index_label="barcode")
+    write_tsv(
+        f"{output_dir}/clone_labels.tsv",
+        df_clone_label,
+        header=True,
+        index=True,
+        index_label="barcode",
+        prefix="inferred clone labels",
+    )
 
     # NB assumes a ploidy constraint, currently defaults to last, e.g. "tetraploid".
     rdr_baf_fig = plot_clones_genomic(

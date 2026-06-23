@@ -593,7 +593,7 @@ def run_cnaster(config_path, over_rides=None):
         sample_ids=sample_ids,
         sample_list=sample_list,
         max_iter_outer=config.hmrf.max_iter_outer,
-        hmmclass=hmm_nophasing,
+        hmmclass=hmm_nophasing, # NB assumes no phasing.
         params="sp",
         t=config.hmm.t,
         random_state=config.hmm.gmm_random_state,
@@ -612,10 +612,6 @@ def run_cnaster(config_path, over_rides=None):
         f"Inferred {len(np.unique(res['new_assignment']))} clones given baf data."
     )
 
-    # DEPRECATE?
-    # NB single_X has dynamic shape (n_segments, 2, n_spots).
-    n_obs = single_X.shape[0]
-
     # NB new pseduo-bulk given new assignment of spots to clones.
     X, base_nb_mean, total_bb_RD, tumor_prop = merge_pseudobulk_by_index_mix(
         single_X,
@@ -626,7 +622,7 @@ def run_cnaster(config_path, over_rides=None):
         threshold=config.hmrf.tumorprop_threshold,
     )
 
-    # TODO HACK DEPRECATE?
+    # TODO HACK DEPRECATE?  replicates tumor_prop for N clones.
     if tumor_prop is not None:
         tumor_prop = np.repeat(tumor_prop, X.shape[0]).reshape(-1, 1)
 
@@ -659,7 +655,6 @@ def run_cnaster(config_path, over_rides=None):
         res=res,
         single_tumor_prop=None,
         sample_list=sample_list,
-        remove_xticks=True,
     )
 
     # NB inferred per-clone copy number profiles from baf-only run.
@@ -693,14 +688,16 @@ def run_cnaster(config_path, over_rides=None):
         f"Inferred {len(np.unique(merged_res['new_assignment']))} clones given baf data after NP merge."
     )
 
-    # NB merge according to min. number of spots per clone criterion.
+    # NB merge according to min. number of spots per clone criterion;  single_X has dynamic shape (n_segments, 2, n_spots).
+    n_obs = single_X.shape[0]
+    min_umicount_thresholds=n_obs* config.hmrf.min_avgumi_per_clone,  # MAGIC 31_420 SNP UMIs
+
     _, merged_res = merge_by_minspots(
         merged_res["new_assignment"],
         merged_res,
         single_total_bb_RD,
         min_spots_thresholds=config.hmrf.min_spots_per_clone,
-        min_umicount_thresholds=n_obs
-        * config.hmrf.min_avgumi_per_clone,  # MAGIC 31_420 SNP UMIs
+        min_umicount_thresholds=min_umicount_thresholds,
         single_tumor_prop=single_tumor_prop,
         threshold=config.hmrf.tumorprop_threshold,
     )
@@ -740,12 +737,6 @@ def run_cnaster(config_path, over_rides=None):
         res=merged_res,
         single_tumor_prop=None,
         sample_list=sample_list,
-        remove_xticks=True,
-        rdr_ylim=6,
-        chrtext_shift=-0.2,
-        base_height=3.2,
-        pointsize=5,
-        linewidth=1,
     )
 
     # NB inferred copy number profiles from baf-only run, after neyman-pearson "model selection"

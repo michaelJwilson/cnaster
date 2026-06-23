@@ -5,53 +5,52 @@ import numpy as np
 
 
 @dataclass
-class GenomicBlockCounts:
+class SpatioGenomicCounts:
     """
-    Container for aggregated spatial transcriptomic counts over genomic segments.
+    Data container for spatial transcriptomic counts aggregated over genomic segments.
 
     Dimensions:
-    - n_blocks: Number of genomic intervals/blocks.
-    - n_spots: Number of spatial spots/barcodes.
+
+    - n_segments: number of genomic intervals/segments.
+    - n_spots: number of spatial spots/barcodes.
     """
 
-    lengths: np.ndarray  # (n_contigs,) Blocks per contig
-    X: np.ndarray  # (n_blocks, 2, n_spots) Raw counts
-    base_nb_mean: np.ndarray  # (n_blocks, n_spots) Expected normal baseline
-    total_bb_RD: np.ndarray  # (n_blocks, n_spots) Total SNP reads (H0 + H1)
+    lengths: np.ndarray  # (n_contigs,) num. segments per contig
+    X: np.ndarray  # (n_segments, 2, n_spots) observed counts, 0: genes, 1: snps
+    base_nb_mean: np.ndarray  # (n_segments, n_spots) expected baseline expression for normal cells
+    total_bb_RD: np.ndarray  # (n_segments, n_spots) total (both haplotypes) snp-covering reads in segment
 
     @property
-    def umi_counts(self) -> np.ndarray:
-        """Total gene expression UMIs per block and spot. Shape: (n_blocks, n_spots)"""
-        return self.X[:, 0, :]
-
-    @property
-    def allele_a_counts(self) -> np.ndarray:
-        """Haplotype A (H0) counts per block and spot. Shape: (n_blocks, n_spots)"""
-        return self.X[:, 1, :]
-
-    @property
-    def allele_b_counts(self) -> np.ndarray:
-        """Haplotype B (H1) counts per block and spot. Shape: (n_blocks, n_spots)"""
-        return self.total_bb_RD - self.allele_a_counts
-
-    @property
-    def n_blocks(self) -> int:
+    def n_segments(self) -> int:
         return self.X.shape[0]
 
     @property
     def n_spots(self) -> int:
         return self.X.shape[2]
 
-    def get_baf(self, fill_value: float = 0.5) -> np.ndarray:
-        """Safely calculate B-Allele Frequency, handling division by zero."""
+    @property
+    def transcript_counts(self) -> np.ndarray:
+        """Total gene expression UMIs per segment and spot. Shape: (n_segments, n_spots)"""
+        return self.X[:, 0, :]
+
+    @property
+    def h0_counts(self) -> np.ndarray:
+        """Haplotype A (H0) counts per segment and spot. Shape: (n_segments, n_spots)"""
+        return self.X[:, 1, :]
+
+    @property
+    def h1_counts(self) -> np.ndarray:
+        """Haplotype B (H1) counts per segment and spot. Shape: (n_segments, n_spots)"""
+        return self.total_bb_RD - self.h0_counts
+
+    def baf(self, fill_value: float = np.nan) -> np.ndarray:
         with np.errstate(divide="ignore", invalid="ignore"):
-            baf = self.allele_b_counts / self.total_bb_RD
+            baf = self.h0_counts / self.total_bb_RD
         return np.nan_to_num(baf, nan=fill_value)
 
-    def get_rdr(self, fill_value: float = 1.0) -> np.ndarray:
-        """Safely calculate Read-Depth Ratio relative to normal baseline."""
+    def rdr(self, fill_value: float = np.nan) -> np.ndarray:
         with np.errstate(divide="ignore", invalid="ignore"):
-            rdr = self.umi_counts / self.base_nb_mean
+            rdr = self.transcript_counts / self.base_nb_mean
         return np.nan_to_num(rdr, nan=fill_value)
 
     # TODO

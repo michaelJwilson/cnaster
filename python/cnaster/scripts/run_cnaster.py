@@ -1728,6 +1728,7 @@ def run_cnaster(config_path, over_rides=None):
             pd.concat(allele_specific_copy).T
         )
 
+        '''
         a_cols = [c for c in df_seglevel_cnv.columns if c.endswith(" A")]
         b_cols = [c.replace(" A", " B") for c in a_cols]
 
@@ -1735,6 +1736,10 @@ def run_cnaster(config_path, over_rides=None):
         mask = (df_seglevel_cnv[a_cols].ne(1) | df_seglevel_cnv[b_cols].ne(1)).any(
             axis=1
         )
+        '''
+
+        # TODO
+        mask = df_seglevel_cnv.filter(regex=r" [AB]$").ne(1).any(axis=1)
 
         # NB display the segment-level copy number for the selected segments.
         with pd.option_context(
@@ -1865,10 +1870,13 @@ def run_cnaster(config_path, over_rides=None):
     # TODO
     # write_fig(f"{output_dir}/plots/initial_clones_genomic.pdf", initial_rdr_baf_fig, transparent=True, bbox_inches="tight")
 
+    # TODO UGH enumerates, rather than actual label.
     clone_index = [
         np.where(res_combine["new_assignment"] == c)[0]
         for c, _ in enumerate(final_clone_ids)
     ]
+
+    # clone_index = get_clone_indices(res_combine["new_assignment"], final_clone_ids)
 
     # NB create pseudobulk for each clone.
     X, base_nb_mean, total_bb_RD, _ = merge_pseudobulk_by_index_mix(
@@ -1898,6 +1906,7 @@ def run_cnaster(config_path, over_rides=None):
         bbox_inches="tight",
     )
 
+    '''
     # DUPLICATE see above.
     clone_index = [
         np.where(res_combine["new_assignment"] == c)[0]
@@ -1911,6 +1920,7 @@ def run_cnaster(config_path, over_rides=None):
         clone_index,
         single_tumor_prop,
     )
+    '''
     """
     plot_cna_mixture(
         res_combine["new_log_mu"],

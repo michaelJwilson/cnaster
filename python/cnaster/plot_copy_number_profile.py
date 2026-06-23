@@ -36,7 +36,7 @@ def _draw_mirrored_loh_chevrons(
     ax: plt.Axes, x0: float, y_b: float, w: float, h_sub: float, direction: int
 ):
     """
-    Mirrored events, e.g. LOH, between individual sub-clones should have 
+    Mirrored events, e.g. LOH, between individual sub-clones should have
     their colored segments (A and B) marked by tight, vertical, mirrored chevrons.
     """
     n_chev = 2
@@ -79,16 +79,20 @@ def plot_ascn_legend(
     """Draw a horizontal color bar legend for single allele CN values."""
     state_style, ordered_acn = get_full_palette("chisel_independent")
     boxes = list(ordered_acn)
-    
+
     # Safely append "7+" if it's not already in the list to avoid duplication
     if "7+" not in boxes:
         boxes.append("7+")
-        
+
     ax.axis("off")
     x0 = 0.0
 
     for i, label in enumerate(boxes):
-        color = state_style["default"] if label == "7+" else state_style.get(label, state_style["default"])
+        color = (
+            state_style["default"]
+            if label == "7+"
+            else state_style.get(label, state_style["default"])
+        )
         rect = Rectangle(
             (x0 + i * box_w, 0.0),
             box_w,
@@ -197,46 +201,51 @@ def plot_copy_number_profile(
 
     for ch in chs:
         ch_coords.append(ch_offset)
-        
+
         if ch not in df_chs.groups:
             continue
-            
+
         df_ch = df_chs.get_group(ch)
         n_rows = len(df_ch)
 
         # Extract integer copy numbers into matrices
         A_mat = df_ch[[f"clone{cid} A" for cid in clone_ids]].to_numpy()
         B_mat = df_ch[[f"clone{cid} B" for cid in clone_ids]].to_numpy()
-        
+
         # Fast check for mirrored LOH across all clones per row
         any_non_loh = np.any((A_mat > 0) & (B_mat > 0), axis=1)
-        
+
         # Direction matrix: 1 if A>0/B=0, -1 if A=0/B>0, else 0
-        dirs_mat = np.where((A_mat > 0) & (B_mat == 0), 1, 
-                   np.where((A_mat == 0) & (B_mat > 0), -1, 0))
-        
+        dirs_mat = np.where(
+            (A_mat > 0) & (B_mat == 0), 1, np.where((A_mat == 0) & (B_mat > 0), -1, 0)
+        )
+
         # has_mirror is true if no clone has non-loh, and both directions exist
-        has_mirror = (~any_non_loh) & np.any(dirs_mat == 1, axis=1) & np.any(dirs_mat == -1, axis=1)
+        has_mirror = (
+            (~any_non_loh)
+            & np.any(dirs_mat == 1, axis=1)
+            & np.any(dirs_mat == -1, axis=1)
+        )
 
         for k, cid in enumerate(clone_ids):
             a_states = A_mat[:, k]
             b_states = B_mat[:, k]
             dirs = dirs_mat[:, k]
 
-            # Fast numeric encoding to feed into the 1D get_intervals array 
+            # Fast numeric encoding to feed into the 1D get_intervals array
             encoded_states = a_states * 1000 + b_states * 10 + has_mirror.astype(int)
-            
+
             intervals, _ = get_intervals(encoded_states)
 
             k_plot = num_clones - k - 1
             y_b = k_plot * h + y_gap
             y_a = y_b + h_sub
 
-            for (s, e) in intervals:
+            for s, e in intervals:
                 # Map segment counts directly to width and x0
                 x0 = ch_offset + s
                 w = e - s
-                
+
                 # Retrieve actual states for this interval
                 cna = a_states[s]
                 cnb = b_states[s]
@@ -246,7 +255,9 @@ def plot_copy_number_profile(
                 # B Allele (Bottom sub-bar - uses cnb)
                 ax.add_patch(
                     Rectangle(
-                        (x0, y_b), w, h_sub,
+                        (x0, y_b),
+                        w,
+                        h_sub,
                         facecolor=state_style.get(cnb, state_style["default"]),
                         edgecolor="none",
                         linewidth=0,
@@ -257,7 +268,9 @@ def plot_copy_number_profile(
                 # A Allele (Top sub-bar - uses cna)
                 ax.add_patch(
                     Rectangle(
-                        (x0, y_a), w, h_sub,
+                        (x0, y_a),
+                        w,
+                        h_sub,
                         facecolor=state_style.get(cna, state_style["default"]),
                         edgecolor="none",
                         linewidth=0,
@@ -274,9 +287,12 @@ def plot_copy_number_profile(
         # Chromosome dividing line (Kept get_xaxis_transform so it spans top to bottom relative to Axes)
         if ch != chs[-1]:
             line = ax.vlines(
-                ch_offset, ymin=0, ymax=1.15,
+                ch_offset,
+                ymin=0,
+                ymax=1.15,
                 transform=ax.get_xaxis_transform(),
-                linewidth=1, colors="black",
+                linewidth=1,
+                colors="black",
             )
             line.set_clip_on(False)
 
@@ -288,8 +304,11 @@ def plot_copy_number_profile(
         for y0 in (y_b_k, y_b_k + h_sub):
             ax.add_patch(
                 Rectangle(
-                    (0, y0), ch_offset, h_sub,
-                    facecolor="none", edgecolor="black",
+                    (0, y0),
+                    ch_offset,
+                    h_sub,
+                    facecolor="none",
+                    edgecolor="black",
                     linewidth=0.5,
                 )
             )
@@ -302,26 +321,35 @@ def plot_copy_number_profile(
 
     # Handle Chromosome text placement
     if plot_chrname:
-        midpoints = [ch_coords[i] + (ch_coords[i + 1] - ch_coords[i]) // 2 for i in range(len(ch_coords) - 1)]
+        midpoints = [
+            ch_coords[i] + (ch_coords[i + 1] - ch_coords[i]) // 2
+            for i in range(len(ch_coords) - 1)
+        ]
         ax.set_xticks(midpoints)
-        
+
         # Ensure 'chr' prefix is added if missing
         chr_labels = [f"chr{ch}" if str(ch).isdigit() else str(ch) for ch in chs]
-        
+
         # Match plot_clones_genomic styling (bottom label, 45 degree rotation, left aligned)
         ax.set_xticklabels(chr_labels, rotation=45, fontsize=10, ha="left")
-        ax.tick_params(axis="x", labeltop=False, labelbottom=True, top=False, bottom=True)
+        ax.tick_params(
+            axis="x", labeltop=False, labelbottom=True, top=False, bottom=True
+        )
     else:
         ax.set_xticks([])
 
     # Generate simplified Y-axis labels
     ax.set_yticks([h * (i + 0.5) for i in range(num_clones)])
-    ylabels = [f"Clone {cid}" if show_clone_name else str(cid) for cid in reversed(clone_ids)]
+    ylabels = [
+        f"Clone {cid}" if show_clone_name else str(cid) for cid in reversed(clone_ids)
+    ]
     ax.set_yticklabels(ylabels, fontsize=8, va="center")
 
     minor_positions, minor_labels = [], []
     for k in range(num_clones):
-        minor_positions.extend([k * h + y_gap + h_sub * 0.5, k * h + y_gap + h_sub * 1.5])
+        minor_positions.extend(
+            [k * h + y_gap + h_sub * 0.5, k * h + y_gap + h_sub * 1.5]
+        )
         minor_labels.extend(["B", "A"])
 
     ax.set_yticks(minor_positions, minor=True)

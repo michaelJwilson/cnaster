@@ -1,15 +1,16 @@
 import seaborn as sns
 
+
 def get_ordered_acn(mode="joint"):
     """
     Returns an immutable tuple of ordered Allele Copy Number states.
-    
+
     Args:
         mode (str): "joint" for (A, B) tuples, "independent" for single integers.
     """
     if mode == "independent":
         return (0, 1, 2, 3, 4, 5, 6, "7+")
-    
+
     # Default: joint
     return (
         (0, 0),
@@ -33,9 +34,9 @@ def get_ordered_acn(mode="joint"):
 
 def get_full_palette(palette_name="chisel_joint"):
     """
-    Returns a dictionary mapping allele copy numbers to colors, 
+    Returns a dictionary mapping allele copy numbers to colors,
     and the ordered list of states.
-    
+
     Available custom palettes:
     - "chisel_joint": Maps (A, B) tuples.
     - "chisel_independent": Maps individual integer copies.
@@ -50,22 +51,26 @@ def get_full_palette(palette_name="chisel_joint"):
         palette.update({(2, 1): "lightgoldenrodyellow", (3, 0): "gold"})
         palette.update({(2, 2): "navajowhite", (3, 1): "orange", (4, 0): "darkorange"})
         palette.update({(3, 2): "salmon", (4, 1): "red", (5, 0): "darkred"})
-        palette.update({(3, 3): "plum", (4, 2): "orchid", (5, 1): "purple", (6, 0): "indigo"})
-        
+        palette.update(
+            {(3, 3): "plum", (4, 2): "orchid", (5, 1): "purple", (6, 0): "indigo"}
+        )
+
     elif palette_name == "chisel_independent":
         ordered_acn = get_ordered_acn(mode="independent")
 
-        palette.update({
-            0: "darkblue",              # Matches (0,0) deletion
-            1: "lightgray",             # Matches (1,1) normal diploid
-            2: "lightgoldenrodyellow",  # Matches baseline amplification
-            3: "orange",                
-            4: "red",                   
-            5: "darkred",               
-            6: "purple",                
-            "7+": "indigo"              
-        })
-        
+        palette.update(
+            {
+                0: "darkblue",  # Matches (0,0) deletion
+                1: "lightgray",  # Matches (1,1) normal diploid
+                2: "lightgoldenrodyellow",  # Matches baseline amplification
+                3: "orange",
+                4: "red",
+                5: "darkred",
+                6: "purple",
+                "7+": "indigo",
+            }
+        )
+
     else:
         # Dynamic fallback to seaborn categorical palettes (e.g., "tab20b")
         ordered_acn = get_ordered_acn(mode="joint")

@@ -949,7 +949,7 @@ class hmm_nophasing:
             f"Assumed initial p_binom and dispersion:\n{np.hstack((p_binom, taus))}"
         )
 
-        # DEPRECATE  utilize state posterior if given. 
+        # DEPRECATE  utilize state posterior if given.
         log_gamma = kwargs.get("log_gamma", None)
 
         # NB pack parameters into a structure understood by scipy.optimize.minimize.
@@ -1159,7 +1159,7 @@ class hmm_nophasing:
             f"nll: {res.fun:.6e}\n"
         )
 
-        '''
+        """
         try:
             if isinstance(res.hess_inv, np.ndarray):
                 hess_inv = res.hess_inv
@@ -1170,8 +1170,8 @@ class hmm_nophasing:
         except Exception as e:
             logger.warning(f"Failed to compute parameter errors: {e}")
             parameter_errors = None
-        '''
-            
+        """
+
         final_log_startprob, final_log_mu, final_p_binom, final_alphas, final_taus = (
             self.unpack_params(
                 res.x,

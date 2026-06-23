@@ -24,45 +24,46 @@ logger = get_logger(__name__, start_time=start_time)
 
 pl.Config.set_tbl_cols(-1)
 
+
 def construct_df_clone_label(barcodes, coords, assignment, tumor_prop=None):
-        """
-        Construct a data frame with assigned clone label for all samples.
+    """
+    Construct a data frame with assigned clone label for all samples.
 
-        Parameters
-        ----------
-        barcodes : list of str
-            List of barcodes corresponding to the samples.
-        coords : np.ndarray
-            Array of coordinates for the samples.
-        assignment : list or np.ndarray
-            List or array of clone assignments for the samples.
-        tumor_prop : np.ndarray, optional
-            Array of tumor proportions for the samples. Default is None.
+    Parameters
+    ----------
+    barcodes : list of str
+        List of barcodes corresponding to the samples.
+    coords : np.ndarray
+        Array of coordinates for the samples.
+    assignment : list or np.ndarray
+        List or array of clone assignments for the samples.
+    tumor_prop : np.ndarray, optional
+        Array of tumor proportions for the samples. Default is None.
 
-        Returns
-        -------
-        pd.DataFrame
-            Data frame containing sample_id, x, y, clone_label, and optionally tumor_proportion.
-        """
-        df_clone_label = pd.DataFrame(
-            {
-                "sample_id": [barcode.split("_")[-1] for barcode in barcodes],
-                "x": coords[:, 0],
-                "y": coords[:, 1],
-                "clone_label": assignment,
-            },
-            index=barcodes,
-        )
+    Returns
+    -------
+    pd.DataFrame
+        Data frame containing sample_id, x, y, clone_label, and optionally tumor_proportion.
+    """
+    df_clone_label = pd.DataFrame(
+        {
+            "sample_id": [barcode.split("_")[-1] for barcode in barcodes],
+            "x": coords[:, 0],
+            "y": coords[:, 1],
+            "clone_label": assignment,
+        },
+        index=barcodes,
+    )
 
-        if tumor_prop is not None:
-            df_clone_label["tumor_proportion"] = tumor_prop
+    if tumor_prop is not None:
+        df_clone_label["tumor_proportion"] = tumor_prop
 
-        # Sort by (sample_id, (x,y)).
-        df_clone_label = df_clone_label.groupby("sample_id", group_keys=False).apply(
-            lambda g: g.sort_values(["x", "y"])
-        )
+    # Sort by (sample_id, (x,y)).
+    df_clone_label = df_clone_label.groupby("sample_id", group_keys=False).apply(
+        lambda g: g.sort_values(["x", "y"])
+    )
 
-        return df_clone_label
+    return df_clone_label
 
 
 def get_sample_sheet(sample_sheet_path):

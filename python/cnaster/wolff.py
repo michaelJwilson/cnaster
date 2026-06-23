@@ -212,7 +212,7 @@ def wolff_update(
         return new_cost, new_cluster_assignment, cluster, acceptance
     else:
         return cost_zeropoint, current_assignment, cluster, acceptance
-    
+
 
 # TODO MOVE wolff
 def wolff_sweep(

@@ -17,8 +17,12 @@ class SpatioGenomicCounts:
 
     lengths: np.ndarray  # (n_contigs,) num. segments per contig
     X: np.ndarray  # (n_segments, 2, n_spots) observed counts, 0: genes, 1: snps
-    base_nb_mean: np.ndarray  # (n_segments, n_spots) expected baseline expression for normal cells
-    total_bb_RD: np.ndarray  # (n_segments, n_spots) total (both haplotypes) snp-covering reads in segment
+    base_nb_mean: (
+        np.ndarray
+    )  # (n_segments, n_spots) expected baseline expression for normal cells
+    total_bb_RD: (
+        np.ndarray
+    )  # (n_segments, n_spots) total (both haplotypes) snp-covering reads in segment
 
     @property
     def n_segments(self) -> int:

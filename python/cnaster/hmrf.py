@@ -306,7 +306,7 @@ def aggr_hmrfmix_reassignment_concatenate(
 
     logger.info("Pooling hmrf data by smooth mat. (reduces necessary computation).")
 
-    # TODO no_pool flag 
+    # TODO no_pool flag
     # NB pool data by smooth mat: reduces spots to calculate likelihood for, i.e. faster.
     pooled_X, pooled_base_nb_mean, pooled_total_bb_RD, _, weighted_tp = pool_hmrf_data(
         single_X,
@@ -828,7 +828,7 @@ def hmrfmix_concatenate_pipeline(
             **remain_kwargs,
         )
 
-        # NB MAP copy state, irrespective of phasing. contrast to "pred_cnv". 
+        # NB MAP copy state, irrespective of phasing. contrast to "pred_cnv".
         pred = np.argmax(res["log_gamma"], axis=0)
 
         # NB TODO 'max' clone assignment.
@@ -916,7 +916,7 @@ def hmrfmix_concatenate_pipeline(
         with np.printoptions(linewidth=np.inf):
             logger.info(f"Copy number state usage [%]:\n{100. * state_usage}")
 
-        '''
+        """
         if plot_progress:
             logger.info(f"Plotting progress for interation {r}.")
 
@@ -965,7 +965,7 @@ def hmrfmix_concatenate_pipeline(
 
             fig_path = f"{progress_dir}/{prefix}_genomic_iter{r}.pdf"
             write_fig(fig_path, clones_genomic, transparent=True, bbox_inches="tight")
-        '''
+        """
 
         # NB potential conflict with GOTO logic below.
         r += 1
@@ -1393,6 +1393,7 @@ def aggr_hmrf_reassignment(
         return new_assignment, single_llf, total_llf, posterior
     else:
         return new_assignment, single_llf, total_llf
+
 
 # DEPRECATE?
 def hmrf_reassignment_posterior(

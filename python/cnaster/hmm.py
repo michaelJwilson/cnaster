@@ -8,7 +8,7 @@ from cnaster.logger import get_logger
 
 logger = get_logger(__name__, start_time=start_time)
 
-'''
+"""
 @dataclass
 class HMMResult:
     params.new_log_mu: np.ndarray
@@ -21,8 +21,9 @@ class HMMResult:
     state.pred_cnv: np.ndarray
     llf: float
     n_states: int
-'''
-    
+"""
+
+
 def pipeline_baum_welch(
     _,
     X,

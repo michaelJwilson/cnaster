@@ -18,6 +18,7 @@ logger = get_logger(__name__, start_time=start_time)
 #     cell_snp_Aallele, cell_snp_Ballele, 0.1
 # )
 
+
 # NB mirrors calicost.phasing.initial_phase_given_partition;
 # @cacher("initial_phase.hdf5")
 def initial_phase_given_partition(
@@ -118,7 +119,9 @@ def initial_phase_given_partition(
     )
 
     # TODO rename model_baf_profiles
-    baf_profiles, phase_profiles = np.zeros((n_clones, X.shape[0])), np.zeros((n_clones, X.shape[0]))
+    baf_profiles, phase_profiles = np.zeros((n_clones, X.shape[0])), np.zeros(
+        (n_clones, X.shape[0])
+    )
 
     for i in range(n_clones):
         logger.info(f"Solving for phasing of initial clone {i} of {n_clones}.")

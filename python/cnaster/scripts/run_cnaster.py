@@ -56,9 +56,9 @@ from cnaster.omics import (
 from cnaster.phasing import initial_phase_given_partition
 from cnaster.plot_genomic import plot_clones_genomic, plot_clones_genomic_raw
 from cnaster.plotting import (  # plot_gene_snp_spatial,; plot_recombination_rates,
-    plot_adjacency,
+    # plot_adjacency,
     plot_clones_spatial,
-    plot_copy_states,
+    # plot_copy_states,
 )
 from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
 from cnaster.spatial import (  # fixed_rectangle_partition,; sufficient_umis_initial_clone,
@@ -1820,8 +1820,12 @@ def run_cnaster(config_path, over_rides=None):
     )
 
     # TODO assumes a ploidy constraint.
-    fig_path = f"{output_dir}/plots/clones_genomic.pdf"
-    write_fig(fig_path, rdr_baf_fig, transparent=True, bbox_inches="tight")
+    write_fig(
+        f"{output_dir}/plots/clones_genomic.pdf",
+        rdr_baf_fig,
+        transparent=True,
+        bbox_inches="tight",
+    )
 
     # TODO issue when indexing of initial clones incompatiable/bigger than final clones.
     # initial_rdr_baf_fig = plot_clones_genomic(
@@ -1841,8 +1845,7 @@ def run_cnaster(config_path, over_rides=None):
     # )
 
     # TODO
-    # fig_path = f"{output_dir}/plots/initial_clones_genomic.pdf"
-    # write_fig(fig_path, initial_rdr_baf_fig, transparent=True, bbox_inches="tight")
+    # write_fig(f"{output_dir}/plots/initial_clones_genomic.pdf", initial_rdr_baf_fig, transparent=True, bbox_inches="tight")
 
     clone_index = [
         np.where(res_combine["new_assignment"] == c)[0]
@@ -1870,8 +1873,12 @@ def run_cnaster(config_path, over_rides=None):
         base_height=3,
     )
 
-    fig_path = f"{output_dir}/plots/clones_spatial.pdf"
-    write_fig(fig_path, clones_fig, transparent=True, bbox_inches="tight")
+    write_fig(
+        f"{output_dir}/plots/clones_spatial.pdf",
+        clones_fig,
+        transparent=True,
+        bbox_inches="tight",
+    )
 
     # DUPLICATE see above.
     clone_index = [
@@ -1903,8 +1910,12 @@ def run_cnaster(config_path, over_rides=None):
         df_seglevel_cnv,  # segment level: chr, start, end, real states (Z), A/B copies, & model (log_mu, p_binom) for each clone.
     )
 
-    fig_path = f"{plots_dir}/copy_number_profile.pdf"
-    write_fig(fig_path, fig_copy_number_profile, transparent=True, bbox_inches="tight")
+    write_fig(
+        f"{plots_dir}/copy_number_profile.pdf",
+        fig_copy_number_profile,
+        transparent=True,
+        bbox_inches="tight",
+    )
 
     logger.info(f"Done in {(time.time() - start_time)/60.:.2f} minutes.")
 

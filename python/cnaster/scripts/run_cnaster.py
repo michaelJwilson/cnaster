@@ -690,9 +690,7 @@ def run_cnaster(config_path, over_rides=None):
 
     # NB merge according to min. number of spots per clone criterion;  single_X has dynamic shape (n_segments, 2, n_spots).
     n_obs = single_X.shape[0]
-    min_umicount_thresholds = (
-        n_obs * config.hmrf.min_avgumi_per_clone,
-    )  # MAGIC 31_420 SNP UMIs
+    min_umicount_thresholds = n_obs * config.hmrf.min_avgumi_per_clone # MAGIC 31_420 SNP UMIs
 
     _, merged_res = merge_by_minspots(
         merged_res["new_assignment"],

@@ -444,6 +444,12 @@ def run_cnaster(config_path, over_rides=None):
 
     pause()
 
+    #
+    # ===================================================================
+    # baf-derived inference of clone assignment and copy number profiles
+    # ===================================================================
+    #
+
     # TODO
     # NB smooth pooling matrix & distance based (exponential decay) adjacency.
     #    requires pre-defined single_total_bb_RD, but largely on data loading.
@@ -560,12 +566,6 @@ def run_cnaster(config_path, over_rides=None):
     logger.info(
         "Solving hmm & hmrf for copy states and clone assignment with baf only."
     )
-
-    #
-    # ===================================================================
-    # baf-derived inference of clone assignment and copy number profiles
-    # ===================================================================
-    #
 
     # NB zero transcript counts for all segments/spots, to drop rdr dependence
     #    of the likelihood.

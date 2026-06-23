@@ -254,7 +254,10 @@ def run_cnaster(config_path, over_rides=None):
         config=config,
     )
 
-    initial_clone_index_baf = initial_clone_for_phasing if config.annotation.clone_label is not None else None
+    # if annotation is available, we assume it; else, we'll initialize later.
+    initial_clone_index_baf = (
+        initial_clone_for_phasing if config.annotation.clone_label is not None else None
+    )
 
     # NB utilize initial spot assignment based on h&e image; potts model may (will!) merge, or blur h&e boundaries.
     if "he_label" in adata.obsm:
@@ -274,8 +277,9 @@ def run_cnaster(config_path, over_rides=None):
             np.unique(clone_assignment),
         )
 
-    assignment = get_clone_assignment(coords, initial_clone_for_phasing)
-    assignment = pd.Series([f"clone {x}" for x in assignment])
+    assignment = pd.Series(
+        [f"clone {x}" for x in get_clone_assignment(coords, initial_clone_for_phasing)]
+    )
 
     phasing_clones_fig = plot_clones_spatial(
         coords,
@@ -310,8 +314,8 @@ def run_cnaster(config_path, over_rides=None):
         bbox_inches="tight",
     )
 
-    # TODO DEPRECATE legacy,
     if config.phasing.run:
+        # TODO DEPRECATE legacy?
         if config.run.legacy:
             logger.warning("Assuming (magic) five baf states for phasing.")
             n_states_phasing = 5

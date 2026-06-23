@@ -791,7 +791,7 @@ def hmrfmix_concatenate_pipeline(
             f"----****  Solving iteration {r}/{max_iter_outer} of copy number state fitting & clone assignment (HMM + HMRF) ****----"
         )
 
-        # NB segments for each clone stacked.
+        # NB [num_segments, num_segments ..., num_segments] of length num_clones.
         sample_length = np.ones(X.shape[2], dtype=int) * X.shape[0]
         remain_kwargs = {"sample_length": sample_length, "lambd": lambd}
 

@@ -1369,6 +1369,7 @@ def aggr_hmrf_reassignment(
                 )
                 break
 
+    # TODO UGH FINAL takes forever to run.
     # NB compute total log likelihood: log P(X | Z) + log P(Z)
     total_llf = np.sum(single_llf[np.arange(n_spots), new_assignment])
     for i in range(n_spots):
@@ -1383,7 +1384,7 @@ def aggr_hmrf_reassignment(
     else:
         return new_assignment, single_llf, total_llf
 
-
+# DEPRECATE?
 def hmrf_reassignment_posterior(
     single_X,
     single_base_nb_mean,

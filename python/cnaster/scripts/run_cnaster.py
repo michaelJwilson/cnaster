@@ -20,7 +20,7 @@ from cnaster.hmrf import (  # hmrf_reassignment_posterior,; hmrfmix_reassignment
 from cnaster.hmrf_utils import get_clone_assignment, get_clone_indices
 from cnaster.integer_copy import (hill_climbing_integer_copynumber_fixdiploid,
                                   hill_climbing_integer_copynumber_oneclone)
-from cnaster.io import get_sample_list, load_input_data, read_tumor_prop
+from cnaster.io import get_sample_list, load_input_data, read_tumor_prop, construct_df_clone_label
 from cnaster.logger import get_logger
 from cnaster.neyman_pearson import (combine_similar_states_across_clones,
                                     neyman_pearson_similarity)
@@ -705,6 +705,10 @@ def run_cnaster(config_path, over_rides=None):
     # TODO construct for df_clone_label
     # 
     # NB construct data frame with assigned clone label for all samples.
+    df_clone_label = construct_df_clone_label(
+        barcodes, coords, merged_res["new_assignment"], single_tumor_prop
+    )
+    '''
     df_clone_label = pd.DataFrame(
         {
             "sample_id": [barcode.split("_")[-1] for barcode in barcodes],
@@ -723,7 +727,7 @@ def run_cnaster(config_path, over_rides=None):
     df_clone_label = df_clone_label.groupby("sample_id", group_keys=False).apply(
         lambda g: g.sort_values(["x", "y"])
     )
-
+    '''
     opath = f"{output_dir}/baf_clone_labels.tsv"
 
     logger.info(
@@ -825,8 +829,8 @@ def run_cnaster(config_path, over_rides=None):
 
     # TODO likely removes high RDR (-only) states in simulations?
     # 
-    # NB filter out high-umi differentially expressed genes, which may
-    #    bias RDR estimates.
+    # NB filter out high-umi differentially expressed genes,
+    #    which may bias RDR estimates.
     if config.quality.filter_normal_diffexp:
         copy_single_X_rdr, _ = filter_normal_diffexp(
             exp_counts,
@@ -944,6 +948,8 @@ def run_cnaster(config_path, over_rides=None):
 
             continue
         """
+
+        # TODO?  single_X[idx_spots] would make more sense.
         sufficient_snp_umi_for_split = (
             np.sum(single_total_bb_RD[:, idx_spots]) >= 20 * single_X.shape[0]
         )
@@ -1260,6 +1266,7 @@ def run_cnaster(config_path, over_rides=None):
 
     pause()
 
+    # DEPRECATE favored clones per-slice.
     log_persample_weights = np.zeros((n_final_clones, len(sample_list)))
 
     for sidx in range(len(sample_list)):
@@ -1288,6 +1295,7 @@ def run_cnaster(config_path, over_rides=None):
     logger.info(f"Finalizing clone assignment with refined parameters.")
 
     if config.preprocessing.tumorprop_file is None:
+        # TODO FINAL takes forever to run.
         new_assignment, _, total_llf, _ = aggr_hmrf_reassignment(
             single_X,
             single_base_nb_mean,
@@ -1382,12 +1390,12 @@ def run_cnaster(config_path, over_rides=None):
     #
 
     # NB assumed ploidy for integer copy number problem, expects e.g. "diploid", "triploid", "tetraploid"
-    medfix = [""] + [f"_{pp}" for pp in config.int_copy_num.ploidy.split(",")]
+    # medfix = [f"_{pp}" for pp in config.int_copy_num.ploidy.split(",")]
 
-    int_ploidy_map = {"": None, "diploid": 2, "triploid": 3, "tetraploid": 4}
+    int_ploidy_map = {"diploid": 2, "triploid": 3, "tetraploid": 4}
 
-    # TODO remove _ and replacement; result is e.g. [None, 2, 3, 4] for ploidy="diploid,triploid,tetraploid".
-    int_ploidy = [int_ploidy_map[key.replace("_", "")] for key in medfix]
+    # NB assumed ploidy for integer copy number problem; result is e.g. [None, 2, 3, 4] for ploidy="diploid,triploid,tetraploid".
+    int_ploidy = [None] + [int_ploidy_map[key] for key in config.int_copy_num.ploidy.split(",")]
 
     # TODO solution for each ploidy, enumerated by "o".
     for o, max_medploidy in enumerate(int_ploidy):
@@ -1620,6 +1628,7 @@ def run_cnaster(config_path, over_rides=None):
 
         # NB output genome segment-level copy number; 
         allele_specific_copy = pd.concat(allele_specific_copy)
+        
         df_seglevel_cnv = pd.DataFrame(
             {
                 "CHR": df_bininfo.CHR.values,

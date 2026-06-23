@@ -1,5 +1,9 @@
 import numpy as np
-import logging
+import time
+import csv
+from pathlib import Path
+
+from dataclasses import dataclass, asdict, field
 from cnaster.config import start_time
 from cnaster.logger import get_logger
 
@@ -116,3 +120,47 @@ def get_clone_assignment(coords, clone_indices):
         assignment[indices] = idx
 
     return assignment
+
+
+@dataclass
+class hmrf_perf_entry:
+    optimizer: str
+    cost: float
+    best_cost: float
+    iteration: int = 0
+    temp: float = np.nan
+    acceptance: float = 1.0
+    ncluster: int = 1
+    nedit: int = 0
+    clone_split: np.ndarray = field(default_factory=lambda: np.array([-1]))
+
+    def as_dict(self):
+        d = asdict(self)
+        d["optimizer"] = d["optimizer"].ljust(15)
+        d["cost"] = "{:+.6e}".format(self.cost)
+        d["best_cost"] = "{:+.6e}".format(self.best_cost)
+        d["iteration"] = str(self.iteration)
+        d["temp"] = (
+            "Inf".ljust(10) if np.isinf(self.temp) else "{:.4e}".format(self.temp)
+        )
+        d["acceptance"] = "{:.4e}".format(self.acceptance)
+        d["ncluster"] = str(self.ncluster)
+        d["nedit"] = "{:d}".format(self.nedit)
+        d["clone_split"] = ",".join("{:.8f}".format(x) for x in self.clone_split)
+
+        return d
+
+    def log(self, filename="cnaster_hmrf.perf"):
+        perf_dict = self.as_dict()
+        perf_file = Path(filename)
+
+        perf_dict["timestamp"] = time.strftime("%Y-%m-%d %H:%M:%S")
+        fieldnames = ["timestamp"] + [k for k in perf_dict.keys() if k != "timestamp"]
+
+        with open(filename, "a", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames, delimiter="\t")
+
+            if not perf_file.exists():
+                writer.writeheader()
+
+            writer.writerow(perf_dict)

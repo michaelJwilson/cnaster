@@ -10,10 +10,10 @@ from pathlib import Path
 from cnaster.icm import (
     icm_sweep,
     icm_sweep_deque,
-    wolff_sweep,
     unpack_adjacency,
     merge_assignment,
 )
+from cnaster.wolff import wolff_sweep
 from cnaster.hmm import gmm_init, pipeline_baum_welch
 from cnaster.hmm_sitewise import hmm_sitewise
 from cnaster.hmrf_utils import cast_csr, clone_stack_obs

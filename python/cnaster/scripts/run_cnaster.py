@@ -9,7 +9,6 @@ import pandas as pd
 import scipy
 from numba import njit
 
-from cnaster.annotation import get_clone_label_annotation
 from cnaster.config import YAMLConfig, set_global_config, start_time
 
 # from cnaster.sim import load_tables_to_matrices
@@ -165,6 +164,8 @@ def run_cnaster(config_path, over_rides=None):
 
     pause()
 
+    # TODO move to load_input_data
+    #
     # NB sample list derived from adata.obs['sample'] - removes adjacent duplicates.
     #    sample_ids: unique enum for each entry in sample_list.  One per adata.obs entry.
     sample_list, sample_ids = get_sample_list(adata)
@@ -244,27 +245,18 @@ def run_cnaster(config_path, over_rides=None):
     # ============================================================
     #
 
-    # NB known clone annotation per spot.
-    if config.annotation.clone_label is not None:
-        initial_clone_index_baf, _ = get_clone_label_annotation(config)
+    # NB  rectangular partition across multiple slices, equivalent to parse_visium::perform_partition.
+    initial_clone_for_phasing = initialize_clones(
+        coords,
+        sample_ids,  # NB for all spots in all slices.
+        x_part=config.phasing.npart_phasing,
+        y_part=config.phasing.npart_phasing,
+        config=config,
+    )
 
-        # NB assumes the known clone labels for phasing.
-        initial_clone_for_phasing = initial_clone_index_baf
-    else:
-        # NB reference assignment, not a copy?
-        initial_clone_index_baf = None
+    initial_clone_index_baf = initial_clone_for_phasing if config.annotation.clone_label is not None else None
 
-        # NB  rectangular partition across multiple slices.
-        #     equivalent to parse_visium::perform_partition
-        initial_clone_for_phasing = initialize_clones(
-            coords,
-            sample_ids,  # NB for all spots in all slices.
-            x_part=config.phasing.npart_phasing,
-            y_part=config.phasing.npart_phasing,
-        )
-
-    # NB utilize initial spot assignment based on h&e image;
-    #    potts model may merge, or blur h&e boundaries.
+    # NB utilize initial spot assignment based on h&e image; potts model may (will!) merge, or blur h&e boundaries.
     if "he_label" in adata.obsm:
         logger.info(f"Refining initial clone partition with h&e derived segmentation.")
 

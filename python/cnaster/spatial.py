@@ -2,13 +2,14 @@ import numpy as np
 import scipy.linalg
 import scipy.sparse
 from collections import namedtuple
-from scipy.sparse import lil_matrix
+# from scipy.sparse import lil_matrix
 from scipy.spatial import cKDTree
-from scipy.spatial import distance
+# from scipy.spatial import distance
 from scipy.sparse import csr_matrix
-from cnaster.utils import cacher
+# from cnaster.utils import cacher
 from cnaster.config import start_time
 from cnaster.logger import get_logger
+from cnaster.annotation import get_clone_label_annotation
 
 logger = get_logger(__name__, start_time=start_time)
 
@@ -115,7 +116,16 @@ def initialize_clones(
     single_tumor_prop=None,
     threshold=None,
     random_state=None,
+    config=None,
 ):
+    if config is not None:
+        # NB assumes the known clone labels for phasing.
+        if config.annotation.clone_label is not None:
+            initial_clone_for_phasing, _ = get_clone_label_annotation(config)
+
+        # NB assumes the known clone labels for phasing.
+        return initial_clone_for_phasing
+
     logger.info(
         f"Initializing clones given fixed grid partitions and max. sample_id={np.max(sample_ids)}"
     )

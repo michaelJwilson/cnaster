@@ -1,0 +1,19 @@
+-  seeding
+-  adjacency
+-  clone stack an arg. to merge_pseudobulk_by_index_mix
+-  hmm::HMMResult
+-  utilise hmm_phased in baf-only determination.
+-  hmrf::aggr_hmrfmix_reassignment_concatenate  no_pooling / cleanup.
+-  hmrf::hmrfmix_concatenate_pipeline  result class / solver class.
+-  benchmark for icm; cna++
+-  transition matrix independence?
+-  centromeres
+
+DONE
+
+-  H&E image.
+-
+
+NODO
+-  GC content.
+-  OTHER filter; N>1 ALT counts; transcription gated repair?

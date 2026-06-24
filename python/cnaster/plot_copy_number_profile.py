@@ -67,7 +67,7 @@ def plot_ascn_legend(
     box_w: float = 0.8,
     box_h: float = 0.8,
     tick_len: float = 0.08,
-    label_fontsize: int = 8,
+    label_fontsize: int = 10,
     palette_name: str = "chisel_single",
 ):
     """Draw a horizontal color bar legend for single-allele cna values."""
@@ -126,7 +126,7 @@ def plot_ascn_legend(
         x0 + total_boxes_w + 0.2,
         box_h / 2.0,
         r"$\mathbb{N}$" + "-CNA",
-        fontsize=label_fontsize,
+        fontsize=12,
         ha="left",
         va="center",
     )
@@ -161,7 +161,6 @@ def plot_copy_number_profile(
     A_full = df_cnv[[f"clone{cid} A" for cid in clone_ids]].fillna(1).to_numpy()
     B_full = df_cnv[[f"clone{cid} B" for cid in clone_ids]].fillna(1).to_numpy()
 
-    # FIX TODO BUG: Use get_intervals(...) instead of duplicated array indexing logic
     deviations = []
     for k in range(len(clone_ids)):
         a_col, b_col = A_full[:, k], B_full[:, k]
@@ -271,19 +270,20 @@ def plot_copy_number_profile(
 
         ch_offset += n_rows
 
-        # TODO BUG vline at chr_offset = 0 
-        for k in range(num_clones):
-            y_b_k = k * h + y_gap
-            ax.vlines(
-                ch_offset,
-                ymin=y_b_k,
-                ymax=y_b_k + h_pair,
-                linewidth=1,
-                colors="black",
-                clip_on=False,
-            )
-
     ch_coords.append(ch_offset)
+
+    # FIX TODO BUG: Use the collected ch_coords to plot all lines vector-style,
+    # catching the first boundary (0) and the final boundary simultaneously.
+    for k in range(num_clones):
+        y_b_k = k * h + y_gap
+        ax.vlines(
+            ch_coords,
+            ymin=y_b_k,
+            ymax=y_b_k + h_pair,
+            linewidth=1,
+            colors="black",
+            clip_on=False,
+        )
 
     for k in range(num_clones):
         y_b_k = k * h + y_gap

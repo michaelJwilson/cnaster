@@ -106,7 +106,7 @@ def plot_ascn_legend(
     ax.text(
         -0.3,
         box_h / 2.0,
-        r"$\mathbb{N}^2$ + "-CNA",
+        r"$\mathbb{N}^2$" + "-CNA",
         fontsize=label_fontsize,
         ha="right",
         va="center",

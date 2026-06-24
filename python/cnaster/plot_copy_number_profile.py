@@ -75,7 +75,7 @@ def plot_ascn_legend(
     ax.axis("off")
 
     # FIX TODO BUG: Draw Mirror Box first, aligned to x=0.0
-    swatch_w = box_w * 0.7
+    swatch_w = box_w * 0.5
     ax.add_patch(
         Rectangle(
             (0.0, 0.0), swatch_w, box_h, facecolor="white", edgecolor="black"
@@ -93,8 +93,7 @@ def plot_ascn_legend(
         fontsize=label_fontsize,
     )
 
-    # FIX TODO BUG: Shift color boxes to start after the Mirror box
-    x0 = swatch_w + 1.0 
+    x0 = swatch_w + 0.5 
 
     for i, label in enumerate(boxes):
         color = state_style.get(label)
@@ -105,7 +104,7 @@ def plot_ascn_legend(
             box_h,
             facecolor=color,
             edgecolor="black",
-            alpha=1.0 if label == 0 else 0.5,
+            alpha=0.25 if label == 1 else 1.0,
         )
         ax.add_patch(rect)
 
@@ -123,7 +122,7 @@ def plot_ascn_legend(
     total_boxes_w = len(boxes) * box_w
     
     ax.text(
-        x0 + total_boxes_w + 0.1,
+        x0 + total_boxes_w + 0.2,
         box_h / 2.0,
         r"$\mathbb{N}^2$" + "-CNA",
         fontsize=label_fontsize,

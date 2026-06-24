@@ -459,7 +459,6 @@ def plot_clones_genomic(
             n_obs,
         )
 
-        # --- Draw Fits and Annotations ---
         for i, seg in enumerate(segments):
             ax_rdr.plot(
                 seg,

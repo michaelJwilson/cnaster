@@ -342,7 +342,8 @@ def plot_copy_number_profile(
     ax.set_ylim(0, num_clones * h)
     ax.tick_params(axis="y", which="major", left=True, right=False, length=4, pad=20)
 
-    legend_ax = fig.add_axes([0.0, 0.05, 0.7, 0.05])
+    # TODO BUG ch_coords[0] aligned.
+    legend_ax = fig.add_axes([0.1, 0.025, 0.7, 0.05])
 
     plot_ascn_legend(legend_ax, palette_name=palette_name)
 

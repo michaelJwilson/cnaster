@@ -73,12 +73,10 @@ def plot_ascn_legend(
     state_style, ordered_acn = get_full_palette(palette_name)
     boxes = list(ordered_acn)
 
-    if "7+" not in boxes:
-        boxes.append("7+")
-
     ax.axis("off")
     x0 = 0.0
 
+    # TODO BUG first (mirror) box should have left edge aligned to chr_offset=0 axis.
     for i, label in enumerate(boxes):
         color = state_style.get(label)
 
@@ -244,8 +242,6 @@ def plot_copy_number_profile(
                 cna, cnb = a_states[s], b_states[s]
                 is_mirror, direction = has_mirror[s], dirs[s]
 
-                rect_alpha = 0.5 if (cna == 1 and cnb == 1) else 1.0
-
                 ax.add_patch(
                     Rectangle(
                         (x0, y_b),
@@ -254,7 +250,7 @@ def plot_copy_number_profile(
                         facecolor=state_style.get(cnb, state_style.get("default", "lightgray")),
                         edgecolor="none",
                         linewidth=0,
-                        alpha=rect_alpha,
+                        alpha=(0.25 if cnb == 1 else 1.0),
                     )
                 )
 
@@ -266,7 +262,7 @@ def plot_copy_number_profile(
                         facecolor=state_style.get(cna, state_style.get("default", "lightgray")),
                         edgecolor="none",
                         linewidth=0,
-                        alpha=rect_alpha,
+                        alpha=(0.25 if cna == 1 else 1.0),
                     )
                 )
 

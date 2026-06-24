@@ -160,6 +160,8 @@ def plot_copy_number_profile(
     A_full = df_cnv[[f"clone{cid} A" for cid in clone_ids]].fillna(1).to_numpy()
     B_full = df_cnv[[f"clone{cid} B" for cid in clone_ids]].fillna(1).to_numpy()
 
+    # TODO BUG deviation should not be proportional to the number of segments,
+    #          use run-length encoding instead. 
     deviations = np.sum(np.abs(A_full - 1) + np.abs(B_full - 1), axis=0)
 
     clone_ids = [clone_ids[i] for i in np.argsort(deviations)]
@@ -225,6 +227,7 @@ def plot_copy_number_profile(
                 cna, cnb = a_states[s], b_states[s]
                 is_mirror, direction = has_mirror[s], dirs[s]
 
+                # TODO BUG. 0.75 opacity if normal, A=1, B=1,  
                 ax.add_patch(
                     Rectangle(
                         (x0, y_b),

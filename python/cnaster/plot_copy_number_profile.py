@@ -30,32 +30,30 @@ def _draw_mirror_chevrons(
     ax: plt.Axes, x0: float, y_b: float, w: float, h_sub: float, direction: int
 ):
     """
-    Mirrored events, e.g. (A, B) -> (B, A) between clones on the same segment, 
+    Mirrored events, e.g. (A, B) -> (B, A) between clones on the same segment,
     shaded by tight, vertical, mirrored chevrons according to the mirror direction.
     """
     n_chev = 2
-    chev_unit = w * 0.12
+    chev_unit = w * 0.24
     gap = w * 0.04
     total_w = n_chev * chev_unit + (n_chev - 1) * gap
     x_start = x0 + (w - total_w) / 2.0
 
     y_high = y_b + 2 * h_sub
     y_low = y_b
-    y_mid = (y_high + y_low) / 2.0
 
     for i in range(n_chev):
         cx_left = x_start + i * (chev_unit + gap)
         cx_right = cx_left + chev_unit
+        cx_mid = (cx_left + cx_right) / 2.0
 
-        xs = (
-            [cx_left, cx_right, cx_left]
-            if direction > 0
-            else [cx_right, cx_left, cx_right]
-        )
+        # FIX: Draw ^ (up) if direction > 0, else v (down)
+        xs = [cx_left, cx_mid, cx_right]
+        ys = [y_low, y_high, y_low] if direction > 0 else [y_high, y_low, y_high]
 
         ax.plot(
             xs,
-            [y_high, y_mid, y_low],
+            ys,
             color="black",
             linewidth=1.2,
             alpha=0.5,
@@ -66,27 +64,21 @@ def _draw_mirror_chevrons(
 def plot_ascn_legend(
     ax: plt.Axes,
     box_w: float = 1.2,
-    box_h: float = 0.4,
+    box_h: float = 0.8,
     tick_len: float = 0.08,
     label_fontsize: int = 12,
+    palette_name: str = "chisel_single",
 ):
     """Draw a horizontal color bar legend for single-allele cna values."""
-    state_style, ordered_acn = get_full_palette("chisel_independent")
+    state_style, ordered_acn = get_full_palette(palette_name)
     boxes = list(ordered_acn)
-
-    # Safely ensure 7+ is included in the legend
-    if "7+" not in boxes:
-        boxes.append("7+")
 
     ax.axis("off")
     x0 = 0.0
 
     for i, label in enumerate(boxes):
-        # FIX: Safely attempt to get the color. 
-        # If the label is missing, try to get "default". 
-        # If "default" is missing, fallback to "lightgray".
-        color = state_style.get(label, state_style.get("default", "lightgray"))
-        
+        color = state_style.get(label)
+
         rect = Rectangle(
             (x0 + i * box_w, 0.0),
             box_w,
@@ -96,7 +88,7 @@ def plot_ascn_legend(
             alpha=1.0 if label == 0 else 0.5,
         )
         ax.add_patch(rect)
-        
+
         xc = x0 + i * box_w + box_w / 2.0
         ax.plot([xc, xc], [-tick_len, 0.0], color="black", linewidth=0.8)
         ax.text(
@@ -106,16 +98,14 @@ def plot_ascn_legend(
             ha="center",
             va="top",
             fontsize=label_fontsize,
-            fontweight="bold",
         )
 
     total_w = len(boxes) * box_w
     ax.text(
         -0.3,
         box_h / 2.0,
-        "Allele copy number",
+        R"$\mathbb{N}^2-CNA$",
         fontsize=label_fontsize,
-        fontweight="bold",
         ha="right",
         va="center",
     )
@@ -133,11 +123,10 @@ def plot_ascn_legend(
     ax.text(
         chev_box_x + swatch_w / 2.0,
         -tick_len - 0.04,
-        "Mirrored LOH",
+        "Mirror",
         ha="center",
         va="top",
         fontsize=label_fontsize,
-        fontweight="bold",
     )
 
     ax.set_xlim(-2.0, chev_box_x + swatch_w + 0.5)
@@ -155,7 +144,7 @@ def plot_copy_number_profile(
     show_clone_name: bool = True,
     plot_chrname: bool = True,
     figsize: tuple = None,
-    palette_name: str = "chisel_single"
+    palette_name: str = "chisel_single",
 ):
     """
     Plot (allele-specific) per-clone cna profiles where horizontal width is strictly
@@ -165,21 +154,21 @@ def plot_copy_number_profile(
     state_style, _ = get_full_palette(palette_name)
 
     clone_ids = [c.split(" ")[0][5:] for c in df_cnv.columns if c.endswith(" A")]
-    
+
     A_full = df_cnv[[f"clone{cid} A" for cid in clone_ids]].fillna(1).to_numpy()
     B_full = df_cnv[[f"clone{cid} B" for cid in clone_ids]].fillna(1).to_numpy()
 
     deviations = np.sum(np.abs(A_full - 1) + np.abs(B_full - 1), axis=0)
 
     clone_ids = [clone_ids[i] for i in np.argsort(deviations)]
-    
+
     num_clones = len(clone_ids)
 
     if ax is None:
         figsize = figsize or (20, max(3.0, 1.2 * num_clones))
         fig, ax = plt.subplots(figsize=figsize, dpi=300, facecolor="white")
 
-        fig.subplots_adjust(bottom=0.15) 
+        fig.subplots_adjust(bottom=0.15)
     else:
         fig = ax.figure
 
@@ -201,11 +190,18 @@ def plot_copy_number_profile(
         A_mat = df_ch[[f"clone{cid} A" for cid in clone_ids]].to_numpy()
         B_mat = df_ch[[f"clone{cid} B" for cid in clone_ids]].to_numpy()
 
+        # Keep directions to dictate the orientation of the chevron (up/down)
         dirs_mat = np.zeros_like(A_mat, dtype=int)
         dirs_mat[A_mat > B_mat] = 1
         dirs_mat[A_mat < B_mat] = -1
 
-        has_mirror = np.any(dirs_mat == 1, axis=1) & np.any(dirs_mat == -1, axis=1)
+        has_mirror = np.zeros(n_rows, dtype=bool)
+
+        for c in range(num_clones):
+            exact_swap = (
+                (A_mat == B_mat[:, [c]]) & (B_mat == A_mat[:, [c]]) & (A_mat != B_mat)
+            )
+            has_mirror |= np.any(exact_swap, axis=1)
 
         for k, _ in enumerate(clone_ids):
             a_states = A_mat[:, k]
@@ -229,17 +225,25 @@ def plot_copy_number_profile(
 
                 ax.add_patch(
                     Rectangle(
-                        (x0, y_b), w, h_sub,
+                        (x0, y_b),
+                        w,
+                        h_sub,
                         facecolor=state_style.get(cnb),
-                        edgecolor="none", linewidth=0, alpha=1.0,
+                        edgecolor="none",
+                        linewidth=0,
+                        alpha=1.0,
                     )
                 )
 
                 ax.add_patch(
                     Rectangle(
-                        (x0, y_a), w, h_sub,
+                        (x0, y_a),
+                        w,
+                        h_sub,
                         facecolor=state_style.get(cna),
-                        edgecolor="none", linewidth=0, alpha=1.0,
+                        edgecolor="none",
+                        linewidth=0,
+                        alpha=1.0,
                     )
                 )
 
@@ -251,8 +255,12 @@ def plot_copy_number_profile(
         for k in range(num_clones):
             y_b_k = k * h + y_gap
             ax.vlines(
-                ch_offset, ymin=y_b_k, ymax=y_b_k + h_pair,
-                linewidth=1, colors="black", clip_on=False
+                ch_offset,
+                ymin=y_b_k,
+                ymax=y_b_k + h_pair,
+                linewidth=1,
+                colors="black",
+                clip_on=False,
             )
 
     ch_coords.append(ch_offset)
@@ -262,8 +270,12 @@ def plot_copy_number_profile(
         for y0 in (y_b_k, y_b_k + h_sub):
             ax.add_patch(
                 Rectangle(
-                    (0, y0), ch_offset, h_sub, facecolor="none",
-                    edgecolor="black", linewidth=1,
+                    (0, y0),
+                    ch_offset,
+                    h_sub,
+                    facecolor="none",
+                    edgecolor="black",
+                    linewidth=1,
                 )
             )
 
@@ -275,27 +287,35 @@ def plot_copy_number_profile(
         spine.set_visible(False)
 
     if plot_chrname and chs:
-        midpoints = [
-            ch_coords[i]
-            for i in range(len(ch_coords) - 1)
-        ]
+        midpoints = [ch_coords[i] for i in range(len(ch_coords) - 1)]
         ax.set_xticks(midpoints)
 
         chr_labels = [f"chr{ch}" if str(ch).isdigit() else str(ch) for ch in chs]
-        
-        # TODO turn off explicit tick, but keep label.
+
         ax.set_xticklabels(chr_labels, rotation=45, fontsize=8, ha="left")
-        ax.tick_params(axis="x", labeltop=False, labelbottom=True, top=False, bottom=True)
+        ax.tick_params(
+            axis="x",
+            labeltop=False,
+            labelbottom=True,
+            top=False,
+            bottom=False,
+            va="top",
+            rotation_mode="anchor",
+        )
     else:
         ax.set_xticks([])
 
     ax.set_yticks([h * (i + 0.5) for i in range(num_clones)])
-    ylabels = [f"Clone {cid}" if show_clone_name else str(cid) for cid in reversed(clone_ids)]
+    ylabels = [
+        f"Clone {cid}" if show_clone_name else str(cid) for cid in reversed(clone_ids)
+    ]
     ax.set_yticklabels(ylabels, fontsize=8, va="center", ha="left", rotation=90)
 
     minor_positions, minor_labels = [], []
     for k in range(num_clones):
-        minor_positions.extend([k * h + y_gap + h_sub * 0.5, k * h + y_gap + h_sub * 1.5])
+        minor_positions.extend(
+            [k * h + y_gap + h_sub * 0.5, k * h + y_gap + h_sub * 1.5]
+        )
         minor_labels.extend(["B", "A"])
 
     ax.set_yticks(minor_positions, minor=True)
@@ -305,8 +325,9 @@ def plot_copy_number_profile(
     ax.set_ylim(0, num_clones * h)
     ax.tick_params(axis="y", which="major", left=True, right=False, length=4, pad=20)
 
-    # legend_ax = fig.add_axes([0.15, 0.02, 0.7, 0.05])
-    # plot_ascn_legend(legend_ax)
+    legend_ax = fig.add_axes([0.15, 0.02, 0.7, 0.05])
+
+    plot_ascn_legend(legend_ax, palette_name=palette_name)
 
     if title:
         ax.set_title(title)

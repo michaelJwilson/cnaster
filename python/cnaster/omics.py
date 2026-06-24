@@ -163,7 +163,7 @@ def summarize_blocks(
     )
 
     # NB Mbp -> Kbp.
-    block_summary["length"] = (block_summary["end"] - block_summary["start"]) / 1_000.0
+    block_summary["length"] = 1_000.0 * (block_summary["end"] - block_summary["start"])
 
     gene_names = adata.var.index.to_numpy()
     gene_index_map = {g: i for i, g in enumerate(gene_names)}

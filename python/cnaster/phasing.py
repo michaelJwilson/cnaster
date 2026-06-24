@@ -1,3 +1,4 @@
+import time
 import numpy as np
 
 # from collections import namedtuple
@@ -47,6 +48,8 @@ def initial_phase_given_partition(
 
     # NB TODO attractor to 0.5 if sufficiently close, independent of coverage.
     EPS_BAF = 0.1  # MAGIC
+
+    start_time = time.time()
 
     # NB on input phase_indicator is 0s by construction, up to phase switch errors TBD.
     logger.info(f"Starting phasing assuming {len(initial_clone_index)} clones.")
@@ -244,8 +247,10 @@ def initial_phase_given_partition(
     # NB expect to unpack 22 per-contig lengths of N segments per contig, to len(refined_lengths) = sum(lengths).
     refined_lengths = np.array(refined_lengths)
 
+    end_time = time.time()
+
     logger.info(
-        f"Solved for {len(refined_lengths)} phase-refined lengths given {len(lengths)} input lengths with sum={sum(lengths)}."
+        f"Solved for {len(refined_lengths)} phase-refined lengths given {len(lengths)} input lengths with sum={sum(lengths)} in {(end_time - start_time):.2f} seconds."
     )
 
     return res, phase_indicator, refined_lengths

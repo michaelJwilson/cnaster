@@ -345,7 +345,7 @@ def run_cnaster(config_path, over_rides=None):
         )
 
         logger.info(
-            f"Solved for initial phase given pop. phasing (eagle) & observed baf in {(time.time() - start_time):.2f} seconds."
+            f"Solution for initial phase given pop. phasing (eagle) & observed baf in {(time.time() - start_time):.2f} seconds."
         )
     else:
         # TODO comment

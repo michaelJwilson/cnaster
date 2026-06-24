@@ -16,6 +16,7 @@ logger = get_logger(__name__, start_time=start_time)
 
 NORMAL_OPACITY = 0.75
 
+
 def _create_clone_gridspec(
     n_pairs: int, axes_per_clone: int, base_height: float, sample_list: list = None
 ):
@@ -136,7 +137,7 @@ def _annotate_clone_stats(
 
 
 def plot_clones_genomic(
-    df_cnv, # Can be None for raw data plotting
+    df_cnv,  # Can be None for raw data plotting
     lengths: np.ndarray,
     single_X: np.ndarray,
     single_base_nb_mean: np.ndarray,
@@ -168,7 +169,9 @@ def plot_clones_genomic(
         map_cn = {x: i for i, x in enumerate(ordered_acn)}
         state_colors = [color_palette[c] for c in ordered_acn]
 
-        final_clone_ids = df_cnv.columns.str.extract(r'^clone(.*) A$', expand=False).dropna().tolist()
+        final_clone_ids = (
+            df_cnv.columns.str.extract(r"^clone(.*) A$", expand=False).dropna().tolist()
+        )
         assert "0" in final_clone_ids
         unique_chrs = np.unique(df_cnv.CHR.values)
     else:
@@ -178,10 +181,14 @@ def plot_clones_genomic(
         else:
             final_clone_ids = [str(i) for i in range(len(clone_index))]
 
-    assert single_X.shape[0] == np.sum(lengths), "Found mismatch for genomic segment defined X and lengths."
+    assert single_X.shape[0] == np.sum(
+        lengths
+    ), "Found mismatch for genomic segment defined X and lengths."
 
     if clone_index is None:
-        assert res_combine is not None, "Must provide clone_index if res_combine is None"
+        assert (
+            res_combine is not None
+        ), "Must provide clone_index if res_combine is None"
         clone_index = [
             np.where(res_combine["new_assignment"] == c)[0]
             for c, _ in enumerate(final_clone_ids)
@@ -198,7 +205,7 @@ def plot_clones_genomic(
     n_obs = X.shape[0]
     spots_per_clone = [len(xx) for xx in clone_index]
     nonempty_clones = np.where(np.sum(total_bb_RD, axis=0) > 0)[0]
-    
+
     # Determine if RDR data exists
     has_rdr = base_nb_mean is not None and np.max(base_nb_mean) > 0
 
@@ -211,7 +218,7 @@ def plot_clones_genomic(
 
     for s, c in enumerate(nonempty_clones):
         cid = final_clone_ids[c]
-        
+
         ax_idx = s * axes_per_clone
         if has_rdr:
             ax_rdr = axes[ax_idx]
@@ -222,24 +229,36 @@ def plot_clones_genomic(
 
         # Establish point colors and categorical hues
         if df_cnv is not None:
-            major = np.maximum(df_cnv[f"clone{cid} A"].values, df_cnv[f"clone{cid} B"].values)
-            minor = np.minimum(df_cnv[f"clone{cid} A"].values, df_cnv[f"clone{cid} B"].values)
+            major = np.maximum(
+                df_cnv[f"clone{cid} A"].values, df_cnv[f"clone{cid} B"].values
+            )
+            minor = np.minimum(
+                df_cnv[f"clone{cid} A"].values, df_cnv[f"clone{cid} B"].values
+            )
 
             if palette_name == "chisel":
                 default_idx = map_cn.get((1, 1), 0)
-                hue_indices = [map_cn.get((major[i], minor[i]), default_idx) for i in range(len(major))]
+                hue_indices = [
+                    map_cn.get((major[i], minor[i]), default_idx)
+                    for i in range(len(major))
+                ]
 
                 hue = pd.Categorical(
                     hue_indices, categories=np.arange(len(ordered_acn)), ordered=True
                 )
                 palette = [
-                    mcolors.to_rgba(color, alpha=(NORMAL_OPACITY if ordered_acn[i] == (1, 1) else 1.0))
+                    mcolors.to_rgba(
+                        color,
+                        alpha=(NORMAL_OPACITY if ordered_acn[i] == (1, 1) else 1.0),
+                    )
                     for i, color in enumerate(state_colors)
                 ]
             else:
                 n_states = res_combine["new_p_binom"].shape[0]
                 hue = pd.Categorical(
-                    res_combine["pred_cnv"][:, c], categories=np.arange(n_states), ordered=True
+                    res_combine["pred_cnv"][:, c],
+                    categories=np.arange(n_states),
+                    ordered=True,
                 )
                 base_pal = sns.color_palette(palette_name, n_states)
                 palette = [mcolors.to_rgba(color, alpha=1.0) for color in base_pal]
@@ -280,11 +299,16 @@ def plot_clones_genomic(
                 legend=False,
                 ax=ax_rdr,
                 zorder=1,
-                **scatter_kwargs
+                **scatter_kwargs,
             )
 
             _format_track_axis(
-                ax_rdr, "\nRDR", [-0.5, rdr_ylim], np.arange(0, rdr_ylim + 1.0, 1.0), remove_xticks, n_obs
+                ax_rdr,
+                "\nRDR",
+                [-0.5, rdr_ylim],
+                np.arange(0, rdr_ylim + 1.0, 1.0),
+                remove_xticks,
+                n_obs,
             )
 
         # ----  BAF  ----
@@ -297,7 +321,8 @@ def plot_clones_genomic(
             alpha_beta_sum = alpha_param + beta_param
 
             std_err_baf = np.sqrt(
-                (alpha_param * beta_param) / (np.square(alpha_beta_sum) * (alpha_beta_sum + 1))
+                (alpha_param * beta_param)
+                / (np.square(alpha_beta_sum) * (alpha_beta_sum + 1))
             )
 
             ax_baf.errorbar(
@@ -318,41 +343,66 @@ def plot_clones_genomic(
             legend=False,
             ax=ax_baf,
             zorder=1,
-            **scatter_kwargs
+            **scatter_kwargs,
         )
 
         _format_track_axis(
-            ax_baf, "\nBAF", [-0.05, 1.05], np.arange(0.0, 1.1, 0.2), remove_xticks, n_obs
+            ax_baf,
+            "\nBAF",
+            [-0.05, 1.05],
+            np.arange(0.0, 1.1, 0.2),
+            remove_xticks,
+            n_obs,
         )
 
         # ---- Model Prediction Lines ----
-        if res_combine is not None:
-            if df_cnv is not None:
-                segments, labels = get_intervals(res_combine["pred_cnv"][:, c])
-            else:
-                max_pred = np.argmax(res_combine["log_gamma"], axis=0)
-                this_pred = max_pred[(c * n_obs) : (c * n_obs + n_obs)] % res_combine["n_states"]
-                segments, labels = get_intervals(this_pred)
+        if res_combine is not None and df_cnv is not None:
+            segments, labels = get_intervals(res_combine["pred_cnv"][:, c])
+
+            logger.info(
+                f"Assuming model fits with new_log_mu.shape={res_combine['new_log_mu'].shape} for {n_states} states and {len(nonempty_clones)} clones."
+            )
 
             for i, seg in enumerate(segments):
                 if has_rdr:
                     ax_rdr.plot(
                         seg,
-                        [np.exp(res_combine["new_log_mu"][labels[i], c])] * 2,
+                        [
+                            np.exp(
+                                res_combine["new_log_mu"][
+                                    labels[i],
+                                    c,
+                                ]
+                            )
+                        ]
+                        * 2,
                         c="k",
                         linewidth=0.5,
                         zorder=2,
                     )
                 ax_baf.plot(
                     seg,
-                    [res_combine["new_p_binom"][labels[i], c]] * 2,
+                    [
+                        res_combine["new_p_binom"][
+                            labels[i],
+                            c,
+                        ]
+                    ]
+                    * 2,
                     c="k",
                     linewidth=0.5,
                     zorder=2,
                 )
                 ax_baf.plot(
                     seg,
-                    [1.0 - res_combine["new_p_binom"][labels[i], c]] * 2,
+                    [
+                        1.0
+                        - res_combine["new_p_binom"][
+                            labels[i],
+                            c,
+                        ]
+                    ]
+                    * 2,
                     c="k",
                     linewidth=0.5,
                     linestyle="--",
@@ -363,21 +413,34 @@ def plot_clones_genomic(
         if df_cnv is not None and has_rdr:
             legend_elements = [
                 Line2D(
-                    [0], [0], marker="o", color="w", markerfacecolor=state_colors[i],
+                    [0],
+                    [0],
+                    marker="o",
+                    color="w",
+                    markerfacecolor=state_colors[i],
                     label=f"{100. * np.mean(hue == i):.1f}% {ordered_acn[i]}",
-                    markersize=10, linestyle="None",
+                    markersize=10,
+                    linestyle="None",
                 )
                 for i in hue.unique()
             ]
 
             ax_rdr.legend(
-                handles=legend_elements, loc="upper right", bbox_to_anchor=(1, 1.25),
-                ncol=len(legend_elements), frameon=False, bbox_transform=ax_rdr.transAxes,
+                handles=legend_elements,
+                loc="upper right",
+                bbox_to_anchor=(1, 1.25),
+                ncol=len(legend_elements),
+                frameon=False,
+                bbox_transform=ax_rdr.transAxes,
             )
 
         # ---- Clone Statistics Annotation ----
-        t_prop = tumor_prop[c] if (single_tumor_prop is not None and tumor_prop is not None) else None
-        
+        t_prop = (
+            tumor_prop[c]
+            if (single_tumor_prop is not None and tumor_prop is not None)
+            else None
+        )
+
         _annotate_clone_stats(
             ax_rdr if has_rdr else ax_baf,
             cid,

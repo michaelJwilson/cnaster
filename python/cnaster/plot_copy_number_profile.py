@@ -34,7 +34,7 @@ def _draw_mirror_chevrons(
     shaded by tight, vertical, mirrored chevrons according to the mirror direction.
     """
     n_chev = 2
-    chev_unit = w * 0.24
+    chev_unit = w * 0.48
     gap = w * 0.04
     total_w = n_chev * chev_unit + (n_chev - 1) * gap
     x_start = x0 + (w - total_w) / 2.0
@@ -60,10 +60,11 @@ def _draw_mirror_chevrons(
             solid_capstyle="round",
         )
 
-
+# TODO align left edge of first legend box to the axis with clone labels.
+# TODO move legend label to the right of the legend boxes;
 def plot_ascn_legend(
     ax: plt.Axes,
-    box_w: float = 1.2,
+    box_w: float = 0.8,
     box_h: float = 0.8,
     tick_len: float = 0.08,
     label_fontsize: int = 12,
@@ -76,6 +77,7 @@ def plot_ascn_legend(
     ax.axis("off")
     x0 = 0.0
 
+    # TODO BUG all colors are the same for all boxes??
     for i, label in enumerate(boxes):
         color = state_style.get(label)
 
@@ -104,7 +106,7 @@ def plot_ascn_legend(
     ax.text(
         -0.3,
         box_h / 2.0,
-        R"$\mathbb{N}^2-CNA$",
+        r"$\mathbb{N}^2$ + "-CNA",
         fontsize=label_fontsize,
         ha="right",
         va="center",
@@ -299,8 +301,9 @@ def plot_copy_number_profile(
             labelbottom=True,
             top=False,
             bottom=False,
-            va="top",
-            rotation_mode="anchor",
+            # va="top",
+            # rotation_mode="anchor",
+            pad=-5,
         )
     else:
         ax.set_xticks([])

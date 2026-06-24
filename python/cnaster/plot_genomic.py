@@ -470,7 +470,7 @@ def plot_clones_genomic(
             palette=palette,
             s=pointsize,
             edgecolor="none",
-            alpha=0.8,
+            alpha=1.0,
             legend=False,
             ax=ax_baf,
             zorder=1,

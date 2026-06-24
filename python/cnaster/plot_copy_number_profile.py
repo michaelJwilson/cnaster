@@ -191,7 +191,7 @@ def plot_copy_number_profile(
         fig = ax.figure
 
     h = height / num_clones
-    clone_gap = 0.25 * h
+    clone_gap = 0.2 * h
     h_pair = h - clone_gap
     h_sub = h_pair / 2
     y_gap = clone_gap / 2
@@ -272,8 +272,6 @@ def plot_copy_number_profile(
 
     ch_coords.append(ch_offset)
 
-    # FIX TODO BUG: Use the collected ch_coords to plot all lines vector-style,
-    # catching the first boundary (0) and the final boundary simultaneously.
     for k in range(num_clones):
         y_b_k = k * h + y_gap
         ax.vlines(
@@ -344,7 +342,7 @@ def plot_copy_number_profile(
     ax.set_ylim(0, num_clones * h)
     ax.tick_params(axis="y", which="major", left=True, right=False, length=4, pad=20)
 
-    legend_ax = fig.add_axes([0.15, 0.02, 0.7, 0.05])
+    legend_ax = fig.add_axes([0.0, 0.05, 0.7, 0.05])
 
     plot_ascn_legend(legend_ax, palette_name=palette_name)
 

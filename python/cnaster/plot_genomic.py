@@ -46,7 +46,7 @@ def _create_clone_gridspec(
 
 
 def _format_track_axis(ax, ylabel, ylim, yticks, remove_xticks, n_obs):
-    """Standardizes the styling for RDR and BAF genomic tracks."""
+    """Standardizes the styling for rdr and baf genomic tracks."""
     ax.set_ylabel(ylabel)
     ax.set_ylim(ylim)
     ax.set_yticks(yticks)
@@ -56,7 +56,6 @@ def _format_track_axis(ax, ylabel, ylim, yticks, remove_xticks, n_obs):
     if remove_xticks:
         ax.set_xticks([])
 
-    # Draw horizontal guide lines
     for y in yticks:
         ax.axhline(y=y, c="lightgray", linewidth=0.5, zorder=0)
 
@@ -244,12 +243,12 @@ def plot_clones_genomic_raw(
             this_pred = max_pred[(s * n_obs) : (s * n_obs + n_obs)] % res["n_states"]
 
             # NB currently based on _inferred real state_, as opposed to integer (A,B) states,
-            segments, labs = get_intervals(this_pred)
+            segments, labels = get_intervals(this_pred)
 
             mus = np.exp(res["new_log_mu"])
             ps = res["new_p_binom"]
 
-            for i, (seg, state) in enumerate(zip(segments, labs)):
+            for i, (seg, state) in enumerate(zip(segments, labels)):
                 if has_rdr:
                     ax_rdr.plot(
                         seg, [mus[state], mus[state]], c="k", linewidth=1.0, zorder=2
@@ -307,13 +306,13 @@ def plot_clones_genomic(
         raise ValueError("plot_rdr_errors must be one of None, or 'poisson'")
 
     # NB get palette map for copy number states, either (A,B)-like, or integer states.
-    palette, ordered_acn = get_full_palette(palette_name)
+    color_palette, ordered_acn = get_full_palette(palette_name)
 
     # NB mapper to enumeration for copy states.
     map_cn = {x: i for i, x in enumerate(ordered_acn)}
 
     # NB list of colors for each copy state.
-    colors = [palette[c] for c in ordered_acn]
+    colors = [color_palette[c] for c in ordered_acn]
 
     # TODO BUG more robust extraction; expect "clone{cid} A" etc.,
     final_clone_ids = np.unique([x.split(" ")[0][5:] for x in df_cnv.columns[3:]])
@@ -362,7 +361,7 @@ def plot_clones_genomic(
 
         # NB best _REAL_ (not integer) copy states for this clone; run length encoded.
         #    will be assigned same color according to inferred integer (A,B) copies.
-        segments, labs = get_intervals(res_combine["pred_cnv"][:, c])
+        segments, labels = get_intervals(res_combine["pred_cnv"][:, c])
 
         # NB major and minor copy numbers per segment for this clone.
         major = np.maximum(
@@ -382,7 +381,9 @@ def plot_clones_genomic(
                 categories=np.arange(len(ordered_acn)), # NB color according to ordered_acn copy states.
                 ordered=True,
             )
-            # palette = sns.color_palette(colors)
+
+            # TODO more direct way?
+            palette = sns.color_palette(colors)
         else:
             # NB no assumed color mapping; use __real__ copy states as categorical hue according to provided palette_name.
             hue = pd.Categorical(
@@ -392,15 +393,22 @@ def plot_clones_genomic(
             )
             palette = palette_name
 
+        # NB one per segment.
         x_vals = np.arange(n_obs)
+
+        # TODO WTF??
         point_colors = [
             {i: palette[i] for i in range(len(palette))}[h] for h in hue.codes
         ]
 
-        # NB plot rdr.
+        #  ----  RDR  ----
+
+        # NB normal baseline scaled to total clone transcript count;
         y_vals_rdr = X[:, 0, c] / base_nb_mean[:, c]
+
         if plot_rdr_errors == "poisson":
             with np.errstate(divide="ignore", invalid="ignore"):
+                # NB Poisson variance \propto mean; scaled by normal baseline.
                 std_err_rdr = np.sqrt(X[:, 0, c]) / base_nb_mean[:, c]
                 std_err_rdr[~np.isfinite(std_err_rdr)] = 0.0
 
@@ -411,7 +419,7 @@ def plot_clones_genomic(
                 fmt="none",
                 ecolor=point_colors,
                 elinewidth=0.5,
-                alpha=0.75,
+                alpha=1.0,
                 zorder=0,
             )
 
@@ -426,6 +434,8 @@ def plot_clones_genomic(
             ax=ax_rdr,
             zorder=1,
         )
+
+        # NB generic / shared axis formatting for rdr and baf.
         _format_track_axis(
             ax_rdr,
             "\nRDR",
@@ -435,20 +445,20 @@ def plot_clones_genomic(
             n_obs,
         )
 
-        # NB plot baf.
+        # ----  BAF  ----
         baf_vals = X[:, 1, c] / total_bb_RD[:, c]
-        if plot_baf_errors is not None:
-            n_counts = np.maximum(total_bb_RD[:, c], 1)  # Prevent division by zero
 
-            if plot_baf_errors == "wald":
-                std_err_baf = np.sqrt(baf_vals * (1 - baf_vals) / n_counts)
-            elif plot_baf_errors == "beta":
-                k, n = X[:, 1, c], total_bb_RD[:, c]
-                alpha, beta = k + 1, n - k + 1
-                alpha_beta_sum = alpha + beta
-                std_err_baf = np.sqrt(
-                    (alpha * beta) / (np.square(alpha_beta_sum) * (alpha_beta_sum + 1))
-                )
+        if plot_baf_errors == "beta":
+            k, n = X[:, 1, c], total_bb_RD[:, c]
+
+            # NB assumed uniform prior Beta(1,1); posterior is Beta(k+1, n-k+1).
+            alpha, beta = k + 1, n - k + 1
+            alpha_beta_sum = alpha + beta
+
+            # TODO CHECK
+            std_err_baf = np.sqrt(
+                (alpha * beta) / (np.square(alpha_beta_sum) * (alpha_beta_sum + 1))
+            )
 
             ax_baf.errorbar(
                 x_vals,
@@ -457,7 +467,7 @@ def plot_clones_genomic(
                 fmt="none",
                 ecolor=point_colors,
                 elinewidth=0.5,
-                alpha=0.75,
+                alpha=1.0,
                 zorder=0,
             )
 
@@ -473,6 +483,7 @@ def plot_clones_genomic(
             ax=ax_baf,
             zorder=1,
         )
+
         _format_track_axis(
             ax_baf,
             "\nBAF",
@@ -482,30 +493,35 @@ def plot_clones_genomic(
             n_obs,
         )
 
+        # NB plot model prediction for (run-length encoded) state, with lookup of best-fit
+        #    params accroding to __real__ cna state.
         for i, seg in enumerate(segments):
             ax_rdr.plot(
                 seg,
-                [np.exp(res_combine["new_log_mu"][labs[i], c])] * 2,
+                [np.exp(res_combine["new_log_mu"][labels[i], c])] * 2,
                 c="k",
                 linewidth=0.5,
                 zorder=2,
             )
             ax_baf.plot(
                 seg,
-                [res_combine["new_p_binom"][labs[i], c]] * 2,
+                [res_combine["new_p_binom"][labels[i], c]] * 2,
                 c="k",
                 linewidth=0.5,
                 zorder=2,
             )
+
+            # NB phase switch.
             ax_baf.plot(
                 seg,
-                [1.0 - res_combine["new_p_binom"][labs[i], c]] * 2,
+                [1.0 - res_combine["new_p_binom"][labels[i], c]] * 2,
                 c="k",
                 linewidth=0.5,
                 linestyle="--",
                 zorder=2,
             )
 
+        # NB state length with usage [%]. 
         legend_elements = [
             Line2D(
                 [0],
@@ -529,6 +545,7 @@ def plot_clones_genomic(
             bbox_transform=ax_rdr.transAxes,
         )
 
+        # NB add useful clone statistics. 
         _annotate_clone_stats(
             ax_rdr,
             cid,
@@ -539,6 +556,7 @@ def plot_clones_genomic(
         )
 
     _draw_chromosome_boundaries(axes, lengths, unique_chrs, chrtext_shift)
+    
     fig.tight_layout()
 
     return fig

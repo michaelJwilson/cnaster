@@ -1,3 +1,12 @@
+----  WEEK END  ----
+
+-  sim. run.
+-  data run.
+-  paper plots.
+
+
+----  TODO  ----
+ 
 -  seeding
 -  adjacency
 -  clone stack an arg. to merge_pseudobulk_by_index_mix
@@ -9,11 +18,11 @@
 -  transition matrix independence?
 -  centromeres
 
-DONE
+----  DONE  ----
 
 -  H&E image.
--
 
-NODO
+
+----  NOGO  -----
 -  GC content.
 -  OTHER filter; N>1 ALT counts; transcription gated repair?

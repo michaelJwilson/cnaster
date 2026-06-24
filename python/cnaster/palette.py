@@ -50,7 +50,7 @@ def get_full_palette(palette_name="chisel_joint"):
 
         palette.update({(0, 0): "darkblue"})
         palette.update({(1, 0): "lightblue"})
-        palette.update({(1, 1): "lightgray"})
+        palette.update({(1, 1): "steelblue"}) # NB chisel is lightgray
         palette.update({(2, 0): "dimgray"})
         palette.update({(2, 1): "lightgoldenrodyellow"})
         palette.update({(3, 0): "gold"})
@@ -103,6 +103,6 @@ def get_full_palette(palette_name="chisel_joint"):
         palette = dict(zip(ordered_acn, colors))
 
     if "default" not in palette:
-        palette["default"] = "lightgray"
+        palette["default"] = "steelblue"
 
     return palette, ordered_acn

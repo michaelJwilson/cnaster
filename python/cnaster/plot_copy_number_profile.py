@@ -4,6 +4,7 @@ import pandas as pd
 import matplotlib.colors as mcolors
 from matplotlib.patches import Rectangle
 from cnaster.palette import get_full_palette
+from cnaster.utils import cast_clone_label
 
 NORMAL_OPACITY = 0.25
 
@@ -326,6 +327,9 @@ def plot_copy_number_profile(
     ylabels = [
         f"Clone {cid}" if show_clone_name else str(cid) for cid in reversed(clone_ids)
     ]
+    # NB cast to Roman.
+    ylabels = [cast_clone_label(cid) for cid in ylabels]
+
     ax.set_yticklabels(ylabels, fontsize=8, va="center", ha="left", rotation=90)
 
     minor_positions, minor_labels = [], []

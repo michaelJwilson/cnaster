@@ -308,7 +308,7 @@ def top_hat_sum(arr, width):
 
 
 def cast_clone_label(label, with_normal=False):
-    num = label.replace("clone", "").strip()
+    num = label.lower().replace("clone", "").strip()
     num = int(num)
 
     if not (-1 <= num <= 3999):

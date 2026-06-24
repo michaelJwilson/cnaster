@@ -306,7 +306,8 @@ def plot_clones_genomic(
     colors = [color_palette[c] for c in ordered_acn]
 
     # TODO BUG more robust extraction; expect "clone{cid} A" etc.,
-    final_clone_ids = np.unique([x.split(" ")[0][5:] for x in df_cnv.columns[3:]])
+    # final_clone_ids = np.unique([x.split(" ")[0][5:] for x in df_cnv.columns[3:]])
+    final_clone_ids = df_cnv.columns.str.extract(r'^clone(.*) A$', expand=False).dropna().tolist()
 
     # 
     # if "0" not in final_clone_ids:
@@ -382,7 +383,7 @@ def plot_clones_genomic(
                 categories=np.arange(n_states),
                 ordered=True,
             )
-            palette = palette_name
+            palette = sns.color_palette(palette_name, n_states)
 
         # NB one per segment.
         x_vals = np.arange(n_obs)

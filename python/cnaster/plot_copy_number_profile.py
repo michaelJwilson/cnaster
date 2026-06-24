@@ -183,7 +183,7 @@ def plot_copy_number_profile(
     num_clones = len(clone_ids)
 
     if ax is None:
-        figsize = figsize or (20, max(3.0, 1.2 * num_clones))
+        figsize = figsize or (15, max(3.0, 1.2 * num_clones))
         fig, ax = plt.subplots(figsize=figsize, dpi=300, facecolor="white")
 
         fig.subplots_adjust(bottom=0.15)
@@ -191,7 +191,7 @@ def plot_copy_number_profile(
         fig = ax.figure
 
     h = height / num_clones
-    clone_gap = 0.2 * h
+    clone_gap = 0.25 * h
     h_pair = h - clone_gap
     h_sub = h_pair / 2
     y_gap = clone_gap / 2

@@ -85,7 +85,7 @@ def get_full_palette(palette_name="chisel_joint"):
 
         palette.update({
             0: "white",          # Negative space for complete loss
-            1: "lightsteelblue",      
+            1: "steelblue",      
             2: "khaki",  
             3: "#feb24c",      # Orange
             4: "#fd8d3c",      # Dark orange

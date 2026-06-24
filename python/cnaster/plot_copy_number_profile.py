@@ -1,9 +1,11 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import matplotlib.colors as mcolors
 from matplotlib.patches import Rectangle
 from cnaster.palette import get_full_palette
 
+NORMAL_OPACITY = 0.25
 
 def get_intervals(pred_cnv):
     """
@@ -65,7 +67,7 @@ def plot_ascn_legend(
     box_w: float = 0.8,
     box_h: float = 0.8,
     tick_len: float = 0.08,
-    label_fontsize: int = 12,
+    label_fontsize: int = 8,
     palette_name: str = "chisel_single",
 ):
     """Draw a horizontal color bar legend for single-allele cna values."""
@@ -74,7 +76,6 @@ def plot_ascn_legend(
 
     ax.axis("off")
 
-    # FIX TODO BUG: Draw Mirror Box first, aligned to x=0.0
     swatch_w = box_w * 0.5
     ax.add_patch(
         Rectangle(
@@ -97,15 +98,15 @@ def plot_ascn_legend(
 
     for i, label in enumerate(boxes):
         color = state_style.get(label)
-
         rect = Rectangle(
             (x0 + i * box_w, 0.0),
             box_w,
             box_h,
-            facecolor=color,
-            edgecolor="black",
-            alpha=0.25 if label == 1 else 1.0,
+            facecolor=mcolors.to_rgba(color, alpha=(NORMAL_OPACITY if label == 1 else 1.0)), 
+            edgecolor="black", 
         )
+
+
         ax.add_patch(rect)
 
         xc = x0 + i * box_w + box_w / 2.0
@@ -249,7 +250,7 @@ def plot_copy_number_profile(
                         facecolor=state_style.get(cnb, state_style.get("default", "lightgray")),
                         edgecolor="none",
                         linewidth=0,
-                        alpha=(0.25 if cnb == 1 else 1.0),
+                        alpha=(NORMAL_OPACITY if cnb == 1 else 1.0),
                     )
                 )
 
@@ -261,7 +262,7 @@ def plot_copy_number_profile(
                         facecolor=state_style.get(cna, state_style.get("default", "lightgray")),
                         edgecolor="none",
                         linewidth=0,
-                        alpha=(0.25 if cna == 1 else 1.0),
+                        alpha=(NORMAL_OPACITY if cna == 1 else 1.0),
                     )
                 )
 
@@ -270,6 +271,7 @@ def plot_copy_number_profile(
 
         ch_offset += n_rows
 
+        # TODO BUG vline at chr_offset = 0 
         for k in range(num_clones):
             y_b_k = k * h + y_gap
             ax.vlines(

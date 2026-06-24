@@ -271,7 +271,7 @@ def plot_clones_genomic_raw(
 
 
 def plot_clones_genomic(
-    df_cnv: pd.DataFrame,
+    df_cnv: pd.DataFrame, # segment level: chr, start, end, real states (Z), A/B copies, & model (log_mu, p_binom) for each clone.
     lengths: np.ndarray,
     single_X: np.ndarray,
     single_base_nb_mean: np.ndarray,
@@ -306,19 +306,31 @@ def plot_clones_genomic(
     if plot_rdr_errors not in (None, "poisson"):
         raise ValueError("plot_rdr_errors must be one of None, or 'poisson'")
 
-    chisel_palette, ordered_acn = get_full_palette(palette_name)
+    # NB get palette map for copy number states, either (A,B)-like, or integer states.
+    palette, ordered_acn = get_full_palette(palette_name)
+
+    # NB mapper to enumeration for copy states.
     map_cn = {x: i for i, x in enumerate(ordered_acn)}
-    colors = [chisel_palette[c] for c in ordered_acn]
 
+    # NB list of colors for each copy state.
+    colors = [palette[c] for c in ordered_acn]
+
+    # TODO BUG more robust extraction; expect "clone{cid} A" etc.,
     final_clone_ids = np.unique([x.split(" ")[0][5:] for x in df_cnv.columns[3:]])
-    if "0" not in final_clone_ids:
-        final_clone_ids = np.array(["0"] + list(final_clone_ids))
 
+    # 
+    # if "0" not in final_clone_ids:
+    #     final_clone_ids = np.array(["0"] + list(final_clone_ids))
+
+    assert "0" in final_clone_ids
+
+    # NB ambiguous on clone stack.
     n_states = res_combine["new_p_binom"].shape[0]
     unique_chrs = np.unique(df_cnv.CHR.values)
 
-    assert single_X.shape[0] == df_cnv.shape[0], "Genomic segment counts mismatch."
+    assert single_X.shape[0] == df_cnv.shape[0], "Found mismatch for genomic segment defined X and derived copy state profiles."
 
+    # DEPRECATE clone_index: expects spot indices for each clone;
     if clone_index is None:
         clone_index = [
             np.where(res_combine["new_assignment"] == c)[0]
@@ -337,44 +349,55 @@ def plot_clones_genomic(
     spots_per_clone = [len(xx) for xx in clone_index]
     nonempty_clones = np.where(np.sum(total_bb_RD, axis=0) > 0)[0]
 
+    assert len(nonempty_clones) == total_bb_RD.shape[1]
+
     fig, axes = _create_clone_gridspec(
         len(nonempty_clones), 2, base_height, sample_list
     )
 
     for s, c in enumerate(nonempty_clones):
+        # NB derived from provided df_cnv
         cid = final_clone_ids[c]
         ax_rdr, ax_baf = axes[2 * s], axes[2 * s + 1]
 
-        # Determine states for color mapping
+        # NB best _REAL_ (not integer) copy states for this clone; run length encoded.
+        #    will be assigned same color according to inferred integer (A,B) copies.
+        segments, labs = get_intervals(res_combine["pred_cnv"][:, c])
+
+        # NB major and minor copy numbers per segment for this clone.
         major = np.maximum(
             df_cnv[f"clone{cid} A"].values, df_cnv[f"clone{cid} B"].values
         )
         minor = np.minimum(
             df_cnv[f"clone{cid} A"].values, df_cnv[f"clone{cid} B"].values
         )
-        segments, labs = get_intervals(res_combine["pred_cnv"][:, c])
 
         if palette_name == "chisel":
+            # NB colors are determined by major and minor only, not their order in (A,B) or (B,A).
+            #    which would be chevroned.
+            #
+            # TODO simpler/more efficient way?
             hue = pd.Categorical(
-                [map_cn[(major[i], minor[i])] for i in range(len(major))],
-                categories=np.arange(len(ordered_acn)),
+                [map_cn[(major[i], minor[i])] for i in range(len(major))], # TODO runtime error if (major[i], minor[i]) not in map_cn; in lieu of ordered_acn.
+                categories=np.arange(len(ordered_acn)), # NB color according to ordered_acn copy states.
                 ordered=True,
             )
-            palette = sns.color_palette(colors)
+            # palette = sns.color_palette(colors)
         else:
+            # NB no assumed color mapping; use __real__ copy states as categorical hue according to provided palette_name.
             hue = pd.Categorical(
                 res_combine["pred_cnv"][:, c],
                 categories=np.arange(n_states),
                 ordered=True,
             )
-            palette = palette
+            palette = palette_name
 
         x_vals = np.arange(n_obs)
         point_colors = [
             {i: palette[i] for i in range(len(palette))}[h] for h in hue.codes
         ]
 
-        # --- Plot RDR ---
+        # NB plot rdr.
         y_vals_rdr = X[:, 0, c] / base_nb_mean[:, c]
         if plot_rdr_errors == "poisson":
             with np.errstate(divide="ignore", invalid="ignore"):
@@ -412,7 +435,7 @@ def plot_clones_genomic(
             n_obs,
         )
 
-        # --- Plot BAF ---
+        # NB plot baf.
         baf_vals = X[:, 1, c] / total_bb_RD[:, c]
         if plot_baf_errors is not None:
             n_counts = np.maximum(total_bb_RD[:, c], 1)  # Prevent division by zero

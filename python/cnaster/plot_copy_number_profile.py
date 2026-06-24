@@ -194,7 +194,7 @@ def plot_copy_number_profile(
         fig = ax.figure
 
     h = height / num_clones
-    clone_gap = 0.15 * h
+    clone_gap = 0.2 * h
     h_pair = h - clone_gap
     h_sub = h_pair / 2
     y_gap = clone_gap / 2

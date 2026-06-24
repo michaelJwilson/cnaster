@@ -48,7 +48,7 @@ def get_full_palette(palette_name="chisel_joint"):
     if palette_name in ("chisel", "chisel_joint"):
         ordered_acn = get_ordered_acn(mode="joint")
 
-        palette.update({(0, 0): "lighblue"})  # TODO never used??
+        palette.update({(0, 0): "lightblue"})  # TODO never used??
         palette.update({(1, 0): "darkblue"})  # NB swapped with (0,0)
         palette.update({(1, 1): "steelblue"}) # NB chisel is lightgray
         palette.update({(2, 0): "dimgray"})

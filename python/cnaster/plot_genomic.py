@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
+import matplotlib.colors as mcolors
 from matplotlib.lines import Line2D
 
 from cnaster.config import start_time
@@ -13,6 +14,7 @@ from cnaster.palette import get_full_palette
 
 logger = get_logger(__name__, start_time=start_time)
 
+NORMAL_OPACITY = 0.25
 
 def _create_clone_gridspec(
     n_pairs: int, axes_per_clone: int, base_height: float, sample_list: list = None
@@ -211,7 +213,6 @@ def plot_clones_genomic_raw(
             y=X[:, 1, s] / total_bb_RD[:, s],
             s=pointsize,
             edgecolor="none",
-            alpha=0.8,
             legend=False,
             ax=ax_baf,
             zorder=1,
@@ -375,7 +376,12 @@ def plot_clones_genomic(
             )
 
             # TODO more direct way?
-            palette = sns.color_palette(colors)
+            # palette = sns.color_palette(colors)
+
+            palette = [
+                mcolors.to_rgba(color, alpha=(NORMAL_OPACITY if ordered_acn[i] == (1, 1) else 1.0))
+                for i, color in enumerate(colors)
+            ]
         else:
             # NB no assumed color mapping; use __real__ copy states as categorical hue according to provided palette_name.
             hue = pd.Categorical(
@@ -388,7 +394,7 @@ def plot_clones_genomic(
         # NB one per segment.
         x_vals = np.arange(n_obs)
 
-        # TODO WTF??
+        # TODO
         point_colors = [
             {i: palette[i] for i in range(len(palette))}[h] for h in hue.codes
         ]
@@ -411,7 +417,6 @@ def plot_clones_genomic(
                 fmt="none",
                 ecolor=point_colors,
                 elinewidth=0.5,
-                alpha=1.0,
                 zorder=0,
             )
 
@@ -459,7 +464,6 @@ def plot_clones_genomic(
                 fmt="none",
                 ecolor=point_colors,
                 elinewidth=0.5,
-                alpha=1.0,
                 zorder=0,
             )
 
@@ -470,7 +474,6 @@ def plot_clones_genomic(
             palette=palette,
             s=pointsize,
             edgecolor="none",
-            alpha=1.0,
             legend=False,
             ax=ax_baf,
             zorder=1,

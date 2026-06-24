@@ -47,7 +47,6 @@ def _draw_mirror_chevrons(
         cx_right = cx_left + chev_unit
         cx_mid = (cx_left + cx_right) / 2.0
 
-        # FIX: Draw ^ (up) if direction > 0, else v (down)
         xs = [cx_left, cx_mid, cx_right]
         ys = [y_low, y_high, y_low] if direction > 0 else [y_high, y_low, y_high]
 
@@ -74,9 +73,29 @@ def plot_ascn_legend(
     boxes = list(ordered_acn)
 
     ax.axis("off")
-    x0 = 0.0
 
-    # TODO BUG first (mirror) box should have left edge aligned to chr_offset=0 axis.
+    # FIX TODO BUG: Draw Mirror Box first, aligned to x=0.0
+    swatch_w = box_w * 0.7
+    ax.add_patch(
+        Rectangle(
+            (0.0, 0.0), swatch_w, box_h, facecolor="white", edgecolor="black"
+        )
+    )
+
+    _draw_mirror_chevrons(ax, 0.0, 0.0, swatch_w, box_h / 2, direction=1)
+
+    ax.text(
+        swatch_w / 2.0,
+        -tick_len - 0.04,
+        "Mirror",
+        ha="center",
+        va="top",
+        fontsize=label_fontsize,
+    )
+
+    # FIX TODO BUG: Shift color boxes to start after the Mirror box
+    x0 = swatch_w + 1.0 
+
     for i, label in enumerate(boxes):
         color = state_style.get(label)
 
@@ -101,10 +120,10 @@ def plot_ascn_legend(
             fontsize=label_fontsize,
         )
 
-    total_w = len(boxes) * box_w
+    total_boxes_w = len(boxes) * box_w
     
     ax.text(
-        total_w + 0.1,
+        x0 + total_boxes_w + 0.1,
         box_h / 2.0,
         r"$\mathbb{N}^2$" + "-CNA",
         fontsize=label_fontsize,
@@ -112,29 +131,8 @@ def plot_ascn_legend(
         va="center",
     )
 
-    swatch_w = box_w * 0.7
-    chev_box_x = total_w + 2.5 
-    
-    # TODO BUG have mirror box appear first in the legend.
-    ax.add_patch(
-        Rectangle(
-            (chev_box_x, 0.0), swatch_w, box_h, facecolor="white", edgecolor="black"
-        )
-    )
-
-    _draw_mirror_chevrons(ax, chev_box_x, 0.0, swatch_w, box_h / 2, direction=1)
-
-    ax.text(
-        chev_box_x + swatch_w / 2.0,
-        -tick_len - 0.04,
-        "Mirror",
-        ha="center",
-        va="top",
-        fontsize=label_fontsize,
-    )
-
-    # FIX TODO: Align left edge of first legend box to the axis limit (x=0.0)
-    ax.set_xlim(0.0, chev_box_x + swatch_w + 0.5)
+    # Adjust x limit to encapsulate the entire updated legend span
+    ax.set_xlim(0.0, x0 + total_boxes_w + 2.0)
     ax.set_ylim(-0.5, box_h + 0.2)
     ax.set_aspect("auto")
 
@@ -163,18 +161,20 @@ def plot_copy_number_profile(
     A_full = df_cnv[[f"clone{cid} A" for cid in clone_ids]].fillna(1).to_numpy()
     B_full = df_cnv[[f"clone{cid} B" for cid in clone_ids]].fillna(1).to_numpy()
 
-    # TODO BUG use get_intervals(...) instead of duplicate.
+    # FIX TODO BUG: Use get_intervals(...) instead of duplicated array indexing logic
     deviations = []
     for k in range(len(clone_ids)):
         a_col, b_col = A_full[:, k], B_full[:, k]
         
-        # Identify indices where either A or B changes copy state
-        changes = np.where((a_col[:-1] != a_col[1:]) | (b_col[:-1] != b_col[1:]))[0] + 1
-        splits = np.concatenate(([0], changes, [len(a_col)]))
+        # Combine into a single state array to identify contiguous blocks
+        encoded = a_col * 1_000 + b_col
+        intervals, _ = get_intervals(encoded)
         
-        # Extract the unique contiguous segment values
-        a_rle = a_col[splits[:-1]]
-        b_rle = b_col[splits[:-1]]
+        # Extract the start indices of each interval
+        starts = [s for s, e in intervals]
+        
+        a_rle = a_col[starts]
+        b_rle = b_col[starts]
         
         # Sum the deviation of just the segments (unweighted by genomic length)
         deviations.append(np.sum(np.abs(a_rle - 1) + np.abs(b_rle - 1)))

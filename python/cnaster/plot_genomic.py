@@ -206,7 +206,6 @@ def plot_clones_genomic(
     spots_per_clone = [len(xx) for xx in clone_index]
     nonempty_clones = np.where(np.sum(total_bb_RD, axis=0) > 0)[0]
 
-    # Determine if RDR data exists
     has_rdr = base_nb_mean is not None and np.max(base_nb_mean) > 0
 
     assert len(nonempty_clones) == total_bb_RD.shape[1]
@@ -227,7 +226,6 @@ def plot_clones_genomic(
             ax_rdr = None
             ax_baf = axes[ax_idx]
 
-        # Establish point colors and categorical hues
         if df_cnv is not None:
             major = np.maximum(
                 df_cnv[f"clone{cid} A"].values, df_cnv[f"clone{cid} B"].values
@@ -266,7 +264,8 @@ def plot_clones_genomic(
             point_colors = [palette[h] for h in hue.codes]
             scatter_kwargs = {"hue": hue, "palette": palette}
         else:
-            point_colors = "#4C72B0"  # Default clean blue for raw plotting
+            # TODO color by state.
+            point_colors = "#4C72B0"
             scatter_kwargs = {"color": point_colors}
 
         x_vals = np.arange(n_obs)

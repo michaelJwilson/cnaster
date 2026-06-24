@@ -291,19 +291,10 @@ def plot_clones_genomic(
     plot_rdr_errors: str = "poisson",
 ):
     """
-    Plots fully modeled Read-Depth Ratio (RDR) and B-Allele Frequency (BAF) across clones,
-    overlaying categorical copy number states and distribution errors.
-
-    Error Models:
-    - RDR: Assumes Poisson variance ($std = \sqrt{N} / N_{base}$).
-    - BAF: Beta posterior uniform prior ($Beta(k+1, n-k+1)$) or Wald interval.
+    Plots aggregated rdr and baf (with error models) and best-fit continous copy states (mu, p),
+    with no knowledge of best-fit integer states.
     """
-    logger.info(f"Plotting inferred rdr+baf for all clones.")
-
-    if plot_baf_errors not in (None, "wald", "beta"):
-        raise ValueError("plot_baf_errors must be one of None, 'wald', or 'beta'")
-    if plot_rdr_errors not in (None, "poisson"):
-        raise ValueError("plot_rdr_errors must be one of None, or 'poisson'")
+    logger.info(f"Plotting aggregated rdr, baf and continuous copy states (mu, p) for all clones.")
 
     # NB get palette map for copy number states, either (A,B)-like, or integer states.
     color_palette, ordered_acn = get_full_palette(palette_name)
@@ -556,7 +547,7 @@ def plot_clones_genomic(
         )
 
     _draw_chromosome_boundaries(axes, lengths, unique_chrs, chrtext_shift)
-    
+
     fig.tight_layout()
 
     return fig

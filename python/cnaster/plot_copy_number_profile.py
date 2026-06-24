@@ -247,6 +247,7 @@ def plot_copy_number_profile(
 
         ch_offset += n_rows
 
+        # TODO contig line should not span clones.
         line = ax.vlines(
             ch_offset, ymin=0, ymax=1., transform=ax.get_xaxis_transform(),
             linewidth=1, colors="black"
@@ -277,6 +278,8 @@ def plot_copy_number_profile(
         #     for i in range(len(ch_coords) - 1)
         # ]
         # ax.set_xticks(midpoints)
+
+        # BUG chr_label positions are wrong, labels are 1..N, but contigs missing label,
         chr_labels = [f"chr{ch}" if str(ch).isdigit() else str(ch) for ch in chs]
         
         # Omit the last tick line which overlaps the end boundary
@@ -285,6 +288,8 @@ def plot_copy_number_profile(
     else:
         ax.set_xticks([])
 
+    # BUG clone label positions are misaligned (vertically) to axes.
+    # BUG do not plot random yticks on clone y axis.
     # NB plot clone labels and A,B
     # ax.set_yticks([h * (i + 0.5) for i in range(num_clones)])
     ylabels = [f"Clone {cid}" if show_clone_name else str(cid) for cid in reversed(clone_ids)]
@@ -301,6 +306,8 @@ def plot_copy_number_profile(
 
     ax.set_ylim(0, num_clones * h)
     ax.tick_params(axis="y", which="major", left=True, right=False, length=4, pad=20)
+
+    # TODO add legend
 
     if title:
         ax.set_title(title)

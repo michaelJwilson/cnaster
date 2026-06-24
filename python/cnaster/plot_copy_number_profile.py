@@ -8,26 +8,20 @@ from cnaster.palette import get_full_palette
 def get_intervals(pred_cnv):
     """
     Find contiguous intervals in the state label array (pred_cnv)
-    --- typically real copy states (Z) or integer (A,B) states ---
-    where the copy number state is the same.
+    where the copy number state is the same. Vectorized for performance.
 
     Returns a list of intervals (start index, end index) into the array
     and the corresponding array of state label for each interval.
     """
-    intervals, labs = [], []
-    s = 0
+    pred_cnv = np.asarray(pred_cnv)
+    if len(pred_cnv) == 0:
+        return [], []
 
-    while s < len(pred_cnv):
-        t = np.where(pred_cnv[s:] != pred_cnv[s])[0]
-        if len(t) == 0:
-            intervals.append((s, len(pred_cnv)))
-            labs.append(pred_cnv[s])
-            s = len(pred_cnv)
-        else:
-            t = t[0]
-            intervals.append((s, s + t))
-            labs.append(pred_cnv[s])
-            s = s + t
+    changes = np.where(pred_cnv[:-1] != pred_cnv[1:])[0] + 1
+    splits = np.concatenate(([0], changes, [len(pred_cnv)]))
+
+    intervals = [(splits[i], splits[i + 1]) for i in range(len(splits) - 1)]
+    labs = pred_cnv[splits[:-1]].tolist()
 
     return intervals, labs
 
@@ -36,8 +30,8 @@ def _draw_mirrored_loh_chevrons(
     ax: plt.Axes, x0: float, y_b: float, w: float, h_sub: float, direction: int
 ):
     """
-    Mirrored events, e.g. LOH, between individual sub-clones should have
-    their colored segments (A and B) marked by tight, vertical, mirrored chevrons.
+    Mirrored events, e.g. (A, B) -> (B, A) between clones on the same segment, 
+    shaded by tight, vertical, mirrored chevrons according to the mirror direction.
     """
     n_chev = 2
     chev_unit = w * 0.12
@@ -76,11 +70,10 @@ def plot_ascn_legend(
     tick_len: float = 0.08,
     label_fontsize: int = 12,
 ):
-    """Draw a horizontal color bar legend for single allele CN values."""
+    """Draw a horizontal color bar legend for single-allele cna values."""
     state_style, ordered_acn = get_full_palette("chisel_independent")
     boxes = list(ordered_acn)
 
-    # Safely append "7+" if it's not already in the list to avoid duplication
     if "7+" not in boxes:
         boxes.append("7+")
 
@@ -88,11 +81,8 @@ def plot_ascn_legend(
     x0 = 0.0
 
     for i, label in enumerate(boxes):
-        color = (
-            state_style["default"]
-            if label == "7+"
-            else state_style.get(label, state_style["default"])
-        )
+        color = state_style.get(label, state_style["default"]) if label != "7+" else state_style["default"]
+        
         rect = Rectangle(
             (x0 + i * box_w, 0.0),
             box_w,
@@ -160,81 +150,60 @@ def plot_copy_number_profile(
     show_clone_name: bool = True,
     plot_chrname: bool = True,
     figsize: tuple = None,
+    palette_name: str = "chisel_independent"
 ):
     """
     Plot (allele-specific) per-clone CNA profiles where width is strictly
-    proportional to the number of segments using the legacy 1D get_intervals.
-
-    df_cnv contains segment/bin level:
-        CHR, clone{cid} Z, clone{cid} A, clone{cid} B
+    proportional to the number of segments.
     """
-    # Force independent mode
-    state_style, _ = get_full_palette("chisel_independent")
+    state_style, _ = get_full_palette(palette_name)
 
-    # Extract clone IDs from column names
-    a_cols = [c for c in df_cnv.columns if c.endswith(" A")]
-    clone_ids = [c.split(" ")[0][5:] for c in a_cols]
+    # Extract clone IDs cleanly
+    clone_ids = [c.split(" ")[0][5:] for c in df_cnv.columns if c.endswith(" A")]
     num_clones = len(clone_ids)
 
-    # Cleanly generate a single figure/axis if one wasn't passed in
     if ax is None:
-        if figsize is None:
-            # Dynamically scale physical height so clones don't get squished
-            figsize = (20, max(3.0, num_clones * 1.2))
+        figsize = figsize or (20, max(3.0, 1.2 * num_clones))
         fig, ax = plt.subplots(figsize=figsize, dpi=300, facecolor="white")
     else:
         fig = ax.figure
 
-    # Dimensional setup for the continuous y-axis
+    # Dimensional setup
     h = height / num_clones
     clone_gap = 0.10 * h
     h_pair = h - clone_gap
     h_sub = h_pair / 2
     y_gap = clone_gap / 2
 
-    # Prepare groupby object
-    df_chs = df_cnv.groupby(by="CHR", sort=False)
-
     ch_offset = 0
     ch_coords = []
-    chs = df_cnv["CHR"].unique()
+    chs = []
 
-    for ch in chs:
+    # Iterate cleanly over chromosomes
+    for ch, df_ch in df_cnv.groupby("CHR", sort=False):
+        chs.append(ch)
         ch_coords.append(ch_offset)
-
-        if ch not in df_chs.groups:
-            continue
-
-        df_ch = df_chs.get_group(ch)
         n_rows = len(df_ch)
 
-        # Extract integer copy numbers into matrices
+        # Extract matrices
         A_mat = df_ch[[f"clone{cid} A" for cid in clone_ids]].to_numpy()
         B_mat = df_ch[[f"clone{cid} B" for cid in clone_ids]].to_numpy()
 
-        # Fast check for mirrored LOH across all clones per row
-        any_non_loh = np.any((A_mat > 0) & (B_mat > 0), axis=1)
+        # Build direction matrix: 1 (A-only), -1 (B-only), 0 (otherwise)
+        dirs_mat = np.zeros_like(A_mat, dtype=int)
+        dirs_mat[(A_mat > 0) & (B_mat == 0)] = 1
+        dirs_mat[(A_mat == 0) & (B_mat > 0)] = -1
 
-        # Direction matrix: 1 if A>0/B=0, -1 if A=0/B>0, else 0
-        dirs_mat = np.where(
-            (A_mat > 0) & (B_mat == 0), 1, np.where((A_mat == 0) & (B_mat > 0), -1, 0)
-        )
+        # Mirrored LOH: Any clone is A-dominant AND any clone is B-dominant at this segment
+        has_mirror = np.any(dirs_mat == 1, axis=1) & np.any(dirs_mat == -1, axis=1)
 
-        # has_mirror is true if no clone has non-loh, and both directions exist
-        has_mirror = (
-            (~any_non_loh)
-            & np.any(dirs_mat == 1, axis=1)
-            & np.any(dirs_mat == -1, axis=1)
-        )
-
-        for k, cid in enumerate(clone_ids):
+        for k, _ in enumerate(clone_ids):
             a_states = A_mat[:, k]
             b_states = B_mat[:, k]
             dirs = dirs_mat[:, k]
 
-            # Fast numeric encoding to feed into the 1D get_intervals array
+            # Fast numeric encoding
             encoded_states = a_states * 1000 + b_states * 10 + has_mirror.astype(int)
-
             intervals, _ = get_intervals(encoded_states)
 
             k_plot = num_clones - k - 1
@@ -242,114 +211,84 @@ def plot_copy_number_profile(
             y_a = y_b + h_sub
 
             for s, e in intervals:
-                # Map segment counts directly to width and x0
                 x0 = ch_offset + s
                 w = e - s
 
-                # Retrieve actual states for this interval
-                cna = a_states[s]
-                cnb = b_states[s]
-                is_mirror = has_mirror[s]
-                direction = dirs[s]
+                cna, cnb = a_states[s], b_states[s]
+                is_mirror, direction = has_mirror[s], dirs[s]
 
-                # B Allele (Bottom sub-bar - uses cnb)
+                # B Allele (Bottom)
                 ax.add_patch(
                     Rectangle(
-                        (x0, y_b),
-                        w,
-                        h_sub,
+                        (x0, y_b), w, h_sub,
                         facecolor=state_style.get(cnb, state_style["default"]),
-                        edgecolor="none",
-                        linewidth=0,
-                        alpha=1.0 if cnb == 0 else 0.5,
+                        edgecolor="none", linewidth=0, alpha=1.0 if cnb == 0 else 0.5,
                     )
                 )
 
-                # A Allele (Top sub-bar - uses cna)
+                # A Allele (Top)
                 ax.add_patch(
                     Rectangle(
-                        (x0, y_a),
-                        w,
-                        h_sub,
+                        (x0, y_a), w, h_sub,
                         facecolor=state_style.get(cna, state_style["default"]),
-                        edgecolor="none",
-                        linewidth=0,
-                        alpha=1.0 if cna == 0 else 0.5,
+                        edgecolor="none", linewidth=0, alpha=1.0 if cna == 0 else 0.5,
                     )
                 )
 
                 if is_mirror and direction != 0:
                     _draw_mirrored_loh_chevrons(ax, x0, y_b, w, h_sub, direction)
 
-        # Advance offset by the exact number of segments (rows) in this chromosome
         ch_offset += n_rows
 
-        # Chromosome dividing line (Kept get_xaxis_transform so it spans top to bottom relative to Axes)
-        if ch != chs[-1]:
-            line = ax.vlines(
-                ch_offset,
-                ymin=0,
-                ymax=1.15,
-                transform=ax.get_xaxis_transform(),
-                linewidth=1,
-                colors="black",
-            )
-            line.set_clip_on(False)
+        # Chromosome dividing line
+        line = ax.vlines(
+            ch_offset, ymin=0, ymax=1.15, transform=ax.get_xaxis_transform(),
+            linewidth=1, colors="black"
+        )
+        line.set_clip_on(False)
 
     ch_coords.append(ch_offset)
 
-    # UI Formatting: Clone boundaries
+    # Clone boundaries UI
     for k in range(num_clones):
         y_b_k = k * h + y_gap
         for y0 in (y_b_k, y_b_k + h_sub):
             ax.add_patch(
                 Rectangle(
-                    (0, y0),
-                    ch_offset,
-                    h_sub,
-                    facecolor="none",
-                    edgecolor="black",
-                    linewidth=0.5,
+                    (0, y0), ch_offset, h_sub, facecolor="none",
+                    edgecolor="black", linewidth=0.5,
                 )
             )
 
+    # Axis Formatting
     ax.grid(False)
     ax.set_xlim(0, ch_offset)
     ax.set_xlabel("")
     for spine in ax.spines.values():
         spine.set_visible(False)
 
-    # Handle Chromosome text placement
-    if plot_chrname:
+    if plot_chrname and chs:
         midpoints = [
             ch_coords[i] + (ch_coords[i + 1] - ch_coords[i]) // 2
             for i in range(len(ch_coords) - 1)
         ]
         ax.set_xticks(midpoints)
-
-        # Ensure 'chr' prefix is added if missing
         chr_labels = [f"chr{ch}" if str(ch).isdigit() else str(ch) for ch in chs]
-
-        # Match plot_clones_genomic styling (bottom label, 45 degree rotation, left aligned)
+        
+        # Omit the last tick line which overlaps the end boundary
         ax.set_xticklabels(chr_labels, rotation=45, fontsize=10, ha="left")
-        ax.tick_params(
-            axis="x", labeltop=False, labelbottom=True, top=False, bottom=True
-        )
+        ax.tick_params(axis="x", labeltop=False, labelbottom=True, top=False, bottom=True)
     else:
         ax.set_xticks([])
 
-    # Generate simplified Y-axis labels
+    # Y-axis labels
     ax.set_yticks([h * (i + 0.5) for i in range(num_clones)])
-    ylabels = [
-        f"Clone {cid}" if show_clone_name else str(cid) for cid in reversed(clone_ids)
-    ]
+    ylabels = [f"Clone {cid}" if show_clone_name else str(cid) for cid in reversed(clone_ids)]
     ax.set_yticklabels(ylabels, fontsize=8, va="center")
 
     minor_positions, minor_labels = [], []
     for k in range(num_clones):
-        minor_positions.extend(
-            [k * h + y_gap + h_sub * 0.5, k * h + y_gap + h_sub * 1.5]
-        )
+        minor_positions.extend([k * h + y_gap + h_sub * 0.5, k * h + y_gap + h_sub * 1.5])
         minor_labels.extend(["B", "A"])
 
     ax.set_yticks(minor_positions, minor=True)
@@ -362,5 +301,4 @@ def plot_copy_number_profile(
     if title:
         ax.set_title(title)
 
-    # Returning both the figure and the axis object is best practice
     return fig

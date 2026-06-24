@@ -8,10 +8,10 @@ def get_ordered_acn(mode="joint"):
     Args:
         mode (str): "joint" for (A, B) tuples, "independent" for single integers.
     """
-    if mode == "independent":
+    if mode == "single":
         return (0, 1, 2, 3, 4, 5, 6, "7+")
 
-    # Default: joint
+    # NB fallback to joint as default
     return (
         (0, 0),
         (1, 0),
@@ -34,50 +34,73 @@ def get_ordered_acn(mode="joint"):
 
 def get_full_palette(palette_name="chisel_joint"):
     """
-    Returns a dictionary mapping allele copy numbers to colors,
-    and the ordered list of states.
+    Returns a dictionary mapping copy states to colors,
+    according to an encoding scheme, and the ordered list
+    of states.
 
     Available custom palettes:
-    - "chisel_joint": Maps (A, B) tuples.
-    - "chisel_independent": Maps individual integer copies.
+    - "chisel_joint": maps (A, B) tuples to colors.
+    - "chisel_independent": maps integer copies, i.e. A, to colors.
     """
     palette = {}
 
+    # NB default joint encoding.
     if palette_name in ("chisel", "chisel_joint"):
         ordered_acn = get_ordered_acn(mode="joint")
+
         palette.update({(0, 0): "darkblue"})
         palette.update({(1, 0): "lightblue"})
-        palette.update({(1, 1): "lightgray", (2, 0): "dimgray"})
-        palette.update({(2, 1): "lightgoldenrodyellow", (3, 0): "gold"})
-        palette.update({(2, 2): "navajowhite", (3, 1): "orange", (4, 0): "darkorange"})
-        palette.update({(3, 2): "salmon", (4, 1): "red", (5, 0): "darkred"})
-        palette.update(
-            {(3, 3): "plum", (4, 2): "orchid", (5, 1): "purple", (6, 0): "indigo"}
-        )
+        palette.update({(1, 1): "lightgray"})
+        palette.update({(2, 0): "dimgray"})
+        palette.update({(2, 1): "lightgoldenrodyellow"})
+        palette.update({(3, 0): "gold"})
+        palette.update({(2, 2): "navajowhite"})
+        palette.update({(3, 1): "orange"})
+        palette.update({(4, 0): "darkorange"})
+        palette.update({(3, 2): "salmon"})
+        palette.update({(4, 1): "red"})
+        palette.update({(5, 0): "darkred"})
+        palette.update({(3, 3): "plum"})
+        palette.update({(4, 2): "orchid"})
+        palette.update({(5, 1): "purple"})
+        palette.update({(6, 0): "indigo"})
 
-    elif palette_name == "chisel_independent":
-        ordered_acn = get_ordered_acn(mode="independent")
+    elif palette_name == "chisel_single":
+        ordered_acn = get_ordered_acn(mode="chisel_single")
 
+        '''
         palette.update(
             {
-                0: "darkblue",  # Matches (0,0) deletion
-                1: "lightgray",  # Matches (1,1) normal diploid
-                2: "lightgoldenrodyellow",  # Matches baseline amplification
-                3: "orange",
-                4: "red",
-                5: "darkred",
-                6: "purple",
-                "7+": "indigo",
+                0: "white", 
+                1: "lightblue",
+                2: "lightgoldenrodyellow",
+                3: "yellow",
+                4: "salmon",
+                5: "orange",
+                6: "red",
+                "7+": "darkred",
             }
         )
+        '''
+
+        palette.update({
+            0: "white",        # Negative space for complete loss
+            1: "#ADD8E6",    # Very pale yellow (Baseline)
+            2: "#fed976",    # Light yellow-orange
+            3: "#feb24c",    # Orange
+            4: "#fd8d3c",    # Dark orange
+            5: "#f03b20",    # Red
+            6: "#bd0026",    # Dark red
+            "7+": "#660013", # Deep burgundy
+        })
+
+        palette["default"] = "lightblue"
 
     else:
-        # Dynamic fallback to seaborn categorical palettes (e.g., "tab20b")
         ordered_acn = get_ordered_acn(mode="joint")
         colors = sns.color_palette(palette_name, len(ordered_acn)).as_hex()
         palette = dict(zip(ordered_acn, colors))
 
-    # Safely inject the default fallback color to prevent KeyErrors
     if "default" not in palette:
         palette["default"] = "lightgray"
 

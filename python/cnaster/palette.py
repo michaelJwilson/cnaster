@@ -66,7 +66,7 @@ def get_full_palette(palette_name="chisel_joint"):
         palette.update({(6, 0): "indigo"})
 
     elif palette_name == "chisel_single":
-        ordered_acn = get_ordered_acn(mode="chisel_single")
+        ordered_acn = get_ordered_acn(mode="single")
 
         '''
         palette.update(
@@ -85,7 +85,7 @@ def get_full_palette(palette_name="chisel_joint"):
 
         palette.update({
             0: "white",          # Negative space for complete loss
-            1: "#B0C4DE",      
+            1: "cadetblue",      
             2: "khaki",  
             3: "#feb24c",      # Orange
             4: "#fd8d3c",      # Dark orange

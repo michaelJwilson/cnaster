@@ -60,8 +60,7 @@ def _draw_mirror_chevrons(
             solid_capstyle="round",
         )
 
-# TODO align left edge of first legend box to the axis with clone labels.
-# TODO move legend label to the right of the legend boxes;
+
 def plot_ascn_legend(
     ax: plt.Axes,
     box_w: float = 0.8,
@@ -74,10 +73,12 @@ def plot_ascn_legend(
     state_style, ordered_acn = get_full_palette(palette_name)
     boxes = list(ordered_acn)
 
+    if "7+" not in boxes:
+        boxes.append("7+")
+
     ax.axis("off")
     x0 = 0.0
 
-    # TODO BUG all colors are the same for all boxes??
     for i, label in enumerate(boxes):
         color = state_style.get(label)
 
@@ -103,17 +104,20 @@ def plot_ascn_legend(
         )
 
     total_w = len(boxes) * box_w
+    
     ax.text(
-        -0.3,
+        total_w + 0.1,
         box_h / 2.0,
         r"$\mathbb{N}^2$" + "-CNA",
         fontsize=label_fontsize,
-        ha="right",
+        ha="left",
         va="center",
     )
 
     swatch_w = box_w * 0.7
-    chev_box_x = total_w + 1.0
+    chev_box_x = total_w + 2.5 
+    
+    # TODO BUG have mirror box appear first in the legend.
     ax.add_patch(
         Rectangle(
             (chev_box_x, 0.0), swatch_w, box_h, facecolor="white", edgecolor="black"
@@ -131,7 +135,8 @@ def plot_ascn_legend(
         fontsize=label_fontsize,
     )
 
-    ax.set_xlim(-2.0, chev_box_x + swatch_w + 0.5)
+    # FIX TODO: Align left edge of first legend box to the axis limit (x=0.0)
+    ax.set_xlim(0.0, chev_box_x + swatch_w + 0.5)
     ax.set_ylim(-0.5, box_h + 0.2)
     ax.set_aspect("auto")
 
@@ -160,9 +165,21 @@ def plot_copy_number_profile(
     A_full = df_cnv[[f"clone{cid} A" for cid in clone_ids]].fillna(1).to_numpy()
     B_full = df_cnv[[f"clone{cid} B" for cid in clone_ids]].fillna(1).to_numpy()
 
-    # TODO BUG deviation should not be proportional to the number of segments,
-    #          use run-length encoding instead. 
-    deviations = np.sum(np.abs(A_full - 1) + np.abs(B_full - 1), axis=0)
+    # TODO BUG use get_intervals(...) instead of duplicate.
+    deviations = []
+    for k in range(len(clone_ids)):
+        a_col, b_col = A_full[:, k], B_full[:, k]
+        
+        # Identify indices where either A or B changes copy state
+        changes = np.where((a_col[:-1] != a_col[1:]) | (b_col[:-1] != b_col[1:]))[0] + 1
+        splits = np.concatenate(([0], changes, [len(a_col)]))
+        
+        # Extract the unique contiguous segment values
+        a_rle = a_col[splits[:-1]]
+        b_rle = b_col[splits[:-1]]
+        
+        # Sum the deviation of just the segments (unweighted by genomic length)
+        deviations.append(np.sum(np.abs(a_rle - 1) + np.abs(b_rle - 1)))
 
     clone_ids = [clone_ids[i] for i in np.argsort(deviations)]
 
@@ -227,16 +244,17 @@ def plot_copy_number_profile(
                 cna, cnb = a_states[s], b_states[s]
                 is_mirror, direction = has_mirror[s], dirs[s]
 
-                # TODO BUG. 0.75 opacity if normal, A=1, B=1,  
+                rect_alpha = 0.5 if (cna == 1 and cnb == 1) else 1.0
+
                 ax.add_patch(
                     Rectangle(
                         (x0, y_b),
                         w,
                         h_sub,
-                        facecolor=state_style.get(cnb),
+                        facecolor=state_style.get(cnb, state_style.get("default", "lightgray")),
                         edgecolor="none",
                         linewidth=0,
-                        alpha=1.0,
+                        alpha=rect_alpha,
                     )
                 )
 
@@ -245,10 +263,10 @@ def plot_copy_number_profile(
                         (x0, y_a),
                         w,
                         h_sub,
-                        facecolor=state_style.get(cna),
+                        facecolor=state_style.get(cna, state_style.get("default", "lightgray")),
                         edgecolor="none",
                         linewidth=0,
-                        alpha=1.0,
+                        alpha=rect_alpha,
                     )
                 )
 
@@ -304,8 +322,6 @@ def plot_copy_number_profile(
             labelbottom=True,
             top=False,
             bottom=False,
-            # va="top",
-            # rotation_mode="anchor",
             pad=-5,
         )
     else:

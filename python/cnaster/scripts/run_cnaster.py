@@ -53,7 +53,7 @@ from cnaster.omics import (
     summarize_counts_for_blocks,
 )
 from cnaster.phasing import initial_phase_given_partition
-from cnaster.plot_genomic import plot_clones_genomic, plot_clones_genomic_raw
+from cnaster.plot_genomic import plot_clones_genomic
 from cnaster.plotting import (  # plot_gene_snp_spatial,; plot_recombination_rates,
     # plot_adjacency,
     plot_clones_spatial,
@@ -220,12 +220,14 @@ def run_cnaster(config_path, over_rides=None):
 
     # NB pseudobulk formed of all spots.
     initial_clone_pseudobulk = [[ii for ii in range(len(coords))]]
-    pseudobulk_clones_genomic = plot_clones_genomic_raw(
-        single_X,
-        single_base_nb_mean,
-        single_total_bb_RD,
-        initial_clone_pseudobulk,
-        lengths,
+
+    pseudobulk_clones_genomic = plot_clones_genomic(
+        df_cnv=None,
+        lengths=lengths,
+        single_X=single_X,
+        single_base_nb_mean=single_base_nb_mean,
+        single_total_bb_RD=single_total_bb_RD,
+        clone_index=initial_clone_pseudobulk, 
         single_tumor_prop=single_tumor_prop,
         sample_list=sample_list,
     )
@@ -297,12 +299,13 @@ def run_cnaster(config_path, over_rides=None):
         bbox_inches="tight",
     )
 
-    prephasing_clones_genomic = plot_clones_genomic_raw(
-        single_X,
-        single_base_nb_mean,
-        single_total_bb_RD,
-        initial_clone_for_phasing,
-        lengths,
+    prephasing_clones_genomic = plot_clones_genomic(
+        df_cnv=None,
+        lengths=lengths,
+        single_X=single_X,
+        single_base_nb_mean=single_base_nb_mean,
+        single_total_bb_RD=single_total_bb_RD,
+        clone_index=initial_clone_for_phasing, 
         single_tumor_prop=single_tumor_prop,
         sample_list=sample_list,
     )
@@ -407,13 +410,14 @@ def run_cnaster(config_path, over_rides=None):
 
     pause()
 
-    postphasing_clones_genomic = plot_clones_genomic_raw(
-        single_X,
-        single_base_nb_mean,
-        single_total_bb_RD,
-        initial_clone_for_phasing,
-        lengths,
-        res=None,  # TODO e.g. plot phasing inferred states.
+    postphasing_clones_genomic = plot_clones_genomic(
+        df_cnv=None,
+        lengths=lengths,
+        single_X=single_X,
+        single_base_nb_mean=single_base_nb_mean,
+        single_total_bb_RD=single_total_bb_RD,
+        clone_index=initial_clone_for_phasing,
+        res_combine=None,
         single_tumor_prop=None,
         sample_list=sample_list,
     )
@@ -425,12 +429,13 @@ def run_cnaster(config_path, over_rides=None):
         bbox_inches="tight",
     )
 
-    pseudobulk_clones_genomic = plot_clones_genomic_raw(
-        single_X,
-        single_base_nb_mean,
-        single_total_bb_RD,
-        initial_clone_pseudobulk,
-        lengths,
+    pseudobulk_clones_genomic = plot_clones_genomic(
+        df_cnv=None,
+        lengths=lengths,
+        single_X=single_X,
+        single_base_nb_mean=single_base_nb_mean,
+        single_total_bb_RD=single_total_bb_RD,
+        clone_index=initial_clone_pseudobulk,
         single_tumor_prop=single_tumor_prop,
         sample_list=sample_list,
     )
@@ -645,7 +650,7 @@ def run_cnaster(config_path, over_rides=None):
         transparent=True,
         bbox_inches="tight",
     )
-
+    '''
     bafonly_clones_genomic = plot_clones_genomic_raw(
         single_X,
         single_base_nb_mean,
@@ -653,6 +658,19 @@ def run_cnaster(config_path, over_rides=None):
         get_clone_indices(res["new_assignment"], np.unique(res["new_assignment"])),
         lengths,
         res=res,
+        single_tumor_prop=None,
+        sample_list=sample_list,
+    )
+    '''
+
+    bafonly_clones_genomic = plot_clones_genomic(
+        df_cnv=None,
+        lengths=lengths,
+        single_X=single_X,
+        single_base_nb_mean=single_base_nb_mean,
+        single_total_bb_RD=single_total_bb_RD,
+        clone_index=get_clone_indices(res["new_assignment"], np.unique(res["new_assignment"])),
+        res_combine=res,
         single_tumor_prop=None,
         sample_list=sample_list,
     )
@@ -727,7 +745,7 @@ def run_cnaster(config_path, over_rides=None):
         transparent=True,
         bbox_inches="tight",
     )
-
+    '''
     merged_bafonly_clones_genomic = plot_clones_genomic_raw(
         single_X,
         single_base_nb_mean,
@@ -737,6 +755,21 @@ def run_cnaster(config_path, over_rides=None):
         ),
         lengths,
         res=merged_res,
+        single_tumor_prop=None,
+        sample_list=sample_list,
+    )
+    '''
+
+    merged_bafonly_clones_genomic = plot_clones_genomic(
+        df_cnv=None,
+        lengths=lengths,
+        single_X=single_X,
+        single_base_nb_mean=single_base_nb_mean,
+        single_total_bb_RD=single_total_bb_RD,
+        clone_index=get_clone_indices(
+            merged_res["new_assignment"], np.unique(merged_res["new_assignment"])
+        ),
+        res_combine=merged_res,
         single_tumor_prop=None,
         sample_list=sample_list,
     )

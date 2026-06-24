@@ -685,7 +685,7 @@ def run_cnaster(config_path, over_rides=None):
         merged_res = res.copy()
 
     logger.info(
-        f"Inferred {len(np.unique(merged_res['new_assignment']))} clones given baf data after NP merge."
+        f"Inferred {len(np.unique(merged_res['new_assignment']))} clones given baf data after neyman-pearson merge."
     )
 
     # NB merge according to min. number of spots per clone criterion;  single_X has dynamic shape (n_segments, 2, n_spots).
@@ -805,7 +805,13 @@ def run_cnaster(config_path, over_rides=None):
 
     pause()
 
-    # NB normal candidates by baf only (boolean array for n_spots).
+    #
+    # =================================================================================
+    # clone assignment and copy number profile refinement with gene transcripts / umis
+    # =================================================================================
+    #
+
+    # NB normal candidates (per-spot boolean) with baf only.
     normal_candidate = determine_normal_candidates(
         config,
         merged_res,
@@ -817,12 +823,6 @@ def run_cnaster(config_path, over_rides=None):
     )
 
     pause()
-
-    #
-    # =================================================================================
-    # clone assignment and copy number profile refinement with gene transcripts / umis
-    # =================================================================================
-    #
 
     # TODO HACK returns umi information for refinment run with umis.
     single_X[:, 0, :] = copy_single_X_rdr
@@ -1072,7 +1072,7 @@ def run_cnaster(config_path, over_rides=None):
     res_combine = {"prev_assignment": np.zeros(single_X.shape[2], dtype=int)}
     offset_clone = 0
 
-    # NB Neyman-Pearson and min. spot merging across baf clones refined/split by rdr.
+    # NB neyman-pearson and min. spot merging across baf clones refined/split by rdr.
     for bafc in range(n_baf_clones):
         prefix = f"clone{bafc}"
         res = clone_res[prefix]
@@ -1089,7 +1089,7 @@ def run_cnaster(config_path, over_rides=None):
             # NB merging is a null op.
             merged_res = copy.copy(res)
 
-            # NB BuG? assumes above c == 0?
+            # NB BUG? assumes above c == 0?
             merged_res["new_assignment"] = np.zeros(len(idx_spots), dtype=int)
 
             # NB c must be zero here (1 clone, zero-indexed).
@@ -1103,10 +1103,7 @@ def run_cnaster(config_path, over_rides=None):
             )
         else:
             # NB clone indices for the rdr-refined (baf-identified) clone split.
-            clone_index = [
-                np.where(res["new_assignment"] == c)[0]
-                for c in np.sort(np.unique(res["new_assignment"]))
-            ]
+            clone_index = get_clone_indices(res["new_assignment"], np.sort(np.unique(res["new_assignment"])))
 
             # NB construct counts given this new
             X, base_nb_mean, total_bb_RD, tumor_prop = merge_pseudobulk_by_index_mix(
@@ -1212,6 +1209,7 @@ def run_cnaster(config_path, over_rides=None):
             # NB assignment has been fixed, but emission states updated; retain previous assignment.
             merged_res["new_assignment"] = copy.copy(fixed_assignment)
 
+            # TODO CHECK
             # NB combines only between similar states in the rdr-split clones by updating res["pred_cnv"]
             merged_res = combine_similar_states_across_clones(
                 X,

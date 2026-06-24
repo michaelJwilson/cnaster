@@ -6,7 +6,9 @@
 
 
 ----  TODO  ----
- 
+
+-  color points by state on clones_genomic with no integer copies (df_cnv).
+-  clone cna color encoding on clone_profile plot
 -  seeding
 -  adjacency
 -  clone stack an arg. to merge_pseudobulk_by_index_mix

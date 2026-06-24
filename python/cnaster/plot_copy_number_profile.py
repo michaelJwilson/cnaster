@@ -170,7 +170,7 @@ def plot_copy_number_profile(
         fig = ax.figure
 
     h = height / num_clones
-    clone_gap = 0.10 * h
+    clone_gap = 0.15 * h
     h_pair = h - clone_gap
     h_sub = h_pair / 2
     y_gap = clone_gap / 2
@@ -179,6 +179,7 @@ def plot_copy_number_profile(
     ch_coords = []
     chs = []
 
+    # TODO partial order of clones by num. of cna and shared cnas.
     for ch, df_ch in df_cnv.groupby("CHR", sort=False):
         chs.append(ch)
         ch_coords.append(ch_offset)
@@ -284,9 +285,10 @@ def plot_copy_number_profile(
     else:
         ax.set_xticks([])
 
-    ax.set_yticks([h * (i + 0.5) for i in range(num_clones)])
+    # NB plot clone labels and A,B
+    # ax.set_yticks([h * (i + 0.5) for i in range(num_clones)])
     ylabels = [f"Clone {cid}" if show_clone_name else str(cid) for cid in reversed(clone_ids)]
-    ax.set_yticklabels(ylabels, fontsize=8, va="center")
+    ax.set_yticklabels(ylabels, fontsize=8, va="center", ha="left", rotation=90)
 
     minor_positions, minor_labels = [], []
     for k in range(num_clones):

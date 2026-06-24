@@ -84,17 +84,17 @@ def get_full_palette(palette_name="chisel_joint"):
         '''
 
         palette.update({
-            0: "white",        # Negative space for complete loss
-            1: "#ADD8E6",    # Very pale yellow (Baseline)
-            2: "#fed976",    # Light yellow-orange
-            3: "#feb24c",    # Orange
-            4: "#fd8d3c",    # Dark orange
-            5: "#f03b20",    # Red
-            6: "#bd0026",    # Dark red
-            "7+": "#660013", # Deep burgundy
+            0: "white",          # Negative space for complete loss
+            1: "paleturquoise",   
+            2: "gold",  
+            3: "#feb24c",      # Orange
+            4: "#fd8d3c",      # Dark orange
+            5: "#f03b20",      # Red
+            6: "#bd0026",      # Dark red
+            "7+": "#660013",   # Deep burgundy
         })
 
-        palette["default"] = "lightblue"
+        palette["default"] = "paleturquoise"
 
     else:
         ordered_acn = get_ordered_acn(mode="joint")

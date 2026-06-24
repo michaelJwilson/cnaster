@@ -356,53 +356,48 @@ def plot_clones_genomic(
         )
 
         # ---- Model Prediction Lines ----
-        if res_combine is not None and df_cnv is not None:
-            segments, labels = get_intervals(res_combine["pred_cnv"][:, c])
+        if res_combine is not None:
+            if df_cnv is not None:
+                segments, labels = get_intervals(res_combine["pred_cnv"][:, c])
+            else:
+                # TODO HACK?
+                max_pred = np.argmax(res_combine["log_gamma"], axis=0)
+                this_pred = (
+                    max_pred[(s * n_obs) : (s * n_obs + n_obs)] % res_combine["n_states"]
+                )
 
-            logger.info(
-                f"Assuming model fits with new_log_mu.shape={res_combine['new_log_mu'].shape} for {n_states} states and {len(nonempty_clones)} clones."
-            )
+                # NB currently based on _inferred real state_, as opposed to integer (A,B) states,
+                segments, labels = get_intervals(this_pred)
+
+            mus = np.exp(res_combine["new_log_mu"])
+            ps = res_combine["new_p_binom"]
+    
+            # NB broadcast single fit across clones (to shape ... x len(nonempty_clones))                                                                                                                        
+            if mus.shape[1] == 1:
+                mus = np.repeat(mus, len(nonempty_clones), axis=1)
+                ps = np.repeat(ps, len(nonempty_clones), axis=1)
+                
+            logger.info(f"Assuming model fits with mus.shape={mus.shape}.")
 
             for i, seg in enumerate(segments):
                 if has_rdr:
                     ax_rdr.plot(
                         seg,
-                        [
-                            np.exp(
-                                res_combine["new_log_mu"][
-                                    labels[i],
-                                    c,
-                                ]
-                            )
-                        ]
-                        * 2,
+                        [mus[labels[i], s]] * 2,
                         c="k",
                         linewidth=0.5,
                         zorder=2,
                     )
                 ax_baf.plot(
                     seg,
-                    [
-                        res_combine["new_p_binom"][
-                            labels[i],
-                            c,
-                        ]
-                    ]
-                    * 2,
+                    [ps[labels[i], s]] * 2,
                     c="k",
                     linewidth=0.5,
                     zorder=2,
                 )
                 ax_baf.plot(
                     seg,
-                    [
-                        1.0
-                        - res_combine["new_p_binom"][
-                            labels[i],
-                            c,
-                        ]
-                    ]
-                    * 2,
+                    [1.0 - ps[labels[i], s]] * 2,
                     c="k",
                     linewidth=0.5,
                     linestyle="--",

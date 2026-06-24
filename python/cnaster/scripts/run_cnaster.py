@@ -683,6 +683,8 @@ def run_cnaster(config_path, over_rides=None):
         bbox_inches="tight",
     )
 
+    exit(0)
+    
     pause()
 
     # NB merge similar clones based on Neyman-Pearson statistic.

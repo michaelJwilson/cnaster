@@ -993,7 +993,7 @@ def run_cnaster(config_path, over_rides=None):
             random_state=0,  # TODO HACK.
         )
 
-        # TODO HACK?  splits each BAF clone along the x direction.
+        # TODO HACK? splits each BAF clone along the x direction.
         # TODO BUG require min spots/umis etc ...
         # x_part, y_part = config.hmrf.n_clones_rdr, 1
 
@@ -1072,7 +1072,9 @@ def run_cnaster(config_path, over_rides=None):
     res_combine = {"prev_assignment": np.zeros(single_X.shape[2], dtype=int)}
     offset_clone = 0
 
-    # NB neyman-pearson and min. spot merging across baf clones refined/split by rdr.
+    # NB neyman-pearson & min. spot merging across baf clones refined/split by rdr
+    #    with subsequent determination of copy states and clone profiles (baum welch)
+    #    and potential state merging across rdr-split clones.  
     for bafc in range(n_baf_clones):
         prefix = f"clone{bafc}"
         res = clone_res[prefix]
@@ -1240,9 +1242,8 @@ def run_cnaster(config_path, over_rides=None):
                 ]
             ).T
 
-        # TODO constructor.
-        #
-        # NB res_combine has the "prev_assignment" key only.
+
+        # NB res_combine has the "prev_assignment" key only on first iteration.
         keys = ["new_log_mu", "new_alphas", "new_p_binom", "new_taus"]
 
         if len(res_combine) == 1:
@@ -1259,8 +1260,9 @@ def run_cnaster(config_path, over_rides=None):
 
         res_combine.update(updates)
 
+        # TODO prev_assignment?
         res_combine["prev_assignment"][idx_spots] = (
-            merged_res["new_assignment"] + offset_clone
+            offset_clone + merged_res["new_assignment"] # NB assumes 0.. M_new clones.
         )
 
         logger.info(
@@ -1271,7 +1273,7 @@ def run_cnaster(config_path, over_rides=None):
 
         pause()
 
-    # TODO BUG?? prev_assignment or new_assignment?
+    # TODO prev_assignment renaming.
     n_final_clones = len(np.unique(res_combine["prev_assignment"]))
 
     logger.info(f"Inferred {n_final_clones} clones given rdr & baf data.")
@@ -1704,8 +1706,6 @@ def run_cnaster(config_path, over_rides=None):
                     tmpdf[~tmpdf[f"clone{s} A"].isnull()].astype(int)
                 )
 
-            # TODO END <<<<<<<<< constructor
-
             pause()
 
         # NB complete loop over clones, assumed a ploidy constraint.
@@ -1803,8 +1803,8 @@ def run_cnaster(config_path, over_rides=None):
         #     bbox_inches="tight",
         # )
 
-    # NB complete inner loop over clones, and loop of assumed ploidy.
-    #    i.e. now assuming the last of the possible ploidy constraints,
+    # NB complete inner loop over clones, and parent loop of assumed ploidy.
+    #    i.e. currently assuming the last of the possible ploidy constraints,
     #         for instance "tetraploid"
     #
     # TODO could be before integer copy number solution; no dependency on integer copy number results.
@@ -1849,7 +1849,7 @@ def run_cnaster(config_path, over_rides=None):
         bbox_inches="tight",
     )
 
-    # TODO issue when indexing of initial clones incompatiable/bigger than final clones.
+    # TODO issue when indexing of initial clones incompatible/bigger than final clones.
     # initial_rdr_baf_fig = plot_clones_genomic(
     #     df_seglevel_cnv,
     #     lengths,

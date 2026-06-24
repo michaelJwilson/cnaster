@@ -22,7 +22,7 @@ from cnaster.hmm_initialize import plot_cna_mixture, cna_mixture_init
 from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
 from cnaster.config import get_global_config
 from cnaster.plotting import plot_clones_spatial
-from cnaster.plot_genomic import plot_clones_genomic, plot_clones_genomic_raw
+from cnaster.plot_genomic import plot_clones_genomic
 from cnaster.deprecated.hmrf import (
     aggr_hmrfmix_reassignment_concatenate as dep_aggr_hmrfmix_reassignment_concatenate,
 )

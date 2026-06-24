@@ -125,7 +125,7 @@ def plot_ascn_legend(
     ax.text(
         x0 + total_boxes_w + 0.2,
         box_h / 2.0,
-        r"$\mathbb{N}^2$" + "-CNA",
+        r"$\mathbb{N}$" + "-CNA",
         fontsize=label_fontsize,
         ha="left",
         va="center",

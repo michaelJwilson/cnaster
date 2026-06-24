@@ -14,7 +14,7 @@ from cnaster.palette import get_full_palette
 
 logger = get_logger(__name__, start_time=start_time)
 
-NORMAL_OPACITY = 0.25
+NORMAL_OPACITY = 0.75
 
 def _create_clone_gridspec(
     n_pairs: int, axes_per_clone: int, base_height: float, sample_list: list = None
@@ -304,7 +304,7 @@ def plot_clones_genomic(
     map_cn = {x: i for i, x in enumerate(ordered_acn)}
 
     # NB list of colors for each copy state.
-    colors = [color_palette[c] for c in ordered_acn]
+    state_colors = [color_palette[c] for c in ordered_acn]
 
     # TODO BUG more robust extraction; expect "clone{cid} A" etc.,
     # final_clone_ids = np.unique([x.split(" ")[0][5:] for x in df_cnv.columns[3:]])
@@ -380,7 +380,7 @@ def plot_clones_genomic(
 
             palette = [
                 mcolors.to_rgba(color, alpha=(NORMAL_OPACITY if ordered_acn[i] == (1, 1) else 1.0))
-                for i, color in enumerate(colors)
+                for i, color in enumerate(state_colors)
             ]
         else:
             # NB no assumed color mapping; use __real__ copy states as categorical hue according to provided palette_name.
@@ -395,9 +395,7 @@ def plot_clones_genomic(
         x_vals = np.arange(n_obs)
 
         # TODO
-        point_colors = [
-            {i: palette[i] for i in range(len(palette))}[h] for h in hue.codes
-        ]
+        point_colors = [palette[h] for h in hue.codes]
 
         #  ----  RDR  ----
 
@@ -523,7 +521,7 @@ def plot_clones_genomic(
                 [0],
                 marker="o",
                 color="w",
-                markerfacecolor=colors[i],
+                markerfacecolor=state_colors[i],
                 label=f"{100. * np.mean(hue == i):.1f}% {ordered_acn[i]}",
                 markersize=10,
                 linestyle="None",

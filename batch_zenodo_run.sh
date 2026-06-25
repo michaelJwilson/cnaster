@@ -5,9 +5,9 @@ set -o pipefail
 ROOT="/Users/mw9568/Work/ragr/sim/"
 
 SEED=12345
-RANDOM_STATES=(0 1 2 3 4)
+RANDOM_STATES=(0) # (0 1 2 3 4)
 USE_EXISTING=false
-MAX_JOBS=1
+MAX_JOBS=2
 
 echo "Preparing workspace..."
 mkdir -p logs errors zenodo_sample_sheets
@@ -30,8 +30,8 @@ SAMPLE_IDS=($(printf "%s\n" "${SAMPLE_IDS[@]}" | gshuf --random-source=<(yes $SE
 
 # RANDOM_STATES=(3)                                                                                                                                                                                                   
 # SAMPLE_IDS=("numcnas6.3_cnasize3e7_ploidy2_random4")                                                                                                                                                                 
-RANDOM_STATES=(0)
-SAMPLE_IDS=("numcnas6.3_cnasize5e7_ploidy2_random6")
+# RANDOM_STATES=(0)
+# SAMPLE_IDS=("numcnas6.3_cnasize5e7_ploidy2_random6")
 
 echo "Found ${#SAMPLE_IDS[@]} sample ids @ ${ROOT}"
 echo "Running with ${#RANDOM_STATES[@]} random states: ${RANDOM_STATES[@]}"

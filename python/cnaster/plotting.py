@@ -342,7 +342,7 @@ def plot_clones_spatial(
         [cast_clone_label(cid) for cid in final_clone_ids],
         handlelength=0.1,
         loc="upper left",
-        bbox_to_anchor=(0.05, -0.00),  
+        bbox_to_anchor=(0.05, 0.02),  
         ncol=n_final_clones,
         frameon=False,
         fontsize=8,
@@ -352,12 +352,12 @@ def plot_clones_spatial(
     if sample_list is not None:
         ax.text(
             0.05,                      
-            0.95,                     
+            0.99,                     
             ", ".join(sample_list), 
             transform=ax.transAxes,
             ha="left", 
             va="bottom", 
-            fontsize=8,
+            fontsize=9,
         )
 
     # ax.set_aspect("equal")

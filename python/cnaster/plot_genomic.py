@@ -246,20 +246,17 @@ def plot_clones_genomic(
             major = np.maximum(df_cnv[f"clone{cid} A"].values, df_cnv[f"clone{cid} B"].values)
             minor = np.minimum(df_cnv[f"clone{cid} A"].values, df_cnv[f"clone{cid} B"].values)
 
+            default_idx = map_cn.get((1, 1), 0)
+            hue_indices = [map_cn.get((major[i], minor[i]), default_idx) for i in range(len(major))]
+            hue = pd.Categorical(hue_indices, categories=np.arange(len(ordered_acn)), ordered=True)
+
             if palette_name == "chisel":
-                default_idx = map_cn.get((1, 1), 0)
-                hue_indices = [map_cn.get((major[i], minor[i]), default_idx) for i in range(len(major))]
-                hue = pd.Categorical(hue_indices, categories=np.arange(len(ordered_acn)), ordered=True)
                 palette = [
                     mcolors.to_rgba(color, alpha=(NORMAL_OPACITY if ordered_acn[i] == (1, 1) else 1.0))
                     for i, color in enumerate(state_colors)
                 ]
             else:
-                n_states = res_combine["new_p_binom"].shape[0]
-
-                this_pred = res_combine["pred_cnv"][(c * n_obs) : (c * n_obs + n_obs)] % n_states
-                hue = pd.Categorical(this_pred, categories=np.arange(n_states), ordered=True)
-                base_pal = sns.color_palette(palette_name, n_states)
+                base_pal = sns.color_palette(palette_name, len(ordered_acn))
                 palette = [mcolors.to_rgba(color, alpha=1.0) for color in base_pal]
 
             point_colors = [palette[h] for h in hue.codes]
@@ -268,9 +265,12 @@ def plot_clones_genomic(
         elif res_combine is not None:
             n_states = res_combine["new_p_binom"].shape[0]
 
-            this_pred = res_combine["pred_cnv"][(c * n_obs) : (c * n_obs + n_obs)] % n_states
+            if res_combine["pred_cnv"].ndim == 1 or res_combine["pred_cnv"].shape[1] == 1:
+                this_pred = res_combine["pred_cnv"][(c * n_obs) : (c * n_obs + n_obs)].flatten() % n_states
+            else:
+                this_pred = res_combine["pred_cnv"][:, c] % n_states
+                
             hue = pd.Categorical(this_pred, categories=np.arange(n_states), ordered=True)
-            
 
             base_pal = sns.color_palette("deep", n_states) 
             palette = [mcolors.to_rgba(color, alpha=1.0) for color in base_pal]

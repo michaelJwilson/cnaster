@@ -102,9 +102,9 @@ def run_cnaster(config_path, over_rides=None):
     logger.info(f"Set (numpy) random seed={config.hmrf.random_state}")
 
     # TODO fix reproducibility - set random seed globally.
-    np.random.seed(config.hmrf.random_state)
-    random.seed(config.hmrf.random_state)
-    set_numba_seed(config.hmrf.random_state)
+    np.random.seed(int(config.hmrf.random_state))
+    random.seed(int(config.hmrf.random_state))
+    set_numba_seed(int(config.hmrf.random_state))
 
     # NB legacy simulated data loading - generates matrices for all steps of the pipeline.
     # (
@@ -320,8 +320,6 @@ def run_cnaster(config_path, over_rides=None):
         transparent=True,
         bbox_inches="tight",
     )
-
-    quit()
 
     prephasing_clones_genomic = plot_clones_genomic(
         df_cnv=None,

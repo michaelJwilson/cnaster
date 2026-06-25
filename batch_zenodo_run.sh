@@ -93,14 +93,26 @@ run_single_job() {
 export -f run_single_job
 export ROOT USE_EXISTING
 
-JOBS=()
-for SAMPLE_ID in "${SAMPLE_IDS[@]}"; do
-    for RANDOM_STATE in "${RANDOM_STATES[@]}"; do
-        JOBS+=("$SAMPLE_ID $RANDOM_STATE")
+if [[ "$MAX_JOBS" -eq 1 ]]; then
+    echo "Running sequentially (streaming output)..."
+    for SAMPLE_ID in "${SAMPLE_IDS[@]}"; do
+        for RANDOM_STATE in "${RANDOM_STATES[@]}"; do
+            # Force Python to stream outputs immediately through the 'tee' pipe
+            export PYTHONUNBUFFERED=1 
+            run_single_job "$SAMPLE_ID" "$RANDOM_STATE" "$ROOT" "$USE_EXISTING"
+        done
     done
-done
+else
+    echo "Running in parallel (output buffered until job completion)..."
+    JOBS=()
+    for SAMPLE_ID in "${SAMPLE_IDS[@]}"; do
+        for RANDOM_STATE in "${RANDOM_STATES[@]}"; do
+            JOBS+=("$SAMPLE_ID $RANDOM_STATE")
+        done
+    done
 
-printf "%s\n" "${JOBS[@]}" | parallel -j "$MAX_JOBS" --colsep ' ' \
-    run_single_job {1} {2} "$ROOT" "$USE_EXISTING"
+    printf "%s\n" "${JOBS[@]}" | parallel -j "$MAX_JOBS" --colsep ' ' \
+        run_single_job {1} {2} "$ROOT" "$USE_EXISTING"
+fi
 
 echo "All cnaster jobs completed."

@@ -4,6 +4,7 @@ from functools import cmp_to_key
 import matplotlib as mpl
 import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 import numpy as np
 import seaborn as sns
 from matplotlib.lines import Line2D
@@ -243,7 +244,7 @@ def plot_clones_spatial(
     sample_list=None,
     sample_ids=None,
     base_width=4,
-    base_height=3,
+    base_height=4,
     palette="rocket",  # "Set2"
 ):
     """
@@ -282,9 +283,9 @@ def plot_clones_spatial(
     #    If we have fewer spots, we want larger markers.
     #    Clip to a reasonable range [0.1, 20].
     n_points = coords.shape[0]
-    marker_size = np.clip(12000.0 / n_points, 0.1, 25.0)
+    marker_size = np.clip(12_000.0 / n_points, 0.1, 25.0)
 
-    fig, axes = plt.subplots(
+    fig, ax = plt.subplots(
         1, 1, figsize=(base_width * n_samples, base_height), dpi=300, facecolor="white"
     )
 
@@ -299,25 +300,23 @@ def plot_clones_spatial(
         idx = np.where((assignment.values == cid))[0]
 
         if single_tumor_prop is None:
-            sns.scatterplot(
+            ax.scatterplot(
                 x=shifted_coords[idx, 0],
                 y=-shifted_coords[idx, 1],
                 s=marker_size,
                 color=colorlist[c],
                 linewidth=0,
-                legend=None,
-                ax=axes,
+                ax=ax,
             )
         else:
-            vals = copy_single_tumor_prop[idx]
-            vals = np.clip(vals, 0.0, 1.0)
+            vals = np.clip(copy_single_tumor_prop[idx], 0.0, 1.0)
 
             base_rgb = mcolors.to_rgb(colorlist[c])
             rgba_colors = np.zeros((len(vals), 4))
             rgba_colors[:, :3] = base_rgb
             rgba_colors[:, 3] = vals
 
-            axes.scatter(
+            ax.scatter(
                 shifted_coords[idx, 0],
                 -shifted_coords[idx, 1],
                 s=marker_size,
@@ -337,7 +336,7 @@ def plot_clones_spatial(
         )
         for c, cid in enumerate(final_clone_ids)
     ]
-    axes.legend(
+    ax.legend(
         legend_elements,
         [cast_clone_label(cid) for cid in final_clone_ids],
         handlelength=0.1,
@@ -345,8 +344,12 @@ def plot_clones_spatial(
         bbox_to_anchor=(1, 1),
         frameon=False,
     )
-    # axes.axis("off")
-    axes.set_title(",".join(sample_list), loc="left", fontsize=10)
+
+    if sample_list is not None:
+        ax.set_title(", ".join(sample_list), loc="left", fontsize=10)
+
+    ax.set_aspect("equal")ax.set_aspect("equal")
+    ax.axis("off")
 
     fig.tight_layout()
 
@@ -608,7 +611,11 @@ def plot_copy_states(state_cnv):
     return fig
 
 
-def plot_he(frame, output_path):
+def plot_he(
+    frame, 
+    base_width=4, 
+    base_height=4
+):    
     if hasattr(frame, "to_pandas"):
         frame = frame.to_pandas()
 

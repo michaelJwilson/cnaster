@@ -336,7 +336,6 @@ def plot_clones_genomic(
         if res_combine is not None:
             # n_states = res_combine["n_states"]
             n_states = res_combine["new_log_mu"].shape[0]
-            
             clone_idx = 0 if res_combine["new_log_mu"].shape[1] == 1 else c
 
             # NB clones concatenated along a single axis.

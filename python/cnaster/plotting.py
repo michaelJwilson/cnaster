@@ -361,7 +361,6 @@ def plot_clones_spatial(
         )
 
     # ax.set_aspect("equal")
-    # ax.set_box_aspect(1)
     ax.axis("off")
 
     # fig.tight_layout()
@@ -701,12 +700,23 @@ def plot_he(
             )
             plt.colorbar(sc, ax=ax, fraction=0.046, pad=0.04)
 
-        ax.set_title(col.capitalize(), fontsize=12)
-        ax.set_aspect("equal")
+        # Matched to plot_clones_spatial title placement and sizing
+        ax.text(
+            0.05,                      
+            0.99,                     
+            col.capitalize(), 
+            transform=ax.transAxes,
+            ha="left", 
+            va="bottom", 
+            fontsize=9,
+        )
+        
+        # ax.set_aspect("equal")
         ax.axis("off")
 
     for ax in axes[n_channels:]:
         ax.axis("off")
 
-    fig.tight_layout()
+    # fig.tight_layout()
+    
     return fig

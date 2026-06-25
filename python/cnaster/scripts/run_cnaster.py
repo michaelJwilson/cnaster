@@ -57,6 +57,7 @@ from cnaster.plot_genomic import plot_clones_genomic
 from cnaster.plotting import (  # plot_gene_snp_spatial,; plot_recombination_rates,
     # plot_adjacency,
     plot_clones_spatial,
+    plot_he,
     # plot_copy_states,
 )
 from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
@@ -277,6 +278,18 @@ def run_cnaster(config_path, over_rides=None):
         initial_clone_for_phasing = initial_clone_index_baf = get_clone_indices(
             clone_assignment,
             np.unique(clone_assignment),
+        )
+
+        he_fig = plot_he(
+            frame,
+            channels=("image"),
+        )
+
+        write_fig(
+            f"{plots_dir}/he_image.pdf",
+            he_fig,
+            transparent=True,
+            bbox_inches="tight",
         )
 
     assignment = pd.Series(

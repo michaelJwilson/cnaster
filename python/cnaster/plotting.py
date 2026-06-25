@@ -1,4 +1,5 @@
 import copy
+import math
 from functools import cmp_to_key
 
 import matplotlib as mpl
@@ -258,7 +259,7 @@ def plot_clones_spatial(
     if sample_ids is not None:
         x_offset = 0
 
-        for s, sname in enumerate(sample_list):
+        for s, _ in enumerate(sample_list):
             index = np.where(sample_ids == s)[0]
             shifted_coords[index, 0] = shifted_coords[index, 0] + x_offset
             x_offset += np.max(coords[index, 0]) + 10
@@ -300,13 +301,12 @@ def plot_clones_spatial(
         idx = np.where((assignment.values == cid))[0]
 
         if single_tumor_prop is None:
-            ax.scatterplot(
+            ax.scatter(
                 x=shifted_coords[idx, 0],
                 y=-shifted_coords[idx, 1],
                 s=marker_size,
                 color=colorlist[c],
                 linewidth=0,
-                ax=ax,
             )
         else:
             vals = np.clip(copy_single_tumor_prop[idx], 0.0, 1.0)
@@ -332,7 +332,7 @@ def plot_clones_spatial(
             color="w",
             markerfacecolor=colorlist[c],
             label=cid,
-            markersize=10,
+            markersize=6,
         )
         for c, cid in enumerate(final_clone_ids)
     ]
@@ -346,9 +346,9 @@ def plot_clones_spatial(
     )
 
     if sample_list is not None:
-        ax.set_title(", ".join(sample_list), loc="left", fontsize=10)
+        ax.set_title(", ".join(sample_list), loc="left", fontsize=8)
 
-    ax.set_aspect("equal")ax.set_aspect("equal")
+    ax.set_aspect("equal")
     ax.axis("off")
 
     fig.tight_layout()
@@ -612,54 +612,88 @@ def plot_copy_states(state_cnv):
 
 
 def plot_he(
-    frame, 
-    base_width=4, 
-    base_height=4
-):    
+    frame,
+    channels=["image", "category"],
+    base_width=4,
+    base_height=4,
+    max_cols=3,
+):
+    """
+    Plot dynamically selected channels and categories for H&E images.
+    """
     if hasattr(frame, "to_pandas"):
         frame = frame.to_pandas()
 
-    color_columns = [
-        ("red", "Reds"),
-        ("green", "Greens"),
-        ("blue", "Blues"),
-        ("image", None),
-        ("gray", "gray"),
-        ("category", None),
-    ]
+    n_channels = len(channels)
+    if n_channels == 0:
+        raise ValueError("The 'channels' list cannot be empty.")
 
-    rows, cols = 2, 4
-    fig, axes = plt.subplots(rows, cols, figsize=(5 * cols, 5 * rows))
-    axes = axes.flatten()
+    cols = min(n_channels, max_cols)
+    rows = math.ceil(n_channels / cols)
 
-    for ax, (col, cmap) in zip(axes, color_columns):
-        if col == "image":
+    n_points = frame.shape[0]
+    marker_size = np.clip(12000.0 / n_points, 0.1, 25.0)
+
+    fig, axes = plt.subplots(
+        rows, cols,
+        figsize=(base_width * cols, base_height * rows),
+        dpi=300,
+        facecolor="white"
+    )
+
+    if n_channels == 1:
+        axes = np.array([axes])
+    else:
+        axes = axes.flatten()
+
+    cmap_dict = {
+        "red": "Reds",
+        "green": "Greens",
+        "blue": "Blues",
+        "gray": "gray",
+    }
+
+    for i, col in enumerate(channels):
+        ax = axes[i]
+        col_lower = col.lower()
+
+        if col_lower == "image":
             rgb = frame[["red", "green", "blue"]].values
-            ax.scatter(frame["x"], -frame["y"], c=rgb / rgb.max(), s=2)
-        elif col == "category":
-            num_labels = len(np.unique(frame["label"]))
-            cmap = mpl.colormaps["tab20c"].resampled(num_labels)
+
+            norm_factor = 255.0 if rgb.max() > 1.0 else 1.0
+            rgb_norm = np.clip(rgb / norm_factor, 0, 1)
+
+            ax.scatter(frame["x"], -frame["y"], c=rgb_norm, s=marker_size, linewidth=0)
+
+        elif col_lower in ["category", "label"]:
+            label_col = "label" if "label" in frame.columns else col 
+            num_labels = len(np.unique(frame[label_col]))
+            cmap_cat = mpl.colormaps["tab20c"].resampled(num_labels)
 
             sc = ax.scatter(
                 frame["x"],
                 -frame["y"],
-                c=frame["label"],
-                s=2,
-                cmap=cmap,
+                c=frame[label_col],
+                s=marker_size,
+                cmap=cmap_cat,
                 norm=plt.Normalize(vmin=0, vmax=num_labels - 1),
+                linewidth=0,
             )
-            cbar = plt.colorbar(sc, ax=ax, ticks=np.arange(num_labels))
+            plt.colorbar(sc, ax=ax, ticks=np.arange(num_labels), fraction=0.046, pad=0.04)
+
         else:
-            sc = ax.scatter(frame["x"], -frame["y"], c=frame[col], s=2, cmap=cmap)
-            plt.colorbar(sc, ax=ax)
+            cmap = cmap_dict.get(col_lower, "viridis")
+            sc = ax.scatter(
+                frame["x"], -frame["y"], c=frame[col], s=marker_size, cmap=cmap, linewidth=0
+            )
+            plt.colorbar(sc, ax=ax, fraction=0.046, pad=0.04)
 
-        ax.set_title(col.capitalize())
-        ax.set_xlabel("x")
-        ax.set_ylabel("y")
-
-    for ax in axes[len(color_columns) :]:
+        ax.set_title(col.capitalize(), fontsize=12)
+        ax.set_aspect("equal")
         ax.axis("off")
 
-    plt.tight_layout()
-    fig.savefig(output_path, dpi=750, bbox_inches="tight")
-    plt.close(fig)
+    for ax in axes[n_channels:]:
+        ax.axis("off")
+
+    fig.tight_layout()
+    return fig

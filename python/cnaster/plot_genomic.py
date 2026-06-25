@@ -163,38 +163,48 @@ def plot_clones_genomic(
     """
     logger.info(f"Plotting aggregated rdr and baf for clones.")
 
-    # NB extract palettes if we have inferred integer copy states, (A,B).
-    if df_cnv is not None:
-        color_palette, ordered_acn = get_full_palette(palette_name)
-        state_colors = [color_palette[c] for c in ordered_acn]
+    color_palette, ordered_acn = get_full_palette(palette_name)
+    state_colors = [color_palette[c] for c in ordered_acn]
 
+    # NB defines final_clone_ids, unique_chrs and clone_index based on available data, in order of priority.
+    if df_cnv is not None:
         map_cn = {x: i for i, x in enumerate(ordered_acn)}
 
+        unique_chrs = np.unique(df_cnv.CHR.values)
         final_clone_ids = (
             df_cnv.columns.str.extract(r"^clone(.*) A$", expand=False).dropna().tolist()
         )
-        assert "0" in final_clone_ids
-        unique_chrs = np.unique(df_cnv.CHR.values)
+
+        if clone_index is None and res_combine is not None:
+            clone_index = [
+                np.where(res_combine["new_assignment"] == c)[0]
+                for c, _ in enumerate(final_clone_ids)
+            ]
+    elif res_combine is not None:
+        unique_chrs = 1 + np.arange(len(lengths))
+        final_clone_ids = np.sort(np.unique(res_combine["new_assignment"]))
+
+        clone_index = [
+            np.where(res_combine["new_assignment"] == c)[0]
+            for c, _ in enumerate(final_clone_ids)
+        ]
     else:
         unique_chrs = 1 + np.arange(len(lengths))
+
+        # NB requires clone_index to be provided.
+        assert clone_index is not None, "clone_index must be provided."
+
         if clone_ids is not None:
             final_clone_ids = clone_ids
         else:
             final_clone_ids = [str(i) for i in range(len(clone_index))]
 
+    # NB requires lengths to be provided.
     assert single_X.shape[0] == np.sum(
         lengths
     ), "Found mismatch for genomic segment defined X and lengths."
 
-    if clone_index is None:
-        assert (
-            res_combine is not None
-        ), "Must provide clone_index if res_combine is None"
-        clone_index = [
-            np.where(res_combine["new_assignment"] == c)[0]
-            for c, _ in enumerate(final_clone_ids)
-        ]
-
+    # NB requires clone_index to be defined.
     X, base_nb_mean, total_bb_RD, tumor_prop = merge_pseudobulk_by_index_mix(
         single_X,
         single_base_nb_mean,
@@ -216,6 +226,11 @@ def plot_clones_genomic(
         len(nonempty_clones), axes_per_clone, base_height, sample_list
     )
 
+    # NB guards against trouble.
+    # TODO HACK
+    # assert "0" in final_clone_ids
+    assert np.all(nonempty_clones == np.arange(len(final_clone_ids))), f"Found nonempty clones={nonempty_clones}, expected={np.arange(len(final_clone_ids))}."
+
     for s, c in enumerate(nonempty_clones):
         # TODO BUG? s or c!!
         cid = final_clone_ids[c]
@@ -228,6 +243,8 @@ def plot_clones_genomic(
             ax_rdr = None
             ax_baf = axes[ax_idx]
 
+        # NB define a color per data point according to the inferred state, with
+        #    priority to integer (A, B), otherwise __real__state, and finally a default color.
         if df_cnv is not None:
             major = np.maximum(
                 df_cnv[f"clone{cid} A"].values, df_cnv[f"clone{cid} B"].values
@@ -239,15 +256,17 @@ def plot_clones_genomic(
             # TODO BUG refine palette logic.
             # NB color points by inferred integer copy states, (A,B), if available.
             if palette_name == "chisel":
-                default_idx = map_cn.get((1, 1), 0)
+                # default_idx = map_cn.get((1, 1), 0)
                 hue_indices = [
-                    map_cn.get((major[i], minor[i]), default_idx)
+                    map_cn.get((major[i], minor[i]))
                     for i in range(len(major))
                 ]
 
                 hue = pd.Categorical(
                     hue_indices, categories=np.arange(len(ordered_acn)), ordered=True
                 )
+
+                # NB color per state, should be moved up.
                 palette = [
                     mcolors.to_rgba(
                         color,
@@ -255,28 +274,33 @@ def plot_clones_genomic(
                     )
                     for i, color in enumerate(state_colors)
                 ]
-            else:
-                # TODO if df_cnv is not provided, we can color points by pred_cnv, the 
-                #      __real__ copy number states.
-                # TODO robust to res_combine["pred_cnv"] having to be broadcast across clones,
-                #      if a single value.
-                n_states = res_combine["new_p_binom"].shape[0]
-                n_clones = res_combine["pred_cnv"].shape[1]
+                point_colors = [palette[h] for h in hue.codes]
+                scatter_kwargs = {"hue": hue, "palette": palette}
+        elif res_combine is not None:
+            # NB if df_cnv is not provided, we can color points by pred_cnv, the 
+            #      __real__ copy number states.
+            # 
+            # WARNING res_combine["pred_cnv"] it is potentially concatenated across clones.
+            n_states = res_combine["new_p_binom"].shape[0]
 
-                idx = 0 if n_clones == 1 else c
+            # NB may be concatenated across clones, ugh.
+            this_pred = (                                                                                                                                                                                                                      
+                res_combine["pred_cnv"][(s * n_obs) : (s * n_obs + n_obs)] % n_states                                                                                                                                                          
+            )
 
-                hue = pd.Categorical(
-                    res_combine["pred_cnv"][:, idx],
-                    categories=np.arange(n_states),
-                    ordered=True,
-                )
-                base_pal = sns.color_palette(palette_name, n_states)
-                palette = [mcolors.to_rgba(color, alpha=1.0) for color in base_pal]
+            hue = pd.Categorical(
+                this_pred,
+                categories=np.arange(n_states),
+                ordered=True,
+            )
 
+            # TODO named palette.
+            palette = [mcolors.to_rgba(color, alpha=1.0) for color in sns.color_palette("deep", n_states)]
             point_colors = [palette[h] for h in hue.codes]
+
             scatter_kwargs = {"hue": hue, "palette": palette}
         else:
-            # TODO color by state.
+            # NB we don't have any inferred state, either integer or real, so default color.
             point_colors = "#4C72B0"
             scatter_kwargs = {"color": point_colors}
 
@@ -296,7 +320,7 @@ def plot_clones_genomic(
                     y_vals_rdr,
                     yerr=std_err_rdr,
                     fmt="none",
-                    ecolor=point_colors if df_cnv is not None else "tab:blue",
+                    ecolor=point_colors,
                     elinewidth=0.5,
                     zorder=0,
                 )
@@ -341,7 +365,7 @@ def plot_clones_genomic(
                 baf_vals,
                 yerr=std_err_baf,
                 fmt="none",
-                ecolor=point_colors if df_cnv is not None else "tab:blue",
+                ecolor=point_colors,
                 elinewidth=0.5,
                 zorder=0,
             )
@@ -369,29 +393,17 @@ def plot_clones_genomic(
         # ---- Model Prediction Lines ----
         if res_combine is not None:
             n_states = res_combine["n_states"]
-            n_clones = res_combine["new_log_mu"].shape[1]
-            
-            # TODO BUG?? s or c!!
+
             # NB support broadcasting of fitted parameters across clones,
             #    if a single set of parameters is available.
-            clone_idx = 0 if n_clones == 1 else c
+            # TODO BUG?? s or c!!
+            clone_idx = 0 if res_combine["new_log_mu"].shape[1] == 1 else s
 
             this_pred = (                                                                                                                                                                                                                      
                 res_combine["pred_cnv"][(s * n_obs) : (s * n_obs + n_obs)] % n_states                                                                                                                                                          
             )
             
             segments, labels = get_intervals(this_pred)
-
-            '''
-            # TODO HACK?  may include 2x combinatorially phased states.
-            max_pred = np.argmax(res_combine["log_gamma"], axis=0)
-            this_pred = (
-                max_pred[(s * n_obs) : (s * n_obs + n_obs)] % n_states
-            )
-
-            # NB currently based on _inferred real state_, as opposed to integer (A,B) states,
-            segments, labels = get_intervals(this_pred)
-            '''
             
             for i, seg in enumerate(segments):
                 if has_rdr:
@@ -421,7 +433,7 @@ def plot_clones_genomic(
         # ---- Legend ----
         # NB we colored points according to either the inferred integer copy states (A,B)
         #    or the inferred __real__ copy states, depending on availability.
-        if df_cnv is not None and has_rdr:
+        if df_cnv is not None:
             legend_elements = [
                 Line2D(
                     [0],
@@ -436,13 +448,14 @@ def plot_clones_genomic(
                 for i in hue.unique()
             ]
 
-            ax_rdr.legend(
+            ax_legend = ax_rdr if has_rdr else ax_baf
+            ax_legend.legend(
                 handles=legend_elements,
                 loc="upper right",
                 bbox_to_anchor=(1, 1.25),
                 ncol=len(legend_elements),
                 frameon=False,
-                bbox_transform=ax_rdr.transAxes,
+                bbox_transform=ax_legend.transAxes,
             )
 
         # ---- Clone Statistics Annotation ----

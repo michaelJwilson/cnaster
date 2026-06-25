@@ -673,6 +673,7 @@ def run_cnaster(config_path, over_rides=None):
         res_combine=res,
         single_tumor_prop=None,
         sample_list=sample_list,
+        palette_name="chisel_single", # NB integer state lookup, no (A,B).
     )
 
     # NB inferred per-clone copy number profiles from baf-only run.
@@ -682,8 +683,6 @@ def run_cnaster(config_path, over_rides=None):
         transparent=True,
         bbox_inches="tight",
     )
-
-    exit(0)
     
     pause()
 

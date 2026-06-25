@@ -144,8 +144,8 @@ def plot_clones_genomic(
     single_total_bb_RD: np.ndarray,
     res_combine: dict = None,
     single_tumor_prop: np.ndarray = None,
-    clone_ids: list = None,
-    clone_index: list = None,
+    clone_ids: list = None, # DEPRECATE
+    clone_index: list = None, # DEPRECATE
     sample_list: list = None,
     remove_xticks: bool = True,
     rdr_ylim: float = 6.0,
@@ -163,11 +163,12 @@ def plot_clones_genomic(
     """
     logger.info(f"Plotting aggregated rdr and baf for clones.")
 
-    # Only extract palettes and mappings if we have categorical data
+    # NB extract palettes if we have inferred integer copy states, (A,B).
     if df_cnv is not None:
         color_palette, ordered_acn = get_full_palette(palette_name)
-        map_cn = {x: i for i, x in enumerate(ordered_acn)}
         state_colors = [color_palette[c] for c in ordered_acn]
+
+        map_cn = {x: i for i, x in enumerate(ordered_acn)}
 
         final_clone_ids = (
             df_cnv.columns.str.extract(r"^clone(.*) A$", expand=False).dropna().tolist()
@@ -216,6 +217,7 @@ def plot_clones_genomic(
     )
 
     for s, c in enumerate(nonempty_clones):
+        # TODO BUG? s or c!!
         cid = final_clone_ids[c]
 
         ax_idx = s * axes_per_clone
@@ -234,6 +236,8 @@ def plot_clones_genomic(
                 df_cnv[f"clone{cid} A"].values, df_cnv[f"clone{cid} B"].values
             )
 
+            # TODO BUG refine palette logic.
+            # NB color points by inferred integer copy states, (A,B), if available.
             if palette_name == "chisel":
                 default_idx = map_cn.get((1, 1), 0)
                 hue_indices = [
@@ -252,9 +256,17 @@ def plot_clones_genomic(
                     for i, color in enumerate(state_colors)
                 ]
             else:
+                # TODO if df_cnv is not provided, we can color points by pred_cnv, the 
+                #      __real__ copy number states.
+                # TODO robust to res_combine["pred_cnv"] having to be broadcast across clones,
+                #      if a single value.
                 n_states = res_combine["new_p_binom"].shape[0]
+                n_clones = res_combine["pred_cnv"].shape[1]
+
+                idx = 0 if n_clones == 1 else c
+
                 hue = pd.Categorical(
-                    res_combine["pred_cnv"][:, c],
+                    res_combine["pred_cnv"][:, idx],
                     categories=np.arange(n_states),
                     ordered=True,
                 )
@@ -356,47 +368,50 @@ def plot_clones_genomic(
 
         # ---- Model Prediction Lines ----
         if res_combine is not None:
-            if df_cnv is not None:
-                segments, labels = get_intervals(res_combine["pred_cnv"][:, c])
-            else:
-                # TODO HACK?
-                max_pred = np.argmax(res_combine["log_gamma"], axis=0)
-                this_pred = (
-                    max_pred[(s * n_obs) : (s * n_obs + n_obs)] % res_combine["n_states"]
-                )
+            n_states = res_combine["n_states"]
+            n_clones = res_combine["new_log_mu"].shape[1]
+            
+            # TODO BUG?? s or c!!
+            # NB support broadcasting of fitted parameters across clones,
+            #    if a single set of parameters is available.
+            clone_idx = 0 if n_clones == 1 else c
 
-                # NB currently based on _inferred real state_, as opposed to integer (A,B) states,
-                segments, labels = get_intervals(this_pred)
+            this_pred = (                                                                                                                                                                                                                      
+                res_combine["pred_cnv"][(s * n_obs) : (s * n_obs + n_obs)] % n_states                                                                                                                                                          
+            )
+            
+            segments, labels = get_intervals(this_pred)
 
-            mus = np.exp(res_combine["new_log_mu"])
-            ps = res_combine["new_p_binom"]
-    
-            # NB broadcast single fit across clones (to shape ... x len(nonempty_clones))                                                                                                                        
-            if mus.shape[1] == 1:
-                mus = np.repeat(mus, len(nonempty_clones), axis=1)
-                ps = np.repeat(ps, len(nonempty_clones), axis=1)
-                
-            logger.info(f"Assuming model fits with mus.shape={mus.shape}.")
+            '''
+            # TODO HACK?  may include 2x combinatorially phased states.
+            max_pred = np.argmax(res_combine["log_gamma"], axis=0)
+            this_pred = (
+                max_pred[(s * n_obs) : (s * n_obs + n_obs)] % n_states
+            )
 
+            # NB currently based on _inferred real state_, as opposed to integer (A,B) states,
+            segments, labels = get_intervals(this_pred)
+            '''
+            
             for i, seg in enumerate(segments):
                 if has_rdr:
                     ax_rdr.plot(
                         seg,
-                        [mus[labels[i], s]] * 2,
+                        [np.exp(res_combine["new_log_mu"][labels[i], clone_idx])] * 2,
                         c="k",
                         linewidth=0.5,
                         zorder=2,
                     )
                 ax_baf.plot(
                     seg,
-                    [ps[labels[i], s]] * 2,
+                    [res_combine["new_p_binom"][labels[i], clone_idx]] * 2,
                     c="k",
                     linewidth=0.5,
                     zorder=2,
                 )
                 ax_baf.plot(
                     seg,
-                    [1.0 - ps[labels[i], s]] * 2,
+                    [1.0 - res_combine["new_p_binom"][labels[i], clone_idx]] * 2,
                     c="k",
                     linewidth=0.5,
                     linestyle="--",
@@ -404,6 +419,8 @@ def plot_clones_genomic(
                 )
 
         # ---- Legend ----
+        # NB we colored points according to either the inferred integer copy states (A,B)
+        #    or the inferred __real__ copy states, depending on availability.
         if df_cnv is not None and has_rdr:
             legend_elements = [
                 Line2D(

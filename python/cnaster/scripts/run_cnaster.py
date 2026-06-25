@@ -299,6 +299,8 @@ def run_cnaster(config_path, over_rides=None):
         bbox_inches="tight",
     )
 
+    quit()
+
     prephasing_clones_genomic = plot_clones_genomic(
         df_cnv=None,
         lengths=lengths,

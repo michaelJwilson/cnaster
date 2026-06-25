@@ -13,7 +13,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 from cnaster.config import start_time
 from cnaster.logger import get_logger
-from cnaster.utils import cast_clone_label, write_fig, get_intervals
+from cnaster.utils import cast_clone_label, write_fig
 
 logger = get_logger(__name__, start_time=start_time)
 
@@ -267,7 +267,7 @@ def plot_clones_spatial(
     # NB number of clones and samples
     final_clone_ids = np.unique(assignment[~assignment.isnull()].values)
     n_final_clones = len(final_clone_ids)
-    n_samples = 1 if sample_list is None else len(sample_list)
+    # n_samples = 1 if sample_list is None else len(sample_list)
 
     # NB remove nan of single_tumor_prop; assumes 0.5(!)
     if single_tumor_prop is not None:
@@ -287,7 +287,7 @@ def plot_clones_spatial(
     marker_size = np.clip(12_000.0 / n_points, 0.1, 25.0)
 
     fig, ax = plt.subplots(
-        1, 1, figsize=(base_width * n_samples, base_height), dpi=300, facecolor="white"
+        1, 1, figsize=(base_width, base_height), dpi=300, facecolor="white"
     )
 
     if "clone 0" in final_clone_ids:
@@ -336,22 +336,35 @@ def plot_clones_spatial(
         )
         for c, cid in enumerate(final_clone_ids)
     ]
+
     ax.legend(
         legend_elements,
         [cast_clone_label(cid) for cid in final_clone_ids],
         handlelength=0.1,
         loc="upper left",
-        bbox_to_anchor=(1, 1),
+        bbox_to_anchor=(0.05, -0.00),  
+        ncol=n_final_clones,
         frameon=False,
+        fontsize=8,
+        borderaxespad=0.0,            
     )
 
     if sample_list is not None:
-        ax.set_title(", ".join(sample_list), loc="left", fontsize=8)
+        ax.text(
+            0.05,                      
+            0.95,                     
+            ", ".join(sample_list), 
+            transform=ax.transAxes,
+            ha="left", 
+            va="bottom", 
+            fontsize=8,
+        )
 
-    ax.set_aspect("equal")
+    # ax.set_aspect("equal")
+    # ax.set_box_aspect(1)
     ax.axis("off")
 
-    fig.tight_layout()
+    # fig.tight_layout()
 
     return fig
 

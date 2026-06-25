@@ -392,8 +392,9 @@ def plot_clones_genomic(
 
         # ---- Model Prediction Lines ----
         if res_combine is not None:
-            n_states = res_combine["n_states"]
-
+            # n_states = res_combine["n_states"]
+            n_states = res_combine["new_log_mu"].shape[0]
+            
             # NB support broadcasting of fitted parameters across clones,
             #    if a single set of parameters is available.
             # TODO BUG?? s or c!!

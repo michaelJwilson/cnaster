@@ -363,7 +363,9 @@ def plot_clones_genomic(
                 )
 
         if df_cnv is not None or res_combine is not None:
-            legend_labels = ordered_acn if df_cnv is not None else np.arange(n_states)
+            # NB we don't add a legend label for a state enumerator as confusing,
+            #    just the percentage.
+            legend_labels = ordered_acn if df_cnv is not None else n_states * [""]
             legend_elements = [
                 Line2D(
                     [0], [0], marker="o", color="w", markerfacecolor=palette[i],

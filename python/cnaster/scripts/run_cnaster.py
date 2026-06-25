@@ -32,6 +32,7 @@ from cnaster.io import (
     read_tumor_prop,
     construct_df_clone_label,
 )
+from cnaster.he import get_he_image
 from cnaster.logger import get_logger
 from cnaster.neyman_pearson import (
     combine_similar_states_across_clones,
@@ -280,8 +281,16 @@ def run_cnaster(config_path, over_rides=None):
             np.unique(clone_assignment),
         )
 
+        # TODO constructor:  defined for all spots, in_tissue, etc?
+        he_frame = get_he_image(
+            spaceranger_dir=config.preprocessing.spaceranger_dir,
+            res="hires", 
+            pos=None,
+            num_labels=4
+        )
+
         he_fig = plot_he(
-            frame,
+            he_frame,
             channels=("image"),
         )
 

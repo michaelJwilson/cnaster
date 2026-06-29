@@ -673,10 +673,12 @@ def plot_he(
         if col_lower == "image":
             rgb = frame[["red", "green", "blue"]].values
 
-            norm_factor = 255.0 if rgb.max() > 1.0 else 1.0
-            rgb_norm = np.clip(rgb / norm_factor, 0, 1)
+            p_low, p_high = np.percentile(rgb, (1, 99))
+            rgb_clipped = np.clip(rgb, p_low, p_high)
 
-            ax.scatter(frame["x"], -frame["y"], c=rgb_norm, s=marker_size, linewidth=0)
+            rgb_norm = (rgb_clipped - p_low) / (p_high - p_low)
+            
+            ax.scatter(frame["x"], -frame["y"], c=rgb, s=marker_size, linewidth=0)
 
         elif col_lower in ["category", "label"]:
             label_col = "label" if "label" in frame.columns else col 

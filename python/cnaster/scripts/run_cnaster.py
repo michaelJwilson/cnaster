@@ -263,6 +263,8 @@ def run_cnaster(config_path, over_rides=None):
         initial_clone_for_phasing if config.annotation.clone_label is not None else None
     )
 
+    exit(0)
+
     # NB utilize initial spot assignment based on h&e image; potts model may (will!) merge, or blur h&e boundaries.
     if "he_label" in adata.obsm:
         logger.info(f"Refining initial clone partition with h&e derived segmentation.")
@@ -301,6 +303,8 @@ def run_cnaster(config_path, over_rides=None):
             bbox_inches="tight",
         )
 
+    exit(0)
+        
     assignment = pd.Series(
         [f"clone {x}" for x in get_clone_assignment(coords, initial_clone_for_phasing)]
     )

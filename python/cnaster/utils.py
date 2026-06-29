@@ -271,18 +271,21 @@ def write_tsv(opath, df=None, header=True, index=False, index_label=None, prefix
     df.to_csv(opath, sep="\t", header=header, index=index, index_label=index_label)
 
 
-def write_fig(opath, fig=None, transparent=True, bbox_inches="tight"):
+def write_fig(opath, fig=None, transparent=True, bbox_inches="tight", format="pdf", dpi=300):
     if fig is None:
         fig = plt.figure()
         ax = fig.add_subplot(111)
 
+    # NB required extension.
+    assert format in opath
+        
     logger.info(f"Writing figure to:\n{opath}")
     fig.savefig(
-        opath, format="pdf", transparent=transparent, bbox_inches=bbox_inches, dpi=750
+        opath, format=format, transparent=transparent, bbox_inches=bbox_inches, dpi=dpi,
     )
     plt.close(fig)
 
-
+    
 @njit
 def top_hat_sum(arr, width):
     # TODO HACK?

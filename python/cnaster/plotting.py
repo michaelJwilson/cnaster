@@ -625,10 +625,11 @@ def plot_copy_states(state_cnv):
 
 def plot_he(
     frame,
-    channels=["image", "category"],
+    channels=("image", "category"),
     base_width=4,
     base_height=4,
     max_cols=3,
+    dpi=100,
 ):
     """
     Plot dynamically selected channels and categories for H&E images.

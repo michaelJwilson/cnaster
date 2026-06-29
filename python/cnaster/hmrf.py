@@ -7,7 +7,13 @@ import pandas as pd
 import scipy.special
 from numba import njit, prange
 from pathlib import Path
-from cnaster.icm import icm_sweep, icm_sweep_deque, wolff_sweep, unpack_adjacency, merge_assignment
+from cnaster.icm import (
+    icm_sweep,
+    icm_sweep_deque,
+    unpack_adjacency,
+    merge_assignment,
+)
+from cnaster.wolff import wolff_sweep
 from cnaster.hmm import gmm_init, pipeline_baum_welch
 from cnaster.hmm_sitewise import hmm_sitewise
 from cnaster.hmrf_utils import cast_csr, clone_stack_obs
@@ -16,7 +22,7 @@ from cnaster.hmm_initialize import plot_cna_mixture, cna_mixture_init
 from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
 from cnaster.config import get_global_config
 from cnaster.plotting import plot_clones_spatial
-from cnaster.plot_genomic import plot_clones_genomic, plot_clones_genomic_raw
+from cnaster.plot_genomic import plot_clones_genomic
 from cnaster.deprecated.hmrf import (
     aggr_hmrfmix_reassignment_concatenate as dep_aggr_hmrfmix_reassignment_concatenate,
 )
@@ -26,19 +32,19 @@ from cnaster.logger import get_logger
 
 logger = get_logger(__name__, start_time=start_time)
 
+
 @njit
 def logsumexp(x):
     x_max = np.max(x)
     return x_max + np.log(np.sum(np.exp(x - x_max)))
+
 
 def validate_clone_ids(assignments):
     unique_ids = np.unique(assignments)
     expected = np.arange(len(unique_ids))
 
     if not np.array_equal(unique_ids, expected):
-        logger.error(
-            f"Found invalid clone ids (e.g. not contiguous): {unique_ids}."
-        )
+        logger.error(f"Found invalid clone ids (e.g. not contiguous): {unique_ids}.")
         raise RuntimeError()
 
     return True
@@ -300,6 +306,7 @@ def aggr_hmrfmix_reassignment_concatenate(
 
     logger.info("Pooling hmrf data by smooth mat. (reduces necessary computation).")
 
+    # TODO no_pool flag
     # NB pool data by smooth mat: reduces spots to calculate likelihood for, i.e. faster.
     pooled_X, pooled_base_nb_mean, pooled_total_bb_RD, _, weighted_tp = pool_hmrf_data(
         single_X,
@@ -423,7 +430,7 @@ def aggr_hmrfmix_reassignment_concatenate(
         logger.warning(f"Assuming a fixed clone assignment")
     else:
         logger.info(f"Solving for updated clone labels.")
-        
+
         # NB updates new_assignment and posterior in place given log emission likelihood.
         niter, new_cost = icm_sweep_deque(
             single_llf,
@@ -451,7 +458,7 @@ def aggr_hmrfmix_reassignment_concatenate(
         )   
         """
         logger.info(f"Ready for potential merging with merge={merge}.")
-        
+
         while merge:
             new_cost, best_merge_cost, best_merge_pair = merge_assignment(
                 single_llf,
@@ -473,10 +480,14 @@ def aggr_hmrfmix_reassignment_concatenate(
                         new_assignment[i] = v
                         num_merged_spots += 1
 
-                logger.info(f"Merged {num_merged_spots} spots from clone {u} into clone {v} with dC={best_merge_cost - new_cost:.6e}")
+                logger.info(
+                    f"Merged {num_merged_spots} spots from clone {u} into clone {v} with dC={best_merge_cost - new_cost:.6e}"
+                )
                 new_cost = best_merge_cost
             else:
-                logger.info(f"No more beneficial merges available (latest dC={best_merge_cost - new_cost:.6e}).")
+                logger.info(
+                    f"No more beneficial merges available (latest dC={best_merge_cost - new_cost:.6e})."
+                )
                 break
 
         _, cnts = np.unique(new_assignment, return_counts=True)
@@ -566,7 +577,7 @@ def validation_summary(
         zero_point += ll
 
 
-@count_calls
+# @count_calls
 def hmrfmix_concatenate_pipeline(
     single_X,
     lengths,
@@ -603,7 +614,7 @@ def hmrfmix_concatenate_pipeline(
     # unit_ysquared=3,
     spatial_weight=1.0 / 6.0,
     tumorprop_threshold=0.5,
-    plot_progress=True,
+    plot_progress=False,
 ):
     # NB num. of genomic bins, num. pseudobulk (clones, spots, ...)
     n_obs, _, _ = single_X.shape
@@ -662,8 +673,9 @@ def hmrfmix_concatenate_pipeline(
         X, base_nb_mean, total_bb_RD, lengths, log_sitewise_transmat, tumor_prop
     )
 
-    merge=False
-    
+    merge = False
+
+    # TODO initializes hmm (with gmm).
     if (init_log_mu is None) or (init_p_binom is None):
         new_init_log_mu, new_init_p_binom = gmm_init(
             n_states,
@@ -702,9 +714,10 @@ def hmrfmix_concatenate_pipeline(
         logger.info(
             f"Solved for hmm initialized parameters:\n{init_log_mu}\n{init_p_binom}"
         )
-        logger.info(
-            f"Plotting initial copy state mixture for instance {hmrfmix_concatenate_pipeline.call_count-1} with X.shape={X.shape}."
-        )
+
+        # logger.info(
+        #     f"Plotting initial copy state mixture for instance {hmrfmix_concatenate_pipeline.call_count-1} with X.shape={X.shape}."
+        # )
 
         n_states = init_p_binom.shape[0]
 
@@ -778,7 +791,7 @@ def hmrfmix_concatenate_pipeline(
             f"----****  Solving iteration {r}/{max_iter_outer} of copy number state fitting & clone assignment (HMM + HMRF) ****----"
         )
 
-        # NB segments for each clone stacked.
+        # NB [num_segments, num_segments ..., num_segments] of length num_clones.
         sample_length = np.ones(X.shape[2], dtype=int) * X.shape[0]
         remain_kwargs = {"sample_length": sample_length, "lambd": lambd}
 
@@ -815,7 +828,7 @@ def hmrfmix_concatenate_pipeline(
             **remain_kwargs,
         )
 
-        # NB MAP copy state, no phasing.
+        # NB MAP copy state, irrespective of phasing. contrast to "pred_cnv".
         pred = np.argmax(res["log_gamma"], axis=0)
 
         # NB TODO 'max' clone assignment.
@@ -836,26 +849,30 @@ def hmrfmix_concatenate_pipeline(
             merge=merge,
         )
 
-        # NB handle the case where one clone has zero spots.
+        # NB handle edge case where a "clone" is assigned none of the spots.
         if len(np.unique(new_assignment)) < X.shape[2]:
+            # DEPRECATE
             res["assignment_before_reindex"] = new_assignment
+
+            # NB imposes new order, if not previously sorted, rather than skip only.
             remaining_clones = np.sort(np.unique(new_assignment))
 
-            # NB map original clone id to new enumeration.
+            # NB map original clone id -> new enumeration.
             re_indexing = {c: i for i, c in enumerate(remaining_clones)}
 
             logger.warning(
-                f"Iteration {r}: detected clone loss:  re-indexing clones with map={re_indexing}"
+                f"Detected clone loss on iteration {r}:  re-indexing clones with {re_indexing}"
             )
 
             # NB re-index new_assignment to be consecutive given a missing clone.
+            # TODO faster way?
             new_assignment = np.array([re_indexing[x] for x in new_assignment])
 
             concat_idx = np.concatenate(
                 [np.arange(c * n_obs, c * n_obs + n_obs) for c in remaining_clones]
             )
 
-            # NB log_gamma and pred_cnv ordered by clone.
+            # NB log_gamma and pred_cnv by new clone order (concatenated).
             res["log_gamma"] = res["log_gamma"][:, concat_idx]
             res["pred_cnv"] = res["pred_cnv"][concat_idx]
 
@@ -877,7 +894,7 @@ def hmrfmix_concatenate_pipeline(
             threshold=tumorprop_threshold,
         )
 
-        # DEPRECATE? TODO.
+        # TODO clone stack can be an arg. to merge_pseudobulk_by_index_mix
         (
             clone_stack_X,
             clone_stack_base_nb_mean,
@@ -899,17 +916,18 @@ def hmrfmix_concatenate_pipeline(
         with np.printoptions(linewidth=np.inf):
             logger.info(f"Copy number state usage [%]:\n{100. * state_usage}")
 
+        """
         if plot_progress:
             logger.info(f"Plotting progress for interation {r}.")
 
             output_dir = get_output_dir()
             progress_dir = f"{output_dir}/plots/progress/"
-            
+
             if not (pprogress_dir := Path(progress_dir)).exists():
                 logger.info(f"Creating {progress_dir}")
                 pprogress_dir.mkdir(exist_ok=True)
-            
-            # TODO HACK                                                                                                                                                                                                                                          
+
+            # TODO HACK
             assignment = pd.Series([f"clone {x}" for x in res["new_assignment"]])
             clones_fig = plot_clones_spatial(
                 coords,
@@ -924,7 +942,7 @@ def hmrfmix_concatenate_pipeline(
             fig_path = f"{progress_dir}/{prefix}_spatial_iter{r}.pdf"
             write_fig(fig_path, clones_fig, transparent=True, bbox_inches="tight")
 
-            # TODO copy rename.                                                                                                                                                                                                                                 
+            # TODO copy rename.
             clones_genomic = plot_clones_genomic_raw(
                 single_X,
                 single_base_nb_mean,
@@ -947,22 +965,27 @@ def hmrfmix_concatenate_pipeline(
 
             fig_path = f"{progress_dir}/{prefix}_genomic_iter{r}.pdf"
             write_fig(fig_path, clones_genomic, transparent=True, bbox_inches="tight")
+        """
 
         # NB potential conflict with GOTO logic below.
         r += 1
 
         if (
             # TODO config.hmrf.assignment_ari_tolerance: 0.9?
-            adjusted_rand_score(last_assignment, res["new_assignment"]) >= get_global_config().hmrf.ari_tolerance
+            adjusted_rand_score(last_assignment, res["new_assignment"])
+            >= get_global_config().hmrf.ari_tolerance
             or len(np.unique(res["new_assignment"])) == 1  # NB single clone assigned.
-            or r == (max_iter_outer - 2) # NB we merge on the iteration before last, facilitating assignment to merged clones. 
+            or r
+            == (
+                max_iter_outer - 2
+            )  # NB we merge on the iteration before last, facilitating assignment to merged clones.
         ):
             if not merge:
                 # NB next round we merge; and the one after fit parameters to the merged clone.
-                #    skip ahead (GOTO) between iterations. 
+                #    skip ahead (GOTO) between iterations.
                 r = max_iter_outer - 1
                 merge = True
-                     
+
         last_log_mu = res["new_log_mu"]
         last_p_binom = res["new_p_binom"]
         last_alphas = res["new_alphas"]
@@ -990,15 +1013,16 @@ def hmrfmix_concatenate_pipeline(
                     :, sidx
                 ] - scipy.special.logsumexp(log_persample_weights[:, sidx])
 
+    # TODO result class.
     return res
 
 
 def reindex_clones(res_combine, posterior=None, single_tumor_prop=None):
     EPS_BAF = 0.05  # MAGIC
-    
+
     n_spots = len(res_combine["new_assignment"])
     n_states, n_clones = res_combine["new_p_binom"].shape
-    
+
     # NB assumes not concatenated
     n_obs = res_combine["pred_cnv"].shape[0]
     new_res_combine = copy.copy(res_combine)
@@ -1014,7 +1038,9 @@ def reindex_clones(res_combine, posterior=None, single_tumor_prop=None):
         )
 
         # TODO HACK WARN discrepant clone ids [c for c in range(n_clones).
-        cid_rest = np.array([c for c in np.unique(res_combine["new_assignment"]) if c != cid_normal]).astype(int)
+        cid_rest = np.array(
+            [c for c in np.unique(res_combine["new_assignment"]) if c != cid_normal]
+        ).astype(int)
         reidx = np.append(cid_normal, cid_rest)
         map_reidx = {cid: i for i, cid in enumerate(reidx)}
 
@@ -1240,7 +1266,7 @@ def aggr_hmrf_reassignment(
 
     logger.info("Computing unary likelihood for HMRF reassignment.")
 
-    # UGH 
+    # TODO UGH FINAL takes forever to run.
     for i in range(n_spots):
         idx = smooth_mat[i, :].nonzero()[1]
 
@@ -1330,9 +1356,11 @@ def aggr_hmrf_reassignment(
                 num_clones = len(np.unique(new_assignment))
 
                 if num_clones <= 2:
-                    logger.warning("Found beneficial merge of final two clones; ignoring.")
+                    logger.warning(
+                        "Found beneficial merge of final two clones; ignoring."
+                    )
                     break
-                    
+
                 u, v = best_merge_pair
                 num_merged_spots = 0
 
@@ -1341,12 +1369,17 @@ def aggr_hmrf_reassignment(
                         new_assignment[i] = v
                         num_merged_spots += 1
 
-                logger.info(f"Merged {num_merged_spots} spots from clone {u} into clone {v} with dC={best_merge_cost - new_cost:.6e}")
+                logger.info(
+                    f"Merged {num_merged_spots} spots from clone {u} into clone {v} with dC={best_merge_cost - new_cost:.6e}"
+                )
                 new_cost = best_merge_cost
             else:
-                logger.info(f"Exhausted beneficial merges (latest dC={best_merge_cost - new_cost:.6e}).")
+                logger.info(
+                    f"Exhausted beneficial merges (latest dC={best_merge_cost - new_cost:.6e})."
+                )
                 break
 
+    # TODO UGH FINAL takes forever to run.
     # NB compute total log likelihood: log P(X | Z) + log P(Z)
     total_llf = np.sum(single_llf[np.arange(n_spots), new_assignment])
     for i in range(n_spots):
@@ -1362,6 +1395,7 @@ def aggr_hmrf_reassignment(
         return new_assignment, single_llf, total_llf
 
 
+# DEPRECATE?
 def hmrf_reassignment_posterior(
     single_X,
     single_base_nb_mean,

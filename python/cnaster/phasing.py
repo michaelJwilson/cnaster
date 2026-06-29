@@ -1,9 +1,9 @@
-import logging
-
+import time
 import numpy as np
-from collections import namedtuple
+
+# from collections import namedtuple
 from cnaster.utils import cacher
-from cnaster.hmm import hmm_sitewise, pipeline_baum_welch
+from cnaster.hmm import pipeline_baum_welch, hmm_sitewise
 from cnaster.hmm_phased import hmm_phased
 from cnaster.hmm_nophasing import hmm_nophasing
 from cnaster.hmrf_utils import clone_stack_obs
@@ -19,8 +19,9 @@ logger = get_logger(__name__, start_time=start_time)
 #     cell_snp_Aallele, cell_snp_Ballele, 0.1
 # )
 
-# NB mirrors calicost.phasing.initial_phase_given_partition; 
-@cacher("initial_phase.hdf5")
+
+# NB mirrors calicost.phasing.initial_phase_given_partition;
+# @cacher("initial_phase.hdf5")
 def initial_phase_given_partition(
     single_X,
     lengths,
@@ -48,6 +49,8 @@ def initial_phase_given_partition(
     # NB TODO attractor to 0.5 if sufficiently close, independent of coverage.
     EPS_BAF = 0.1  # MAGIC
 
+    start_time = time.time()
+
     # NB on input phase_indicator is 0s by construction, up to phase switch errors TBD.
     logger.info(f"Starting phasing assuming {len(initial_clone_index)} clones.")
 
@@ -63,15 +66,10 @@ def initial_phase_given_partition(
 
     # NB force baf < 0.5 by taking (1. - single_X[:,1,:]) where single_X[:,1,:]) / single_total_bb_RD > 0.5
     baf = X[:, 1, :] / total_bb_RD
-    minor_counts = np.where(
-        baf > 0.5,
-        total_bb_RD - X[:, 1, :],
-        X[:, 1, :]
-    )
 
     minor_X = np.zeros_like(X)
     minor_X[:, 0, :] = X[:, 0, :]
-    minor_X[:, 1, :] = minor_counts
+    minor_X[:, 1, :] = np.where(baf > 0.5, total_bb_RD - X[:, 1, :], X[:, 1, :])
 
     # NB (initial clones, segments).
     n_clones = X.shape[2]
@@ -90,7 +88,7 @@ def initial_phase_given_partition(
     # TODO
     init_log_mu, init_p_binom = gmm_init(
         n_states,
-        clone_stack_minor_X,               
+        clone_stack_minor_X,
         clone_stack_base_nb_mean,
         clone_stack_total_bb_RD,
         params,
@@ -99,7 +97,7 @@ def initial_phase_given_partition(
         only_minor=True,
     )
 
-    # NB currently determines dispersion for phasing calc.
+    # NB initial dispersion estimate assuming no phasing.
     res = pipeline_baum_welch(
         None,
         clone_stack_minor_X,
@@ -123,16 +121,19 @@ def initial_phase_given_partition(
         tol=tol,
     )
 
-    baf_profiles = np.zeros((n_clones, X.shape[0]))
-    phase_profiles = np.zeros((n_clones, X.shape[0]))
+    # TODO rename model_baf_profiles
+    baf_profiles, phase_profiles = np.zeros((n_clones, X.shape[0])), np.zeros(
+        (n_clones, X.shape[0])
+    )
 
     for i in range(n_clones):
         logger.info(f"Solving for phasing of initial clone {i} of {n_clones}.")
 
         # NB assumes BAF = 0.5 for insufficient snp umi count; initial binning chosen so this is not the case
         #    for pseudobulk of all spots?
+        #
         # NB phasing of a single clone; independent BAF values.
-        '''
+        """
         res = pipeline_baum_welch(
             None,
             X[:, :, i : (i + 1)],
@@ -142,7 +143,7 @@ def initial_phase_given_partition(
             total_bb_RD[:, i : (i + 1)],
             log_sitewise_transmat,
             tumor_prop=tumor_prop, # NB calicost assumes tumor_prop is None
-            hmmclass=hmm_sitewise,
+            hmmclass=hmm_sitewise, # NB assumes hmm_sitewise
             params="", # NB does not solve for p(!) or s.
             t=t,
             random_state=random_state,
@@ -159,7 +160,7 @@ def initial_phase_given_partition(
             max_iter=max_iter,
             tol=tol,
         )
-        '''
+        """
         res = hmm_phased(params="sp", t=t).run_baum_welch_nb_bb(
             X[:, :, i : (i + 1)],
             lengths,
@@ -178,29 +179,28 @@ def initial_phase_given_partition(
             max_iter=max_iter,
             tol=tol,
         )
-        
+
         # NB MAP estimate of state given log posterior; pred. > n_states indicates switch-error.
         pred = np.argmax(res["log_gamma"], axis=0)
 
         baf_profiles[i, :] = np.where(
             pred < n_states,
             res["new_p_binom"][pred % n_states, 0],
-	        1.0
-            - res["new_p_binom"][
-                pred % n_states, 0
-            ],
+            1.0 - res["new_p_binom"][pred % n_states, 0],
         )
-        
+
         assumed_normal = np.abs(baf_profiles[i, :] - 0.5) < EPS_BAF
-        
+
         phase_profiles[i, :] = pred < n_states
+
+        # NB do not define phase for normal-like segments (for this clone).
         phase_profiles[i, assumed_normal] = -1
 
     minor_baf_profiles = np.where(baf_profiles < 0.5, baf_profiles, 1.0 - baf_profiles)
 
     # NB phase_indicator is the majority vote across clones; assuming normal is clone 0.
     phase_indicator = np.zeros(X.shape[0], dtype=int)
-    phase_votes = phase_profiles[1:, :] if known_normal else phase_profiles[:,:]
+    phase_votes = phase_profiles[1:, :] if known_normal else phase_profiles[:, :]
 
     for idx in range(X.shape[0]):
         valid_votes = phase_votes[:, idx][phase_votes[:, idx] != -1]
@@ -213,13 +213,13 @@ def initial_phase_given_partition(
     config = get_global_config()
     BAF_CHANGE_THRESHOLD = config.phasing.baf_change_threshold
     MIN_SEGMENT_SIZE = config.phasing.min_new_segment_size
-                
+
     refined_lengths = []
     cumlen = 0
 
     # NB TODO?  this can only be necessary if phase indicator does not correctly capture all switches,
-    #           and potentially allows merges that should be excluded based on the BAF.  
-    # 
+    #           and potentially allows merges that should be excluded based on the BAF.
+    #
     # le is the number of blocks per contig.
     for ii, le in enumerate(lengths):
         s = 0
@@ -233,8 +233,10 @@ def initial_phase_given_partition(
                 )
                 >= BAF_CHANGE_THRESHOLD
             ):
-                # NB new blocks are a min. size and set by change in BAF.
-                logger.warning(f"Forced a block boundary at contig {1 + ii} pos {i} given dBAF={np.abs(minor_baf_profiles[:, i + cumlen] - minor_baf_profiles[:, i + cumlen - 1]).max():.4f}.")
+                # NB new blocks are a min. size and set by change in BAF - conserved phase (minor baf state) would imply segmentation, but evidence baf changes.
+                logger.warning(
+                    f"Forced a block boundary at contig {1 + ii} pos {i} despite conserved phase (minor baf state), given a baf switch of {np.abs(minor_baf_profiles[:, i + cumlen] - minor_baf_profiles[:, i + cumlen - 1]).max():.4f}."
+                )
                 refined_lengths.append(i - s)
                 s = i
 
@@ -245,12 +247,14 @@ def initial_phase_given_partition(
     # NB expect to unpack 22 per-contig lengths of N segments per contig, to len(refined_lengths) = sum(lengths).
     refined_lengths = np.array(refined_lengths)
 
+    end_time = time.time()
+
     logger.info(
-        f"Solved for {len(refined_lengths)} phase-refined lengths given {len(lengths)} input lengths with sum={sum(lengths)}."
+        f"Solved for {len(refined_lengths)} phase-refined lengths given {len(lengths)} input lengths with sum={sum(lengths)} in {(end_time - start_time):.2f} seconds."
     )
 
     return res, phase_indicator, refined_lengths
-    
+
     # NB return named tuple PhaseSummary
     # PhaseSummary = namedtuple("PhaseSummary", ["phase_indicator", "refined_lengths"])
 

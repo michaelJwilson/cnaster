@@ -1,0 +1,36 @@
+----  TODAY  ----
+-  color points by state on clone genomic (with no integer copies)
+-  h&e image
+-  run sims and validation
+
+
+----  WEEK END  ----
+
+-  sim. run.
+-  data run.
+-  paper plots.
+
+
+----  TODO  ----
+
+-  color points by state on clones_genomic with no integer copies (df_cnv).
+-  clone cna color encoding on clone_profile plot
+-  seeding
+-  adjacency
+-  clone stack an arg. to merge_pseudobulk_by_index_mix
+-  hmm::HMMResult
+-  utilise hmm_phased in baf-only determination.
+-  hmrf::aggr_hmrfmix_reassignment_concatenate  no_pooling / cleanup.
+-  hmrf::hmrfmix_concatenate_pipeline  result class / solver class.
+-  benchmark for icm; cna++
+-  transition matrix independence?
+-  centromeres
+
+----  DONE  ----
+
+-  H&E image.
+
+
+----  NOGO  -----
+-  GC content.
+-  OTHER filter; N>1 ALT counts; transcription gated repair?

@@ -15,6 +15,7 @@ logger = get_logger(__name__, start_time=start_time)
 #     transparent=True,bbox_inches="tight"
 # )
 
+
 def compute_numbat_phase_switch_prob(
     position_cM, chr_pos_vector, nu=1.0, min_prob=None
 ):
@@ -29,7 +30,7 @@ def compute_numbat_phase_switch_prob(
     """
     if min_prob is None:
         min_prob = get_global_config().phasing.min_prob
-    
+
     logger.info_once(f"Computing numbat phase switch probabilities assuming nu={nu}.")
     logger.info(
         f"position_cM has {100. * np.mean(np.isnan(position_cM))}% NAN content."
@@ -56,7 +57,7 @@ def compute_numbat_phase_switch_prob(
         phase_switch_prob[i] = (1.0 - np.exp(-2.0 * nu * d)) / 2.0
 
     logger.info_once(f"Solved for max phase switch prob. = {np.max(phase_switch_prob)}")
-        
+
     under_flowed = phase_switch_prob < min_prob
 
     logger.info(

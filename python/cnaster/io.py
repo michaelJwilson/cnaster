@@ -1,6 +1,5 @@
 import os
 import copy
-import json
 import logging
 from pathlib import Path
 
@@ -10,29 +9,70 @@ import pandas as pd
 import scanpy as sc
 import polars as pl
 import scipy.sparse as sp
-import matplotlib.pyplot as plt
-from scipy.spatial import cKDTree
 from collections import namedtuple
 from cnaster.filter import get_filter_genes, get_filter_ranges
 from cnaster.reference import exp_cancer_gene
 from cnaster.config import get_global_config
-from cnaster.utils import cacher
+
+# from cnaster.utils import cacher
 from sklearn.neighbors import LocalOutlierFactor
 from cnaster.config import start_time
 from cnaster.logger import get_logger
+from cnaster.he import get_he_image
 
 logger = get_logger(__name__, start_time=start_time)
 
 pl.Config.set_tbl_cols(-1)
 
 
+def construct_df_clone_label(barcodes, coords, assignment, tumor_prop=None):
+    """
+    Construct a data frame with assigned clone label for all samples.
+
+    Parameters
+    ----------
+    barcodes : list of str
+        List of barcodes corresponding to the samples.
+    coords : np.ndarray
+        Array of coordinates for the samples.
+    assignment : list or np.ndarray
+        List or array of clone assignments for the samples.
+    tumor_prop : np.ndarray, optional
+        Array of tumor proportions for the samples. Default is None.
+
+    Returns
+    -------
+    pd.DataFrame
+        Data frame containing sample_id, x, y, clone_label, and optionally tumor_proportion.
+    """
+    df_clone_label = pd.DataFrame(
+        {
+            "sample_id": [barcode.split("_")[-1] for barcode in barcodes],
+            "x": coords[:, 0],
+            "y": coords[:, 1],
+            "clone_label": assignment,
+        },
+        index=barcodes,
+    )
+
+    if tumor_prop is not None:
+        df_clone_label["tumor_proportion"] = tumor_prop
+
+    # Sort by (sample_id, (x,y)).
+    df_clone_label = df_clone_label.groupby("sample_id", group_keys=False).apply(
+        lambda g: g.sort_values(["x", "y"])
+    )
+
+    return df_clone_label
+
+
 def get_sample_sheet(sample_sheet_path):
     """
     Read the sample sheet from a CSV file; expects
-    
+
     'bam',
-    'sample_id', 
-    'spaceranger_dir', 
+    'sample_id',
+    'spaceranger_dir',
     snp_dir',
 
     in order to retrieve called snps and space-ranger
@@ -96,7 +136,7 @@ def get_barcodes(barcode_file):
     return df_barcodes
 
 
-# TODO check (e.g. sample sheet with john): 
+# TODO check (e.g. sample sheet with john):
 #             AAACAAGTATCTCCCA-1_HT112C1-U1 == {spot}-1_{sample_id}-{slice}.
 def get_aggregated_barcodes(barcode_file, known_sample_id=None):
     df_barcodes = get_barcodes(barcode_file)
@@ -129,119 +169,6 @@ def get_aggregated_barcodes(barcode_file, known_sample_id=None):
     )
 
     return df_barcodes
-
-
-def join_tables_xy(
-    first: pl.DataFrame, second: pl.DataFrame, columns_to_merge: list[str]
-) -> pl.DataFrame:
-    """
-    Joins second to first with {columns_to_merge}, such that the match in
-    second is closest in (x,y) to the instance of first.
-    """
-    first_xy = np.column_stack([first["x"].to_numpy(), first["y"].to_numpy()])
-    second_xy = np.column_stack([second["x"].to_numpy(), second["y"].to_numpy()])
-
-    tree = cKDTree(second_xy)
-
-    # NB for each row in first, find closest in second.
-    distances, indices = tree.query(first_xy)
-
-    new_columns = [
-        pl.Series(col, second[col].to_numpy()[indices]) for col in columns_to_merge
-    ]
-
-    new_columns = new_columns + [pl.Series("dist", distances)]
-
-    return first.with_columns(new_columns)
-
-# TODO move to h&e dedicated script.
-def get_he_image(spaceranger_dir, res="hires", pos=None, num_labels=4):
-    assert res in ("lowres", "hires")
-    # scalefactor = target_size / max (original image height, original image width),
-    #
-    # e.g. {
-    #    "spot_diameter_fullres": 58.45684684229273,
-    #    "bin_size_um": 16.0,
-    #    "microns_per_pixel": 0.2737061758251425,
-    #    "tissue_lowres_scalef": 0.0071874363,
-    #    "fiducial_diameter_fullres": 1205.6724661222877,
-    #    "tissue_hires_scalef": 0.071874365,
-    #    "regist_target_img_scalef": 0.071874365
-    # }
-    sf_path = Path(f"{spaceranger_dir}/spatial/scalefactors_json.json")
-    img_path = Path(f"{spaceranger_dir}/spatial/tissue_{res}_image.png")
-
-    if not sf_path.exists() or not img_path.exists():
-        logger.warning(
-            f"Could not find H&E image or scalefactors at {spaceranger_dir}/spatial/"
-        )
-        return pos
-
-    with open(sf_path, "r") as ff:
-        scalefactors = json.load(ff)
-
-    scalefactor = scalefactors[f"tissue_{res}_scalef"]
-
-    # NB realizes a (H, W, C) numpy array, i.e. (382, 600, 3) for low and (3818, 6000, 3) for high (HD @ 6.5mm).
-    tissue_image = plt.imread(img_path)
-
-    # NB 11,222,500 rows in the 2 um version of the file for Visium HD
-    # full_width = np.ceil(6000 / 0.071874365) = 83_479.0
-    # full_height = np.ceil(3818 / 0.071874365) = 53_121.0
-
-    # NB barcode positions correspond to 5_641.821 < y < 30_099.837, 1_190.55 < x < 5_641.82 for 175_561 spots.
-    #    i.e. the aligned portion of the original image.
-    H, W, C = tissue_image.shape
-    rows, cols = np.meshgrid(np.arange(H), np.arange(W), indexing="ij")
-
-    tissue_frame = pl.DataFrame(
-        {
-            "red": tissue_image[:, :, 0].flatten(),
-            "green": tissue_image[:, :, 1].flatten(),
-            "blue": tissue_image[:, :, 2].flatten(),
-            "array_row": rows.flatten(),
-            "array_col": cols.flatten(),
-        }
-    )
-
-    # NB 0.0 < x < 83_339.869; 0 < y < 53_009.165
-    tissue_frame = tissue_frame.with_columns(
-        (pl.col("array_col") / scalefactor).alias("x"),
-        (pl.col("array_row") / scalefactor).alias("y"),
-    )
-
-    if pos is not None:
-        # NB limited to in_tissue=True
-        pos = pl.from_pandas(pos)
-
-        columns = ("red", "green", "blue")
-        tissue_frame = join_tables_xy(pos, tissue_frame, columns)
-
-    def crop_values(x):
-        return (x - np.min(x)) / (np.max(x) - np.min(x))
-
-    rgb = tissue_frame.select(["red", "green", "blue"]).to_numpy()
-
-    # TODO standard lib?
-    gray = 0.2125 * rgb[:, 0] + 0.7154 * rgb[:, 1] + 0.0721 * rgb[:, 2]
-    cropped_gray = crop_values(gray)
-
-    percentiles = np.linspace(0.0, 100.0, 1 + num_labels)
-    bins = np.percentile(np.sort(cropped_gray.flatten()), percentiles)
-
-    labels = np.digitize(cropped_gray, bins=bins)
-
-    # TODO rename he_label.
-    # NB 0.0 < x < 83_339.869; 0 < y < 53_009.165
-    tissue_frame = tissue_frame.with_columns(
-        pl.Series("gray", gray),
-        pl.Series("cropped_gray", cropped_gray),
-        pl.Series("label", labels),
-    )
-
-    logger.info(f"Merged with h&e with result:\n{tissue_frame}")
-
-    return tissue_frame.to_pandas()
 
 
 def get_spatial_positions(spaceranger_dir, filter_in_tissue=True):
@@ -507,8 +434,8 @@ def map_unique_snps_enum(unique_snp_ids):
             enum = 0
 
         # TODO HACK JOHN
-        contig = contig.replace("chr","")
-            
+        contig = contig.replace("chr", "")
+
         new_snp_id = f"{contig}_{pos}_{enum}"
         result.append(new_snp_id)
 
@@ -559,7 +486,7 @@ def load_input_data(
     )
 
     # TODO HACK JOHN
-    snp_barcodes["barcodes"] = snp_barcodes["barcodes"].map(                                                                                                                                                                
+    snp_barcodes["barcodes"] = snp_barcodes["barcodes"].map(
         lambda xx: xx.replace("_U1", "")
     )
 
@@ -591,7 +518,7 @@ def load_input_data(
     # TODO HACK JOHN
     # cell_snp_Aallele = cell_snp_Aallele.T
     # cell_snp_Ballele = cell_snp_Ballele.T
-    
+
     assert cell_snp_Aallele.shape == cell_snp_Ballele.shape
 
     cell_snp = (cell_snp_Aallele + cell_snp_Ballele).todense().sum(axis=1)
@@ -663,7 +590,8 @@ def load_input_data(
 
         if "gray" in df_this_pos.columns:
             adatatmp.obsm["he_gray"] = df_this_pos.gray.to_numpy()
-        
+
+        # TODO he_label
         if "label" in df_this_pos.columns:
             adatatmp.obsm["he_label"] = df_this_pos.label.to_numpy()
 
@@ -691,11 +619,11 @@ def load_input_data(
         f"Retaining {100.0 * np.mean(isin):.3f}% of barcodes with snp calls (shared between umis and snps)."
     )
 
-    # TODO barcode inconsistent between snps and umis.                                                                                                                                                                                
+    # TODO barcode inconsistent between snps and umis.
     assert np.any(
         isin
     ), f"Found inconsistent barcodes between SNPs and UMIs, e.g. \n{list(snp_barcodes.barcodes)[:5]}\nvs\n{list(adata.obs.index)[:5]}"
-    
+
     # NB barcode (row) selection.
     if not isin.all():
         cell_snp_Aallele = cell_snp_Aallele[isin, :]
@@ -760,8 +688,9 @@ def load_input_data(
     percentiles = [0, 1, 5, 10, 25, 50, 75, 90, 95, 99, 100]
     perc_vals = np.percentile(spot_umis, percentiles)
 
-    pairs = "\n".join(f"{p:.3f} [%]\t{v:_.0f}" for p, v in zip(percentiles, perc_vals))
-    logger.info(f"umis per spot percentiles:\n{pairs}")
+    pairs = "\n".join(f"{p:.3f} [%]\t{v:_.0f}" for p, v in zip(perc_vals, percentiles))
+
+    logger.info(f"Per-spot umi percentiles:\n{pairs}")
 
     # NB filter out genes that are expressed in < min_percent_expressed_spots spots.
     indicator = (
@@ -773,10 +702,12 @@ def load_input_data(
     # NB ratio of total UMIs across all spots for gene selection vs all.
     ratio = np.sum(adata.X[:, indicator]) / np.sum(adata.X)
 
-    # TODO gencode gene list is not all sampled by (3') visium umis.
+    # TODO gencode gene list is not all sampled by (3') visium umis?
     # TODO excludes 50% of genes, but retains 99.97% of UMIs; resolves gene definition to house-keeping?
+    #
+    # NB removes cell-specific genes that are not expressed by a sufficient fraction of spots (mixed).
     logger.info(
-        f"Retaining {100.0 * np.mean(indicator):.3f}% of genes with sufficient expression across spots ({100.0 * ratio:.2f}% of total umis) @ {min_percent_expressed_spots} fraction of spots."
+        f"Retaining {100.0 * np.mean(indicator):.3f}% of genes ({100.0 * ratio:.2f}% of total umis) with sufficient expression across spots @ {min_percent_expressed_spots} fraction of spots."
     )
 
     adata = adata[:, indicator]
@@ -898,6 +829,7 @@ def load_input_data(
                     f"  {i+1:2d}. {gene_name:<20} {gene_pct:6.3f}% UMIs {warning}"
                 )
 
+        # TODO copy? ... ImplicitModificationWarning: Trying to modify attribute `.layers` of view, initializing view as actual.
         # NB  zero count of outlier genes (!)  Should retain snp-umi counts ...
         adata.layers["count"][:, to_zero] = 0
 

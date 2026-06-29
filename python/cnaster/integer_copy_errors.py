@@ -26,9 +26,12 @@ def filter_consistent_acn_states(
         ]
     )
 
-    candidate_details = "\n".join([
-        f"({A},{B})\tTot={A+B}\tBAF={A/(A+B):.2f}\tRDR={(A+B)/2:.2f}" for A, B in candidates
-    ])
+    candidate_details = "\n".join(
+        [
+            f"({A},{B})\tTot={A+B}\tBAF={A/(A+B):.2f}\tRDR={(A+B)/2:.2f}"
+            for A, B in candidates
+        ]
+    )
     logger.info(
         f"Filtering candidate ACN states for consistency with measurements:\n{candidate_details}"
     )
@@ -105,8 +108,9 @@ def test_filter_consistent_acn_states():
         0.38084808790550945,
         0.46782630226580574,
         0.13744771136181827,
-        1458.1475274694344]
-    
+        1458.1475274694344,
+    ]
+
     p_binom_errors = [
         0.0006507893332657055,
         0.0025121063532950005,
@@ -115,7 +119,7 @@ def test_filter_consistent_acn_states():
         0.007735573740410467,
         0.002282115125666023,
         0.019953170089816126,
-        240.05274911055483
+        240.05274911055483,
     ]
 
     consistent_states_baf, consistent_states_both = filter_consistent_acn_states(

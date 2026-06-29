@@ -1,5 +1,6 @@
 import numpy as np
 
+
 def perturb_phase(cell_snp_Aallele, cell_snp_Ballele, switch_rate):
     n_snps = cell_snp_Aallele.shape[1]
 

@@ -1,16 +1,15 @@
-import logging
-
 import numpy as np
 import scipy.linalg
 import scipy.sparse
 from collections import namedtuple
-from scipy.sparse import lil_matrix
+# from scipy.sparse import lil_matrix
 from scipy.spatial import cKDTree
-from scipy.spatial import distance
+# from scipy.spatial import distance
 from scipy.sparse import csr_matrix
-from cnaster.utils import cacher
+# from cnaster.utils import cacher
 from cnaster.config import start_time
 from cnaster.logger import get_logger
+from cnaster.annotation import get_clone_label_annotation
 
 logger = get_logger(__name__, start_time=start_time)
 
@@ -100,16 +99,33 @@ def best_equal_partition(
             best_var = var
             best_index = initial_clone_index
             best_assignment = clone_assignment
-            
-            logger.info(f"New best partition at trial {trial}: variance={best_var:.2f}, sizes={sizes}")
+
+            logger.info(
+                f"New best partition at trial {trial}: variance={best_var:.2f}, sizes={sizes}"
+            )
 
     logger.info(f"Best partition variance after {n_trials} trials: {best_var:.2f}")
     return best_index, best_assignment
 
 
 def initialize_clones(
-    coords, sample_ids, x_part, y_part, single_tumor_prop=None, threshold=None, random_state=None
+    coords,
+    sample_ids,
+    x_part,
+    y_part,
+    single_tumor_prop=None,
+    threshold=None,
+    random_state=None,
+    config=None,
 ):
+    if config is not None:
+        # NB assumes the known clone labels for phasing.
+        if config.annotation.clone_label is not None:
+            clone_annotation, _ = get_clone_label_annotation(config)
+
+            # NB assumes the known clone labels for phasing.
+            return clone_annotation
+
     logger.info(
         f"Initializing clones given fixed grid partitions and max. sample_id={np.max(sample_ids)}"
     )
@@ -197,7 +213,9 @@ def summarize_lattice_structure(coords, sample_ids=None, sample_list=None):
         unique_dists, unique_cnts = np.unique(sorted_dists, return_counts=True)
 
         # NB cell positions of Visium HD will not be regular.
-        logger.info(f"Found lattice distances from center:\n{unique_dists[:10]}\nwith counts:\n{unique_cnts[:10]}")
+        logger.info(
+            f"Found lattice distances from center:\n{unique_dists[:10]}\nwith counts:\n{unique_cnts[:10]}"
+        )
 
         assert np.all(unique_dists > 0.0)
 
@@ -216,6 +234,7 @@ def summarize_lattice_structure(coords, sample_ids=None, sample_list=None):
         sorted_neighbors = sorted_neighbors[:coordination_number]
         sorted_displacements = sorted_neighbors - np.array([[center_x, center_y]])
 
+        # TODO REQUIRED FINAL
         logger.info(f"Sample {i}: estimated lattice spacing nx, ny = {nx:_}, {ny:_}")
         logger.info(
             f"Lattice coordination number={coordination_number} with displacements from center spot at ({center_x:.1f}, {center_y:.1f})=\n{sorted_displacements}"
@@ -573,9 +592,7 @@ def choose_lattice_adjacency(
     )
 
     if coordination_num < min_coordination_num:
-        logger.warning(
-            f"Assuming minimum coordination number={min_coordination_num}."
-        )
+        logger.warning(f"Assuming minimum coordination number={min_coordination_num}.")
 
         coordination_num = min_coordination_num
 
@@ -616,7 +633,7 @@ def choose_lattice_adjacency(
     # NB smooth matrix: identity (each spot pools only itself)
     smooth_mat = scipy.sparse.identity(n_spots, dtype=np.int8, format="csr")
 
-    logger.info(f"Assumed identity smooth mat.")
+    logger.warning(f"Assumed identity smooth mat.")
 
     """
     # NB adjacency matrix: connect each spot to coordination_num nearest neighbors
@@ -799,7 +816,7 @@ def renormalize_adjacency_mat(adjacency_mat):
     return adj
 
 
-@cacher("adjacency.hdf5")
+# @cacher("adjacency.hdf5")
 def multislice_adjacency(
     sample_ids,
     sample_list,
@@ -835,7 +852,7 @@ def multislice_adjacency(
             unit_ysquared=unit_ysquared,
         )
         """
-        
+
         tmpsmooth_mat, tmpadjacency_mat = choose_lattice_adjacency(
             this_coords,
             single_total_bb_RD[:, index],

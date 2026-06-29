@@ -474,6 +474,7 @@ def gmm_init(
         X_gmm_rdr = (X_gmm_rdr - offset) / normalizetomax1
 
     if "p" in params:
+        # NB a copy, presumably.
         X_gmm_baf = np.vstack(
             [X[:, 1, s] / total_bb_RD[:, s] for s in range(X.shape[2])]
         ).T
@@ -487,6 +488,7 @@ def gmm_init(
             f"Clipping {100. * np.mean(clipped):.4f} [%] of BAF values to [{min_binom_prob}, {max_binom_prob}]."
         )
 
+        # TODO UGH BUG?  fixes a cluster.  np.nan?
         X_gmm_baf[X_gmm_baf < min_binom_prob] = min_binom_prob
         X_gmm_baf[X_gmm_baf > max_binom_prob] = max_binom_prob
 
@@ -510,7 +512,7 @@ def gmm_init(
                 last_idx_notna = i
 
     logger.info(
-        f"Patched {num_patched/X_gmm.shape[1]:.4f} values with NaNs in input RDR/BAF data."
+        f"Patched {num_patched/X_gmm.shape[1]:.4f} values with NaNs according to nearby measurement in input RDR/BAF data."
     )
 
     valid = np.sum(np.isnan(X_gmm), axis=1) == 0

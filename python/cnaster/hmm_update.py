@@ -1706,13 +1706,14 @@ def update_emission_params_bb_sitewise_uniqvalues_mix(
                     this_features[
                         (i * 2 * len(idx_nonzero)) : ((i + 1) * 2 * len(idx_nonzero)), i
                     ] = 1
-                
+
                 # NEW
                 idx_state_posweight = np.array(
                     [
                         i
                         for i in range(this_features.shape[1])
-                        if np.sum(this_weights[this_features[:, i] == 1]) >= state_weight_threshold
+                        if np.sum(this_weights[this_features[:, i] == 1])
+                        >= state_weight_threshold
                     ]
                 )
                 idx_row_posweight = np.concatenate(

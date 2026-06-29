@@ -35,6 +35,7 @@ def betabinom_logpmf_numba(k, n, alpha, beta):
 
     return log_binom_coeff + log_beta_num - log_beta_denom
 
+
 @njit(nogil=True, cache=True, fastmath=False, parallel=True, error_model="numpy")
 def compute_emissions_nb(
     X,
@@ -64,6 +65,7 @@ def compute_emissions_nb(
                     )
 
     return log_emission_rdr
+
 
 @njit(nogil=True, cache=True, fastmath=False, parallel=True, error_model="numpy")
 def compute_emissions_bb(

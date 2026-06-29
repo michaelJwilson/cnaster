@@ -5,8 +5,9 @@ paths:
   # sample_sheet : /u/mw9568/research/repos/cnaster/htan_annotated_sample_sheet.tsv
   # output_dir : /n/fs/scratch/mw9568/cnaster/htan/HT306P1
 
+  # NB {N3KXRGQ, CWRFYX3}
   sample_sheet : /u/mw9568/research/repos/cnaster/vishd_sample_sheet.tsv
-  output_dir : /n/fs/scratch/mw9568/cnaster/vishd/CWRFYX3
+  output_dir : /n/fs/scratch/mw9568/cnaster/vishd/N3KXRGQ
 
   perf_path : logs/cnaster.perf
 
@@ -27,7 +28,7 @@ run:
   cache : False
   legacy : False
   bafonly : False
-  pause : False
+  pause : True
 
 references:
   geneticmap_file : /u/mw9568/research/data/references/genetic_map_GRCh38_merged.tab.gz

@@ -701,11 +701,10 @@ def plot_he(
             )
             plt.colorbar(sc, ax=ax, fraction=0.046, pad=0.04)
 
-        # Matched to plot_clones_spatial title placement and sizing
         ax.text(
             0.05,                      
             0.99,                     
-            col.capitalize(), 
+            col.lower(), 
             transform=ax.transAxes,
             ha="left", 
             va="bottom", 

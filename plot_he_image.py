@@ -24,6 +24,7 @@ sample_id = "N3KXRGQ"
 
 # TODO constructor:  defined for all spots, in_tissue, etc?
 spaceranger_dir = f"/u/mw9568/data/{sample_id}/output_16um"
+dpi=500
 
 he_frame = get_he_image(
     spaceranger_dir=spaceranger_dir, res="lowres", pos=None, num_labels=4
@@ -32,6 +33,7 @@ he_frame = get_he_image(
 he_fig = plot_he(
     he_frame,
     channels=("image",),
+    dpi=dpi,
 )
 
 opath = f"{plots_dir}/he_image.svg"
@@ -42,5 +44,5 @@ write_fig(
     transparent=True,
     bbox_inches="tight",
     format="svg",
-    dpi=300,
+    dpi=dpi,
 )

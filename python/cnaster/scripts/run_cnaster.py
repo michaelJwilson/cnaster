@@ -15,11 +15,11 @@ from cnaster.config import YAMLConfig, set_global_config, start_time
 from cnaster.hmm import pipeline_baum_welch
 from cnaster.hmm_nophasing import hmm_nophasing
 from cnaster.hmrf import (  # hmrf_reassignment_posterior,; hmrfmix_reassignment_posterior,
-    aggr_hmrf_reassignment,
-    aggr_hmrfmix_reassignment,
+    # aggr_hmrf_reassignment,
     hmrfmix_concatenate_pipeline,
     merge_by_minspots,
     reindex_clones,
+    aggr_hmrfmix_reassignment,
 )
 from cnaster.hmrf_utils import get_clone_assignment, get_clone_indices
 from cnaster.integer_copy import (
@@ -35,7 +35,7 @@ from cnaster.io import (
 from cnaster.he import get_he_image
 from cnaster.logger import get_logger
 from cnaster.neyman_pearson import (
-    combine_similar_states_across_clones,
+    # combine_similar_states_across_clones,
     neyman_pearson_similarity,
 )
 from cnaster.normal_spot import (
@@ -1582,6 +1582,7 @@ def run_cnaster(config_path, over_rides=None):
     #    Further, does not assume same clone concatenated shape!
     logger.info(f"Finalizing clone assignment with refined parameters.")
 
+    '''
     if config.preprocessing.tumorprop_file is None:
         # TODO FINAL takes forever to run.
         new_assignment, _, total_llf, _ = aggr_hmrf_reassignment(
@@ -1621,6 +1622,29 @@ def run_cnaster(config_path, over_rides=None):
             hmmclass=hmm_nophasing,
             return_posterior=True,
         )
+    '''
+
+    (
+        new_assignment,
+        _,
+        total_llf,
+        _,
+    ) = aggr_hmrfmix_reassignment(
+        single_X=single_X,
+        single_base_nb_mean=single_base_nb_mean,
+        single_total_bb_RD=single_total_bb_RD,
+        res=res_combine,
+        pred=res_combine["pred_cnv"],
+        adjacency_mat=adjacency_mat,
+        prev_assignment=res_combine["prev_assignment"],
+        sample_ids=copy.copy(sample_ids),
+        spatial_weight=config.hmrf.spatial_weight,
+        smooth_mat=smooth_mat,
+        log_persample_weights=log_persample_weights,
+        single_tumor_prop=single_tumor_prop,
+        hmmclass=hmm_nophasing,
+        return_posterior=True,
+    )
 
     # NB total Potts likelihood given final copy states and clone assignment.
     res_combine["total_llf"] = total_llf

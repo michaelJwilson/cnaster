@@ -44,6 +44,19 @@ def initial_phase_given_partition(
     known_normal=False,
     # min_snpumi=2e3,
 ):
+    """
+    Phasing routine:
+        -  aggregates by the provided clone assignment, initial_clone_index.
+        -  initilizes minor only p_binom with GMM.
+        -  runs baum welch to estimate the HMM parameters (i.e. dispersions) using __minor__ baf only.
+        -  assumes low tolerance on HMM (run_cnaster defined).
+        -  runs __phased__ baum welch per clone to estimate parameters and phasing, with no state sharing.
+        -  builds model baf profiles for all clones, together with a phase vector.
+        -  decides the phase vector by majority vote across clones, ignoring normal-like segments (baf ~ 0.5).
+        -  phase vector will be used to aggregate segments, based on required counts.
+        -  refines the input lengths by splitting segments where the minor BAF changes by more than BAF_CHANGE_THRESHOLD,
+           and the segment is larger than MIN_SEGMENT_SIZE.
+    """
     assert np.all(single_base_nb_mean == 0)
 
     # NB TODO attractor to 0.5 if sufficiently close, independent of coverage.

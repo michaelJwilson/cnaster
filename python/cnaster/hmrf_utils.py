@@ -53,7 +53,7 @@ def cast_csr(csr_matrix):
 
     return result
 
-
+'''
 def clone_stack_obs(
     X, base_nb_mean, total_bb_RD, lengths, log_sitewise_transmat, tumor_prop
 ):
@@ -91,7 +91,46 @@ def clone_stack_obs(
         clone_stack_sitewise_transmat,
         stack_tumor_prop,
     )
+'''
 
+def clone_stack_obs(
+    X, base_nb_mean, total_bb_RD, lengths, log_sitewise_transmat, tumor_prop
+):
+    n_obs, n_comp, n_clones = X.shape
+
+    # NB. transpose moves clones to the first dimension: (n_clones, n_obs, 2)
+    #     reshaping to (-1, 2, 1) perfectly mimics the flatten("F") + vstack logic 
+    #     but strictly requires only one C-level memory copy.
+    clone_stack_X = X.transpose(2, 0, 1).reshape(-1, n_comp, 1)
+
+    # NB transposing (n_obs, n_clones) to (n_clones, n_obs) before reshaping
+    #    cleanly achieves the exact same result as flatten("F").
+    clone_stack_base_nb_mean = base_nb_mean.T.reshape(-1, 1)
+    clone_stack_total_bb_RD = total_bb_RD.T.reshape(-1, 1)
+
+    # NB replicate lengths and transmats n_clones times (e.g., [A, B] -> [A, B, A, B])
+    clone_stack_lengths = np.tile(lengths, n_clones)
+    clone_stack_sitewise_transmat = np.tile(log_sitewise_transmat, n_clones)
+
+    # NB repeat scalar per clone n_obs times (e.g., [A, B] -> [A, A, B, B])
+    if tumor_prop is not None:
+        stack_tumor_prop = np.repeat(tumor_prop, n_obs).reshape(-1, 1)
+    else:
+        stack_tumor_prop = None
+
+    logger.info(f"Stacked X from shape {X.shape} to {clone_stack_X.shape}.")
+    logger.info(
+        f"Stacked total_bb_RD from shape {total_bb_RD.shape} to {clone_stack_total_bb_RD.shape}."
+    )
+
+    return (
+        clone_stack_X,
+        clone_stack_base_nb_mean,
+        clone_stack_total_bb_RD,
+        clone_stack_lengths,
+        clone_stack_sitewise_transmat,
+        stack_tumor_prop,
+    )
 
 def get_clone_indices(assignments, clone_ids):
     """

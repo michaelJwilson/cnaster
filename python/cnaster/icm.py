@@ -355,7 +355,7 @@ def icm_sweep(
 
     return niter, cost
 
-
+'''
 def icm_sweep_deque(
     single_llf,
     adj_spots,
@@ -501,6 +501,133 @@ def icm_sweep_deque(
             or np.count_nonzero(clone_counts) <= 1
             or min_spot_guard > 10
         ):
+            break
+
+    return niter, cost
+'''
+
+def icm_sweep_deque(
+    single_llf,
+    adj_indptr,     
+    adj_indices,  
+    adj_weights,  
+    new_assignment,
+    spatial_weight,
+    posterior,
+    onehot_allowed_clones=None, 
+    tol=0.0,
+    log_persample_weights=None,
+    sample_ids=None,
+    cost_zeropoint=0.0,
+    temp=1.0,
+    min_clone_spots=200,
+):
+    n_spots, n_clones = single_llf.shape
+    cost = cost_zeropoint
+
+    w_edge = np.zeros(n_clones)
+    niter = 0
+
+    queue = deque(range(n_spots))
+    in_queue = np.ones(n_spots, dtype=bool)
+
+    clone_counts = np.bincount(new_assignment, minlength=n_clones).astype(np.int32)
+
+    logger.info(
+        f"Starting (deque) icm sweep with clone proportion:\n{clone_counts / clone_counts.sum()}, edit tolerance={tol:.6e} and min_clone_spots={min_clone_spots}."
+    )
+
+    min_spot_guard = 0
+    spatial_temp_factor = spatial_weight / temp
+
+    while queue:
+        edits = 0
+
+        for _ in range(len(queue)):
+            i = queue.popleft()
+            in_queue[i] = False
+
+            # 1. Base Unary Cost (No need to .copy(), we just compute on the fly)
+            w_node = single_llf[i, :]
+            if log_persample_weights is not None:
+                w_node = w_node + log_persample_weights[:, sample_ids[i]]
+
+            # 2. Fast CSR Neighbor Lookup
+            w_edge[:] = 0.0
+            start_idx = adj_indptr[i]
+            end_idx = adj_indptr[i + 1]
+            
+            for k in range(start_idx, end_idx):
+                neighbor = adj_indices[k]
+                w_edge[new_assignment[neighbor]] += adj_weights[k]
+
+            # 3. Total Assignment Cost
+            assignment_cost = w_node + (w_edge * spatial_temp_factor)
+
+            # 4. APPLY CLONE RESTRICTION
+            if onehot_allowed_clones is not None:
+                # Clamp forbidden clones to negative infinity so they can never be argmaxed
+                assignment_cost = np.where(onehot_allowed_clones[i, :], assignment_cost, -np.inf)
+
+            label = np.argmax(assignment_cost)
+
+            # 5. Process Edits
+            if label != new_assignment[i]:
+                edits += 1
+                cost += assignment_cost[label] - assignment_cost[new_assignment[i]]
+
+                clone_counts[new_assignment[i]] -= 1
+                clone_counts[label] += 1
+                new_assignment[i] = label
+
+                # Add neighbors to queue
+                for k in range(start_idx, end_idx):
+                    neighbor = adj_indices[k]
+                    if not in_queue[neighbor]:
+                        queue.append(neighbor)
+                        in_queue[neighbor] = True
+
+            # 6. Posterior Update
+            norm = logsumexp(assignment_cost)
+            posterior[i, :] = np.exp(assignment_cost - norm)
+
+        sweep_edit_rate = edits / n_spots
+        logger.info(f"Completed icm sweep of queue with a sweep edit rate={sweep_edit_rate:.6e}.")
+
+        # 7. Minimum Spot Enforcement
+        if (min_clone_spots > 0) and (0 < clone_counts.min() < min_clone_spots):
+            eligible_clones_global = np.where(clone_counts >= min_clone_spots)[0]
+
+            for c in range(n_clones):
+                if clone_counts[c] > 0 and clone_counts[c] < min_clone_spots and len(eligible_clones_global) > 0:
+                    spot_indices = np.where(new_assignment == c)[0]
+                    
+                    for idx in spot_indices:
+                        # Ensure random reassignment respects the allowed_clones mask!
+                        if onehot_allowed_clones is not None:
+                            valid_for_spot = eligible_clones_global[onehot_allowed_clones[idx, eligible_clones_global]]
+                            if len(valid_for_spot) == 0:
+                                continue # Cannot reassign this spot; no eligible clones are allowed
+                        else:
+                            valid_for_spot = eligible_clones_global
+
+                        new_label = np.random.choice(valid_for_spot)
+                        
+                        new_assignment[idx] = new_label
+                        clone_counts[c] -= 1
+                        clone_counts[new_label] += 1
+
+            logger.warning(
+                f"For enforcing min_clone_spot={min_clone_spots} with n_spots={n_spots}, found {len(eligible_clones_global)} valid clone for reassignment & new clone proportion:\n{clone_counts / clone_counts.sum()}"
+            )
+
+            if len(eligible_clones_global) > 1:
+                sweep_edit_rate = np.inf
+                min_spot_guard += 1
+
+        niter += 1
+
+        if (sweep_edit_rate <= tol) or (np.count_nonzero(clone_counts) <= 1) or (min_spot_guard > 10):
             break
 
     return niter, cost

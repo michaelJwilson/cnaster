@@ -431,6 +431,7 @@ def aggr_hmrfmix_reassignment_concatenate(
         logger.info(f"Solving for updated clone assignment with icm_sweep_deque.")
 
         # NB updates new_assignment and posterior in place given log emission likelihood.
+        '''
         niter, new_cost = icm_sweep_deque(
             single_llf,
             adj_spots,
@@ -439,6 +440,20 @@ def aggr_hmrfmix_reassignment_concatenate(
             new_assignment,
             spatial_weight,
             posterior,
+            # tol=0.1,  # MAGIC TODO
+            log_persample_weights=log_persample_weights,
+            sample_ids=sample_ids,
+        )
+        '''
+        niter, new_cost = icm_sweep_deque(
+            single_llf=single_llf,
+            adj_indptr=adjacency_mat.indptr,   
+            adj_indices=adjacency_mat.indices, 
+            adj_weights=adjacency_mat.data,
+            new_assignment=new_assignment,    
+            spatial_weight=spatial_weight,
+            posterior=posterior,
+            onehot_allowed_clones=None, 
             # tol=0.1,  # MAGIC TODO
             log_persample_weights=log_persample_weights,
             sample_ids=sample_ids,
@@ -1336,6 +1351,7 @@ def aggr_hmrf_reassignment(
         logger.info(f"Solving for updated clone labels.")
 
         # NB updates new_assignment and posterior in place given log emission likelihood.
+        '''
         niter, new_cost = icm_sweep_deque(
             single_llf,
             adj_spots,
@@ -1344,6 +1360,21 @@ def aggr_hmrf_reassignment(
             new_assignment,
             spatial_weight,
             posterior,
+            # tol=0.1,  # MAGIC TODO
+            log_persample_weights=log_persample_weights,
+            sample_ids=sample_ids,
+        )
+        '''
+
+        niter, new_cost = icm_sweep_deque(
+            single_llf=single_llf,
+            adj_indptr=adjacency_mat.indptr,   
+            adj_indices=adjacency_mat.indices, 
+            adj_weights=adjacency_mat.data,
+            new_assignment=new_assignment,    
+            spatial_weight=spatial_weight,
+            posterior=posterior,
+            onehot_allowed_clones=None, 
             # tol=0.1,  # MAGIC TODO
             log_persample_weights=log_persample_weights,
             sample_ids=sample_ids,

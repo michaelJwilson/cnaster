@@ -173,6 +173,9 @@ def merge_assignment(
     log_persample_weights=None,
     sample_ids=None,
 ):
+    """
+    Calculate the current cost of the assignment and the best merge pair of clones
+    """
     n_spots, n_clones = single_llf.shape
 
     # NB unary_sum[u, k] stores the sum of likelihoods for label k
@@ -189,7 +192,10 @@ def merge_assignment(
 
         # NB accumulate unary terms for this spot across all potential labels.
         for k in range(n_clones):
+            # NB log-likelihood for this spot if clone (index) k.
             val = single_llf[i, k]
+
+            # NB per sample (slice) clone proportion weight.
             if log_persample_weights is not None:
                 val += log_persample_weights[k, sample_ids[i]]
 
@@ -202,6 +208,7 @@ def merge_assignment(
         for neighbor, edge_weight in zip(neighbors, weights):
             v = assignment[neighbor]
 
+            # NB we loop all spots and their neighbors, so double count edges.
             if u == v:
                 current_spatial_cost += spatial_weight * edge_weight / 2.0
             else:
@@ -220,12 +227,14 @@ def merge_assignment(
 
     for u in range(n_clones):
         for v in range(n_clones):
+            # NB we cannot merge a clone with itself.
             if u == v:
                 continue
 
+            # NB only consider merging a clone pair if it reduces their boundary cost.
             if boundary_gain[u, v] > 0:
-                # NB Option: Merge u into v (spots of u become v).
-                #    Delta = (unary of u becoming v) - (unary of u being u) + boundary gain.
+                # NB option: merge u into v (spots of u become v).
+                #    selta = (unary of u becoming v) - (unary of u being u) + boundary gain.
                 delta_u_to_v = (unary_sum[u, v] - unary_sum[u, u]) + boundary_gain[u, v]
 
                 if current_total_cost + delta_u_to_v > best_merge_cost:
@@ -234,10 +243,10 @@ def merge_assignment(
 
     if best_merge_cost > -np.inf:
         logger.info(
-            f"Found best merge pair {best_merge_pair} with dC={best_merge_cost - current_total_cost:.6e}."
+            f"Found best clone pair to merge={best_merge_pair} with improved cost={best_merge_cost}, given original cost={current_total_cost:.6e}."
         )
     else:
-        logger.info(f"No beneficial merge found among {n_clones} clones.")
+        logger.info(f"No beneficial clone merge available, for {n_clones} clones.")
 
     return current_total_cost, best_merge_cost, best_merge_pair
 

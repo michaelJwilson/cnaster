@@ -378,6 +378,8 @@ def aggr_hmrfmix_reassignment_concatenate(
     nz_nb_base = (single_base_nb_mean > 0).sum(axis=0)
     nz_bb_total = (single_total_bb_RD > 0).sum(axis=0)
 
+    # NB computes the log likelihood for each spot, for all clones, given the "pooling" strategy,
+    #    no longer IID and erroneously weights rdr and baf according to number of non-zero segments.
     single_llf = compute_single_llf(
         N,
         smooth_mat.indices,

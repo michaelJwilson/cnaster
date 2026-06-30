@@ -430,7 +430,7 @@ def aggr_hmrfmix_reassignment_concatenate(
     if get_global_config().hmrf.fixed_assignment:
         logger.warning(f"Assuming a fixed clone assignment")
     else:
-        logger.info(f"Solving for updated clone labels.")
+        logger.info(f"Solving for updated clone assignment with icm _sweep_deque.")
 
         # NB updates new_assignment and posterior in place given log emission likelihood.
         niter, new_cost = icm_sweep_deque(

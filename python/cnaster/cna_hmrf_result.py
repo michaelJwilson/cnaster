@@ -1,7 +1,7 @@
 import copy
 import numpy as np
 from typing import Optional, Any
-from dataclasses import dataclass, fields
+from dataclasses import dataclass, fields, field
 from cnaster.config import start_time
 from cnaster.logger import get_logger
 
@@ -29,6 +29,7 @@ class CloneAssignment:
     assignment_before_reindex: Optional[np.ndarray] = None
     prev_assignment: Optional[np.ndarray] = None
     new_assignment: Optional[np.ndarray] = None
+    num_clones: int = field(init=False, default=0)
     total_llf: float = np.nan
 
 
@@ -45,7 +46,7 @@ class CnaHMRFResult:
 
     def validate(self) -> None:
         # NB valid clone assignment must be 0...N labels
-        if getattr(self.assignment, "new_assignment") is not None:
+        if self.assignment is not None and getattr(self.assignment, "new_assignment") is not None:
             unique_labels = np.unique(self.assignment.new_assignment)
 
             if not np.array_equal(unique_labels, np.arange(len(unique_labels))):
@@ -53,12 +54,19 @@ class CnaHMRFResult:
                     f"Invalid clone assignment: {unique_labels}. "
                     "Clone labels must be consecutive integers starting from 0."
                 )
+            
+            # dynamically set the num_clones based on the validated array
+            self.assignment.num_clones = len(unique_labels)
+            
+        elif self.assignment is not None:
+            self.assignment.num_clones = 0
 
         # NB log the shape of new_log_mu, log_gamma and new_assignment
         logger.info(
             f"Validated CnaHMRFResult with new_log_mu shape={self.params.new_log_mu.shape},"
             f"log_gamma shape={self.profile.log_gamma.shape}, "
-            f"new_assignment shape={getattr(self.assignment, 'new_assignment', None).shape if getattr(self.assignment, 'new_assignment', None) is not None else None}."
+            f"new_assignment shape={getattr(self.assignment, 'new_assignment', None).shape if getattr(self.assignment, 'new_assignment', None) is not None else None}, "
+            f"num_clones={getattr(self.assignment, 'num_clones', 0)}."
         )
 
     def __getitem__(self, key: str) -> Any:
@@ -164,3 +172,14 @@ class CnaHMRFResult:
 
     def items(self):
         return [(k, self[k]) for k in self.keys()]
+    
+    @property
+    def unique_clone_labels(self):
+        if self.assignment is not None and self.assignment.new_assignment is not None:
+            return np.unique(self.assignment.new_assignment)
+        return None
+
+    @property
+    def num_clones(self):
+        unique_labels = self.unique_clone_labels
+        return len(unique_labels) if unique_labels is not None else None

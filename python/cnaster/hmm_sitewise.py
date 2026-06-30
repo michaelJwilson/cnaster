@@ -26,6 +26,7 @@ from cnaster.logger import get_logger
 
 logger = get_logger(__name__, start_time=start_time)
 
+PEANLIZE_PHASE_ONLY_ON_SAME_CNV = False  # TODO config derived.
 
 def switch_betabinom(log_emission_baf_nophase, k, n, alpha, beta):
     # NB expect:
@@ -269,16 +270,16 @@ def update_combined_transmat(
     log_half,
 ):
     """
-    Updates the out_transmat buffer in-place to avoid memory allocations in the tight loop.
+    Updates the out_transmat buffer in-place to avoid memory allocations.
     """
     if penalize_phase_only_on_same_cnv:
-        # 1. Base case: All transitions split equally between phases (0 penalty)
+        # NB base case: All transitions split equally between phases (0 penalty)
         out_transmat[:n_states, :n_states] = log_half + log_transmat
         out_transmat[:n_states, n_states:] = log_half + log_transmat
         out_transmat[n_states:, :n_states] = log_half + log_transmat
         out_transmat[n_states:, n_states:] = log_half + log_transmat
 
-        # 2. Overwrite ONLY the diagonals of the CNV blocks (where CNV state stays the same)
+        # NB overwrite __only__ the diagonals of the cnv blocks (where cnv state is conserved)
         for i in range(n_states):
             # Phase 0 -> Phase 0
             out_transmat[i, i] = self_trans + log_transmat[i, i]
@@ -289,7 +290,7 @@ def update_combined_transmat(
             # Phase 1 -> Phase 1
             out_transmat[i + n_states, i + n_states] = self_trans + log_transmat[i, i]
     else:
-        # Original behavior: Apply sitewise phase matrices globally
+        # NB original behavior:  apply sitewise phase matrices globally
         out_transmat[:n_states, :n_states] = self_trans + log_transmat
         out_transmat[:n_states, n_states:] = switch_trans + log_transmat
         out_transmat[n_states:, :n_states] = switch_trans + log_transmat
@@ -303,7 +304,7 @@ def forward_marginalize_phased(
     log_startprob,
     log_emission,
     log_sitewise_transmat,
-    penalize_phase_only_on_same_cnv: bool = True, # TODO config derived.
+    penalize_phase_only_on_same_cnv: bool = PEANLIZE_PHASE_ONLY_ON_SAME_CNV, # TODO config derived.
 ):
     n_paired_states = log_emission.shape[0]
     n_states = int(np.ceil(n_paired_states / 2))
@@ -360,7 +361,7 @@ def backward_marginalize_phased(
     log_startprob,
     log_emission,
     log_sitewise_transmat,
-    penalize_phase_only_on_same_cnv: bool = True, # TODO config derived.
+    penalize_phase_only_on_same_cnv: bool = PEANLIZE_PHASE_ONLY_ON_SAME_CNV, # TODO config derived.
 ):
     n_paired_states = log_emission.shape[0]
     n_states = int(np.ceil(n_paired_states / 2))

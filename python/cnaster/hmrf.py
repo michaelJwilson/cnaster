@@ -221,7 +221,7 @@ def compute_single_llf(
             if sum_nb_base > 0 and sum_bb_total > 0:
                 ratio_nonzeros[i] = sum_bb_total / sum_nb_base
 
-        logger.info(f"Found a relative weighting of {np.mean(ratio_nonzeros):.3f} for non-zero bb read depth to normal baseline.")
+        # logger.info(f"Found a relative weighting of {np.mean(ratio_nonzeros):.3f} for non-zero bb read depth to normal baseline.")
 
     for i in prange(N):
         # NB assumes pred is clone concatenated.

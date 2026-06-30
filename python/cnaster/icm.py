@@ -424,6 +424,7 @@ def icm_sweep_deque(
             # NB temperature weighted edge assignment, according to unary and pairwise terms.
             assignment_cost = w_node + w_edge * (spatial_weight / temp)
 
+            # TODO add a restriction on the clone assignment allowed at each spot!
             # NB greedy argmax assignment.
             label = np.argmax(assignment_cost)
 

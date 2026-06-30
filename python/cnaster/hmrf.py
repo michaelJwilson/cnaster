@@ -242,11 +242,11 @@ def aggr_hmrfmix_reassignment_concatenate(
     single_total_bb_RD,
     res,
     pred,
-    smooth_mat,
     adjacency_mat,
     prev_assignment,
     sample_ids,
     spatial_weight,
+    smooth_mat=None,
     log_persample_weights=None,
     single_tumor_prop=None,
     hmmclass=hmm_sitewise,
@@ -281,21 +281,30 @@ def aggr_hmrfmix_reassignment_concatenate(
 
     logger.info("Pooling hmrf data by smooth mat. (reduces necessary computation).")
 
-    # TODO no_pool flag
-    # NB   pool (sum) data according to smooth (adjacency) matrix, for X, nb_baseline, bb read depth and mean tumor proportion: 
-    pooled_X, pooled_base_nb_mean, pooled_total_bb_RD, _, weighted_tp = pool_hmrf_data(
-        single_X,
-        single_base_nb_mean,
-        single_total_bb_RD,
-        smooth_mat.indices,
-        smooth_mat.indptr,
-        single_tumor_prop,
-        is_tumor_mixed,
-        res["new_log_mu"] if is_tumor_mixed else None,
-        pred if is_tumor_mixed else None,
-        n_states if is_tumor_mixed else None,
-        lambd,
-    )
+    if smooth_mat is not None:
+        # NB   pool (sum) data according to smooth (adjacency) matrix, for X, nb_baseline, bb read depth and mean tumor proportion: 
+        pooled_X, pooled_base_nb_mean, pooled_total_bb_RD, _, weighted_tp = pool_hmrf_data(
+            single_X,
+            single_base_nb_mean,
+            single_total_bb_RD,
+            smooth_mat.indices,
+            smooth_mat.indptr,
+            single_tumor_prop,
+            is_tumor_mixed,
+            res["new_log_mu"] if is_tumor_mixed else None,
+            pred if is_tumor_mixed else None,
+            n_states if is_tumor_mixed else None,
+            lambd,
+        )   
+    else:
+        # TODO copies necessary?
+        pooled_X, pooled_base_nb_mean, pooled_total_bb_RD, _, weighted_tp = (
+            single_X.copy(),
+            single_base_nb_mean.copy(),
+            single_total_bb_RD.copy(),
+            None,
+            None,
+        )
 
     # NB emission shape: (n_states, n_obs, n_spots)
     if is_tumor_mixed:
@@ -825,10 +834,10 @@ def hmrfmix_concatenate_pipeline(
             single_total_bb_RD,
             res,
             pred,
-            smooth_mat,
             adjacency_mat,
             last_assignment,
             sample_ids,
+            smooth_mat=smooth_mat,
             spatial_weight=spatial_weight,
             log_persample_weights=log_persample_weights,
             single_tumor_prop=single_tumor_prop,

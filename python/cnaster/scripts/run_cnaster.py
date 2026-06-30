@@ -725,6 +725,8 @@ def run_cnaster(config_path, over_rides=None):
         )
     else:
         logger.warning(f"No Neyman-Pearson merging applied to baf-identified clones.")
+
+        # NB a shallow copy.
         merged_res = res.copy()
 
     logger.info(

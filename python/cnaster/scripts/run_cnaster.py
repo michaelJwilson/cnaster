@@ -229,7 +229,7 @@ def run_cnaster(config_path, over_rides=None):
         single_X=single_X,
         single_base_nb_mean=single_base_nb_mean,
         single_total_bb_RD=single_total_bb_RD,
-        clone_index=initial_clone_pseudobulk, 
+        clone_index=initial_clone_pseudobulk,
         single_tumor_prop=single_tumor_prop,
         sample_list=sample_list,
     )
@@ -284,9 +284,9 @@ def run_cnaster(config_path, over_rides=None):
         # TODO constructor:  defined for all spots, in_tissue, etc?
         he_frame = get_he_image(
             spaceranger_dir=config.preprocessing.spaceranger_dir,
-            res="hires", 
+            res="hires",
             pos=None,
-            num_labels=4
+            num_labels=4,
         )
 
         he_fig = plot_he(
@@ -327,7 +327,7 @@ def run_cnaster(config_path, over_rides=None):
         single_X=single_X,
         single_base_nb_mean=single_base_nb_mean,
         single_total_bb_RD=single_total_bb_RD,
-        clone_index=initial_clone_for_phasing, 
+        clone_index=initial_clone_for_phasing,
         single_tumor_prop=single_tumor_prop,
         sample_list=sample_list,
     )
@@ -615,7 +615,7 @@ def run_cnaster(config_path, over_rides=None):
         log_sitewise_transmat,
         prefix="bafonly",
         coords=coords,
-        smooth_mat=smooth_mat, # TODO HACK FINAL 
+        smooth_mat=smooth_mat,  # TODO HACK FINAL
         adjacency_mat=adjacency_mat,
         sample_ids=sample_ids,
         sample_list=sample_list,
@@ -672,7 +672,7 @@ def run_cnaster(config_path, over_rides=None):
         transparent=True,
         bbox_inches="tight",
     )
-    '''
+    """
     bafonly_clones_genomic = plot_clones_genomic_raw(
         single_X,
         single_base_nb_mean,
@@ -683,7 +683,7 @@ def run_cnaster(config_path, over_rides=None):
         single_tumor_prop=None,
         sample_list=sample_list,
     )
-    '''
+    """
 
     bafonly_clones_genomic = plot_clones_genomic(
         df_cnv=None,
@@ -691,11 +691,13 @@ def run_cnaster(config_path, over_rides=None):
         single_X=single_X,
         single_base_nb_mean=single_base_nb_mean,
         single_total_bb_RD=single_total_bb_RD,
-        clone_index=get_clone_indices(res["new_assignment"], np.unique(res["new_assignment"])),
+        clone_index=get_clone_indices(
+            res["new_assignment"], np.unique(res["new_assignment"])
+        ),
         res_combine=res,
         single_tumor_prop=None,
         sample_list=sample_list,
-        palette_name="chisel_single", # NB integer state lookup, no (A,B).
+        palette_name="chisel_single",  # NB integer state lookup, no (A,B).
     )
 
     # NB inferred per-clone copy number profiles from baf-only run.
@@ -768,8 +770,8 @@ def run_cnaster(config_path, over_rides=None):
         transparent=True,
         bbox_inches="tight",
     )
-    
-    '''
+
+    """
     merged_bafonly_clones_genomic = plot_clones_genomic_raw(
         single_X,
         single_base_nb_mean,
@@ -782,7 +784,7 @@ def run_cnaster(config_path, over_rides=None):
         single_tumor_prop=None,
         sample_list=sample_list,
     )
-    '''
+    """
 
     merged_bafonly_clones_genomic = plot_clones_genomic(
         df_cnv=None,
@@ -1131,7 +1133,7 @@ def run_cnaster(config_path, over_rides=None):
 
     # NB neyman-pearson & min. spot merging across baf clones refined/split by rdr
     #    with subsequent determination of copy states and clone profiles (baum welch)
-    #    and potential state merging across rdr-split clones.  
+    #    and potential state merging across rdr-split clones.
     for bafc in range(n_baf_clones):
         prefix = f"clone{bafc}"
         res = clone_res[prefix]
@@ -1162,7 +1164,9 @@ def run_cnaster(config_path, over_rides=None):
             )
         else:
             # NB clone indices for the rdr-refined (baf-identified) clone split.
-            clone_index = get_clone_indices(res["new_assignment"], np.sort(np.unique(res["new_assignment"])))
+            clone_index = get_clone_indices(
+                res["new_assignment"], np.sort(np.unique(res["new_assignment"]))
+            )
 
             # NB construct counts given this new
             X, base_nb_mean, total_bb_RD, tumor_prop = merge_pseudobulk_by_index_mix(
@@ -1299,7 +1303,6 @@ def run_cnaster(config_path, over_rides=None):
                 ]
             ).T
 
-
         # NB res_combine has the "prev_assignment" key only on first iteration.
         keys = ["new_log_mu", "new_alphas", "new_p_binom", "new_taus"]
 
@@ -1319,7 +1322,7 @@ def run_cnaster(config_path, over_rides=None):
 
         # TODO prev_assignment?
         res_combine["prev_assignment"][idx_spots] = (
-            offset_clone + merged_res["new_assignment"] # NB assumes 0.. M_new clones.
+            offset_clone + merged_res["new_assignment"]  # NB assumes 0.. M_new clones.
         )
 
         logger.info(
@@ -1784,7 +1787,7 @@ def run_cnaster(config_path, over_rides=None):
             pd.concat(allele_specific_copy).T
         )
 
-        '''
+        """
         a_cols = [c for c in df_seglevel_cnv.columns if c.endswith(" A")]
         b_cols = [c.replace(" A", " B") for c in a_cols]
 
@@ -1792,7 +1795,7 @@ def run_cnaster(config_path, over_rides=None):
         mask = (df_seglevel_cnv[a_cols].ne(1) | df_seglevel_cnv[b_cols].ne(1)).any(
             axis=1
         )
-        '''
+        """
 
         # TODO
         mask = df_seglevel_cnv.filter(regex=r" [AB]$").ne(1).any(axis=1)
@@ -1958,7 +1961,7 @@ def run_cnaster(config_path, over_rides=None):
         bbox_inches="tight",
     )
 
-    '''
+    """
     # DUPLICATE see above.
     clone_index = [
         np.where(res_combine["new_assignment"] == c)[0]
@@ -1972,7 +1975,7 @@ def run_cnaster(config_path, over_rides=None):
         clone_index,
         single_tumor_prop,
     )
-    '''
+    """
     """
     plot_cna_mixture(
         res_combine["new_log_mu"],

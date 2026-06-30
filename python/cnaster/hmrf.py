@@ -2,9 +2,11 @@ import copy
 import time
 
 import numpy as np
+
 # import pandas as pd
 import scipy.special
 from numba import njit, prange
+
 # from pathlib import Path
 from cnaster.icm import (
     icm_sweep,
@@ -12,14 +14,17 @@ from cnaster.icm import (
     unpack_adjacency,
     merge_assignment,
 )
+
 # from cnaster.wolff import wolff_sweep
 from cnaster.hmm import gmm_init, pipeline_baum_welch
 from cnaster.hmm_sitewise import hmm_sitewise
 from cnaster.hmrf_utils import cast_csr, clone_stack_obs
+
 # from cnaster.utils import count_calls, get_output_dir, write_fig
 # from cnaster.hmm_initialize import plot_cna_mixture, cna_mixture_init
 from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
 from cnaster.config import get_global_config
+
 # from cnaster.plotting import plot_clones_spatial
 # from cnaster.plot_genomic import plot_clones_genomic
 from cnaster.deprecated.hmrf import (
@@ -117,7 +122,7 @@ def pool_hmrf_data(
         valid_count = len(valid_neighbors)
 
         # TODO CHECK prior behavior?
-        # 
+        #
         # NB assigned zero to pooled_X, pooled_base_nb_mean, pooled_total_bb_RD
         #    if no valid neighbors.
         if valid_count == 0:
@@ -125,8 +130,8 @@ def pool_hmrf_data(
 
         # NB for all segments, and spots, we pool (sum) the X, base_nb_mean, and total_bb_RD
         #    of all valid neighbors.
-        # 
-        #    valid as updated the counts and the baseline will be accounted for in the likelihood (TBC). 
+        #
+        #    valid as updated the counts and the baseline will be accounted for in the likelihood (TBC).
         for obs_idx in range(n_obs):
             for neighbor_idx in valid_neighbors:
                 pooled_X[obs_idx, 0, i] += single_X[obs_idx, 0, neighbor_idx]
@@ -187,7 +192,7 @@ def compute_single_llf(
     n_obs,
     n_clones,
     smooth_indices=None,
-    smooth_indptr=None, 
+    smooth_indptr=None,
     non_zero_weight=True,
 ):
     # NB compute the log likelihood for each spot, for all clones.
@@ -211,7 +216,7 @@ def compute_single_llf(
                         continue
 
                 # NB nz_nb_base, nz_bb_total contain the number of non-zero genomic segments;
-                #    pools this across spots. 
+                #    pools this across spots.
                 sum_nb_base += nz_nb_base[neighbor]
                 sum_bb_total += nz_bb_total[neighbor]
 
@@ -288,20 +293,22 @@ def aggr_hmrfmix_reassignment_concatenate(
     logger.info("Pooling hmrf data by smooth mat. (reduces necessary computation).")
 
     if smooth_mat is not None:
-        # NB   pool (sum) data according to smooth (adjacency) matrix, for X, nb_baseline, bb read depth and mean tumor proportion: 
-        pooled_X, pooled_base_nb_mean, pooled_total_bb_RD, _, weighted_tp = pool_hmrf_data(
-            single_X,
-            single_base_nb_mean,
-            single_total_bb_RD,
-            smooth_mat.indices,
-            smooth_mat.indptr,
-            single_tumor_prop,
-            is_tumor_mixed,
-            res["new_log_mu"] if is_tumor_mixed else None,
-            pred if is_tumor_mixed else None,
-            n_states if is_tumor_mixed else None,
-            lambd,
-        )   
+        # NB   pool (sum) data according to smooth (adjacency) matrix, for X, nb_baseline, bb read depth and mean tumor proportion:
+        pooled_X, pooled_base_nb_mean, pooled_total_bb_RD, _, weighted_tp = (
+            pool_hmrf_data(
+                single_X,
+                single_base_nb_mean,
+                single_total_bb_RD,
+                smooth_mat.indices,
+                smooth_mat.indptr,
+                single_tumor_prop,
+                is_tumor_mixed,
+                res["new_log_mu"] if is_tumor_mixed else None,
+                pred if is_tumor_mixed else None,
+                n_states if is_tumor_mixed else None,
+                lambd,
+            )
+        )
     else:
         # TODO copies necessary?
         pooled_X, pooled_base_nb_mean, pooled_total_bb_RD, _, weighted_tp = (

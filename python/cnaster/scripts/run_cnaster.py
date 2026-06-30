@@ -1748,19 +1748,21 @@ def run_cnaster(config_path, over_rides=None):
             lambd = base_nb_mean[:, s] / np.sum(base_nb_mean[:, s])
 
             # NB scales inferred log_mu for this clone according to the library expression.
+            idx = s if res_combine["new_log_mu"].shape[1] > 1 else 0
+
             adjusted_log_mu = (
                 np.log(
-                    np.exp(res_combine["new_log_mu"][:, s])
+                    np.exp(res_combine["new_log_mu"][:, idx])
                     / np.sum(
-                        np.exp(res_combine["new_log_mu"][this_pred_cnv, s]) * lambd
+                        np.exp(res_combine["new_log_mu"][this_pred_cnv, idx]) * lambd
                     )
                 )
                 if config.run.legacy
-                else res_combine["new_log_mu"][:, s]
+                else res_combine["new_log_mu"][:, idx]
             )  # TODO HACK BUG?
 
             logger.info(
-                f"For clone {cid}, normalized log mu to sum_bin lambda * np.exp(log_mu) = 1.; yielding new mu=\n{np.exp(adjusted_log_mu)}\ngiven mu=\n{np.exp(res_combine["new_log_mu"][:, s])}."
+                f"For clone {cid}, normalized log mu to sum_bin lambda * np.exp(log_mu) = 1.; yielding new mu=\n{np.exp(adjusted_log_mu)}\ngiven mu=\n{np.exp(res_combine["new_log_mu"][:, idx])}."
             )
 
             # TODO finalize integer copy number determination.
@@ -1772,7 +1774,7 @@ def run_cnaster(config_path, over_rides=None):
                     hill_climbing_integer_copynumber_oneclone(
                         adjusted_log_mu,
                         base_nb_mean[:, s],
-                        res_combine["new_p_binom"][:, s],
+                        res_combine["new_p_binom"][:, idx],
                         this_pred_cnv,
                         max_medploidy=max_medploidy,
                     )
@@ -1785,7 +1787,7 @@ def run_cnaster(config_path, over_rides=None):
                 ) = hill_climbing_integer_copynumber_fixdiploid(
                     adjusted_log_mu,
                     base_nb_mean[:, s],
-                    res_combine["new_p_binom"][:, s],
+                    res_combine["new_p_binom"][:, idx],
                     this_pred_cnv,
                     nonbalance_bafdist=config.int_copy_num.nonbalance_bafdist,
                     nondiploid_rdrdist=config.int_copy_num.nondiploid_rdrdist,
@@ -1805,10 +1807,10 @@ def run_cnaster(config_path, over_rides=None):
                 [
                     this_pred_cnv,  # NB best _REAL_ (not integer) copy states for each clone and each ploidy.
                     res_combine["new_log_mu"][
-                        this_pred_cnv, s
+                        this_pred_cnv, idx
                     ],  # NB best model read depth for each clone and each ploidy.
                     res_combine["new_p_binom"][
-                        this_pred_cnv, s
+                        this_pred_cnv, idx
                     ],  # NB best model baf for each clone and each ploidy.
                     best_integer_copies[
                         this_pred_cnv, 0
@@ -1871,14 +1873,16 @@ def run_cnaster(config_path, over_rides=None):
             )
             """
 
+            print(f"DEBUG: s={s}, clone={cid}, idx={idx}, log_mu shape={res_combine['new_log_mu'].shape}")
+
             for name, data in zip(
                 ("logmu", "p", "A", "B"),
                 [
                     res_combine["new_log_mu"][
-                        :, s
+                        :, idx
                     ],  # NB best per-state read depth for each clone and ploidy.
                     res_combine["new_p_binom"][
-                        :, s
+                        :, idx
                     ],  # NB best per-state baf for each clone and ploidy.
                     best_integer_copies[
                         :, 0
@@ -1989,6 +1993,8 @@ def run_cnaster(config_path, over_rides=None):
                 )
 
             pause()
+
+        # NB <<<<<< end of loop over clones.
 
         # NB complete loop over clones, assumed a ploidy constraint.
         if len(state_cnv) == 0:

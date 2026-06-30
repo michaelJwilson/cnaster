@@ -1090,18 +1090,24 @@ def reindex_clones(res_combine, posterior=None, single_tumor_prop=None):
         new_res_combine["new_assignment"] = np.array(
             [map_reidx[c] for c in res_combine["new_assignment"]]
         )
-        new_res_combine["new_log_mu"] = res_combine["new_log_mu"][:, reidx]
-        new_res_combine["new_alphas"] = res_combine["new_alphas"][:, reidx]
-        new_res_combine["new_p_binom"] = res_combine["new_p_binom"][:, reidx]
-        new_res_combine["new_taus"] = res_combine["new_taus"][:, reidx]
-        new_res_combine["log_gamma"] = res_combine["log_gamma"][:, :, reidx]
-        new_res_combine["pred_cnv"] = res_combine["pred_cnv"][:, reidx]
+        # new_res_combine["new_log_mu"] = res_combine["new_log_mu"][:, reidx]
+        # new_res_combine["new_alphas"] = res_combine["new_alphas"][:, reidx]
+        # new_res_combine["new_p_binom"] = res_combine["new_p_binom"][:, reidx]
+        # new_res_combine["new_taus"] = res_combine["new_taus"][:, reidx]
+        # new_res_combine["log_gamma"] = res_combine["log_gamma"][:, :, reidx]
+        # new_res_combine["pred_cnv"] = res_combine["pred_cnv"][:, reidx]
 
-        if posterior is not None:
-            new_posterior = copy.copy(posterior)
-            new_posterior = new_posterior[:, reidx]
+        for key in ["new_log_mu", "new_alphas", "new_p_binom", "new_taus", "pred_cnv"]:
+            if res_combine[key].shape[1] > 1:
+                new_res_combine[key] = res_combine[key][:, reidx]
+
+        if res_combine["log_gamma"].shape[2] > 1:
+            new_res_combine["log_gamma"] = res_combine["log_gamma"][:, :, reidx]
+
+        if posterior is not None and posterior.shape[1] > 1:
+            new_posterior = copy.copy(posterior)[:, reidx]
         else:
-            new_posterior = None
+            new_posterior = posterior
     else:
         # LEGACY BUG?
         raise RuntimeError()

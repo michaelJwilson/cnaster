@@ -1018,7 +1018,7 @@ def run_cnaster(config_path, over_rides=None):
         np.where(initial_rdr_clone_assignment == c)[0] for c in range(total_clones)
     ]
 
-    res = hmrfmix_concatenate_pipeline(
+    res_combine = hmrfmix_concatenate_pipeline(
         single_X, 
         lengths,
         single_base_nb_mean,
@@ -1052,17 +1052,21 @@ def run_cnaster(config_path, over_rides=None):
         # allowed_clones=None,
     )
 
+    print(res_combine)
+
+    exit(0)
+
     X, base_nb_mean, total_bb_RD, tumor_prop = merge_pseudobulk_by_index_mix(
         single_X,
         single_base_nb_mean,
         single_total_bb_RD,
-        get_clone_indices(res["new_assignment"], np.unique(res["new_assignment"])),
+        get_clone_indices(res_combine["new_assignment"], np.unique(res_combine["new_assignment"])),
         single_tumor_prop if single_tumor_prop is not None else None,
         threshold=config.hmrf.tumorprop_threshold,
     )
 
     # TODO HACK
-    assignment = pd.Series([f"clone {x}" for x in res["new_assignment"]])
+    assignment = pd.Series([f"clone {x}" for x in res_combine["new_assignment"]])
     rdr_baf_clones_fig = plot_clones_spatial(
         coords,
         assignment,
@@ -1088,9 +1092,9 @@ def run_cnaster(config_path, over_rides=None):
         single_base_nb_mean=single_base_nb_mean,
         single_total_bb_RD=single_total_bb_RD,
         clone_index=get_clone_indices(
-            res["new_assignment"], np.unique(res["new_assignment"])
+            res_combine["new_assignment"], np.unique(res_combine["new_assignment"])
         ),
-        res_combine=res,
+        res_combine=res_combine,
         single_tumor_prop=None,
         sample_list=sample_list,
         palette_name="chisel_single",  # NB integer state lookup, no (A,B).
@@ -1108,11 +1112,11 @@ def run_cnaster(config_path, over_rides=None):
 
     # NB merge similar clones based on Neyman-Pearson statistic.
     if config.hmrf.np_merge:
-        _, merged_res = neyman_pearson_similarity(
+        _, merged_res_combine = neyman_pearson_similarity(
             X,
             base_nb_mean,
             total_bb_RD,
-            res,
+            res_combine,
             threshold=config.hmm.np_threshold,
             minlength=config.hmm.np_eventminlen,
             params="sp",
@@ -1123,10 +1127,10 @@ def run_cnaster(config_path, over_rides=None):
         logger.warning(f"No Neyman-Pearson merging applied to rdr-baf-identified clones.")
 
         # NB a shallow copy.
-        merged_res = res.copy()
+        merged_res_combine = res_combine.copy()
 
     logger.info(
-        f"Inferred {len(np.unique(merged_res['new_assignment']))} clones given rdr-baf data after neyman-pearson merge."
+        f"Inferred {len(np.unique(merged_res_combine['new_assignment']))} clones given rdr-baf data after neyman-pearson merge."
     )
 
     # NB merge according to min. number of spots per clone criterion;  single_X has dynamic shape (n_segments, 2, n_spots).
@@ -1135,9 +1139,9 @@ def run_cnaster(config_path, over_rides=None):
         n_obs * config.hmrf.min_avgumi_per_clone
     )  # MAGIC 31_420 SNP UMIs
 
-    _, merged_res = merge_by_minspots(
-        merged_res["new_assignment"],
-        merged_res,
+    _, merged_res_combine = merge_by_minspots(
+        merged_res_combine["new_assignment"],
+        merged_res_combine,
         single_total_bb_RD,
         min_spots_thresholds=config.hmrf.min_spots_per_clone,
         min_umicount_thresholds=min_umicount_thresholds,
@@ -1146,11 +1150,11 @@ def run_cnaster(config_path, over_rides=None):
     )
 
     logger.info(
-        f"Inferred {len(np.unique(merged_res['new_assignment']))} clones given rdr-baf data after min spots merge."
+        f"Inferred {len(np.unique(merged_res_combine['new_assignment']))} clones given rdr-baf data after min spots merge."
     )
 
     # TODO HACK
-    assignment = pd.Series([f"clone {x}" for x in merged_res["new_assignment"]])
+    assignment = pd.Series([f"clone {x}" for x in merged_res_combine["new_assignment"]])
     merged_rdr_baf_clones_fig = plot_clones_spatial(
         coords,
         assignment,
@@ -1176,9 +1180,9 @@ def run_cnaster(config_path, over_rides=None):
         single_base_nb_mean=single_base_nb_mean,
         single_total_bb_RD=single_total_bb_RD,
         clone_index=get_clone_indices(
-            merged_res["new_assignment"], np.unique(merged_res["new_assignment"])
+            merged_res_combine["new_assignment"], np.unique(merged_res_combine["new_assignment"])
         ),
-        res_combine=merged_res,
+        res_combine=merged_res_combine,
         single_tumor_prop=None,
         sample_list=sample_list,
     )
@@ -1193,8 +1197,7 @@ def run_cnaster(config_path, over_rides=None):
 
     # TODO HACK  <<<<<<<<<<<
 
-    exit(0)
-
+    '''
     clone_res = {}
 
     # NB umi-based refinement of baf-identified clones tries a potentially split only;
@@ -1525,7 +1528,8 @@ def run_cnaster(config_path, over_rides=None):
         offset_clone += n_merged_clones
 
         pause()
-
+    '''
+        
     # TODO prev_assignment renaming.
     n_final_clones = len(np.unique(res_combine["prev_assignment"]))
 

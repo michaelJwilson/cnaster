@@ -1,11 +1,7 @@
 import copy
 import numpy as np
-import scipy.special
 from typing import Optional, Any
 from dataclasses import dataclass, fields
-from cnaster.hmm_initialize import gmm_init
-from cnaster.hmm_sitewise import hmm_sitewise
-from cnaster.hmm_utils import compute_posterior_obs
 from cnaster.config import start_time
 from cnaster.logger import get_logger
 
@@ -95,6 +91,52 @@ class CnaHMRFResult:
             raise KeyError(f"Cannot set unknown key '{key}'")
 
         self.validate()
+
+    def __str__(self) -> str:
+        lines = ["CnaHMRFResult:"]
+        
+        def format_val(val: Any, is_param: bool, indent: str) -> str:
+            if isinstance(val, np.ndarray):
+                if is_param:
+                    arr_str = np.array2string(val, threshold=np.inf, separator=', ')
+                    indented_arr = indent + arr_str.replace('\n', '\n' + indent)
+                    return f"\n{indented_arr}"
+                else:
+                    arr_str = np.array2string(val, threshold=10, edgeitems=2, separator=', ')
+                    indented_arr = indent + arr_str.replace('\n', '\n' + indent)
+                    return f"<ndarray shape={val.shape} dtype={val.dtype}>\n{indented_arr}"
+                    
+            elif isinstance(val, float):
+                return f"{val:.6f}" if not np.isnan(val) else "nan"
+            
+            return str(val)
+
+        for f in fields(self):
+            if f.name not in {"params", "profile", "assignment"}:
+                val = getattr(self, f.name)
+                lines.append(f"  {f.name}: {format_val(val, False, '    ')}")
+
+        for nested_name in ["params", "profile", "assignment"]:
+            nested_obj = getattr(self, nested_name)
+            
+            if nested_obj is None:
+                lines.append(f"  {nested_name}: None")
+                continue
+                
+            lines.append(f"  {nested_name} ({nested_obj.__class__.__name__}):")
+            
+            is_param = (nested_name == "params")
+            
+            for f in fields(nested_obj):
+                val = getattr(nested_obj, f.name)
+                val_str = format_val(val, is_param, "      ")
+                
+                if val_str.startswith("\n"):
+                    lines.append(f"    {f.name}:{val_str}")
+                else:
+                    lines.append(f"    {f.name}: {val_str}")
+
+        return "\n".join(lines)
 
     # NB mirror shallow copy behavior a dictionary.
     def copy(self, deep: bool = False) -> "CnaHMRFResult":

@@ -9,7 +9,7 @@ from cnaster.hmm_nophasing import hmm_nophasing
 from cnaster.hmrf_utils import clone_stack_obs
 from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
 from cnaster.config import get_global_config
-from cnaster.hmm import gmm_init
+from cnaster.hmm_initialize import gmm_init
 from cnaster.config import start_time
 from cnaster.logger import get_logger
 
@@ -42,6 +42,7 @@ def initial_phase_given_partition(
     tol,
     threshold,
     known_normal=False,
+    hmm_initializer=gmm_init,
     # min_snpumi=2e3,
 ):
     """
@@ -99,7 +100,7 @@ def initial_phase_given_partition(
     )
 
     # TODO
-    init_log_mu, init_p_binom = gmm_init(
+    init_log_mu, init_p_binom = hmm_initializer(
         n_states,
         clone_stack_minor_X,
         clone_stack_base_nb_mean,

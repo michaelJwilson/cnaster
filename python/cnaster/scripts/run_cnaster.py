@@ -615,7 +615,7 @@ def run_cnaster(config_path, over_rides=None):
         log_sitewise_transmat,
         prefix="bafonly",
         coords=coords,
-        smooth_mat=None, # TODO HACK FINAL 
+        smooth_mat=smooth_mat, # TODO HACK FINAL 
         adjacency_mat=adjacency_mat,
         sample_ids=sample_ids,
         sample_list=sample_list,

@@ -187,10 +187,11 @@ def compute_single_llf(
     n_clones,
     smooth_indices=None,
     smooth_indptr=None, 
-    non_zero_weight=False,
+    non_zero_weight=True,
 ):
     # NB compute the log likelihood for each spot, for all clones.
     single_llf = np.zeros((N, n_clones))
+    ratio_nonzeros = np.ones(N, dtype=np.float64)
 
     if non_zero_weight and smooth_indices is not None and smooth_indptr is not None:
         for i in prange(N):
@@ -213,13 +214,11 @@ def compute_single_llf(
                 sum_nb_base += nz_nb_base[neighbor]
                 sum_bb_total += nz_bb_total[neighbor]
 
-            ratio_nonzeros = 1.0
+            # ratio_nonzeros[i] = 1.0
 
             # NB both normal and baf signals available.
             if sum_nb_base > 0 and sum_bb_total > 0:
-                ratio_nonzeros = sum_bb_total / sum_nb_base
-    else:
-        ratio_nonzeros = 1.0
+                ratio_nonzeros[i] = sum_bb_total / sum_nb_base
 
     for i in prange(N):
         # NB assumes pred is clone concatenated.
@@ -234,7 +233,7 @@ def compute_single_llf(
                 term_rdr += tmp_log_emission_rdr[copy_state, o, i]
                 term_baf += tmp_log_emission_baf[copy_state, o, i]
 
-            single_llf[i, c] = ratio_nonzeros * term_rdr + term_baf
+            single_llf[i, c] = ratio_nonzeros[i] * term_rdr + term_baf
 
     return single_llf
 

@@ -279,9 +279,10 @@ def aggr_hmrfmix_reassignment_concatenate(
     return_posterior=False,
     merge=False,
 ):
+    # NB n_obs is the number of genomic segments, N is the number of spots.
     n_obs, _, N = single_X.shape
 
-    # NB pred is the argmax posterior by genome, concatenated across clones.
+    # NB pred is the argmax posterior by genome, __concatenated__ across clones.
     n_clones = int(len(pred) / n_obs)
     n_states = res["new_p_binom"].shape[0]
 
@@ -291,23 +292,23 @@ def aggr_hmrfmix_reassignment_concatenate(
     new_assignment = copy.copy(prev_assignment)
 
     # NB utilize tumor mixture model?
-    use_mixture = single_tumor_prop is not None
+    is_tumor_mixed = single_tumor_prop is not None
 
     # NB compute lambda, i.e. normalized baseline expression, for mixture model
     lambd = (
         np.sum(single_base_nb_mean, axis=1) / np.sum(single_base_nb_mean)
-        if use_mixture
+        if is_tumor_mixed
         else None  # TODO BUG?
     )
 
     logger.info(
-        f"Solving (pooled) emission likelihood for X.shape={single_X.shape}, n_states={n_states} and {n_clones} clones with {hmmclass.__name__}, use_mixture={use_mixture} and merge={merge}."
+        f"Solving (pooled) emission likelihood for X.shape={single_X.shape}, n_states={n_states} and {n_clones} clones with {hmmclass.__name__}, is_tumor_mixed={is_tumor_mixed} and merge={merge}."
     )
 
     logger.info("Pooling hmrf data by smooth mat. (reduces necessary computation).")
 
     # TODO no_pool flag
-    # NB pool data by smooth mat: reduces spots to calculate likelihood for, i.e. faster.
+    # NB   pool data by smooth mat: reduces spots to calculate likelihood for, i.e. faster.
     pooled_X, pooled_base_nb_mean, pooled_total_bb_RD, _, weighted_tp = pool_hmrf_data(
         single_X,
         single_base_nb_mean,
@@ -315,15 +316,15 @@ def aggr_hmrfmix_reassignment_concatenate(
         smooth_mat.indices,
         smooth_mat.indptr,
         single_tumor_prop,
-        use_mixture,
-        res["new_log_mu"] if use_mixture else None,
-        pred if use_mixture else None,
-        n_states if use_mixture else None,
+        is_tumor_mixed,
+        res["new_log_mu"] if is_tumor_mixed else None,
+        pred if is_tumor_mixed else None,
+        n_states if is_tumor_mixed else None,
         lambd,
     )
 
     # NB emission shape: (n_states, n_obs, n_spots)
-    if use_mixture:
+    if is_tumor_mixed:
         (
             tmp_log_emission_rdr,
             tmp_log_emission_baf,
@@ -410,7 +411,7 @@ def aggr_hmrfmix_reassignment_concatenate(
         nz_nb_base,
         nz_bb_total,
         _tumor_prop,
-        use_mixture,
+        is_tumor_mixed,
         tmp_log_emission_rdr,
         tmp_log_emission_baf,
         pred,
@@ -773,7 +774,7 @@ def hmrfmix_concatenate_pipeline(
     for c, idx in enumerate(initial_clone_index):
         last_assignment[idx] = c
 
-    # NB inertia to spot clone change.
+    # NB inertia to spot clone change: log(1 / n_clones) per spot, i.e. uniform prior over clones.
     inertia = bool(get_global_config().hmrf.inertia)
     log_persample_weights = (
         np.ones((n_clones, n_samples)) * (-np.log(n_clones)) if inertia else None
@@ -832,7 +833,7 @@ def hmrfmix_concatenate_pipeline(
         pred = np.argmax(res["log_gamma"], axis=0)
 
         # NB TODO 'max' clone assignment.
-        new_assignment, single_llf, total_llf = aggr_hmrfmix_reassignment_concatenate(
+        new_assignment, _, total_llf = aggr_hmrfmix_reassignment_concatenate(
             single_X,
             single_base_nb_mean,
             single_total_bb_RD,

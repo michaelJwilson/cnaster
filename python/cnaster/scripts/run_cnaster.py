@@ -635,6 +635,8 @@ def run_cnaster(config_path, over_rides=None):
         tumorprop_threshold=config.hmrf.tumorprop_threshold,
     )
 
+    exit(0)
+
     logger.info(
         f"Inferred {len(np.unique(res['new_assignment']))} clones given baf data."
     )

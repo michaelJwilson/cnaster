@@ -1366,7 +1366,7 @@ def aggr_hmrf_reassignment(
         )
         '''
 
-        niter, new_cost = icm_sweep_deque(
+        _, new_cost = icm_sweep_deque(
             single_llf=single_llf,
             adj_indptr=adjacency_mat.indptr,   
             adj_indices=adjacency_mat.indices, 

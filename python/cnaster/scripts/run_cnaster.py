@@ -634,8 +634,10 @@ def run_cnaster(config_path, over_rides=None):
         tol=config.hmm.tol,
         spatial_weight=config.hmrf.spatial_weight,
         tumorprop_threshold=config.hmrf.tumorprop_threshold,
+        deconcatenate_clones=False, 
     )
 
+    logger.info(f"Given single_X.shape={single_X.shape}, solved for res=\n{res}")
     logger.info(
         f"Inferred {len(np.unique(res['new_assignment']))} clones given baf data."
     )
@@ -1050,11 +1052,10 @@ def run_cnaster(config_path, over_rides=None):
         init_p_binom=None,
         init_log_mu=None,
         # allowed_clones=None,
+        deconcatenate_clones=True,
     )
 
-    print(res_combine)
-
-    exit(0)
+    logger.info(f"Solved for res_combine=\n{res_combine}")
 
     X, base_nb_mean, total_bb_RD, tumor_prop = merge_pseudobulk_by_index_mix(
         single_X,

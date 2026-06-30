@@ -639,6 +639,7 @@ def hmrfmix_concatenate_pipeline(
     spatial_weight=1.0 / 6.0,
     tumorprop_threshold=0.5,
     plot_progress=False,
+    deconcatenate_clones=False, 
 ):
     # NB num. of genomic bins, num. pseudobulk (clones, spots, ...)
     n_obs, _, _ = single_X.shape
@@ -1037,7 +1038,13 @@ def hmrfmix_concatenate_pipeline(
                     :, sidx
                 ] - scipy.special.logsumexp(log_persample_weights[:, sidx])
 
-    # TODO result class.
+    if deconcatenate_clones:
+        res["log_gamma"] = np.array(
+            [res["log_gamma"][:, (c * n_obs) : (c * n_obs + n_obs)] for c in range(len(np.unique(res["new_assignment"])))]
+        )
+
+        res["pred_cnv"] = np.argmax(res["log_gamma"], axis=0)
+
     return res
 
 
@@ -1282,6 +1289,7 @@ def aggr_hmrf_reassignment(
 
     # NB clone stack of emission states.
     n_clones = res["new_log_mu"].shape[1]
+
     # n_states = res["new_p_binom"].shape[0]
     single_llf = np.zeros((n_spots, n_clones))
     new_assignment = copy.copy(prev_assignment)

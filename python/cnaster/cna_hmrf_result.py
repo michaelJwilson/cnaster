@@ -29,9 +29,18 @@ class CloneAssignment:
     assignment_before_reindex: Optional[np.ndarray] = None
     prev_assignment: Optional[np.ndarray] = None
     new_assignment: Optional[np.ndarray] = None
-    num_clones: int = field(init=False, default=0)
     total_llf: float = np.nan
 
+    @property
+    def unique_clone_labels(self):
+        if self.assignment is not None and self.assignment.new_assignment is not None:
+            return np.unique(self.assignment.new_assignment)
+        return None
+
+    @property
+    def num_clones(self):
+        unique_labels = self.unique_clone_labels
+        return len(unique_labels) if unique_labels is not None else None
 
 @dataclass
 class CnaHMRFResult:
@@ -54,12 +63,6 @@ class CnaHMRFResult:
                     f"Invalid clone assignment: {unique_labels}. "
                     "Clone labels must be consecutive integers starting from 0."
                 )
-            
-            # dynamically set the num_clones based on the validated array
-            self.assignment.num_clones = len(unique_labels)
-            
-        elif self.assignment is not None:
-            self.assignment.num_clones = 0
 
         # NB log the shape of new_log_mu, log_gamma and new_assignment
         logger.info(
@@ -172,14 +175,3 @@ class CnaHMRFResult:
 
     def items(self):
         return [(k, self[k]) for k in self.keys()]
-    
-    @property
-    def unique_clone_labels(self):
-        if self.assignment is not None and self.assignment.new_assignment is not None:
-            return np.unique(self.assignment.new_assignment)
-        return None
-
-    @property
-    def num_clones(self):
-        unique_labels = self.unique_clone_labels
-        return len(unique_labels) if unique_labels is not None else None

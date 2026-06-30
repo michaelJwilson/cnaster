@@ -194,7 +194,7 @@ def run_cnaster(config_path, over_rides=None):
     pause()
 
     # TODO utilize <BLOCK COUNTS>
-    # NB num. of blocks per contig;
+    # NB lengths = num. of blocks per contig;
     #    snp-based H0 and H0+H1 counts block;
     #    total umis per block.
     (

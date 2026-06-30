@@ -238,8 +238,10 @@ def initial_phase_given_partition(
     for ii, le in enumerate(lengths):
         s = 0
 
+        # NB we loop through the blocks on this contig.
         for i in range(le):
-            # NB min. segment size of 10
+            # NB if there's a (BAF_CHANGE_THRESHOLD) step in the minor baf (and min. segment size of 10) the contig partitioning of blocks
+            #    is refined to split the block at the minor baf step.
             if i > s + MIN_SEGMENT_SIZE and np.any(
                 np.abs(
                     minor_baf_profiles[:, i + cumlen]
@@ -254,7 +256,7 @@ def initial_phase_given_partition(
                 refined_lengths.append(i - s)
                 s = i
 
-        # NB force a stop at contig end.
+        # NB force a stop at contig end.  Guranteed to have more blocks than the original (number of contigs).
         refined_lengths.append(le - s)
         cumlen += le
 
@@ -264,7 +266,7 @@ def initial_phase_given_partition(
     end_time = time.time()
 
     logger.info(
-        f"Solved for {len(refined_lengths)} phase-refined lengths given {len(lengths)} input lengths with sum={sum(lengths)} in {(end_time - start_time):.2f} seconds."
+        f"Solved for {len(refined_lengths)} phase-refined lengths () given {len(lengths)} input lengths with sum={sum(lengths)} in {(end_time - start_time):.2f} seconds."
     )
 
     return res, phase_indicator, refined_lengths

@@ -280,7 +280,7 @@ def assign_initial_blocks(
     initial_min_umi,
 ):
     """
-    Initially assigns SNPs to blocks along the genome, based on merging overlapping gene intervals
+    Initially assigns snps to blocks along the genome, based on merging overlapping gene intervals
     & requiring blocks have a minimm number of snp-covering reads; these can be aggregated up to the
     scale of switch errors in the population-based phasing.
 
@@ -1086,7 +1086,7 @@ def create_bin_ranges(
     )
 
     # TODO BUG dropna?
-    # NB block intervals
+    # NB block intervals: by key (e.g. block_id)
     sorted_chr_pos_both = df_gene_snp.groupby(key).agg(
         {"CHR": "first", "START": "first", "END": "last"}
     )
@@ -1141,7 +1141,7 @@ def create_bin_ranges(
         f"fraction normal={frac_normal:.3f}"
     )
 
-    # NB breakpoints from phase switches, jump in baf when fixed phasing and oversized blocks.
+    # NB breakpoints defined by jump in minor baf, and oversized blocks.
     breakpoints = np.concatenate(
         [
             np.cumsum(refined_lengths),
@@ -1150,6 +1150,7 @@ def create_bin_ranges(
         ]
     )
 
+    # NB sorted, unique.
     breakpoints = np.sort(np.unique(breakpoints))
 
     if breakpoints[0] != 0:
@@ -1191,6 +1192,7 @@ def create_bin_ranges(
         {i: x for i, x in enumerate(bin_ids)}
     )
 
+    # NB return df_gene_snp with an updated bin_id column, and potentially deifned block_id column if it was overwritten.
     return df_gene_snp
 
 

@@ -434,9 +434,10 @@ def aggr_hmrfmix_reassignment_concatenate(
             sample_ids=sample_ids,                                                                                                                                                       
         )   
         """
-        logger.info(f"Ready for potential merging with merge={merge}.")
+        logger.info(f"Ready for potential merging of clones?  {merge}.")
 
         while merge:
+            # NB merge_assignment returns the original cost, the best new cost after merging this clone pair, and the clone pair.
             new_cost, best_merge_cost, best_merge_pair = merge_assignment(
                 single_llf,
                 adj_spots,
@@ -448,36 +449,44 @@ def aggr_hmrfmix_reassignment_concatenate(
                 sample_ids=sample_ids,
             )
 
+            # NB only merge the clone pair if the cost is improved.
             if best_merge_cost > new_cost:
                 u, v = best_merge_pair
                 num_merged_spots = 0
 
+                # TODO ensure clone "v" has a larger index than clone "u" to minimize downstream reindexing issues.
+                # NB assigns clone "u" to clone "v"
                 for i in range(len(new_assignment)):
                     if new_assignment[i] == u:
                         new_assignment[i] = v
                         num_merged_spots += 1
 
                 logger.info(
-                    f"Merged {num_merged_spots} spots from clone {u} into clone {v} with dC={best_merge_cost - new_cost:.6e}"
+                    f"Merged {num_merged_spots} spots from clone {u} into clone {v} with new cost={best_merge_cost} given original cost={new_cost:.6e}."
                 )
+
+                # TODO DEPRECATE?
                 new_cost = best_merge_cost
             else:
                 logger.info(
-                    f"No more beneficial merges available (latest dC={best_merge_cost - new_cost:.6e})."
+                    f"No more beneficial merges available (best merge cost={best_merge_cost} given original cost={new_cost:.6e})."
                 )
                 break
 
+        # NB counts per clone in the final (potentially merged) assignment.
         _, cnts = np.unique(new_assignment, return_counts=True)
 
         logger.info(
-            f"Solved for updated clone labels with new cost {new_cost:.6e} in {niter} iterations (took {time.time() - start_time:.2f} seconds with clone breakdown=\n{[f'{xx:.3f}' for xx in cnts / cnts.sum()]})."
+            f"Found new clone assignment with new cost {new_cost:.6e} in {niter} iterations ({time.time() - start_time:.2f}s with clone breakdown=\n{[f'{xx:.3f}' for xx in cnts / cnts.sum()]})."
         )
 
     logger.info(f"Computing total ln likelihood.")
 
+    # NB single_llf was the log likelihood of each spot given that its label is each clone, i.e. unary Potts term;
+    #    sum this assuming iid given new assignment.
     total_llf = np.sum(single_llf[np.arange(N), new_assignment])
 
-    # TODO?
+    # NB add the pairwise cost for this assignment, according to the (weighted) number of neighbors with the same assignment.
     for i in range(N):
         total_llf += np.sum(
             spatial_weight
@@ -487,7 +496,8 @@ def aggr_hmrfmix_reassignment_concatenate(
         )
 
     """
-    # TODO HACK?  e.g. pred of HMM requires an clone ordering definition.
+    # TODO HACK?  pred of HMM requires an clone ordering definition?
+    # 
     # NB reindex new_assignment to contiguous clone ids.
     unique_ids = np.unique(new_assignment)
     id_map = {old: new for new, old in enumerate(unique_ids)}

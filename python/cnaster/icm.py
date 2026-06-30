@@ -248,6 +248,7 @@ def merge_assignment(
     else:
         logger.info(f"No beneficial clone merge available, for {n_clones} clones.")
 
+    # NB the original cost, the new cost after merging this clone pair, and the pair.
     return current_total_cost, best_merge_cost, best_merge_pair
 
 

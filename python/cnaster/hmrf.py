@@ -1039,8 +1039,10 @@ def hmrfmix_concatenate_pipeline(
                 ] - scipy.special.logsumexp(log_persample_weights[:, sidx])
 
     if deconcatenate_clones:
-        res["log_gamma"] = np.array(
-            [res["log_gamma"][:, (c * n_obs) : (c * n_obs + n_obs)] for c in range(len(np.unique(res["new_assignment"])))]
+        # NB shape=(state, segment, clone)
+        res["log_gamma"] = np.stack(
+            [res["log_gamma"][:, (c * n_obs) : (c * n_obs + n_obs)] for c in range(len(np.unique(res["new_assignment"])))], 
+            axis=-1
         )
 
         res["pred_cnv"] = np.argmax(res["log_gamma"], axis=0)

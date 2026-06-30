@@ -79,6 +79,7 @@ def compute_emission_probability_nb_betabinom_phased(
     return log_emission_rdr, log_emission_baf
 
 
+'''
 @njit
 def forward_marginalize_phased(
     lengths, log_transmat, log_startprob, log_emission, log_sitewise_transmat
@@ -127,7 +128,7 @@ def forward_marginalize_phased(
         )
 
         for t in np.arange(1, le):
-            # NB log_phases_switch_mat is a 2×2 matrix for phase switch at this (genomic) step,
+            # NB log_phases_switch_mat is a 2x2 matrix for phase switch at this (genomic) step,
             # Diagonal entries stay in the same phase (log_sitewise_self_transmat[t]),
             # Off-diagonal entries switch phase (log_sitewise_transmat[t])
             log_phases_switch_mat = np.array(
@@ -146,7 +147,7 @@ def forward_marginalize_phased(
             # NEW hadamard form.
             # combined_transmat is defined for combinatorial (copy state, phase) states.
             # First n rows/cols (TBC) represent phase 0 CNV states; next n represent phase 1.
-            # Each block is an n×n CNV transition matrix shifted by one phase-transition log-probability.
+            # Each block is an nxn CNV transition matrix shifted by one phase-transition log-probability.
             #
             # top-left block: phase 0 → phase 0
             # top-right block: phase 0 → phase 1
@@ -176,8 +177,8 @@ def forward_marginalize_phased(
         cumlen += le
 
     return log_alpha
-
-
+'''
+'''
 @njit
 def backward_marginalize_phased(
     lengths, log_transmat, log_startprob, log_emission, log_sitewise_transmat
@@ -253,6 +254,158 @@ def backward_marginalize_phased(
                     )
                 log_beta[i, (cumlen + t)] = mylogsumexp(buf)
         cumlen += le
+    return log_beta
+'''
+
+
+@njit
+def update_combined_transmat(
+    out_transmat,
+    n_states,
+    log_transmat,
+    self_trans,
+    switch_trans,
+    penalize_phase_only_on_same_cnv,
+    log_half,
+):
+    """
+    Updates the out_transmat buffer in-place to avoid memory allocations in the tight loop.
+    """
+    if penalize_phase_only_on_same_cnv:
+        # 1. Base case: All transitions split equally between phases (0 penalty)
+        out_transmat[:n_states, :n_states] = log_half + log_transmat
+        out_transmat[:n_states, n_states:] = log_half + log_transmat
+        out_transmat[n_states:, :n_states] = log_half + log_transmat
+        out_transmat[n_states:, n_states:] = log_half + log_transmat
+
+        # 2. Overwrite ONLY the diagonals of the CNV blocks (where CNV state stays the same)
+        for i in range(n_states):
+            # Phase 0 -> Phase 0
+            out_transmat[i, i] = self_trans + log_transmat[i, i]
+            # Phase 0 -> Phase 1
+            out_transmat[i, i + n_states] = switch_trans + log_transmat[i, i]
+            # Phase 1 -> Phase 0
+            out_transmat[i + n_states, i] = switch_trans + log_transmat[i, i]
+            # Phase 1 -> Phase 1
+            out_transmat[i + n_states, i + n_states] = self_trans + log_transmat[i, i]
+    else:
+        # Original behavior: Apply sitewise phase matrices globally
+        out_transmat[:n_states, :n_states] = self_trans + log_transmat
+        out_transmat[:n_states, n_states:] = switch_trans + log_transmat
+        out_transmat[n_states:, :n_states] = switch_trans + log_transmat
+        out_transmat[n_states:, n_states:] = self_trans + log_transmat
+
+
+@njit
+def forward_marginalize_phased(
+    lengths,
+    log_transmat,
+    log_startprob,
+    log_emission,
+    log_sitewise_transmat,
+    penalize_phase_only_on_same_cnv: bool = True, # TODO config derived.
+):
+    n_paired_states = log_emission.shape[0]
+    n_states = int(np.ceil(n_paired_states / 2))
+    n_obs = log_emission.shape[1]
+
+    log_sitewise_self_transmat = np.log(1.0 - np.exp(log_sitewise_transmat))
+
+    log_alpha = np.zeros((n_paired_states, n_obs))
+    buf = np.zeros(n_paired_states)
+
+    log_half = np.log(0.5)
+    combined_log_startprob = log_half + np.append(log_startprob, log_startprob)
+
+    # Pre-allocate the buffer once
+    combined_transmat = np.empty((n_paired_states, n_paired_states))
+
+    cumlen = 0
+    for le in lengths:
+        log_alpha[:, cumlen] = combined_log_startprob + np_sum_ax_squeeze(
+            log_emission[:, cumlen, :], axis=1
+        )
+
+        for t in range(1, le):
+            idx = cumlen + t - 1
+
+            # DRY Matrix Update
+            update_combined_transmat(
+                out_transmat=combined_transmat,
+                n_states=n_states,
+                log_transmat=log_transmat,
+                self_trans=log_sitewise_self_transmat[idx],
+                switch_trans=log_sitewise_transmat[idx],
+                penalize_phase_only_on_same_cnv=penalize_phase_only_on_same_cnv,
+                log_half=log_half,
+            )
+
+            for j in range(n_paired_states):
+                for i in range(n_paired_states):
+                    buf[i] = log_alpha[i, idx] + combined_transmat[i, j]
+
+                log_alpha[j, cumlen + t] = mylogsumexp(buf) + np.sum(
+                    log_emission[j, cumlen + t, :]
+                )
+
+        cumlen += le
+
+    return log_alpha
+
+
+@njit
+def backward_marginalize_phased(
+    lengths,
+    log_transmat,
+    log_startprob,
+    log_emission,
+    log_sitewise_transmat,
+    penalize_phase_only_on_same_cnv: bool = True, # TODO config derived.
+):
+    n_paired_states = log_emission.shape[0]
+    n_states = int(np.ceil(n_paired_states / 2))
+    n_obs = log_emission.shape[1]
+
+    log_sitewise_self_transmat = np.log(1.0 - np.exp(log_sitewise_transmat))
+
+    log_beta = np.zeros((n_paired_states, n_obs))
+    buf = np.zeros(n_paired_states)
+
+    log_half = np.log(0.5)
+
+    # Pre-allocate the buffer once
+    combined_transmat = np.empty((n_paired_states, n_paired_states))
+
+    cumlen = 0
+    for le in lengths:
+        log_beta[:, cumlen + le - 1] = 0.0
+
+        for t in range(le - 2, -1, -1):
+            idx = cumlen + t
+
+            # DRY Matrix Update
+            update_combined_transmat(
+                out_transmat=combined_transmat,
+                n_states=n_states,
+                log_transmat=log_transmat,
+                self_trans=log_sitewise_self_transmat[idx],
+                switch_trans=log_sitewise_transmat[idx],
+                penalize_phase_only_on_same_cnv=penalize_phase_only_on_same_cnv,
+                log_half=log_half,
+            )
+
+            for i in range(n_paired_states):
+                for j in range(n_paired_states):
+                    buf[j] = (
+                        log_beta[j, cumlen + t + 1]
+                        + combined_transmat[i, j]
+                        + np.sum(log_emission[j, cumlen + t + 1, :])
+                    )
+
+                log_beta[i, cumlen + t] = mylogsumexp(buf)
+
+        cumlen += le
+
     return log_beta
 
 

@@ -1008,7 +1008,7 @@ def run_cnaster(config_path, over_rides=None):
     )
 
     # TODO HACK  >>>>>>>>
-    initial_rdr_clone_assignment, allowed_clones, total_clones = initialize_rdr_clone_refininement(
+    initial_rdr_clone_assignment, onehot_allowed_clones, total_clones = initialize_rdr_clone_refininement(
         merged_baf_assignment=merged_baf_assignment,
         coords=coords,
         single_total_bb_RD=single_total_bb_RD,
@@ -1051,7 +1051,7 @@ def run_cnaster(config_path, over_rides=None):
         tumorprop_threshold=config.hmrf.tumorprop_threshold,
         init_p_binom=None,
         init_log_mu=None,
-        # allowed_clones=None,
+        # onehot_allowed_clones=None,
         deconcatenate_clones=True,
     )
 

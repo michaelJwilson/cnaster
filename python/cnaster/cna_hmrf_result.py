@@ -44,6 +44,27 @@ class CnaHMRFResult:
     n_states: int
     assignment: CloneAssignment
 
+    def __post_init__(self):
+        self.validate()
+
+    def validate(self) -> None:
+        # NB valid clone assignment must be 0...N labels
+        if getattr(self.assignment, "new_assignment") is not None:
+            unique_labels = np.unique(self.assignment.new_assignment)
+
+            if not np.array_equal(unique_labels, np.arange(len(unique_labels))):
+                raise ValueError(
+                    f"Invalid clone assignment: {unique_labels}. "
+                    "Clone labels must be consecutive integers starting from 0."
+                )
+
+        # NB log the shape of new_log_mu, log_gamma and new_assignment
+        logger.info(
+            f"Validated CnaHMRFResult with new_log_mu shape={self.params.new_log_mu.shape},"
+            f"log_gamma shape={self.profile.log_gamma.shape}, "
+            f"new_assignment shape={getattr(self.assignment, 'new_assignment', None).shape if getattr(self.assignment, 'new_assignment', None) is not None else None}."
+        )
+
     def __getitem__(self, key: str) -> Any:
         if hasattr(self, key):
             return getattr(self, key)
@@ -72,6 +93,8 @@ class CnaHMRFResult:
             setattr(self.assignment, key, value)
         else:
             raise KeyError(f"Cannot set unknown key '{key}'")
+
+        self.validate()
 
     # NB mirror shallow copy behavior a dictionary.
     def copy(self, deep: bool = False) -> "CnaHMRFResult":

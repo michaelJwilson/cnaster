@@ -913,10 +913,10 @@ class hmm_nophasing:
 
         # NB solved for med. 26.0 and max. 75_849.0 total counts for bbEncoder.
         logger.info(
-            f"Solved for med. {np.median(nbEncoder.total_count)} and max. {np.max(nbEncoder.total_count)} total counts for nbEncoder."
+            f"Solved for med. {np.median(nbEncoder.total_count):.4f} and max. {np.max(nbEncoder.total_count):.4f} total counts for nbEncoder."
         )
         logger.info(
-            f"Solved for med. {np.median(bbEncoder.total_count)} and max. {np.max(bbEncoder.total_count)} total counts for bbEncoder."
+            f"Solved for med. {np.median(bbEncoder.total_count):.4f} and max. {np.max(bbEncoder.total_count):.4f} total counts for bbEncoder."
         )
 
         (

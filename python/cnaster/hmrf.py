@@ -176,8 +176,6 @@ def pool_hmrf_data(
 @njit(parallel=True, cache=True)
 def compute_single_llf(
     N,
-    smooth_indices,
-    smooth_indptr,
     nz_nb_base,
     nz_bb_total,
     single_tumor_prop,
@@ -187,37 +185,43 @@ def compute_single_llf(
     pred,
     n_obs,
     n_clones,
+    smooth_indices=None,
+    smooth_indptr=None, 
+    non_zero_weight=False,
 ):
     # NB compute the log likelihood for each spot, for all clones.
     single_llf = np.zeros((N, n_clones))
 
-    for i in prange(N):
-        start_idx = smooth_indptr[i]
-        end_idx = smooth_indptr[i + 1]
+    if non_zero_weight and smooth_indices is not None and smooth_indptr is not None:
+        for i in prange(N):
+            start_idx, end_idx = smooth_indptr[i], smooth_indptr[i + 1]
 
-        # NB calculate the nb and bb baseline for this spot.
-        sum_nb_base, sum_bb_total = 0, 0
+            # NB calculate the nb and bb baseline for this spot.
+            sum_nb_base, sum_bb_total = 0, 0
 
-        # NB loop over pooled neighbors of spot i,
-        #    skipping those with nan tumor proportion.
-        for k in range(start_idx, end_idx):
-            neighbor = smooth_indices[k]
+            # NB loop over pooled neighbors of spot i,
+            #    skipping those with nan tumor proportion.
+            for k in range(start_idx, end_idx):
+                neighbor = smooth_indices[k]
 
-            if is_tumor_mixed:
-                if np.isnan(single_tumor_prop[neighbor]):
-                    continue
+                if is_tumor_mixed:
+                    if np.isnan(single_tumor_prop[neighbor]):
+                        continue
 
-            # NB nz_nb_base, nz_bb_total contain the number of non-zero genomic segments;
-            #    pools this across spots. 
-            sum_nb_base += nz_nb_base[neighbor]
-            sum_bb_total += nz_bb_total[neighbor]
+                # NB nz_nb_base, nz_bb_total contain the number of non-zero genomic segments;
+                #    pools this across spots. 
+                sum_nb_base += nz_nb_base[neighbor]
+                sum_bb_total += nz_bb_total[neighbor]
 
+            ratio_nonzeros = 1.0
+
+            # NB both normal and baf signals available.
+            if sum_nb_base > 0 and sum_bb_total > 0:
+                ratio_nonzeros = sum_bb_total / sum_nb_base
+    else:
         ratio_nonzeros = 1.0
 
-        # NB both normal and baf signals available.
-        if sum_nb_base > 0 and sum_bb_total > 0:
-            ratio_nonzeros = sum_bb_total / sum_nb_base
-
+    for i in prange(N):
         # NB assumes pred is clone concatenated.
         for c in range(n_clones):
             offset = c * n_obs
@@ -391,8 +395,6 @@ def aggr_hmrfmix_reassignment_concatenate(
     #    no longer IID and erroneously weights rdr and baf according to number of non-zero segments.
     single_llf = compute_single_llf(
         N,
-        smooth_mat.indices,
-        smooth_mat.indptr,
         nz_nb_base,
         nz_bb_total,
         _tumor_prop,
@@ -402,6 +404,8 @@ def aggr_hmrfmix_reassignment_concatenate(
         pred,
         n_obs,
         n_clones,
+        smooth_indices=smooth_mat.indices if smooth_mat is not None else None,
+        smooth_indptr=smooth_mat.indptr if smooth_mat is not None else None,
     )
 
     # assert np.allclose(single_llf, new_single_llf), "BUG: single_llf mismatch"

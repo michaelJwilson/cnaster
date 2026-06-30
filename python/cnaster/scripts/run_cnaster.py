@@ -615,7 +615,7 @@ def run_cnaster(config_path, over_rides=None):
         log_sitewise_transmat,
         prefix="bafonly",
         coords=coords,
-        smooth_mat=smooth_mat,
+        smooth_mat=None, # TODO HACK FINAL 
         adjacency_mat=adjacency_mat,
         sample_ids=sample_ids,
         sample_list=sample_list,
@@ -705,7 +705,7 @@ def run_cnaster(config_path, over_rides=None):
         transparent=True,
         bbox_inches="tight",
     )
-    
+
     pause()
 
     # NB merge similar clones based on Neyman-Pearson statistic.

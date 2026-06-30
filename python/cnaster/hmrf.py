@@ -58,51 +58,12 @@ def pool_hmrf_data(
     smooth_indices,
     smooth_indptr,
     single_tumor_prop=None,
-    use_mixture=False,
+    is_tumor_mixed=False,
     res_new_log_mu=None,
     pred=None,
     n_states=None,
     lambd=None,
 ):
-    """
-    Precompute pooled data for all spots using neighbor aggregation.
-
-    Parameters
-    ----------
-    single_X : array, shape (n_obs, 2, n_spots)
-        BAF and RD count matrix for all bins in all spots.
-    single_base_nb_mean : array, shape (n_obs, n_spots)
-        Diploid baseline of gene expression matrix.
-    single_total_bb_RD : array, shape (n_obs, n_spots)
-        Total allele UMI count matrix.
-    smooth_adj : list of lists
-        Adjacency list from cast_csr(smooth_mat), where each element is [(col, val), ...].
-    single_tumor_prop : array, shape (n_spots,), optional
-        Tumor proportion for each spot.
-    use_mixture : bool
-        Whether to use mixture model.
-    res_new_log_mu : array, shape (n_states, n_clones), optional
-        Log mu parameters for mixture model.
-    pred : array, shape (n_obs * n_clones,), optional
-        Predicted states for mixture model.
-    n_states : int, optional
-        Number of states for mixture model.
-    lambd : array, shape (n_obs,), optional
-        Lambda values for mixture model.
-
-    Returns
-    -------
-    pooled_X : array, shape (n_obs, 2, n_spots)
-        Pooled X data for each spot.
-    pooled_base_nb_mean : array, shape (n_obs, n_spots)
-        Pooled base nb mean for each spot.
-    pooled_total_bb_RD : array, shape (n_obs, n_spots)
-        Pooled total bb RD for each spot.
-    weighted_tp : array, shape (n_obs, n_spots)
-        Weighted tumor proportions for each spot (if use_mixture=True).
-    mean_tumor_prop : array, shape (n_spots,)
-        Mean tumor proportions for each spot.
-    """
     # NB no logger comments in jit compiled.
     n_obs, n_comp, N = single_X.shape
 
@@ -112,7 +73,7 @@ def pool_hmrf_data(
     mean_tumor_prop, weighted_tp = None, None
     """
     # TODO HACK BUG  
-    if use_mixture:
+    if is_tumor_mixed:
         n_clones = int(len(pred) / n_obs)
         
         assert res_new_log_mu.shape[-1] == n_clones
@@ -138,15 +99,15 @@ def pool_hmrf_data(
                 weighted_mu[obs_idx, c] = mu / norm
     """
     for i in range(N):
-        start_idx = smooth_indptr[i]
-        end_idx = smooth_indptr[i + 1]
+        start_idx, end_idx = smooth_indptr[i], smooth_indptr[i + 1]
 
+        # NB vaild neighbors have finite tumor proportion if is_tumor_mixed.
         valid_neighbors = []
 
         for k in range(start_idx, end_idx):
             col = smooth_indices[k]
 
-            if use_mixture and single_tumor_prop is not None:
+            if is_tumor_mixed and single_tumor_prop is not None:
                 if not np.isnan(single_tumor_prop[col]):
                     valid_neighbors.append(col)
             else:
@@ -155,9 +116,16 @@ def pool_hmrf_data(
         valid_count = len(valid_neighbors)
 
         # TODO CHECK prior behavior?
+        # 
+        # NB assigned zero to pooled_X, pooled_base_nb_mean, pooled_total_bb_RD
+        #    if no valid neighbors.
         if valid_count == 0:
             continue
 
+        # NB for all segments, and spots, we pool (sum) the X, base_nb_mean, and total_bb_RD
+        #    of all valid neighbors.
+        # 
+        #    valid as updated the counts and the baseline will be accounted for in the likelihood (TBC). 
         for obs_idx in range(n_obs):
             for neighbor_idx in valid_neighbors:
                 pooled_X[obs_idx, 0, i] += single_X[obs_idx, 0, neighbor_idx]
@@ -171,8 +139,9 @@ def pool_hmrf_data(
                     obs_idx, neighbor_idx
                 ]
         """
-        # TODO HACK BUG
-        if use_mixture:
+        # TODO HACK BUG we do not currently support tumor proportion.
+        if is_tumor_mixed:
+            # NB calculate the 
             tumor_prop_sum = 0.0
 
             for neighbor_idx in valid_neighbors:
@@ -212,19 +181,21 @@ def compute_single_llf(
     nz_nb_base,
     nz_bb_total,
     single_tumor_prop,
-    use_mixture,
+    is_tumor_mixed,
     tmp_log_emission_rdr,
     tmp_log_emission_baf,
     pred,
     n_obs,
     n_clones,
 ):
+    # NB compute the log likelihood for each spot, for all clones.
     single_llf = np.zeros((N, n_clones))
 
     for i in prange(N):
         start_idx = smooth_indptr[i]
         end_idx = smooth_indptr[i + 1]
 
+        # NB calculate the nb and bb baseline for this spot.
         sum_nb_base, sum_bb_total = 0, 0
 
         # NB loop over pooled neighbors of spot i,
@@ -232,10 +203,12 @@ def compute_single_llf(
         for k in range(start_idx, end_idx):
             neighbor = smooth_indices[k]
 
-            if use_mixture:
+            if is_tumor_mixed:
                 if np.isnan(single_tumor_prop[neighbor]):
                     continue
 
+            # NB nz_nb_base, nz_bb_total contain the number of non-zero genomic segments;
+            #    pools this across spots. 
             sum_nb_base += nz_nb_base[neighbor]
             sum_bb_total += nz_bb_total[neighbor]
 
@@ -245,16 +218,17 @@ def compute_single_llf(
         if sum_nb_base > 0 and sum_bb_total > 0:
             ratio_nonzeros = sum_bb_total / sum_nb_base
 
+        # NB assumes pred is clone concatenated.
         for c in range(n_clones):
             offset = c * n_obs
-
             term_rdr, term_baf = 0.0, 0.0
 
             for o in range(n_obs):
-                state = pred[offset + o]
+                # NB copy_state is the predicted copy state for this clone and segment.
+                copy_state = pred[offset + o]
 
-                term_rdr += tmp_log_emission_rdr[state, o, i]
-                term_baf += tmp_log_emission_baf[state, o, i]
+                term_rdr += tmp_log_emission_rdr[copy_state, o, i]
+                term_baf += tmp_log_emission_baf[copy_state, o, i]
 
             single_llf[i, c] = ratio_nonzeros * term_rdr + term_baf
 
@@ -308,7 +282,7 @@ def aggr_hmrfmix_reassignment_concatenate(
     logger.info("Pooling hmrf data by smooth mat. (reduces necessary computation).")
 
     # TODO no_pool flag
-    # NB   pool data by smooth mat: reduces spots to calculate likelihood for, i.e. faster.
+    # NB   pool (sum) data according to smooth (adjacency) matrix, for X, nb_baseline, bb read depth and mean tumor proportion: 
     pooled_X, pooled_base_nb_mean, pooled_total_bb_RD, _, weighted_tp = pool_hmrf_data(
         single_X,
         single_base_nb_mean,
@@ -398,11 +372,11 @@ def aggr_hmrfmix_reassignment_concatenate(
                     tmp_log_emission_rdr[this_pred, np.arange(n_obs), i]
                 ) + np.sum(tmp_log_emission_baf[this_pred, np.arange(n_obs), i])
     """
-    # NB number of non-zero nb_base and bb_total per spot.
+    _tumor_prop = single_tumor_prop if single_tumor_prop is not None else np.empty(0)
+
+    # NB number of non-zero genomic segments for nb_baseline and bb_read depth, for all spots.
     nz_nb_base = (single_base_nb_mean > 0).sum(axis=0)
     nz_bb_total = (single_total_bb_RD > 0).sum(axis=0)
-
-    _tumor_prop = single_tumor_prop if single_tumor_prop is not None else np.empty(0)
 
     single_llf = compute_single_llf(
         N,
@@ -430,7 +404,7 @@ def aggr_hmrfmix_reassignment_concatenate(
     if get_global_config().hmrf.fixed_assignment:
         logger.warning(f"Assuming a fixed clone assignment")
     else:
-        logger.info(f"Solving for updated clone assignment with icm _sweep_deque.")
+        logger.info(f"Solving for updated clone assignment with icm_sweep_deque.")
 
         # NB updates new_assignment and posterior in place given log emission likelihood.
         niter, new_cost = icm_sweep_deque(

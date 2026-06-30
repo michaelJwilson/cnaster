@@ -1,28 +1,27 @@
 import copy
-import logging
 import time
 
 import numpy as np
-import pandas as pd
+# import pandas as pd
 import scipy.special
 from numba import njit, prange
-from pathlib import Path
+# from pathlib import Path
 from cnaster.icm import (
     icm_sweep,
     icm_sweep_deque,
     unpack_adjacency,
     merge_assignment,
 )
-from cnaster.wolff import wolff_sweep
+# from cnaster.wolff import wolff_sweep
 from cnaster.hmm import gmm_init, pipeline_baum_welch
 from cnaster.hmm_sitewise import hmm_sitewise
 from cnaster.hmrf_utils import cast_csr, clone_stack_obs
-from cnaster.utils import count_calls, get_output_dir, write_fig
-from cnaster.hmm_initialize import plot_cna_mixture, cna_mixture_init
+# from cnaster.utils import count_calls, get_output_dir, write_fig
+# from cnaster.hmm_initialize import plot_cna_mixture, cna_mixture_init
 from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
 from cnaster.config import get_global_config
-from cnaster.plotting import plot_clones_spatial
-from cnaster.plot_genomic import plot_clones_genomic
+# from cnaster.plotting import plot_clones_spatial
+# from cnaster.plot_genomic import plot_clones_genomic
 from cnaster.deprecated.hmrf import (
     aggr_hmrfmix_reassignment_concatenate as dep_aggr_hmrfmix_reassignment_concatenate,
 )
@@ -41,6 +40,8 @@ def logsumexp(x):
 
 def validate_clone_ids(assignments):
     unique_ids = np.unique(assignments)
+
+    # NB check that clone ids are contiguous, i.e. 0,1,...,n_clones-1
     expected = np.arange(len(unique_ids))
 
     if not np.array_equal(unique_ids, expected):
@@ -219,6 +220,8 @@ def compute_single_llf(
             # NB both normal and baf signals available.
             if sum_nb_base > 0 and sum_bb_total > 0:
                 ratio_nonzeros[i] = sum_bb_total / sum_nb_base
+
+        logger.info(f"Found a relative weighting of {np.mean(ratio_nonzeros):.3f} for non-zero bb read depth to normal baseline.")
 
     for i in prange(N):
         # NB assumes pred is clone concatenated.

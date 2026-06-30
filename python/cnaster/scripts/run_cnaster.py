@@ -649,7 +649,7 @@ def run_cnaster(config_path, over_rides=None):
         threshold=config.hmrf.tumorprop_threshold,
     )
 
-    # TODO HACK DEPRECATE?  replicates tumor_prop for N clones.
+    # TODO HACK DEPRECATE? replicates tumor_prop for N clones.
     if tumor_prop is not None:
         tumor_prop = np.repeat(tumor_prop, X.shape[0]).reshape(-1, 1)
 
@@ -768,6 +768,7 @@ def run_cnaster(config_path, over_rides=None):
         transparent=True,
         bbox_inches="tight",
     )
+    
     '''
     merged_bafonly_clones_genomic = plot_clones_genomic_raw(
         single_X,

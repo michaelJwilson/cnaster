@@ -442,8 +442,10 @@ def normal_baf_bin_filter(
     index_removal = np.where(removal_indicator1 | removal_indicator2)[0]
     index_remaining = np.where(~(removal_indicator1 | removal_indicator2))[0]
 
+    removal_indicator = removal_indicator1 | removal_indicator2
+    
     logger.info(
-        f"Removing {100. * np.mean(removal_indicator1 | removal_indicator2):.4f}% of genomic bins with potential allele-specific expression based on normal spot candidates assuming confidence={confidence_interval} and min_betabinom_tau={min_betabinom_tau}."
+        f"Removing {np.count_nonzero(removal_indicator)} [{100. * np.mean(removal_indicator):.4f}]% genomic segments with potential allele-specific expression, based on normal candidates --- confidence={confidence_interval} and min_betabinom_tau={min_betabinom_tau}."
     )
 
     # NB below constructs single_X, single_base_nb_mean, single_total_bb_RD with segments removed.
@@ -458,7 +460,7 @@ def normal_baf_bin_filter(
     logger.info(f"Solved for unique bin ids:\n{np.unique(df_gene_snp.bin_id)}")
 
     if df_gene_snp.bin_id.isnull().any():
-        logger.warning(f"NaN bin id detected.")
+        logger.warning(f"Detected {df_gene_snp.bin_id.isnull().sum()} bin_ids with NaN value.")
 
     single_X = single_X[index_remaining, :, :]
     single_base_nb_mean = single_base_nb_mean[index_remaining, :]

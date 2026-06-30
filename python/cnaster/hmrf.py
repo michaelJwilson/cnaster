@@ -1222,7 +1222,7 @@ def merge_by_minspots(
 
     if len(failed_clones) > 0:
         for c in failed_clones:
-            # NB assigns failed clone to that with large SNP UMIs.
+            # NB assigns failed clone to that with largest snp umis.
             idx_max = np.argmax(
                 [
                     np.sum(
@@ -1251,18 +1251,24 @@ def merge_by_minspots(
     merged_res = copy.copy(res)
     merged_res["new_assignment"] = new_assignment
     merged_res["total_llf"] = np.nan
-    merged_res["pred_cnv"] = np.concatenate(
-        [
-            res["pred_cnv"][(c[0] * n_obs) : (c[0] * n_obs + n_obs)]
-            for c in merging_groups
-        ]
-    )
-    merged_res["log_gamma"] = np.hstack(
-        [
-            res["log_gamma"][:, (c[0] * n_obs) : (c[0] * n_obs + n_obs)]
-            for c in merging_groups
-        ]
-    )
+
+    # Extract the representative clone IDs to keep
+    rep_clones = [c[0] for c in merging_groups]
+
+    # NB expect an array of clones concatenated along the genomic axis,
+    if res["pred_cnv"].ndim == 1:
+        n_obs = len(res["pred_cnv"]) // n_clones
+        merged_res["pred_cnv"] = np.concatenate(
+            [res["pred_cnv"][(c * n_obs) : (c * n_obs + n_obs)] for c in rep_clones]
+        )
+        merged_res["log_gamma"] = np.hstack(
+            [res["log_gamma"][:, (c * n_obs) : (c * n_obs + n_obs)] for c in rep_clones]
+        )
+    # NB expect an independent clone axis.
+    else:
+        merged_res["pred_cnv"] = res["pred_cnv"][:, rep_clones]
+        merged_res["log_gamma"] = res["log_gamma"][:, :, rep_clones]
+
     return merging_groups, merged_res
 
 

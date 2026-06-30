@@ -66,9 +66,10 @@ class CnaHMRFResult:
 
         # NB log the shape of new_log_mu, log_gamma and new_assignment
         logger.info(
-            f"Validated CnaHMRFResult with new_log_mu shape={self.params.new_log_mu.shape},"
-            f"log_gamma shape={self.profile.log_gamma.shape}, "
-            f"new_assignment shape={getattr(self.assignment, 'new_assignment', None).shape if getattr(self.assignment, 'new_assignment', None) is not None else None}, "
+            f"Validated CnaHMRFResult with new_log_mu.shape={self.params.new_log_mu.shape},"
+            f"log_gamma.shape={self.profile.log_gamma.shape}, "
+            f"pred_cnv.shape={self.profile.pred_cnv.shape}, "
+            f"new_assignment.shape={getattr(self.assignment, 'new_assignment', None).shape if getattr(self.assignment, 'new_assignment', None) is not None else None}, "
             f"num_clones={getattr(self.assignment, 'num_clones', 0)}."
         )
 
@@ -102,6 +103,8 @@ class CnaHMRFResult:
             raise KeyError(f"Cannot set unknown key '{key}'")
 
         self.validate()
+
+        logger.info(f"Successfully set '{key}' in CnaHMRFResult with new value: {value}.")
 
     def __str__(self) -> str:
         lines = ["CnaHMRFResult:"]

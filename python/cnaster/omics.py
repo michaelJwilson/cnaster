@@ -1386,6 +1386,7 @@ def summarize_counts_for_bins(
     # NB last axis is the number of spot (barcodes).
     n_bins = len(bins)
     n_spots = adata.shape[0]
+    
     bin_single_X = np.zeros((n_bins, 2, n_spots), dtype=int)
     bin_single_base_nb_mean = np.zeros((n_bins, n_spots))
     bin_single_total_bb_RD = np.zeros((n_bins, n_spots), dtype=int)

@@ -271,7 +271,7 @@ def plot_clones_genomic(
                 this_pred = res_combine["pred_cnv"][:, c] % n_states
 
             assert len(this_pred) == n_obs, (
-                f"Clone {cid} copy states are define for {len(this_pred)} segments, but data suggested {n_obs}."
+                f"Clone {cid} copy states are defined for {len(this_pred)} segments, but data suggested {n_obs}."
             )
 
             hue = pd.Categorical(this_pred, categories=np.arange(n_states), ordered=True)

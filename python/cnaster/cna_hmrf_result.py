@@ -129,7 +129,7 @@ class CnaHMRFResult(LockableMixin):
 
         self.validate()
 
-        logger.info(f"Successfully set '{key}' in CnaHMRFResult with new value: {value}.")
+        logger.debug(f"Successfully set '{key}' in CnaHMRFResult with new value: {value}.")
 
     def __str__(self) -> str:
         lines = ["CnaHMRFResult:"]

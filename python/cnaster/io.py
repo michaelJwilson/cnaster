@@ -59,9 +59,11 @@ def construct_df_clone_label(barcodes, coords, assignment, tumor_prop=None):
         df_clone_label["tumor_proportion"] = tumor_prop
 
     # Sort by (sample_id, (x,y)).
-    df_clone_label = df_clone_label.groupby("sample_id", group_keys=False).apply(
-        lambda g: g.sort_values(["x", "y"])
-    )
+    # df_clone_label = df_clone_label.groupby("sample_id", group_keys=False).apply(
+    #     lambda g: g.sort_values(["x", "y"])
+    # )
+
+    df_clone_label = df_clone_label.sort_values(["sample_id", "x", "y"])
 
     return df_clone_label
 

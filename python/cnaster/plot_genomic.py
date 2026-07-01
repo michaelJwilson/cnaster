@@ -5,6 +5,7 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.colors as mcolors
 from matplotlib.lines import Line2D
+from typing import Optional, Dict, Any
 
 from cnaster.config import start_time
 from cnaster.logger import get_logger
@@ -135,7 +136,7 @@ def _annotate_clone_stats(
         transform=ax.transAxes,
     )
 
-
+'''
 def plot_clones_genomic(
     df_cnv,  # Can be None for plotting raw data, or __real__ states, rather than integer.
     lengths: np.ndarray,
@@ -395,6 +396,237 @@ def plot_clones_genomic(
 
     _draw_chromosome_boundaries(axes, lengths, unique_chrs, chrtext_shift)
 
+    fig.tight_layout()
+
+    return fig
+'''
+
+def plot_clones_genomic(
+    lengths: np.ndarray,
+    single_X: np.ndarray,
+    single_base_nb_mean: np.ndarray,
+    single_total_bb_RD: np.ndarray,
+    df_cnv: Optional[pd.DataFrame] = None, 
+    res_combine: Optional[Dict[str, Any]] = None, 
+    single_tumor_prop: Optional[np.ndarray] = None,
+    clone_index: Optional[list] = None,
+    sample_list: Optional[list] = None,
+    remove_xticks: bool = True,
+    rdr_ylim: float = 6.0,
+    chrtext_shift: float = -0.2,
+    base_height: float = 3.2,
+    pointsize: float = 3.0,
+    linewidth: float = 1.0,
+    palette_name: str = "chisel",
+    plot_baf_errors: str = "beta",
+    plot_rdr_errors: str = "poisson",
+):
+    """
+    Plots aggregated rdr and baf (with error models) and best-fit continuous copy states (mu, p).
+    If df_cnv is None, functions as a raw data plotter without categorical integer states.
+    """
+    logger.info("Plotting aggregated rdr and baf for clones.")
+
+    # 1. State resolution and hierarchy setup
+    if df_cnv is not None:
+        assert res_combine is not None, "res_combine required if df_cnv is provided."
+        unique_chrs = np.unique(df_cnv.CHR.values)
+        final_clone_ids = np.sort(np.unique(res_combine["new_assignment"]))
+        clone_index = [
+            np.where(res_combine["new_assignment"] == c)[0] for c in final_clone_ids
+        ]
+        color_palette, ordered_acn = get_full_palette(palette_name)
+        state_colors = [color_palette[c] for c in ordered_acn]
+        map_cn = {x: i for i, x in enumerate(ordered_acn)}
+        default_idx = map_cn.get((1, 1), 0)
+
+    elif res_combine is not None:
+        unique_chrs = 1 + np.arange(len(lengths))
+        final_clone_ids = np.sort(np.unique(res_combine["new_assignment"]))
+        clone_index = [
+            np.where(res_combine["new_assignment"] == c)[0] for c in final_clone_ids
+        ]
+        n_states = res_combine["new_p_binom"].shape[0]
+        # Pre-compute fallback palette outside the loop
+        base_pal = sns.color_palette("deep", n_states) 
+        palette = [mcolors.to_rgba(color, alpha=1.0) for color in base_pal]
+
+    else:
+        assert clone_index is not None, "clone_index must be provided."
+        assert lengths is not None, "lengths must be provided."        
+        unique_chrs = 1 + np.arange(len(lengths))
+        final_clone_ids = [str(i) for i in range(len(clone_index))]
+
+    assert single_X.shape[0] == np.sum(lengths), "Mismatch in genomic segment defined X and lengths."
+
+    # 2. Data Merging
+    X, base_nb_mean, total_bb_RD, tumor_prop = merge_pseudobulk_by_index_mix(
+        single_X, single_base_nb_mean, single_total_bb_RD, clone_index, single_tumor_prop,
+    )
+
+    n_obs = X.shape[0]
+    spots_per_clone = [len(xx) for xx in clone_index]
+    nonempty_clones = np.where(np.sum(total_bb_RD, axis=0) > 0)[0]
+
+    assert len(nonempty_clones) == total_bb_RD.shape[1]
+    assert np.all(nonempty_clones == np.arange(len(final_clone_ids)))
+
+    has_rdr = base_nb_mean is not None and np.max(base_nb_mean) > 0
+    axes_per_clone = 2 if has_rdr else 1
+    
+    fig, axes = _create_clone_gridspec(
+        len(nonempty_clones), axes_per_clone, base_height, sample_list
+    )
+    x_vals = np.arange(n_obs)
+
+    # 3. Main Plotting Loop
+    for s, c in enumerate(nonempty_clones):
+        cid = final_clone_ids[c]
+        ax_idx = s * axes_per_clone
+        ax_rdr = axes[ax_idx] if has_rdr else None
+        ax_baf = axes[ax_idx + 1] if has_rdr else axes[ax_idx]
+
+        # --- Color & State Resolution ---
+        if df_cnv is not None:
+            major = np.maximum(df_cnv[f"clone{cid} A"].values, df_cnv[f"clone{cid} B"].values)
+            minor = np.minimum(df_cnv[f"clone{cid} A"].values, df_cnv[f"clone{cid} B"].values)
+
+            # Vectorized state mapping using pandas
+            state_tuples = pd.Series(zip(major, minor))
+            hue_indices = state_tuples.map(map_cn).fillna(default_idx).astype(int).values
+
+            if palette_name == "chisel":
+                # Assuming NORMAL_OPACITY is defined globally
+                palette = [
+                    mcolors.to_rgba(color, alpha=(NORMAL_OPACITY if ordered_acn[i] == (1, 1) else 1.0))
+                    for i, color in enumerate(state_colors)
+                ]
+            else:
+                palette = [mcolors.to_rgba(color, alpha=1.0) for color in state_colors]
+
+            point_colors = np.array(palette)[hue_indices]
+            unique_hues = np.unique(hue_indices)
+
+        elif res_combine is not None:
+            if res_combine["pred_cnv"].ndim == 1 or res_combine["pred_cnv"].shape[1] == 1:
+                this_pred = res_combine["pred_cnv"][(c * n_obs) : (c * n_obs + n_obs)].flatten() % n_states
+            else:
+                this_pred = res_combine["pred_cnv"][:, c] % n_states
+
+            assert len(this_pred) == n_obs, f"Clone {cid} copy states defined for {len(this_pred)}, expected {n_obs}."
+            
+            point_colors = np.array(palette)[this_pred]
+            unique_hues = np.unique(this_pred)
+            
+        else:
+            point_colors = "#4C72B0"
+
+        # --- RDR Plotting ---
+        if has_rdr:
+            y_vals_rdr = X[:, 0, c] / base_nb_mean[:, c]
+
+            if plot_rdr_errors == "poisson":
+                with np.errstate(divide="ignore", invalid="ignore"):
+                    std_err_rdr = np.sqrt(X[:, 0, c]) / base_nb_mean[:, c]
+                    std_err_rdr[~np.isfinite(std_err_rdr)] = 0.0
+
+                ax_rdr.errorbar(
+                    x_vals, y_vals_rdr, yerr=std_err_rdr, fmt="none",
+                    ecolor=point_colors, elinewidth=0.5, zorder=0, rasterized=True
+                )
+
+            # Replaced sns.scatterplot with raw matplotlib scatter for speed
+            ax_rdr.scatter(
+                x_vals, y_vals_rdr, s=pointsize, c=point_colors, 
+                edgecolors="none", linewidth=linewidth, zorder=1, rasterized=True
+            )
+
+            _format_track_axis(
+                ax_rdr, "\nRDR", [-0.5, rdr_ylim], np.arange(0, rdr_ylim + 1.0, 1.0),
+                remove_xticks, n_obs,
+            )
+
+        # --- BAF Plotting ---
+        baf_vals = X[:, 1, c] / total_bb_RD[:, c]
+
+        if plot_baf_errors == "beta":
+            k, n_trials = X[:, 1, c], total_bb_RD[:, c]
+            alpha_param, beta_param = k + 1, n_trials - k + 1
+            alpha_beta_sum = alpha_param + beta_param
+            std_err_baf = np.sqrt(
+                (alpha_param * beta_param) / (np.square(alpha_beta_sum) * (alpha_beta_sum + 1))
+            )
+
+            ax_baf.errorbar(
+                x_vals, baf_vals, yerr=std_err_baf, fmt="none",
+                ecolor=point_colors, elinewidth=0.5, zorder=0, rasterized=True
+            )
+
+        ax_baf.scatter(
+            x_vals, baf_vals, s=pointsize, c=point_colors, 
+            edgecolors="none", zorder=1, rasterized=True
+        )
+
+        _format_track_axis(
+            ax_baf, "\nBAF", [-0.05, 1.05], np.arange(0.0, 1.1, 0.2),
+            remove_xticks, n_obs,
+        )
+
+        # --- Viterbi Segments ---
+        if res_combine is not None:
+            clone_idx = 0 if res_combine["new_log_mu"].shape[1] == 1 else c
+
+            # NB Safely define this_pred regardless of df_cnv's presence
+            if res_combine["pred_cnv"].ndim == 1 or res_combine["pred_cnv"].shape[1] == 1:
+                this_pred = res_combine["pred_cnv"][(c * n_obs) : (c * n_obs + n_obs)].flatten() % n_states
+            else:
+                n_states = res_combine["new_log_mu"].shape[0]
+                this_pred = res_combine["pred_cnv"][:, c] % n_states
+
+            segments, labels = get_intervals(this_pred)
+            
+            for i, seg in enumerate(segments):
+                if has_rdr:
+                    ax_rdr.plot(
+                        seg, [np.exp(res_combine["new_log_mu"][labels[i], clone_idx])] * 2,
+                        c="k", linewidth=0.5, zorder=2,
+                    )
+                ax_baf.plot(
+                    seg, [res_combine["new_p_binom"][labels[i], clone_idx]] * 2,
+                    c="k", linewidth=0.5, zorder=2,
+                )
+                ax_baf.plot(
+                    seg, [1.0 - res_combine["new_p_binom"][labels[i], clone_idx]] * 2,
+                    c="k", linewidth=0.5, linestyle="--", zorder=2,
+                )
+
+        # --- Legend & Annotations ---
+        if df_cnv is not None or res_combine is not None:
+            legend_labels = ordered_acn if df_cnv is not None else [""] * n_states
+            
+            legend_elements = [
+                Line2D(
+                    [0], [0], marker="o", color="w", markerfacecolor=palette[i],
+                    label=f"{100. * np.mean(hue_indices == i if df_cnv is not None else this_pred == i):.1f}% {legend_labels[i]}",
+                    markersize=10, linestyle="None",
+                )
+                for i in unique_hues
+            ]
+
+            ax_legend = ax_rdr if has_rdr else ax_baf
+            ax_legend.legend(
+                handles=legend_elements, loc="upper right", bbox_to_anchor=(1, 1.25),
+                ncol=len(legend_elements), frameon=False, bbox_transform=ax_legend.transAxes,
+            )
+
+        t_prop = tumor_prop[c] if (single_tumor_prop is not None and tumor_prop is not None) else None
+        _annotate_clone_stats(
+            ax_rdr if has_rdr else ax_baf, cid, spots_per_clone[c],
+            np.sum(X[:, 0, c]), np.sum(total_bb_RD[:, c]), t_prop,
+            paired_ax=ax_baf if has_rdr else None,
+        )
+
+    _draw_chromosome_boundaries(axes, lengths, unique_chrs, chrtext_shift)
     fig.tight_layout()
 
     return fig

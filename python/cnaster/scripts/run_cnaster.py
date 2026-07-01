@@ -638,6 +638,9 @@ def run_cnaster(config_path, over_rides=None):
         deconcatenate_clones=False, 
     )
 
+    # TODO FINAL HACK?
+    # res, _ = reindex_clones(res, posterior=None, single_tumor_prop=None)
+
     logger.info(f"Given single_X.shape={single_X.shape}, solved for res=\n{res}")
     logger.info(
         f"Inferred {len(np.unique(res['new_assignment']))} clones given baf data."
@@ -2112,7 +2115,6 @@ def run_cnaster(config_path, over_rides=None):
 
     # NB assumes a ploidy constraint, currently defaults to last, e.g. "tetraploid".
     real_rdr_baf_fig = plot_clones_genomic(
-        None,  # segment level: chr, start, end, real states (Z), A/B copies, & model (log_mu, p_binom) for each clone.
         lengths,
         single_X,
         single_base_nb_mean,
@@ -2133,12 +2135,12 @@ def run_cnaster(config_path, over_rides=None):
 
     # NB assumes a ploidy constraint, currently defaults to last, e.g. "tetraploid".
     rdr_baf_fig = plot_clones_genomic(
-        df_seglevel_cnv,  # segment level: chr, start, end, real states (Z), A/B copies, & model (log_mu, p_binom) for each clone.
         lengths,
         single_X,
         single_base_nb_mean,
         single_total_bb_RD,
-        res_combine,
+        df_cnv=df_seglevel_cnv,  # segment level: chr, start, end, real states (Z), A/B copies, & model (log_mu, p_binom) for each clone.
+        res_combine=res_combine,
         single_tumor_prop=single_tumor_prop,
         sample_list=sample_list,
         chrtext_shift=-0.3,

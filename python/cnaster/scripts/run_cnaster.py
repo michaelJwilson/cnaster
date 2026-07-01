@@ -14,6 +14,7 @@ from cnaster.config import YAMLConfig, set_global_config, start_time
 # from cnaster.sim import load_tables_to_matrices
 from cnaster.hmm import pipeline_baum_welch
 from cnaster.hmm_nophasing import hmm_nophasing
+from cnaster.hmm_phased import hmm_phased
 from cnaster.hmrf import (  # hmrf_reassignment_posterior,; hmrfmix_reassignment_posterior,
     # aggr_hmrf_reassignment,
     hmrfmix_concatenate_pipeline,
@@ -621,7 +622,7 @@ def run_cnaster(config_path, over_rides=None):
         sample_ids=sample_ids,
         sample_list=sample_list,
         max_iter_outer=config.hmrf.max_iter_outer,
-        hmmclass=hmm_nophasing,  # NB assumes no phasing.
+        hmmclass=hmm_nophasing,  # NB {hmm_nophasing} hmm_phased?
         params="sp",
         t=config.hmm.t,
         random_state=config.hmm.gmm_random_state,
@@ -710,6 +711,8 @@ def run_cnaster(config_path, over_rides=None):
         transparent=True,
         bbox_inches="tight",
     )
+
+    exit(0)
 
     pause()
 

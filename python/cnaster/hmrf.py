@@ -644,7 +644,7 @@ def hmrfmix_concatenate_pipeline(
     spatial_weight=1.0 / 6.0,
     tumorprop_threshold=0.5,
     plot_progress=False,
-    deconcatenate_clones=False, 
+    deconcatenate_clones=False,
 ):
     # NB num. of genomic bins, num. pseudobulk (clones, spots, ...)
     n_obs, _, _ = single_X.shape
@@ -811,7 +811,8 @@ def hmrfmix_concatenate_pipeline(
 
     logger.info(f"Assuming hmrf inertia={inertia} and {hmmclass.__name__} instance.")
 
-    # NB required for remain_kwargs construction.
+    # TODO HACK this scratches res input.
+    # NB res required for remain_kwargs construction;
     res = {}
     r = 0
 
@@ -822,7 +823,7 @@ def hmrfmix_concatenate_pipeline(
         )
 
         # NB [num_segments, num_segments ..., num_segments] of length num_clones.
-        sample_length = np.ones(X.shape[2], dtype=int) * X.shape[0]
+        sample_length = X.shape[0] * np.ones(X.shape[2], dtype=int) 
         remain_kwargs = {"sample_length": sample_length, "lambd": lambd}
 
         """
@@ -878,16 +879,16 @@ def hmrfmix_concatenate_pipeline(
             hmmclass=hmmclass,
             merge=merge,
         )
-
-        # NB handle edge case where a "clone" is assigned none of the spots.
+        '''
+        # NB new assignment did not populate an input clone.
         if len(np.unique(new_assignment)) < X.shape[2]:
             # DEPRECATE
-            res["assignment_before_reindex"] = new_assignment
+            # res["assignment_before_reindex"] = new_assignment
 
             # NB imposes new order, if not previously sorted, rather than skip only.
             remaining_clones = np.sort(np.unique(new_assignment))
 
-            # NB map original clone id -> new enumeration.
+            # NB map clone id -> new (0,...,N-1) enumeration.
             re_indexing = {c: i for i, c in enumerate(remaining_clones)}
 
             logger.warning(
@@ -905,6 +906,22 @@ def hmrfmix_concatenate_pipeline(
             # NB log_gamma and pred_cnv by new clone order (concatenated).
             res["log_gamma"] = res["log_gamma"][:, concat_idx]
             res["pred_cnv"] = res["pred_cnv"][concat_idx]
+        '''
+        remaining_clones, new_assignment_reindexed = np.unique(
+            new_assignment, return_inverse=True
+        )
+
+        if len(remaining_clones) < X.shape[2]:
+            logger.warning(
+                f"Detected clone loss on iteration {r}: re-indexing clones."
+            )
+
+            new_assignment = new_assignment_reindexed
+            concat_idx = (remaining_clones[:, None] * n_obs + np.arange(n_obs)).ravel()
+
+            # NB log_gamma and pred_cnv by new clone order (concatenated).
+            res["log_gamma"] = res["log_gamma"][:, concat_idx]
+            res["pred_cnv"] = res["pred_cnv"][concat_idx]
 
         res["prev_assignment"] = last_assignment
         res["new_assignment"] = new_assignment
@@ -912,7 +929,7 @@ def hmrfmix_concatenate_pipeline(
 
         clone_index = [
             np.where(res["new_assignment"] == c)[0]
-            for c in np.sort(np.unique(res["new_assignment"]))
+            for c in np.unique(res["new_assignment"])
         ]
 
         X, base_nb_mean, total_bb_RD, tumor_prop = merge_pseudobulk_by_index_mix(
@@ -1002,7 +1019,7 @@ def hmrfmix_concatenate_pipeline(
 
         if (
             # TODO config.hmrf.assignment_ari_tolerance: 0.9?
-            adjusted_rand_score(last_assignment, res["new_assignment"])
+            adjusted_rand_score(res["prev_assignment"], res["new_assignment"])
             >= get_global_config().hmrf.ari_tolerance
             or len(np.unique(res["new_assignment"])) == 1  # NB single clone assigned.
             or r

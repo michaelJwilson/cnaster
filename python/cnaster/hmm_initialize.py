@@ -1,6 +1,5 @@
-import logging
-
 import numpy as np
+import pandas as pd
 from numba import njit
 from pysam import samples
 from sklearn.mixture import GaussianMixture
@@ -416,7 +415,7 @@ def plot_cna_mixture(
 
     write_fig(fig_path, fig, transparent=True, bbox_inches="tight")
 
-
+'''
 def gmm_init(
     n_states,
     X,
@@ -566,6 +565,128 @@ def gmm_init(
         logger.warning(
             f"GMM initialized p binom > 0.5, {gmm_p_binom[gmm_p_binom > 0.5]}"
         )
+
+    logger.debug(f"Solved for GMM initialized parameters:\n{gmm_log_mu}\n{gmm_p_binom}")
+
+    return gmm_log_mu, gmm_p_binom
+'''
+    
+def gmm_init(
+    n_states,
+    X,
+    base_nb_mean,
+    total_bb_RD,
+    params,
+    random_state=None,
+    in_log_space=True,
+    only_minor=True,
+):
+    logger.info(
+        f"Initializing HMM emission with GMM (only_minor={only_minor}, log_space={in_log_space})."
+    )
+
+    X_gmm_rdr, X_gmm_baf = None, None
+    n_samples = X.shape[2]
+
+    # NB rdr processing
+    if "m" in params:
+        rdr_ratio = X[:, 0, :] / base_nb_mean 
+        
+        if in_log_space:
+            rdr_ratio = np.clip(rdr_ratio, a_min=1e-6, a_max=None)
+            X_gmm_rdr = np.log(rdr_ratio)
+        else:
+            X_gmm_rdr = rdr_ratio
+
+        valid = ~np.isnan(X_gmm_rdr) & ~np.isinf(X_gmm_rdr)
+        
+        if not np.any(valid):
+            logger.error(f"No valid RDR data given sum(base_nb_mean)={np.sum(base_nb_mean)}")
+            raise RuntimeError("No valid RDR data.")
+
+        # NB 
+        if in_log_space:
+            # NB median, not mean.
+            offset = np.median(X_gmm_rdr[valid])
+            p_low = np.percentile(X_gmm_rdr[valid], 1)
+            p_high = np.percentile(X_gmm_rdr[valid], 99)
+            scale_factor = (p_high - p_low)
+        else:
+            offset = 0
+            # NB lower bound is zero.
+            scale_factor = np.percentile(X_gmm_rdr[valid], 99) 
+
+        if scale_factor < 1e-6:
+            scale_factor = 1.0
+
+        logger.info(f"RDR offset (median) and scale (percentile): {offset:.4f}, {scale_factor:.4f}")
+
+        X_gmm_rdr = (X_gmm_rdr - offset) / scale_factor
+
+    # NB baf processing
+    if "p" in params:
+        X_gmm_baf = X[:, 1, :] / total_bb_RD
+        
+        config = get_global_config().hmm
+        min_binom = float(config.gmm_min_binom_prob)
+        max_binom = float(config.gmm_max_binom_prob)
+
+        clipped_mask = (X_gmm_baf < min_binom) | (X_gmm_baf > max_binom)
+        logger.warning(
+            f"Clipping {100. * np.mean(clipped_mask):.4f}% of BAF values to [{min_binom}, {max_binom}]."
+        )
+        
+        X_gmm_baf = np.clip(X_gmm_baf, min_binom, max_binom)
+
+    if ("m" in params) and ("p" in params):
+        X_gmm = np.hstack([X_gmm_rdr, X_gmm_baf])
+    else:
+        X_gmm = X_gmm_rdr if "m" in params else X_gmm_baf
+
+    nan_mask = np.isnan(X_gmm)
+    num_nans = nan_mask.sum()
+    
+    # NB forward and backward nan fill.
+    if num_nans > 0:
+        X_gmm = pd.DataFrame(X_gmm).ffill().bfill().to_numpy()
+        logger.info(f"Patched {num_nans} nan values via ffill/bfill.")
+
+    valid_rows = ~np.isnan(X_gmm).any(axis=1) & ~np.isinf(X_gmm).any(axis=1)
+    X_gmm = X_gmm[valid_rows, :]
+    logger.info(f"Retained {np.mean(valid_rows):.4%} of samples after patching.")
+
+    max_iter = get_global_config().hmm.gmm_maxiter
+    
+    gmm = GaussianMixture(
+        n_components=n_states, 
+        max_iter=max_iter, 
+        random_state=random_state,
+        n_init=3,           # Prevents getting stuck in local optima
+        reg_covar=1e-4      # Prevents singular covariance errors
+    ).fit(X_gmm)
+
+    logger.info(
+        f"GMM: score={gmm.score(X_gmm):.6f}, converged={gmm.converged_}, iterations={gmm.n_iter_}"
+    )
+
+    gmm_log_mu, gmm_p_binom = None, None
+
+    if "m" in params:
+        rdr_means = gmm.means_[:, :n_samples] if ("p" in params) else gmm.means_
+        
+        mu_recovered = rdr_means * scale_factor + offset
+        gmm_log_mu = mu_recovered if in_log_space else np.log(mu_recovered)
+
+    if "p" in params:
+        gmm_p_binom = gmm.means_[:, n_samples:] if ("m" in params) else gmm.means_
+        
+        if only_minor:
+            gmm_p_binom = np.where(gmm_p_binom > 0.5, 1.0 - gmm_p_binom, gmm_p_binom)
+            
+        if np.any(gmm_p_binom > 0.5):
+            logger.warning(
+                f"GMM initialized p_binom > 0.5: {gmm_p_binom[gmm_p_binom > 0.5]}"
+            )
 
     logger.debug(f"Solved for GMM initialized parameters:\n{gmm_log_mu}\n{gmm_p_binom}")
 

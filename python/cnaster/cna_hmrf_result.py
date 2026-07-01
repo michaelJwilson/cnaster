@@ -95,7 +95,7 @@ class CnaHMRFResult(LockableMixin):
             f"log_gamma.shape={self.profile.log_gamma.shape}, "
             f"pred_cnv.shape={self.profile.pred_cnv.shape}, "
             f"new_assignment.shape={getattr(self.assignment, 'new_assignment', None).shape if getattr(self.assignment, 'new_assignment', None) is not None else None}, "
-            f"num_clones={getattr(self.assignment, 'num_clones', 0)}."
+            f"num_clones={getattr(self.assignment, 'num_clones')}."
         )
 
     def __getitem__(self, key: str) -> Any:

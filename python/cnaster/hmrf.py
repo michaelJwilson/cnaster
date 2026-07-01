@@ -1059,6 +1059,40 @@ def hmrfmix_concatenate_pipeline(
                     :, sidx
                 ] - scipy.special.logsumexp(log_persample_weights[:, sidx])
 
+    # TODO FINAL
+    # NB after last (merged) assignment, we calculated the clone stacks,
+    #    preserve assignment keys, but update baum welch related.
+    final_bm_res = pipeline_baum_welch(
+        None,
+        clone_stack_X,
+        clone_stack_lengths,
+        n_states,
+        clone_stack_base_nb_mean,
+        clone_stack_total_bb_RD,
+        clone_stack_sitewise_transmat,
+        stack_tumor_prop,
+        hmmclass=hmmclass,
+        params=params,
+        t=t,
+        random_state=random_state,
+        fix_NB_dispersion=fix_NB_dispersion,
+        shared_NB_dispersion=shared_NB_dispersion,
+        fix_BB_dispersion=fix_BB_dispersion,
+        shared_BB_dispersion=shared_BB_dispersion,
+        is_diag=is_diag,
+        init_log_mu=last_log_mu,
+        init_p_binom=last_p_binom,
+        init_alphas=last_alphas,
+        init_taus=last_taus,
+        max_iter=max_iter,
+        tol=tol,
+        **remain_kwargs,
+    )
+
+    # TODO llf should also technically be updated. 
+    res.params = final_bm_res.params
+    res.profile = final_bm_res.profile
+
     if deconcatenate_clones:
         # NB shape=(state, segment, clone)
         res["log_gamma"] = np.stack(

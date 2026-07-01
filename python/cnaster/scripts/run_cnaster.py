@@ -6,21 +6,19 @@ import time
 
 import numpy as np
 import pandas as pd
-import scipy
 from numba import njit
 
 from cnaster.config import YAMLConfig, set_global_config, start_time
 
 # from cnaster.sim import load_tables_to_matrices
-from cnaster.hmm import pipeline_baum_welch
 from cnaster.hmm_nophasing import hmm_nophasing
-from cnaster.hmm_phased import hmm_phased
+# from cnaster.hmm_phased import hmm_phased
 from cnaster.hmrf import (  # hmrf_reassignment_posterior,; hmrfmix_reassignment_posterior,
     # aggr_hmrf_reassignment,
     hmrfmix_concatenate_pipeline,
     merge_by_minspots,
     reindex_clones,
-    aggr_hmrfmix_reassignment,
+    # aggr_hmrfmix_reassignment,
 )
 from cnaster.hmrf_utils import get_clone_assignment, get_clone_indices
 from cnaster.integer_copy import (
@@ -67,7 +65,7 @@ from cnaster.spatial import (  # fixed_rectangle_partition,; sufficient_umis_ini
     best_equal_partition,
     initialize_clones,
     multislice_adjacency,
-    rectangle_initialize_initial_clone,
+    # rectangle_initialize_initial_clone,
     initialize_rdr_clone_refininement, 
 )
 

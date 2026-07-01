@@ -18,6 +18,7 @@ from cnaster.utils import top_hat_sum, cast_clone_label
 from cnaster.config import get_global_config
 from cnaster.utils import write_fig
 from cnaster.hmm_sitewise import hmm_sitewise
+from sklearn.cluster import KMeans
 from cnaster.hmm_nophasing import hmm_nophasing
 from joblib import Parallel, delayed
 import matplotlib.patches as mpatches
@@ -570,7 +571,7 @@ def gmm_init(
 
     return gmm_log_mu, gmm_p_binom
 '''
-    
+
 def gmm_init(
     n_states,
     X,
@@ -580,15 +581,18 @@ def gmm_init(
     random_state=None,
     in_log_space=True,
     only_minor=True,
+    mirrored_baf_augmentation=True,
 ):
     logger.info(
-        f"Initializing HMM emission with GMM (only_minor={only_minor}, log_space={in_log_space})."
+        f"Initializing HMM emission with GMM (only_minor={only_minor}, log_space={in_log_space}, mirrored_baf={mirrored_baf_augmentation})."
     )
 
     X_gmm_rdr, X_gmm_baf = None, None
     n_samples = X.shape[2]
 
-    # NB rdr processing
+    # ---------------------------------------------------------
+    # 1. RDR Processing
+    # ---------------------------------------------------------
     if "m" in params:
         rdr_ratio = X[:, 0, :] / base_nb_mean 
         
@@ -604,16 +608,13 @@ def gmm_init(
             logger.error(f"No valid RDR data given sum(base_nb_mean)={np.sum(base_nb_mean)}")
             raise RuntimeError("No valid RDR data.")
 
-        # NB 
         if in_log_space:
-            # NB median, not mean.
             offset = np.median(X_gmm_rdr[valid])
-            p_low = np.percentile(X_gmm_rdr[valid], 1)
-            p_high = np.percentile(X_gmm_rdr[valid], 99)
-            scale_factor = (p_high - p_low)
+            low_percentile = np.percentile(X_gmm_rdr[valid], 1)
+            high_percentile = np.percentile(X_gmm_rdr[valid], 99)
+            scale_factor = (high_percentile - low_percentile)
         else:
             offset = 0
-            # NB lower bound is zero.
             scale_factor = np.percentile(X_gmm_rdr[valid], 99) 
 
         if scale_factor < 1e-6:
@@ -623,7 +624,9 @@ def gmm_init(
 
         X_gmm_rdr = (X_gmm_rdr - offset) / scale_factor
 
-    # NB baf processing
+    # ---------------------------------------------------------
+    # 2. BAF Processing
+    # ---------------------------------------------------------
     if "p" in params:
         X_gmm_baf = X[:, 1, :] / total_bb_RD
         
@@ -638,51 +641,131 @@ def gmm_init(
         
         X_gmm_baf = np.clip(X_gmm_baf, min_binom, max_binom)
 
+    # ---------------------------------------------------------
+    # 3. Concatenation & NaN Patching
+    # ---------------------------------------------------------
     if ("m" in params) and ("p" in params):
-        X_gmm = np.hstack([X_gmm_rdr, X_gmm_baf])
+        X_gmm_original = np.hstack([X_gmm_rdr, X_gmm_baf])
     else:
-        X_gmm = X_gmm_rdr if "m" in params else X_gmm_baf
+        X_gmm_original = X_gmm_rdr if "m" in params else X_gmm_baf
 
-    nan_mask = np.isnan(X_gmm)
+    nan_mask = np.isnan(X_gmm_original)
     num_nans = nan_mask.sum()
     
-    # NB forward and backward nan fill.
     if num_nans > 0:
-        X_gmm = pd.DataFrame(X_gmm).ffill().bfill().to_numpy()
+        X_gmm_original = pd.DataFrame(X_gmm_original).ffill().bfill().to_numpy()
         logger.info(f"Patched {num_nans} nan values via ffill/bfill.")
 
-    valid_rows = ~np.isnan(X_gmm).any(axis=1) & ~np.isinf(X_gmm).any(axis=1)
-    X_gmm = X_gmm[valid_rows, :]
+    valid_rows = ~np.isnan(X_gmm_original).any(axis=1) & ~np.isinf(X_gmm_original).any(axis=1)
+    X_gmm_original = X_gmm_original[valid_rows, :]
     logger.info(f"Retained {np.mean(valid_rows):.4%} of samples after patching.")
 
+    # ---------------------------------------------------------
+    # 4. Mirrored BAF Augmentation & 2K Fit
+    # ---------------------------------------------------------
     max_iter = get_global_config().hmm.gmm_maxiter
+    is_augmented = mirrored_baf_augmentation and ("p" in params)
     
+    n_components_fit = (2 * n_states) if is_augmented else n_states
+    X_gmm_fit = X_gmm_original
+    
+    if is_augmented:
+        logger.info("Applying BAF data augmentation to robustly model phase switching.")
+        X_gmm_flipped = X_gmm_original.copy()
+        
+        if "m" in params:
+            X_gmm_flipped[:, n_samples:] = 1.0 - X_gmm_flipped[:, n_samples:]
+        else:
+            X_gmm_flipped = 1.0 - X_gmm_flipped
+            
+        X_gmm_fit = np.vstack([X_gmm_original, X_gmm_flipped])
+        
     gmm = GaussianMixture(
-        n_components=n_states, 
+        n_components=n_components_fit, 
         max_iter=max_iter, 
         random_state=random_state,
-        n_init=3,           # Prevents getting stuck in local optima
-        reg_covar=1e-4      # Prevents singular covariance errors
-    ).fit(X_gmm)
+        n_init=3,
+        reg_covar=1e-4
+    ).fit(X_gmm_fit)
 
     logger.info(
-        f"GMM: score={gmm.score(X_gmm):.6f}, converged={gmm.converged_}, iterations={gmm.n_iter_}"
+        f"GMM Fit (k={n_components_fit}): score={gmm.score(X_gmm_fit):.6f}, converged={gmm.converged_}, iterations={gmm.n_iter_}"
     )
 
-    gmm_log_mu, gmm_p_binom = None, None
+    # ---------------------------------------------------------
+    # 5. Parameter Extraction & Posterior Reduction
+    # ---------------------------------------------------------
+    rdr_means, gmm_p_binom = None, None
 
-    if "m" in params:
-        rdr_means = gmm.means_[:, :n_samples] if ("p" in params) else gmm.means_
+    if is_augmented:
+        logger.info(f"Reducing {n_components_fit} states to {n_states} based on un-augmented data posteriors.")
         
+        # 5A. E-Step on Original Data: Calculate Responsibilities (N x 2K)
+        posteriors = gmm.predict_proba(X_gmm_original)
+        
+        # Total mass assigned to each of the 2K components by the original data
+        component_weights = posteriors.sum(axis=0) 
+
+        # 5B. Extract and Fold Means
+        if "m" in params:
+            rdr_raw = gmm.means_[:, :n_samples]
+        if "p" in params:
+            baf_raw = gmm.means_[:, n_samples:] if ("m" in params) else gmm.means_
+            baf_folded = np.where(baf_raw > 0.5, 1.0 - baf_raw, baf_raw)
+
+        # 5C. Group the 2K components into K symmetric pairs 
+        # (We use KMeans here purely to generate grouping labels, not to alter parameters)
+        folded_for_clustering = np.hstack([rdr_raw, baf_folded]) if ("m" in params and "p" in params) else (rdr_raw if "m" in params else baf_folded)
+        group_labels = KMeans(n_clusters=n_states, n_init=10, random_state=random_state).fit_predict(folded_for_clustering)
+
+        # 5D. Merge components weighted by their E-step posteriors
+        rdr_means = np.zeros((n_states, n_samples)) if "m" in params else None
+        gmm_p_binom = np.zeros((n_states, n_samples)) if "p" in params else None
+
+        for k in range(n_states):
+            mask = (group_labels == k)
+            weights_in_group = component_weights[mask]
+            weight_sum = weights_in_group.sum()
+
+            if weight_sum > 1e-9:
+                # RDR is symmetric across phase, so a weighted average of the raw RDR is perfect
+                if "m" in params:
+                    rdr_means[k] = np.average(rdr_raw[mask], axis=0, weights=weights_in_group)
+                
+                if "p" in params:
+                    if only_minor:
+                        # Force into [0.0, 0.5] space using weighted average of folded means
+                        gmm_p_binom[k] = np.average(baf_folded[mask], axis=0, weights=weights_in_group)
+                    else:
+                        # Extract the un-folded phase that actually captured the most real data mass
+                        dominant_idx = np.where(mask)[0][np.argmax(weights_in_group)]
+                        gmm_p_binom[k] = baf_raw[dominant_idx]
+            else:
+                # Fallback arithmetic mean if a theoretical component captured zero real data mass
+                if "m" in params:
+                    rdr_means[k] = np.mean(rdr_raw[mask], axis=0)
+                if "p" in params:
+                    gmm_p_binom[k] = np.mean(baf_folded[mask], axis=0) if only_minor else baf_raw[np.where(mask)[0][0]]
+
+    else:
+        # Standard Extraction (No Augmentation)
+        if "m" in params:
+            rdr_means = gmm.means_[:, :n_samples] if ("p" in params) else gmm.means_
+        if "p" in params:
+            gmm_p_binom = gmm.means_[:, n_samples:] if ("m" in params) else gmm.means_
+            if only_minor:
+                gmm_p_binom = np.where(gmm_p_binom > 0.5, 1.0 - gmm_p_binom, gmm_p_binom)
+
+    # ---------------------------------------------------------
+    # 6. Final Inverse Transforms
+    # ---------------------------------------------------------
+    gmm_log_mu = None
+    
+    if "m" in params:
         mu_recovered = rdr_means * scale_factor + offset
         gmm_log_mu = mu_recovered if in_log_space else np.log(mu_recovered)
 
     if "p" in params:
-        gmm_p_binom = gmm.means_[:, n_samples:] if ("m" in params) else gmm.means_
-        
-        if only_minor:
-            gmm_p_binom = np.where(gmm_p_binom > 0.5, 1.0 - gmm_p_binom, gmm_p_binom)
-            
         if np.any(gmm_p_binom > 0.5):
             logger.warning(
                 f"GMM initialized p_binom > 0.5: {gmm_p_binom[gmm_p_binom > 0.5]}"

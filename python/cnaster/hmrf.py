@@ -193,7 +193,7 @@ def compute_single_llf(
     n_clones,
     smooth_indices=None,
     smooth_indptr=None,
-    non_zero_weight=True,
+    non_zero_weight=True, # NB if False, rdr out-weighs the baf signal, which has many zero read_depth segments.
 ):
     # NB compute the log likelihood for each spot, for all clones.
     single_llf = np.zeros((N, n_clones))

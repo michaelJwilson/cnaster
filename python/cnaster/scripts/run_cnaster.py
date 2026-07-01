@@ -1545,7 +1545,7 @@ def run_cnaster(config_path, over_rides=None):
     logger.info(
         f"Assuming min. tau dispersion={np.min(res_combine['new_taus']):.4f} between clones given current:\n{res_combine['new_taus']}"
     )
-
+    '''
     # HACK broadcast max. dispersion - parameters assumed to be shared across rdr-split clones only.
     res_combine["new_alphas"][:, :] = np.max(res_combine["new_alphas"])
 
@@ -1583,7 +1583,6 @@ def run_cnaster(config_path, over_rides=None):
     #    Further, does not assume same clone concatenated shape!
     logger.info(f"Finalizing clone assignment with refined parameters.")
 
-    '''
     if config.preprocessing.tumorprop_file is None:
         # TODO FINAL takes forever to run.
         new_assignment, _, total_llf, _ = aggr_hmrf_reassignment(
@@ -1623,7 +1622,6 @@ def run_cnaster(config_path, over_rides=None):
             hmmclass=hmm_nophasing,
             return_posterior=True,
         )
-    '''
 
     (
         new_assignment,
@@ -1650,7 +1648,8 @@ def run_cnaster(config_path, over_rides=None):
     # NB total Potts likelihood given final copy states and clone assignment.
     res_combine["total_llf"] = total_llf
     res_combine["new_assignment"] = new_assignment
-
+    '''
+    
     # NB re-order clones such that the index of the most-normal clone is 0.
     res_combine, _ = reindex_clones(res_combine, posterior=None, single_tumor_prop=None)
 
@@ -2111,6 +2110,27 @@ def run_cnaster(config_path, over_rides=None):
         index=True,
         index_label="barcode",
         prefix="inferred clone labels",
+    )
+
+    # NB assumes a ploidy constraint, currently defaults to last, e.g. "tetraploid".
+    real_rdr_baf_fig = plot_clones_genomic(
+        None,  # segment level: chr, start, end, real states (Z), A/B copies, & model (log_mu, p_binom) for each clone.
+        lengths,
+        single_X,
+        single_base_nb_mean,
+        single_total_bb_RD,
+        res_combine=res_combine,
+        single_tumor_prop=single_tumor_prop,
+        sample_list=sample_list,
+        chrtext_shift=-0.3,
+    )
+
+    # TODO assumes a ploidy constraint.
+    write_fig(
+        f"{output_dir}/plots/real_clones_genomic.pdf",
+        real_rdr_baf_fig,
+        transparent=True,
+        bbox_inches="tight",
     )
 
     # NB assumes a ploidy constraint, currently defaults to last, e.g. "tetraploid".

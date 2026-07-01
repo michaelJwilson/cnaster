@@ -11,6 +11,7 @@ from numba import njit, prange
 from cnaster.icm import (
     icm_sweep,
     icm_sweep_deque,
+    icm_sweep_pqueue,
     unpack_adjacency,
     merge_assignment,
 )
@@ -432,7 +433,7 @@ def aggr_hmrfmix_reassignment_concatenate(
     if get_global_config().hmrf.fixed_assignment:
         logger.warning(f"Assuming a fixed clone assignment")
     else:
-        logger.info(f"Solving for updated clone assignment with icm_sweep_deque.")
+        logger.info(f"Solving for updated clone assignment with icm_sweep_pqueue.")
 
         # NB updates new_assignment and posterior in place given log emission likelihood.
         '''
@@ -449,7 +450,7 @@ def aggr_hmrfmix_reassignment_concatenate(
             sample_ids=sample_ids,
         )
         '''
-        niter, new_cost = icm_sweep_deque(
+        niter, new_cost = icm_sweep_pqueue(
             single_llf=single_llf,
             adj_indptr=adjacency_mat.indptr,   
             adj_indices=adjacency_mat.indices, 

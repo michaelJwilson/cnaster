@@ -58,8 +58,8 @@ class CloneAssignment(LockableMixin):
 
     @property
     def unique_clone_labels(self):
-        if self.assignment is not None and self.assignment.new_assignment is not None:
-            return np.unique(self.assignment.new_assignment)
+        if self.new_assignment is not None:
+            return np.unique(self.new_assignment)
         return None
 
     @property

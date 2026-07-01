@@ -137,15 +137,15 @@ def _annotate_clone_stats(
 
 
 def plot_clones_genomic(
-    df_cnv,  # Can be None for raw data plotting
+    df_cnv,  # Can be None for plotting raw data, or __real__ states, rather than integer.
     lengths: np.ndarray,
     single_X: np.ndarray,
     single_base_nb_mean: np.ndarray,
     single_total_bb_RD: np.ndarray,
-    res_combine: dict = None,
+    res_combine: dict = None, # OWNS clone definition via new_assignment key.
     single_tumor_prop: np.ndarray = None,
     clone_ids: list = None, # DEPRECATE
-    clone_index: list = None, # DEPRECATE
+    clone_index: list = None,
     sample_list: list = None,
     remove_xticks: bool = True,
     rdr_ylim: float = 6.0,
@@ -166,20 +166,24 @@ def plot_clones_genomic(
     color_palette, ordered_acn = get_full_palette(palette_name)
     state_colors = [color_palette[c] for c in ordered_acn]
 
+    assert clone_ids is None
+
     # NB defines final_clone_ids, unique_chrs and clone_index based on available data, in order of priority.
     if df_cnv is not None:
         map_cn = {x: i for i, x in enumerate(ordered_acn)}
-
         unique_chrs = np.unique(df_cnv.CHR.values)
-        final_clone_ids = (
-            df_cnv.columns.str.extract(r"^clone(.*) A$", expand=False).dropna().tolist()
-        )
 
-        if clone_index is None and res_combine is not None:
-            clone_index = [
-                np.where(res_combine["new_assignment"] == c)[0]
-                for c, _ in enumerate(final_clone_ids)
-            ]
+        assert res_combine is not None
+
+        # final_clone_ids = (
+        #     df_cnv.columns.str.extract(r"^clone(.*) A$", expand=False).dropna().tolist()
+        # )
+
+        final_clone_ids = np.sort(np.unique(res_combine["new_assignment"]))
+        clone_index = [
+            np.where(res_combine["new_assignment"] == c)[0]
+            for c, _ in enumerate(final_clone_ids)
+        ]
     elif res_combine is not None:
         unique_chrs = 1 + np.arange(len(lengths))
         final_clone_ids = np.sort(np.unique(res_combine["new_assignment"]))
@@ -189,15 +193,11 @@ def plot_clones_genomic(
             for c, _ in enumerate(final_clone_ids)
         ]
     else:
-        unique_chrs = 1 + np.arange(len(lengths))
-
-        # NB requires clone_index to be provided.
         assert clone_index is not None, "clone_index must be provided."
+        assert lengths is not None, "lengths must be provided."        
 
-        if clone_ids is not None:
-            final_clone_ids = clone_ids
-        else:
-            final_clone_ids = [str(i) for i in range(len(clone_index))]
+        unique_chrs = 1 + np.arange(len(lengths))
+        final_clone_ids = [str(i) for i in range(len(clone_index))]
 
     # NB requires lengths to be provided.
     assert single_X.shape[0] == np.sum(
@@ -217,9 +217,9 @@ def plot_clones_genomic(
     spots_per_clone = [len(xx) for xx in clone_index]
     nonempty_clones = np.where(np.sum(total_bb_RD, axis=0) > 0)[0]
 
-    has_rdr = base_nb_mean is not None and np.max(base_nb_mean) > 0
-
     assert len(nonempty_clones) == total_bb_RD.shape[1]
+
+    has_rdr = base_nb_mean is not None and np.max(base_nb_mean) > 0
 
     axes_per_clone = 2 if has_rdr else 1
     fig, axes = _create_clone_gridspec(
@@ -227,10 +227,11 @@ def plot_clones_genomic(
     )
 
     # NB guards against trouble.
-    # TODO HACK
+    # DEPRECATE
     # assert "0" in final_clone_ids
     assert np.all(nonempty_clones == np.arange(len(final_clone_ids))), f"Found nonempty clones={nonempty_clones}, expected={np.arange(len(final_clone_ids))}."
 
+    # DEPRECATE s or c should be used, but not both.
     for s, c in enumerate(nonempty_clones):
         cid = final_clone_ids[c]
         ax_idx = s * axes_per_clone

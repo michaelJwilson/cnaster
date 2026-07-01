@@ -1691,6 +1691,10 @@ def run_cnaster(config_path, over_rides=None):
     # =========================================================================================
     #
 
+    # >>>>>
+    # >>>>>  TODO updated res_combine keys for integer copies, and clone assignment according to unique inferred states. 
+    # >>>>>
+
     # NB assumed ploidy for integer copy number problem, expects e.g. "diploid", "triploid", "tetraploid"
     medfix = [""] + [pp for pp in config.int_copy_num.ploidy.split(",")]
 

@@ -49,7 +49,7 @@ def compute_emission_probability_nb_betabinom_phased(
     n_obs, _, n_spots = X.shape
     n_states = p_binom.shape[0]
 
-    # assert n_spots == 1, "TODO: remove before phased flight."
+    assert n_spots == 1, "TODO: remove before phased flight."
 
     # NB guard against
     assert (

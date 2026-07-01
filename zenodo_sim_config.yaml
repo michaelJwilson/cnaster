@@ -64,7 +64,7 @@ phasing:
   min_prob : 1.0e-2
 
 # TODO HACK max_iter_outer : 20 ->
-#           spatial_weight : 0.1 ->
+#           spatial_weight : 0.1 -> 1.0, ...
 #           n_clones : 3 ->
 #           n_clones_rdr : 2 ->
 #           maxspots_pooling 7 ->
@@ -85,7 +85,7 @@ hmrf:
   initialization_method : rectangle
   num_hmrf_initialization_start : 0
   num_hmrf_initialization_end : 1
-  spatial_weight : 10.0
+  spatial_weight : 5.0
   inertia : 0
   construct_adjacency_method : hexagon
   construct_adjacency_w : 1.0

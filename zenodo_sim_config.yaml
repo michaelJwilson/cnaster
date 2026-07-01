@@ -1,7 +1,9 @@
 # NB mirrors original @ /n/fs/ragr-data/users/congma/Datasets/CalicoST_simulation/nomixing_calicost_related/numcnas1.2_cnasize1e7_ploidy2_random0/parsed_inputs/
+#
+# WARNING output_dir should match input naming convention in zenodo_sample_sheet.tsv
 paths:
   sample_sheet : zenodo_sample_sheet.tsv
-  output_dir : /Users/mw9568/Work/ragr/sim/nomixing_cnaster_related/numcnas1.2_cnasize1e7_ploidy2_random0/
+  output_dir : /Users/mw9568/Work/ragr/sim/nomixing_cnaster_related/numcnas6.3_cnasize5e7_ploidy2_random6/
   perf_path : logs/cnaster.perf
 
 # tumorprop_file : /n/fs/scratch/mw9568/cnaster/loh_estimator_tumor_prop.tsv
@@ -83,7 +85,7 @@ hmrf:
   initialization_method : rectangle
   num_hmrf_initialization_start : 0
   num_hmrf_initialization_end : 1
-  spatial_weight : 1.0
+  spatial_weight : 10.0
   inertia : 0
   construct_adjacency_method : hexagon
   construct_adjacency_w : 1.0

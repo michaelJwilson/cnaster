@@ -1,6 +1,5 @@
 import copy
 import time
-import warnings
 
 import numpy as np
 

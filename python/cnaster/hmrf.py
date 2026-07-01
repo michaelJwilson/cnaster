@@ -1072,83 +1072,91 @@ def hmrfmix_concatenate_pipeline(
 
 
 def reindex_clones(res_combine, posterior=None, single_tumor_prop=None):
+    assert single_tumor_prop is None, "single_tumor_prop must be None"
+    
     EPS_BAF = 0.05  # MAGIC
-
-    n_spots = len(res_combine["new_assignment"])
-    n_states, n_clones = res_combine["new_p_binom"].shape
-
-    # NB assumes not concatenated
-    n_obs = res_combine["pred_cnv"].shape[0]
     new_res_combine = copy.copy(res_combine)
+    
+    assignments = res_combine["new_assignment"]
+    clone_labels = np.unique(assignments)
+    n_clones = len(clone_labels)
 
-    if single_tumor_prop is None:
-        # NB select 'near-normal' clone and set to clone 0
-        pred_cnv = res_combine["pred_cnv"]
-        baf_profiles = np.array(
-            [res_combine["new_p_binom"][pred_cnv[:, c], c] for c in range(n_clones)]
-        )
-        cid_normal = np.argmin(
-            np.sum(np.maximum(np.abs(baf_profiles - 0.5) - EPS_BAF, 0), axis=1)
-        )
+    pred_cnv = res_combine["pred_cnv"]
 
-        # TODO HACK WARN discrepant clone ids [c for c in range(n_clones).
-        cid_rest = np.array(
-            [c for c in np.unique(res_combine["new_assignment"]) if c != cid_normal]
-        ).astype(int)
-        reidx = np.append(cid_normal, cid_rest)
-        map_reidx = {cid: i for i, cid in enumerate(reidx)}
+    is_concatenated = (pred_cnv.ndim == 1)
 
-        logger.info(
-            f"Remapping clone index according to {map_reidx}, with {cid_normal} assumed normal."
-        )
-
-        # NB re-order entries in res_combine
-        new_res_combine["new_assignment"] = np.array(
-            [map_reidx[c] for c in res_combine["new_assignment"]]
-        )
-        # new_res_combine["new_log_mu"] = res_combine["new_log_mu"][:, reidx]
-        # new_res_combine["new_alphas"] = res_combine["new_alphas"][:, reidx]
-        # new_res_combine["new_p_binom"] = res_combine["new_p_binom"][:, reidx]
-        # new_res_combine["new_taus"] = res_combine["new_taus"][:, reidx]
-        # new_res_combine["log_gamma"] = res_combine["log_gamma"][:, :, reidx]
-        # new_res_combine["pred_cnv"] = res_combine["pred_cnv"][:, reidx]
-
-        for key in ["new_log_mu", "new_alphas", "new_p_binom", "new_taus", "pred_cnv"]:
-            if res_combine[key].shape[1] > 1:
-                new_res_combine[key] = res_combine[key][:, reidx]
-
-        if res_combine["log_gamma"].shape[2] > 1:
-            new_res_combine["log_gamma"] = res_combine["log_gamma"][:, :, reidx]
-
-        if posterior is not None and posterior.shape[1] > 1:
-            new_posterior = copy.copy(posterior)[:, reidx]
-        else:
-            new_posterior = posterior
+    if is_concatenated:
+        n_obs = len(pred_cnv) // n_clones
     else:
-        # LEGACY BUG?
-        raise RuntimeError()
+        n_obs = pred_cnv.shape[0]
 
-        # NB add normal clone as clone 0
-        new_res_combine["new_assignment"] = new_res_combine["new_assignment"] + 1
-        new_res_combine["new_log_mu"] = np.hstack(
-            [np.zeros((n_states, 1)), res_combine["new_log_mu"]]
-        )
-        new_res_combine["new_alphas"] = np.hstack(
-            [np.zeros((n_states, 1)), res_combine["new_alphas"]]
-        )
-        new_res_combine["new_p_binom"] = np.hstack(
-            [0.5 * np.ones((n_states, 1)), res_combine["new_p_binom"]]
-        )
-        new_res_combine["new_taus"] = np.hstack(
-            [np.zeros((n_states, 1)), res_combine["new_taus"]]
-        )
-        new_res_combine["log_gamma"] = np.dstack(
-            [np.zeros((n_states, n_obs, 1)), res_combine["log_gamma"]]
-        )
-        new_res_combine["pred_cnv"] = np.hstack(
-            [np.zeros((n_obs, 1), dtype=int), res_combine["pred_cnv"]]
-        )
-        new_posterior = np.hstack([np.ones((n_spots, 1)) * np.nan, posterior])
+        
+    assert res_combine["new_p_binom"].shape[1] == 1
+        
+    baf_profile_list = []
+    for c in range(n_clones):
+        if is_concatenated:
+            clone_path = pred_cnv[c * n_obs : (c + 1) * n_obs]
+        else:
+            clone_path = pred_cnv[:, c]
+            
+        baf_profile_list.append(res_combine["new_p_binom"][clone_path, 0])
+        
+    baf_profiles = np.column_stack(baf_profile_list).T
+
+
+    # NB normal clone minimizes deviation from 0.5 (outside the EPS_BAF deadband)
+    baf_penalty = np.maximum(np.abs(baf_profiles - 0.5) - EPS_BAF, 0)
+    cid_normal = int(np.argmin(np.sum(baf_penalty, axis=1)))
+
+    unique_clones, spot_counts = np.unique(assignments, return_counts=True)
+    
+    mask_rest = (unique_clones != cid_normal)
+    cid_rest = unique_clones[mask_rest]
+    counts_rest = spot_counts[mask_rest]
+    
+    cid_rest_sorted = cid_rest[np.argsort(counts_rest)]
+    
+    reidx = np.concatenate(([cid_normal], cid_rest_sorted)).astype(int)
+    
+    logger.info(f"Remapping clone index: {cid_normal} (normal) to 0, otherwise sorted by spot count.")
+
+    max_id = np.max(unique_clones)
+    palette = np.zeros(max_id + 1, dtype=int)
+    
+    for new_idx, old_idx in enumerate(reidx):
+        palette[old_idx] = new_idx
+        
+    new_res_combine["new_assignment"] = palette[assignments]
+
+    for key in ["new_log_mu", "new_alphas", "new_p_binom", "new_taus"]:
+        if res_combine[key].shape[1] > 1:
+            new_res_combine[key] = res_combine[key][:, reidx]
+
+    if is_concatenated:
+        concat_idx = np.concatenate([
+            np.arange(c * n_obs, c * n_obs + n_obs) for c in reidx
+        ])
+        
+        new_res_combine["pred_cnv"] = pred_cnv[concat_idx]
+        
+        if "log_gamma" in res_combine.keys():
+            new_res_combine["log_gamma"] = res_combine["log_gamma"][:, concat_idx]
+            
+    else:
+        if pred_cnv.shape[1] > 1:
+            new_res_combine["pred_cnv"] = pred_cnv[:, reidx]
+
+        if "log_gamma" in res_combine.keys():
+            log_gamma = res_combine["log_gamma"]
+            if log_gamma.ndim == 3 and log_gamma.shape[2] > 1:
+                new_res_combine["log_gamma"] = log_gamma[:, :, reidx]
+
+    if posterior is not None and posterior.shape[1] > 1:
+        new_posterior = copy.copy(posterior)[:, reidx]
+    else:
+        new_posterior = posterior
+
     return new_res_combine, new_posterior
 
 

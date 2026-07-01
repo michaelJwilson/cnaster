@@ -1,15 +1,40 @@
 import copy
 import numpy as np
 from typing import Optional, Any
-from dataclasses import dataclass, fields, field
+from dataclasses import dataclass, fields, is_dataclass
 from cnaster.config import start_time
 from cnaster.logger import get_logger
 
 logger = get_logger(__name__, start_time=start_time)
 
+class LockableMixin:
+    _locked: bool = False
+
+    def lock(self) -> None:
+        object.__setattr__(self, '_locked', True)
+        
+        if is_dataclass(self):
+            for f in fields(self):
+                val = getattr(self, f.name)
+                if isinstance(val, LockableMixin):
+                    val.lock()
+
+    def unlock(self) -> None:
+        object.__setattr__(self, '_locked', False)
+        
+        if is_dataclass(self):
+            for f in fields(self):
+                val = getattr(self, f.name)
+                if isinstance(val, LockableMixin):
+                    val.unlock()
+
+    def __setattr__(self, name, value):
+        if getattr(self, "_locked", False) and name != "_locked":
+            raise RuntimeError(f"Instance is locked. Cannot modify attribute '{name}'.")
+        super().__setattr__(name, value)
 
 @dataclass
-class HMMParams:
+class HMMParams(LockableMixin):
     new_log_mu: np.ndarray
     new_alphas: np.ndarray
     new_p_binom: np.ndarray
@@ -19,13 +44,13 @@ class HMMParams:
 
 
 @dataclass
-class HMMProfile:
+class HMMProfile(LockableMixin):
     log_gamma: np.ndarray
     pred_cnv: np.ndarray
 
 
 @dataclass
-class CloneAssignment:
+class CloneAssignment(LockableMixin):
     assignment_before_reindex: Optional[np.ndarray] = None
     prev_assignment: Optional[np.ndarray] = None
     new_assignment: Optional[np.ndarray] = None
@@ -43,7 +68,7 @@ class CloneAssignment:
         return len(unique_labels) if unique_labels is not None else None
 
 @dataclass
-class CnaHMRFResult:
+class CnaHMRFResult(LockableMixin):
     params: HMMParams
     profile: HMMProfile
     llf: float

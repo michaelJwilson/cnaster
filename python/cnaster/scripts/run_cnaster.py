@@ -1652,13 +1652,17 @@ def run_cnaster(config_path, over_rides=None):
     
     # NB re-order clones such that the index of the most-normal clone is 0.
     res_combine, _ = reindex_clones(res_combine, posterior=None, single_tumor_prop=None)
+    res_combine.lock()
 
-    final_clones, final_clone_counts = np.unique(
+    final_clone_ids, final_clone_counts = np.unique(
         res_combine["new_assignment"], return_counts=True
     )
 
+    # TODO stronger 0 .. N?
+    assert 0 in final_clone_ids, "Normal clone (0) absent from final clone ids."
+
     logger.info(
-        f"Inferred final clones=\n{final_clones}\nwith fractions=\n{final_clone_counts/np.sum(final_clone_counts)}."
+        f"Inferred final clones=\n{final_clone_ids}\nwith fractions=\n{final_clone_counts/np.sum(final_clone_counts)}."
     )
 
     pause()
@@ -1678,16 +1682,6 @@ def run_cnaster(config_path, over_rides=None):
     np.savez(
         f"{output_dir}/rdrbaf_final_nstates{config.hmm.n_states}_smp.npz", **res_combine
     )
-
-    pause()
-
-    # NB infer integer allele-specific copy numbers
-    final_clone_ids = np.sort(np.unique(res_combine["new_assignment"]))
-
-    # TODO stronger 0 .. N?
-    assert 0 in final_clone_ids, "Normal clone (0) absent from final clone ids."
-
-    logger.info(f"Utilizing final clone ids={final_clone_ids}")
 
     pause()
 
@@ -2199,8 +2193,6 @@ def run_cnaster(config_path, over_rides=None):
         single_tumor_prop=single_tumor_prop,
         sample_list=sample_list,
         sample_ids=sample_ids,
-        base_width=4,
-        base_height=3,
     )
 
     write_fig(

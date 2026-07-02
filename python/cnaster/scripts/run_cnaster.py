@@ -2249,26 +2249,6 @@ def run_cnaster(config_path, over_rides=None):
         transparent=True,
         bbox_inches="tight",
     )
-
-    fig_loh_density = plot_loh_density(
-        coords,
-        single_X,
-        single_total_bb_RD,
-        res_combine=res_combine,
-        lengths=lengths,
-        # smooth_sigma=3.0,
-        # max_alpha=0.15,
-        # gamma=1.5,
-        color="#0055ff", # NB deep blue                                                                                                                       
-        plot_type="model", # {"empirical", "model", "both"}
-    )
-
-    write_fig(
-        f"{plots_dir}/loh_density.pdf",
-        fig_loh_density,
-        transparent=False,
-        # bbox_inches="tight",
-    )
     
     logger.info(f"Done in {(time.time() - start_time)/60.:.2f} minutes.")
 

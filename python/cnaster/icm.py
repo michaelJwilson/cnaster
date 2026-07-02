@@ -3,7 +3,6 @@ from numba import njit
 
 # from dataclasses import dataclass, asdict, field
 
-# from collections import deque
 from cnaster.config import start_time
 from cnaster.logger import get_logger
 from cnaster.hmrf_utils import hmrf_perf_entry

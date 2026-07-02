@@ -60,6 +60,7 @@ from cnaster.plotting import (  # plot_gene_snp_spatial,; plot_recombination_rat
     plot_he,
     # plot_copy_states,
 )
+from cnaster.plot_loh_density import plot_loh_density
 from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
 from cnaster.spatial import (  # fixed_rectangle_partition,; sufficient_umis_initial_clone,
     best_equal_partition,
@@ -604,6 +605,7 @@ def run_cnaster(config_path, over_rides=None):
     single_base_nb_mean[:, :] = 0
 
     # TODO utilize <BLOCK COUNTS> data structure instead of single_X, etc.
+    # TODO baf_res
     res = hmrfmix_concatenate_pipeline(
         single_X,
         lengths,
@@ -635,6 +637,8 @@ def run_cnaster(config_path, over_rides=None):
         tumorprop_threshold=config.hmrf.tumorprop_threshold,
         deconcatenate_clones=False, 
     )
+    # TODO
+    # res.lock()
 
     # TODO FINAL HACK?
     # res, _ = reindex_clones(res, posterior=None, single_tumor_prop=None)
@@ -757,6 +761,9 @@ def run_cnaster(config_path, over_rides=None):
     logger.info(
         f"Inferred {len(np.unique(merged_res['new_assignment']))} clones given baf data after min spots merge."
     )
+
+    # TODO
+    # merged_res.lock()
 
     # TODO HACK
     assignment = pd.Series([f"clone {x}" for x in merged_res["new_assignment"]])
@@ -1872,8 +1879,6 @@ def run_cnaster(config_path, over_rides=None):
             )
             """
 
-            print(f"DEBUG: s={s}, clone={cid}, idx={idx}, log_mu shape={res_combine['new_log_mu'].shape}")
-
             for name, data in zip(
                 ("logmu", "p", "A", "B"),
                 [
@@ -2245,6 +2250,26 @@ def run_cnaster(config_path, over_rides=None):
         bbox_inches="tight",
     )
 
+    fig_loh_density = plot_loh_density(
+        coords,
+        single_X,
+        single_total_bb_RD,
+        res_combine=res_combine,
+        lengths=lengths,
+        # smooth_sigma=3.0,
+        # max_alpha=0.15,
+        # gamma=1.5,
+        color="#0055ff", # NB deep blue                                                                                                                       
+        plot_type="model", # {"empirical", "model", "both"}
+    )
+
+    write_fig(
+        f"{plots_dir}/loh_density.pdf",
+        fig_loh_density,
+        transparent=False,
+        # bbox_inches="tight",
+    )
+    
     logger.info(f"Done in {(time.time() - start_time)/60.:.2f} minutes.")
 
 

@@ -7,6 +7,7 @@ import matplotlib.colors as mcolors
 from matplotlib.lines import Line2D
 from typing import Optional, Dict, Any
 
+from matplotlib.collections import LineCollection
 from cnaster.config import start_time
 from cnaster.logger import get_logger
 from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
@@ -576,7 +577,6 @@ def plot_clones_genomic(
         if res_combine is not None:
             clone_idx = 0 if res_combine["new_log_mu"].shape[1] == 1 else c
 
-            # NB Safely define this_pred regardless of df_cnv's presence
             if res_combine["pred_cnv"].ndim == 1 or res_combine["pred_cnv"].shape[1] == 1:
                 this_pred = res_combine["pred_cnv"][(c * n_obs) : (c * n_obs + n_obs)].flatten() % n_states
             else:
@@ -585,20 +585,32 @@ def plot_clones_genomic(
 
             segments, labels = get_intervals(this_pred)
             
+            # 1. Pre-compute exponential math ONCE, not inside the loop
+            exp_log_mu = np.exp(res_combine["new_log_mu"][:, clone_idx])
+            p_binom_arr = res_combine["new_p_binom"][:, clone_idx]
+
+            # 2. Build coordinate lists for LineCollection
+            rdr_lines, baf_major_lines, baf_minor_lines = [], [], []
+            
             for i, seg in enumerate(segments):
+                lbl = labels[i]
+                x_start, x_end = seg[0], seg[-1]
+                
                 if has_rdr:
-                    ax_rdr.plot(
-                        seg, [np.exp(res_combine["new_log_mu"][labels[i], clone_idx])] * 2,
-                        c="k", linewidth=0.5, zorder=2,
-                    )
-                ax_baf.plot(
-                    seg, [res_combine["new_p_binom"][labels[i], clone_idx]] * 2,
-                    c="k", linewidth=0.5, zorder=2,
-                )
-                ax_baf.plot(
-                    seg, [1.0 - res_combine["new_p_binom"][labels[i], clone_idx]] * 2,
-                    c="k", linewidth=0.5, linestyle="--", zorder=2,
-                )
+                    y_rdr = exp_log_mu[lbl]
+                    rdr_lines.append([(x_start, y_rdr), (x_end, y_rdr)])
+                
+                y_baf = p_binom_arr[lbl]
+                baf_major_lines.append([(x_start, y_baf), (x_end, y_baf)])
+                baf_minor_lines.append([(x_start, 1.0 - y_baf), (x_end, 1.0 - y_baf)])
+
+            # 3. Add collections to axes in a single vectorized batch
+            if has_rdr and rdr_lines:
+                ax_rdr.add_collection(LineCollection(rdr_lines, colors="k", linewidths=0.5, zorder=2))
+                
+            if baf_major_lines:
+                ax_baf.add_collection(LineCollection(baf_major_lines, colors="k", linewidths=0.5, zorder=2))
+                ax_baf.add_collection(LineCollection(baf_minor_lines, colors="k", linewidths=0.5, linestyles="--", zorder=2))
 
         # --- Legend & Annotations ---
         if df_cnv is not None or res_combine is not None:

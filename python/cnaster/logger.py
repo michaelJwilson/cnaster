@@ -41,7 +41,7 @@ def get_logger(name, start_time, level=logging.INFO):
         logger.handlers.clear()
 
     formatter = RuntimeFormatter(
-        fmt="%(asctime)s - %(runtime)s - %(name)s - %(levelname)-7s - %(filename)s:%(lineno)d - %(message)s",
+        fmt="%(asctime)s - %(runtime)s - %(levelname)-7s %(name)s.%(funcName)s:%(lineno)d - %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
         start_time=start_time,
     )

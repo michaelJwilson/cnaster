@@ -23,6 +23,7 @@ from cnaster.hmrf import (  # hmrf_reassignment_posterior,; hmrfmix_reassignment
 from cnaster.hmrf_utils import get_clone_assignment, get_clone_indices
 from cnaster.integer_copy import (
     hill_climbing_integer_copynumber_fixdiploid,
+    hill_climbing_integer_copynumber_fixdiploid_milp,
     hill_climbing_integer_copynumber_oneclone,
 )
 from cnaster.io import (
@@ -1758,11 +1759,12 @@ def run_cnaster(config_path, over_rides=None):
             # NB scales inferred log_mu for this clone according to the library expression.
             idx = s if res_combine["new_log_mu"].shape[1] > 1 else 0
 
+            # TODO no correction for impacy of cnas on library size?
             adjusted_log_mu = (
                 np.log(
                     np.exp(res_combine["new_log_mu"][:, idx])
                     / np.sum(
-                        np.exp(res_combine["new_log_mu"][this_pred_cnv, idx]) * lambd
+                        lambd * np.exp(res_combine["new_log_mu"][this_pred_cnv, idx])
                     )
                 )
                 if config.run.legacy
@@ -1792,7 +1794,7 @@ def run_cnaster(config_path, over_rides=None):
                     best_integer_copies,
                     loss,
                     best_ploidy,
-                ) = hill_climbing_integer_copynumber_fixdiploid(
+                ) = hill_climbing_integer_copynumber_fixdiploid_milp(
                     adjusted_log_mu,
                     base_nb_mean[:, s],
                     res_combine["new_p_binom"][:, idx],
@@ -2045,7 +2047,7 @@ def run_cnaster(config_path, over_rides=None):
             "display.max_colwidth",
             None,
         ):
-            logger.info(
+            logger.debug(
                 "Solved for integer copy numbers @ segments:\n%s",
                 df_seglevel_cnv[mask].to_string(index=False),
             )
@@ -2096,6 +2098,9 @@ def run_cnaster(config_path, over_rides=None):
         #     transparent=True,
         #     bbox_inches="tight",
         # )
+
+        # TODO HACK first ploidy constraint only;
+        break
 
     # NB complete inner loop over clones, and parent loop of assumed ploidy.
     #    i.e. currently assuming the last of the possible ploidy constraints,

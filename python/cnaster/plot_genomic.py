@@ -421,6 +421,7 @@ def plot_clones_genomic(
     palette_name: str = "chisel",
     plot_baf_errors: str = "beta",
     plot_rdr_errors: str = "poisson",
+    phased_integer_copies: bool = False,
 ):
     """
     Plots aggregated rdr and baf (with error models) and best-fit continuous copy states (mu, p).
@@ -489,11 +490,15 @@ def plot_clones_genomic(
 
         # --- Color & State Resolution ---
         if df_cnv is not None:
-            major = np.maximum(df_cnv[f"clone{cid} A"].values, df_cnv[f"clone{cid} B"].values)
-            minor = np.minimum(df_cnv[f"clone{cid} A"].values, df_cnv[f"clone{cid} B"].values)
+            if phased_integer_copies:
+                allele_1 = df_cnv[f"clone{cid} A"].values
+                allele_2 = df_cnv[f"clone{cid} B"].values
+            else:
+                # Collapse to unphased (Major, Minor)
+                allele_1 = np.maximum(df_cnv[f"clone{cid} A"].values, df_cnv[f"clone{cid} B"].values)
+                allele_2 = np.minimum(df_cnv[f"clone{cid} A"].values, df_cnv[f"clone{cid} B"].values)
 
-            # Vectorized state mapping using pandas
-            state_tuples = pd.Series(zip(major, minor))
+            state_tuples = pd.Series(zip(allele_1, allele_2))
             hue_indices = state_tuples.map(map_cn).fillna(default_idx).astype(int).values
 
             if palette_name == "chisel":

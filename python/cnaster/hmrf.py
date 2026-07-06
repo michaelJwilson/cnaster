@@ -550,7 +550,7 @@ def aggr_hmrfmix_reassignment_concatenate(
     else:
         return new_assignment, single_llf, total_llf
 
-
+'''
 def validation_summary(
     lengths,
     X,
@@ -604,7 +604,7 @@ def validation_summary(
         )
 
         zero_point += ll
-
+'''
 
 # @count_calls
 def hmrfmix_concatenate_pipeline(
@@ -644,6 +644,7 @@ def hmrfmix_concatenate_pipeline(
     spatial_weight=1.0 / 6.0,
     tumorprop_threshold=0.5,
     plot_progress=False,
+    propagate_hmm_param_errors=False,
     deconcatenate_clones=False,
 ):
     # NB num. of genomic bins, num. pseudobulk (clones, spots, ...)
@@ -1087,11 +1088,13 @@ def hmrfmix_concatenate_pipeline(
         init_taus=last_taus,
         max_iter=max_iter,
         tol=tol,
+        propagate_errors=propagate_hmm_param_errors,
         **remain_kwargs,
     )
 
     # TODO llf should also technically be updated. 
     res.params = final_bm_res.params
+    res.param_errors = final_bm_res.param_errors if propagate_hmm_param_errors else None
     res.profile = final_bm_res.profile
 
     if deconcatenate_clones:

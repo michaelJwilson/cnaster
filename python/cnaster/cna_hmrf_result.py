@@ -42,6 +42,14 @@ class HMMParams(LockableMixin):
     new_log_startprob: np.ndarray
     new_log_transmat: np.ndarray
 
+@dataclass
+class HMMParamErrors(LockableMixin):
+    new_log_mu_err: np.ndarray | None = None
+    new_alphas_err: np.ndarray | None = None
+    new_p_binom_err: np.ndarray | None = None
+    new_taus_err: np.ndarray | None = None
+    new_log_startprob_err: np.ndarray | None = None
+    new_log_transmat_err: np.ndarray | None = None
 
 @dataclass
 class HMMProfile(LockableMixin):
@@ -70,6 +78,7 @@ class CloneAssignment(LockableMixin):
 @dataclass
 class CnaHMRFResult(LockableMixin):
     params: HMMParams
+    param_errors: HMMParamErrors | None
     profile: HMMProfile
     llf: float
     n_states: int
@@ -80,7 +89,7 @@ class CnaHMRFResult(LockableMixin):
 
     def validate(self) -> None:
         # NB valid clone assignment must be 0...N labels
-        if self.assignment is not None and getattr(self.assignment, "new_assignment") is not None:
+        if self.assignment is not None and getattr(self.assignment, "new_assignment", None) is not None:
             unique_labels = np.unique(self.assignment.new_assignment)
 
             if not np.array_equal(unique_labels, np.arange(len(unique_labels))):
@@ -105,6 +114,9 @@ class CnaHMRFResult(LockableMixin):
         if hasattr(self.params, key):
             return getattr(self.params, key)
 
+        if self.param_errors is not None and hasattr(self.param_errors, key):
+            return getattr(self.param_errors, key)
+
         if hasattr(self.profile, key):
             return getattr(self.profile, key)
 
@@ -112,7 +124,7 @@ class CnaHMRFResult(LockableMixin):
             return getattr(self.assignment, key)
 
         raise KeyError(
-            f"'{key}' not found in CnaHMRFResult, HMMParams, HMMProfile, or CloneAssignment."
+            f"'{key}' not found in CnaHMRFResult, HMMParams, HMMParamErrors, HMMProfile, or CloneAssignment."
         )
 
     def __setitem__(self, key: str, value: Any) -> None:
@@ -120,6 +132,8 @@ class CnaHMRFResult(LockableMixin):
             setattr(self, key, value)
         elif hasattr(self.params, key):
             setattr(self.params, key, value)
+        elif self.param_errors is not None and hasattr(self.param_errors, key):
+            setattr(self.param_errors, key, value)
         elif hasattr(self.profile, key):
             setattr(self.profile, key, value)
         elif hasattr(self.assignment, key):
@@ -150,12 +164,14 @@ class CnaHMRFResult(LockableMixin):
             
             return str(val)
 
+        nested_fields = {"params", "param_errors", "profile", "assignment"}
+
         for f in fields(self):
-            if f.name not in {"params", "profile", "assignment"}:
+            if f.name not in nested_fields:
                 val = getattr(self, f.name)
                 lines.append(f"  {f.name}: {format_val(val, False, '    ')}")
 
-        for nested_name in ["params", "profile", "assignment"]:
+        for nested_name in ["params", "param_errors", "profile", "assignment"]:
             nested_obj = getattr(self, nested_name)
             
             if nested_obj is None:
@@ -177,7 +193,6 @@ class CnaHMRFResult(LockableMixin):
 
         return "\n".join(lines)
 
-    # NB mirror shallow copy behavior a dictionary.
     def copy(self, deep: bool = False) -> "CnaHMRFResult":
         if deep:
             return copy.deepcopy(self)
@@ -186,13 +201,13 @@ class CnaHMRFResult(LockableMixin):
 
     def keys(self):
         all_keys = []
+        nested_fields = {"params", "param_errors", "profile", "assignment"}
 
-        # NB add top-level scalars (llf, n_states)
         for f in fields(self):
-            if f.name not in {"params", "profile", "assignment"}:
+            if f.name not in nested_fields:
                 all_keys.append(f.name)
 
-        for sub_obj in [self.params, self.profile, self.assignment]:
+        for sub_obj in [self.params, self.param_errors, self.profile, self.assignment]:
             if sub_obj is not None:
                 all_keys.extend(f.name for f in fields(sub_obj))
 

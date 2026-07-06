@@ -6,6 +6,7 @@ from cnaster.hmm_utils import compute_posterior_obs
 from cnaster.cna_hmrf_result import (
     CnaHMRFResult,
     HMMParams,
+    HMMParamErrors,
     HMMProfile,
     CloneAssignment,
 )
@@ -39,6 +40,7 @@ def pipeline_baum_welch(
     init_alphas=None,
     init_taus=None,
     is_diag=True,
+    propagate_errors=False,
     max_iter=100,
     tol=1e-4,
     **kwargs,
@@ -105,6 +107,7 @@ def pipeline_baum_welch(
         init_taus=init_taus,
         max_iter=max_iter,
         tol=tol,
+        propagate_errors=propagate_errors,
         **remain_kwargs,
     )
 
@@ -238,6 +241,15 @@ def pipeline_baum_welch(
         f"Solved HMM with LLF={llf:.6e} for new_log_mu.shape={new_log_mu.shape} given X.shape={X.shape}"
     )
 
+    param_errors=HMMParamErrors(
+        new_log_mu_err=res["new_log_mu_err"],
+        new_alphas_err=res["new_alphas_err"],
+        new_p_binom_err=res["new_p_binom_err"],
+        new_taus_err=res["new_taus_err"],
+        new_log_startprob_err=None, # TODO
+        new_log_transmat_err=None, # TODO
+    ) if propagate_errors else None
+
     # NB pred (when clones concatenated along an axis) assumes a clone (order) definition.
     return CnaHMRFResult(
         params=HMMParams(
@@ -248,6 +260,7 @@ def pipeline_baum_welch(
             new_log_startprob=new_log_startprob,
             new_log_transmat=new_log_transmat,
         ),
+        param_errors=param_errors,
         profile=HMMProfile(
             log_gamma=log_gamma,
             pred_cnv=pred_cnv,

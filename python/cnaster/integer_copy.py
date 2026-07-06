@@ -1,6 +1,6 @@
 import copy
 import numpy as np
-from cnaster.config import get_global_config
+# from cnaster.config import get_global_config
 from cnaster.config import start_time
 from cnaster.logger import get_logger
 
@@ -359,12 +359,13 @@ def hill_climbing_integer_copynumber_fixdiploid(
     for m, p, pts in zip(mu, new_p_binom, points_per_state):
         logger.info(f"\t{m:.4f}\t{p:.4f}\t{pts:.1f}")
 
+    # TODO no closure.
     def is_nondiploidnormal(k):
         """
-        Check if state k (into p_binom and mu) is non-normal under the criteria that:
+        Check if state k (indexed into inferrred real p_binom and mu) is non-normal under the criteria that:
 
-        (1) BAF is away from 0.5 by nonbalance_bafdist distance (if set)
-        (2) RDR is away from 1 by nondiploid_rdrdist distance (if set)
+        (1) BAF is away from 0.5 by nonbalance_bafdist distance (if keyword is set)
+        (2) RDR is away from 1 by nondiploid_rdrdist distance (if keyword is set)
         """
         if nonbalance_bafdist is not None:
             if np.abs(new_p_binom[k] - 0.5) > nonbalance_bafdist:
@@ -375,9 +376,9 @@ def hill_climbing_integer_copynumber_fixdiploid(
         return False
 
     # NB the assumed objective.
-    def f(params, ploidy, scalefactor):
-        # NB - params of size (n_states, 2)
-        #    - enforce zero copy states to have large cost
+    def objective(params, ploidy, scalefactor):
+        # NB - params of size (n_states, 2), i.e. (mu, p) for each copy state.
+        #    - enforce copy states with zero copies to have near-infinite cost.
         total_copies = np.sum(params, axis=1)
 
         if np.any(total_copies == 0):
@@ -414,7 +415,7 @@ def hill_climbing_integer_copynumber_fixdiploid(
     def hill_climb(initial_params, ploidy, idx_diploid_normal, max_iter=10):
         # NB scaling of RDR for normal state to two copies.
         scalefactor = 2.0 / mu[idx_diploid_normal]
-        best_obj = f(initial_params, ploidy, scalefactor)
+        best_obj = objective(initial_params, ploidy, scalefactor)
         params = copy.copy(initial_params)
         increased = True
 
@@ -438,7 +439,7 @@ def hill_climbing_integer_copynumber_fixdiploid(
                         continue
 
                     params[k, :] = candi
-                    obj = f(params, ploidy, scalefactor)
+                    obj = objective(params, ploidy, scalefactor)
 
                     if obj < this_best_obj:
                         this_best_obj = obj

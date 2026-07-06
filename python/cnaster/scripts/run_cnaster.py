@@ -635,6 +635,7 @@ def run_cnaster(config_path, over_rides=None):
         tol=config.hmm.tol,
         spatial_weight=config.hmrf.spatial_weight,
         tumorprop_threshold=config.hmrf.tumorprop_threshold,
+        propagate_hmm_param_errors=False,
         deconcatenate_clones=False, 
     )
     # TODO
@@ -1061,10 +1062,13 @@ def run_cnaster(config_path, over_rides=None):
         init_p_binom=None,
         init_log_mu=None,
         # onehot_allowed_clones=None,
+        propagate_hmm_param_errors=True,
         deconcatenate_clones=True,
     )
 
     logger.info(f"Solved for res_combine=\n{res_combine}")
+
+    exit(0)
 
     X, base_nb_mean, total_bb_RD, tumor_prop = merge_pseudobulk_by_index_mix(
         single_X,

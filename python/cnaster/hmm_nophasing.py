@@ -503,6 +503,93 @@ class hmm_nophasing:
 
         return log_startprob, log_mu, p_binom, alphas, taus
 
+    def unpack_param_errors(
+        self,
+        x,
+        hess_inv,
+        n_states,
+        optimize_nb=True,
+        fix_NB_dispersion=False,
+        shared_NB_dispersion=False,
+        fix_BB_dispersion=False,
+        shared_BB_dispersion=False,
+        use_logit=True,
+    ):
+        idx = 0
+        parameter_errors_diag = np.sqrt(np.clip(np.diag(hess_inv), a_min=0, a_max=None))
+
+        if "s" in self.params:
+            raw_startprob = x[idx : idx + n_states]
+            cov_raw = hess_inv[idx : idx + n_states, idx : idx + n_states]
+            
+            p_start = scipy.special.softmax(raw_startprob)
+            
+            J = np.eye(n_states) - np.outer(np.ones(n_states), p_start)
+            
+            cov_transformed = J @ cov_raw @ J.T
+            
+            log_startprob_err = np.sqrt(np.clip(np.diag(cov_transformed), a_min=0, a_max=None))
+            idx += n_states
+        else:
+            log_startprob_err = None
+
+        if optimize_nb and "m" in self.params:
+            log_mu_err = parameter_errors_diag[idx : idx + n_states].reshape(n_states, 1)
+            idx += n_states
+        else:
+            log_mu_err = None
+
+        if "p" in self.params:
+            raw_p_err = parameter_errors_diag[idx : idx + n_states].reshape(n_states, 1)
+            if use_logit:
+                p_binom_val = scipy.special.expit(x[idx : idx + n_states].reshape(n_states, 1))
+                p_binom_err = p_binom_val * (1 - p_binom_val) * raw_p_err
+            else:
+                p_binom_err = raw_p_err
+            idx += n_states
+        else:
+            p_binom_err = None
+
+        if optimize_nb and "m" in self.params and not fix_NB_dispersion:
+            if shared_NB_dispersion:
+                val_raw = x[idx]
+                val_err = parameter_errors_diag[idx]
+                
+                alpha_val = np.exp(val_raw)
+                alpha_err = alpha_val * val_err
+                alphas_err = np.full((n_states, 1), alpha_err)
+                idx += 1
+            else:
+                val_raw = x[idx : idx + n_states].reshape(n_states, 1)
+                val_err = parameter_errors_diag[idx : idx + n_states].reshape(n_states, 1)
+                
+                alphas_val = np.exp(val_raw)
+                alphas_err = alphas_val * val_err
+                idx += n_states
+        else:
+            alphas_err = None
+
+        if "p" in self.params and not fix_BB_dispersion:
+            if shared_BB_dispersion:
+                val_raw = x[idx]
+                val_err = parameter_errors_diag[idx]
+                
+                tau_val = np.exp(val_raw)
+                tau_err = tau_val * val_err
+                taus_err = np.full((n_states, 1), tau_err)
+                idx += 1
+            else:
+                val_raw = x[idx : idx + n_states].reshape(n_states, 1)
+                val_err = parameter_errors_diag[idx : idx + n_states].reshape(n_states, 1)
+                
+                taus_val = np.exp(val_raw)
+                taus_err = taus_val * val_err
+                idx += n_states
+        else:
+            taus_err = None
+
+        return log_startprob_err, log_mu_err, p_binom_err, alphas_err, taus_err
+
     def run_baum_welch_nb_bb(
         self,
         X,
@@ -899,6 +986,7 @@ class hmm_nophasing:
         max_rdr=5.0,  # TODO HACK MAGIC
         tol=1e-4,
         use_logit=False,
+        propagate_errors=False,
         **kwargs,
     ):
         _, n_comp, n_spots = X.shape
@@ -1159,18 +1247,35 @@ class hmm_nophasing:
             f"nll: {res.fun:.6e}\n"
         )
 
-        """
-        try:
-            if isinstance(res.hess_inv, np.ndarray):
-                hess_inv = res.hess_inv
-            else:
-                hess_inv = res.hess_inv.todense()
-            parameter_errors = np.sqrt(np.diag(hess_inv))
-            logger.info(f"Parameter errors (std dev):\n{parameter_errors}")
-        except Exception as e:
-            logger.warning(f"Failed to compute parameter errors: {e}")
-            parameter_errors = None
-        """
+        if propagate_errors:
+            # parameter_errors = np.sqrt(np.diag(res.hess_inv.todense()))
+            (
+                log_startprob_err, 
+                log_mu_err, 
+                p_binom_err, 
+                alphas_err, 
+                taus_err
+            ) = self.unpack_param_errors(
+                x=res.x,
+                hess_inv=res.hess_inv,
+                n_states=n_states,
+                optimize_nb=optimize_nb,
+                fix_NB_dispersion=fix_NB_dispersion,
+                shared_NB_dispersion=shared_NB_dispersion,
+                fix_BB_dispersion=fix_BB_dispersion,
+                shared_BB_dispersion=shared_BB_dispersion,
+                use_logit=use_logit
+            )
+
+            param_errors = {
+                "new_log_mu_err": log_mu_err,
+                "new_alphas_err": alphas_err,
+                "new_p_binom_err": p_binom_err,
+                "new_taus_err": taus_err,
+                "new_log_startprob_err": None, # TODO
+            }
+        else:
+            param_errors = {}
 
         final_log_startprob, final_log_mu, final_p_binom, final_alphas, final_taus = (
             self.unpack_params(
@@ -1260,4 +1365,4 @@ class hmm_nophasing:
             "pred_cnv": np.argmax(log_gamma, axis=0),
             "llf": -cost(res.x),
             "n_states": n_states,
-        }
+        } | param_errors

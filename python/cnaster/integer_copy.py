@@ -375,7 +375,8 @@ def hill_climbing_integer_copynumber_fixdiploid(
                 return True
         return False
 
-    # NB the assumed objective.
+    # TODO no closure.
+    # TODO rename integer params.
     def objective(params, ploidy, scalefactor):
         # NB - params of size (n_states, 2), i.e. (mu, p) for each copy state.
         #    - enforce copy states with zero copies to have near-infinite cost.
@@ -384,7 +385,9 @@ def hill_climbing_integer_copynumber_fixdiploid(
         if np.any(total_copies == 0):
             return len(pred_cnv) * 1e6
 
-        # NB "onclone" variant assumed scalefactor=2.
+        # NB  derive real variables from integer parameterization, (A,B).
+        # 
+        #    "one-clone" variant assumes scalefactor=2;
         frac_rdr = total_copies / scalefactor
         frac_baf = params[:, 0] / total_copies
 
@@ -397,7 +400,9 @@ def hill_climbing_integer_copynumber_fixdiploid(
             total_copies[:, None] - total_copies[None, :] > 0
         )
 
-        # NB penalty on state ploidy weighted by points_per_state,
+        # NB derived ploidy is the copy state weighted average of integer total copies, 
+        #    
+        #    penalty on state ploidy weighted by points_per_state,
         #    if this is > desired ploidy (+ 0.5 in margin) it takes a (large) cost hit,
         #    solution cost shared by all states.
         derived_ploidy = total_copies.dot(points_per_state) / points_per_state_norm

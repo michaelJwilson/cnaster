@@ -1396,10 +1396,10 @@ class hmm_nophasing:
         bbEncoder = CountEncoder(X[:, 1, :], total_bb_RD)
 
         logger.info(
-            f"Solved for med. {np.median(nbEncoder.total_count):.4f} and max. {np.max(nbEncoder.total_count):.4f} total counts for nbEncoder."
+            f"Solved for med. {np.median(nbEncoder.total_count):.4f} and max. {np.max(nbEncoder.total_count):.4f} total counts for nbEncoder ({nbEncoder.compression_rate:.2%} compression)."
         )
         logger.info(
-            f"Solved for med. {np.median(bbEncoder.total_count):.4f} and max. {np.max(bbEncoder.total_count):.4f} total counts for bbEncoder."
+            f"Solved for med. {np.median(bbEncoder.total_count):.4f} and max. {np.max(bbEncoder.total_count):.4f} total counts for bbEncoder ({bbEncoder.compression_rate:.2%} compression)."
         )
 
         (
@@ -1439,7 +1439,6 @@ class hmm_nophasing:
                 )
             )
 
-            # Compute emissions
             log_emission_rdr, log_emission_baf = (
                 self.compute_emission_probability_nb_betabinom_coded(
                     nbEncoder, bbEncoder, this_log_mu, this_alphas, this_p_binom, this_taus,
@@ -1460,20 +1459,20 @@ class hmm_nophasing:
             return total_nll
 
         start_time_opt = time.time()
-        logger.info(f"Starting Direct Marginal Likelihood Optimization with BFGS\ninitial NLL={nll_forward(x0):.6e}")
+        logger.info(f"Starting marginal likelihood optimization with bfgs\ninitial NLL={nll_forward(x0):.6e}")
 
-        # Removed the callback. The landscape is now perfectly stationary.
         options = {
             "maxiter": kwargs.get("max_iter", max_iter),
             "disp": False,
         }
 
-        # We highly recommend switching to 'L-BFGS-B' if you start exceeding ~15 states
-        # as dense BFGS Hessian updates become computationally expensive O(N^2).
+        logger.info(f"Assuming options={options}")
+
+        # deepmind/optax, google/jaxopt.
         res = scipy.optimize.minimize(
             nll_forward,
             x0,
-            method="BFGS",
+            method="L-BFGS-B", # BFGS
             options=options,
         )
 
@@ -1486,9 +1485,6 @@ class hmm_nophasing:
             f"final NLL: {res.fun:.6e}\n"
         )
 
-        # ---------------------------------------------------------
-        # Finalization & Error Extraction
-        # ---------------------------------------------------------
         if propagate_errors:
             (
                 log_startprob_err, log_mu_err, p_binom_err, alphas_err, taus_err
@@ -1520,9 +1516,6 @@ class hmm_nophasing:
             )
         )
 
-        # ---------------------------------------------------------
-        # Calculate Final Viterbi / Posteriors
-        # ---------------------------------------------------------
         final_rdr, final_baf = self.compute_emission_probability_nb_betabinom(
             X, base_nb_mean, final_log_mu, final_alphas, total_bb_RD, final_p_binom, final_taus,
         )

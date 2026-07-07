@@ -76,18 +76,21 @@ def find_diploid_balanced_state(
     if len(candidate) == 0:
         raise ValueError("No candidate diploid balanced state found!")
     else:
-        # NB the diploid balanced states has the smallest inferred log_mu (supposedly).
-        # TODO can be negative.
-        min_log_mu = np.min(new_log_mu[candidate])
-        normal_candidate = candidate[np.argmin(new_log_mu[candidate])]
+        # DEPRECATE the diploid balanced states has the smallest inferred log_mu (supposedly).
+        # normal_candidate_idx = np.argmin(new_log_mu[candidate]
+
+        normal_candidate_idx = np.argmin(np.abs(1. - np.exp(new_log_mu[candidate])))
+        normal_candidate = candidate[normal_candidate_idx]    
+
+        log_mu = new_log_mu[normal_candidate]
 
         logger.info(
             f"Found candidate normal state with new_log_mu={new_log_mu[normal_candidate]} and p_binom={new_p_binom[normal_candidate]}"
         )
 
-        if min_log_mu < 0.95:
+        if np.exp(log_mu) > 1.1 or np.exp(log_mu) < 0.9:
             logger.warning(
-                f"Assumed normal candidate has non-normal rdr: {np.exp(min_log_mu):.4f}"
+                f"Assumed normal candidate has non-normal rdr: {np.exp(log_mu):.4f}"
             )
 
         return normal_candidate

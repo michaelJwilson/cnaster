@@ -1025,7 +1025,7 @@ def run_cnaster(config_path, over_rides=None):
 
     pause()
 
-    logger.runtime_phase = "BAF & RDR CLONE & COPY STATE INFERENCE"
+    logger.runtime_phase = "BAF/RDR CLONE & COPY STATE INFERENCE"
 
     logger.info(
         f"Refinining {n_baf_clones} baf-identified clones with umi data assuming n_clones_rdr={config.hmrf.n_clones_rdr}"
@@ -2117,7 +2117,7 @@ def run_cnaster(config_path, over_rides=None):
         # TODO HACK first ploidy constraint only;
         break
 
-    logger.runtime_phase = "FINALIZE (WRITE & PLOT)"
+    logger.runtime_phase = "FINALIZE -- WRITE & PLOT"
 
     # NB complete inner loop over clones, and parent loop of assumed ploidy.
     #    i.e. currently assuming the last of the possible ploidy constraints,

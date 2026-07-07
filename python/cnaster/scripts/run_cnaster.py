@@ -961,7 +961,7 @@ def run_cnaster(config_path, over_rides=None):
         logger.warning(f"Assuming no filter for normal differential expression.")
 
     pause()
-
+    
     # TODO HACK >>>>>>  do not filter, but merge segments with insufficient normal umi counts.
     #                   assumes ...  what assumption on phasing, baf-switches?
     df_gene_snp = create_bin_ranges(
@@ -1007,7 +1007,7 @@ def run_cnaster(config_path, over_rides=None):
 
     copy_single_X_rdr = single_X[:, 0, :]
     # <<<<<<<<<<<<
-
+    
     # NB >>>>>  zeros single_X_rdr entries with insufficient normal counts,
     #           given config.quality.min_normal_count_perbin.
     _, copy_single_X_rdr, copy_single_base_nb_mean = determine_normal_baseline(
@@ -1015,7 +1015,7 @@ def run_cnaster(config_path, over_rides=None):
         normal_candidate,
         config,
     )
-
+    '''
     # TODO HACK FINAL
     _, copy_single_X_rdr, copy_single_base_nb_mean, _ = determine_local_normal_baseline(
         config,
@@ -1027,7 +1027,7 @@ def run_cnaster(config_path, over_rides=None):
         single_tumor_prop=None,
         window_size=10
     )
-
+    '''
     # NB adding back RDR signal
     single_X[:, 0, :] = copy_single_X_rdr
     single_base_nb_mean = copy_single_base_nb_mean

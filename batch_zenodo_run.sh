@@ -6,7 +6,7 @@ ROOT="/Users/mw9568/Work/ragr/sim/"
 
 SEED=12345
 RANDOM_STATES=(0) # (0 1 2 3 4)
-USE_EXISTING=true
+USE_EXISTING=false
 MAX_JOBS=1
 
 echo "Preparing workspace..."

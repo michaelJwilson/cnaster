@@ -1,11 +1,21 @@
 import os
+
+# NB: These MUST be set before jax or any cnaster modules are imported
+os.environ["JAX_PLATFORMS"] = "cpu"
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
+
+import functools
 import time
+import logging
+import sys
 import numpy as np
 import scipy.optimize
+
 import jax
 import jax.numpy as jnp
 import jax.scipy.stats as jstats
 from jax.scipy.special import logsumexp, expit, gammaln, betaln
+
 from cnaster.count_encoder import CountEncoder
 from cnaster.hmm_nophasing import hmm_nophasing
 from cnaster.config import start_time
@@ -13,29 +23,9 @@ from cnaster.logger import get_logger
 
 logger = get_logger(__name__, start_time=start_time)
 
-
-import time
-import numpy as np
-import scipy.optimize
-import jax
-import jax.numpy as jnp
-import jax.scipy.stats as jstats
-from jax.scipy.special import logsumexp, expit, gammaln, betaln
-import functools
-
-from cnaster.hmm_nophasing import hmm_nophasing
-from cnaster.config import start_time
-from cnaster.logger import get_logger
-
-logger = get_logger(__name__, start_time=start_time)
-
+# Enable 64-bit precision to maintain gradient flow on long contigs
 jax.config.update("jax_enable_x64", True)
 
-# NB {metal}
-os.environ["JAX_PLATFORMS"] = "cpu"
-
-# NB suppress XLA/Eigen C++ compiler warnings
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
 # -------------------------------------------------------------------------
 # PURE JAX FUNCTIONS (Defined outside the class to allow JIT caching)
@@ -77,6 +67,7 @@ def jax_unpack(
         if use_logit:
             j_p_binom = expit(flat_params[idx : idx + n_states].reshape(n_states, 1))
         else:
+            # Note: Preferred approach is using use_logit=True to map coordinates smoothly
             j_p_binom = jnp.clip(
                 flat_params[idx : idx + n_states].reshape(n_states, 1), 1e-6, 1 - 1e-6
             )
@@ -180,7 +171,9 @@ def jax_nll_objective(
         0.0,
     )
 
-    log_emissions = log_rdr + log_baf
+    # Mitigate underflow variance poisoning by clamping lowest possible log likelihoods
+    MIN_LOG_PROB = -1e4
+    log_emissions = jnp.maximum(log_rdr, MIN_LOG_PROB) + jnp.maximum(log_baf, MIN_LOG_PROB)
 
     # Forward Algorithm (Scan)
     def scan_fn(prev_alpha, curr_emission):

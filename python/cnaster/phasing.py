@@ -48,7 +48,7 @@ def initial_phase_given_partition(
     """
     Phasing routine:
         -  aggregates by the provided clone assignment, initial_clone_index.
-        -  initilizes minor only p_binom with GMM.
+        -  initilizes minor only p_binom with gmm.
         -  runs baum welch to estimate the HMM parameters (i.e. dispersions) using __minor__ baf only.
         -  assumes low tolerance on HMM (run_cnaster defined).
         -  runs __phased__ baum welch per clone to estimate parameters and phasing, with no state sharing.

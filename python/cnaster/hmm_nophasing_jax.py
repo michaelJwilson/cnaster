@@ -216,6 +216,7 @@ jax_exact_hessian = jax.jit(
 )
 
 class hmm_nophasing_jax(hmm_nophasing):
+    # TODO DEPRECATE delta method - handle natively in jax.
     def unpack_param_errors(
         self,
         x,
@@ -475,7 +476,6 @@ class hmm_nophasing_jax(hmm_nophasing):
                 )
                 exact_cov_matrix = np.linalg.pinv(H_np)
 
-            # Route to our overridden Delta method
             log_startprob_err, log_mu_err, p_binom_err, alphas_err, taus_err = (
                 self.unpack_param_errors(
                     x=res.x,

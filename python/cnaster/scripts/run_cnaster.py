@@ -22,7 +22,7 @@ from cnaster.hmrf import (  # hmrf_reassignment_posterior,; hmrfmix_reassignment
 )
 from cnaster.hmrf_utils import get_clone_assignment, get_clone_indices
 from cnaster.integer_copy import (
-    hill_climbing_integer_copynumber_fixdiploid,
+    # hill_climbing_integer_copynumber_fixdiploid,
     hill_climbing_integer_copynumber_fixdiploid_milp,
     hill_climbing_integer_copynumber_oneclone,
 )

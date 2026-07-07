@@ -13,14 +13,14 @@ def build_wolff_cluster(
     temp=1.0,
 ):
     """
-    Construct a sub-cluster at a root spot with BFS from the cluster root.
+    Construct a sub-cluster at a root spot with bfs from the cluster root.
     Addition to the sub_cluster occurs with prob.
 
     p_add = 1. - exp(-edge_weight / temp)
 
     if the neighbor has the same spin as the root.
 
-    Returns the cluster and the log-probability of the (forward) move.
+    returns the cluster and the log-probability of the (forward) move.
     """
     visited, cluster, queue = [this_spot], [this_spot], [this_spot]
     current_assignment = new_assignment[this_spot]
@@ -99,7 +99,6 @@ def get_cluster_lnprob_backward(
     return lnprob_backward
 
 
-# TODO MOVE wolff
 @njit(cache=True)
 def wolff_update(
     single_llf,
@@ -214,7 +213,6 @@ def wolff_update(
         return cost_zeropoint, current_assignment, cluster, acceptance
 
 
-# TODO MOVE wolff
 def wolff_sweep(
     single_llf,
     adj_spots,

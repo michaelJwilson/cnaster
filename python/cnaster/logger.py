@@ -2,7 +2,7 @@ import logging
 import sys
 import time
 
-
+# TODO DEPRECATE parent logger.
 class RuntimeFormatter(logging.Formatter):
     def __init__(self, *args, start_time=None, **kwargs):
         super().__init__(*args, **kwargs)

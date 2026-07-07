@@ -914,7 +914,6 @@ def initialize_rdr_clone_refininement(
 
     # NB one-hot allowed (rdr-refined) clones.
     allowed_clones = np.zeros((n_spots, total_rdr_clones), dtype=bool)
-    
     global_clone_offset = 0
     
     for bafc, n_splits in enumerate(splits_per_baf):
@@ -933,7 +932,6 @@ def initialize_rdr_clone_refininement(
             global_spot_ids = idx_spots[local_idx]
             global_initial_assignment[global_spot_ids] = global_c
             
-
         allowed_clones[idx_spots, global_clone_offset : global_clone_offset + n_splits] = True        
         global_clone_offset += n_splits
 

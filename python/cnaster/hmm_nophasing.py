@@ -374,18 +374,6 @@ class hmm_nophasing:
 
         return log_mu, p_binom, alphas, taus, log_startprob, log_transmat
 
-    def get_bounds(
-        self,
-        n_states,
-    ):
-        bounds = []
-        bounds.append(np.array([(-10, 10)] * n_states))  # log_mus
-        bounds.append(np.array([(1.0e-6, 1.0 - 1.0e-6)] * n_states))  # p_binoms
-        bounds.append(np.array([(0.0, 100_000)] * n_states))  # alphas
-        bounds.append(np.array([(0.0, 100_000)] * n_states))  # taus
-
-        return bounds
-
     def pack_params(
         self,
         log_startprob,
@@ -994,6 +982,14 @@ class hmm_nophasing:
         assert n_spots == 1
         assert n_comp == 2
 
+        base_nb_mean = base_nb_mean.copy()
+
+        if max_rdr is not None:
+            with np.errstate(divide="ignore", invalid="ignore"):
+                est_rdr = X[:, 0, :] / base_nb_mean
+                est_rdr[np.isnan(est_rdr)] = 0.0
+                base_nb_mean[est_rdr > max_rdr] = 0.0
+
         optimize_nb = np.any(base_nb_mean > 0)
 
         nbEncoder = CountEncoder(X[:, 0, :], base_nb_mean)
@@ -1055,18 +1051,6 @@ class hmm_nophasing:
             use_logit=use_logit,
         )
 
-        """
-        bounds = self.get_bounds(n_states)
-        _ = self.pack_params(
-            *bounds,
-            optimize_nb=optimize_nb,
-            fix_NB_dispersion=fix_NB_dispersion,
-            shared_NB_dispersion=shared_NB_dispersion,
-            fix_BB_dispersion=fix_BB_dispersion,
-            shared_BB_dispersion=shared_BB_dispersion,
-            use_logit=use_logit,
-        )
-        """
         self.log_startprob = log_startprob
         self.log_emissions = None
         self.state_posteriors = None

@@ -414,7 +414,7 @@ def plot_clones_genomic(
     sample_list: Optional[list] = None,
     remove_xticks: bool = True,
     rdr_ylim: float = 6.0,
-    chrtext_shift: float = -0.2,
+    chrtext_shift: float = -0.3,
     base_height: float = 3.2,
     pointsize: float = 3.0,
     linewidth: float = 1.0,

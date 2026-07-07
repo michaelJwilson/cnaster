@@ -630,6 +630,7 @@ def gmm_init(
     if "p" in params:
         X_gmm_baf = X[:, 1, :] / total_bb_RD
         
+        # Assuming get_global_config is available. If not, replace with direct floats (e.g., 0.05, 0.95)
         config = get_global_config().hmm
         min_binom = float(config.gmm_min_binom_prob)
         max_binom = float(config.gmm_max_binom_prob)
@@ -706,46 +707,50 @@ def gmm_init(
         # Total mass assigned to each of the 2K components by the original data
         component_weights = posteriors.sum(axis=0) 
 
-        # 5B. Extract and Fold Means
-        if "m" in params:
-            rdr_raw = gmm.means_[:, :n_samples]
-        if "p" in params:
-            baf_raw = gmm.means_[:, n_samples:] if ("m" in params) else gmm.means_
-            baf_folded = np.where(baf_raw > 0.5, 1.0 - baf_raw, baf_raw)
-
-        # 5C. Group the 2K components into K symmetric pairs 
-        # (We use KMeans here purely to generate grouping labels, not to alter parameters)
-        folded_for_clustering = np.hstack([rdr_raw, baf_folded]) if ("m" in params and "p" in params) else (rdr_raw if "m" in params else baf_folded)
-        group_labels = KMeans(n_clusters=n_states, n_init=10, random_state=random_state).fit_predict(folded_for_clustering)
-
-        # 5D. Merge components weighted by their E-step posteriors
-        rdr_means = np.zeros((n_states, n_samples)) if "m" in params else None
-        gmm_p_binom = np.zeros((n_states, n_samples)) if "p" in params else None
-
-        for k in range(n_states):
-            mask = (group_labels == k)
-            weights_in_group = component_weights[mask]
-            weight_sum = weights_in_group.sum()
-
-            if weight_sum > 1e-9:
-                # RDR is symmetric across phase, so a weighted average of the raw RDR is perfect
-                if "m" in params:
-                    rdr_means[k] = np.average(rdr_raw[mask], axis=0, weights=weights_in_group)
+        if not only_minor:
+            # Simply select the top K components with the most data mass, regardless of phase pairing
+            logger.info("only_minor=False: Selecting top K populated components, allowing mixed phases.")
+            
+            # Sort indices by descending weight and slice top K
+            top_k_indices = np.argsort(component_weights)[-n_states:][::-1]
+            
+            if "m" in params:
+                rdr_means = gmm.means_[top_k_indices, :n_samples]
+            if "p" in params:
+                gmm_p_binom = gmm.means_[top_k_indices, n_samples:] if ("m" in params) else gmm.means_[top_k_indices, :]
                 
-                if "p" in params:
-                    if only_minor:
+        else:
+            # 5B. Extract and Fold Means for standard grouping
+            if "m" in params:
+                rdr_raw = gmm.means_[:, :n_samples]
+            if "p" in params:
+                baf_raw = gmm.means_[:, n_samples:] if ("m" in params) else gmm.means_
+                baf_folded = np.where(baf_raw > 0.5, 1.0 - baf_raw, baf_raw)
+
+            # 5C. Group the 2K components into K symmetric pairs
+            folded_for_clustering = np.hstack([rdr_raw, baf_folded]) if ("m" in params and "p" in params) else (rdr_raw if "m" in params else baf_folded)
+            group_labels = KMeans(n_clusters=n_states, n_init=10, random_state=random_state).fit_predict(folded_for_clustering)
+
+            # 5D. Merge components weighted by their E-step posteriors
+            rdr_means = np.zeros((n_states, n_samples)) if "m" in params else None
+            gmm_p_binom = np.zeros((n_states, n_samples)) if "p" in params else None
+
+            for k in range(n_states):
+                mask = (group_labels == k)
+                weights_in_group = component_weights[mask]
+                weight_sum = weights_in_group.sum()
+
+                if weight_sum > 1e-9:
+                    if "m" in params:
+                        rdr_means[k] = np.average(rdr_raw[mask], axis=0, weights=weights_in_group)
+                    if "p" in params:
                         # Force into [0.0, 0.5] space using weighted average of folded means
                         gmm_p_binom[k] = np.average(baf_folded[mask], axis=0, weights=weights_in_group)
-                    else:
-                        # Extract the un-folded phase that actually captured the most real data mass
-                        dominant_idx = np.where(mask)[0][np.argmax(weights_in_group)]
-                        gmm_p_binom[k] = baf_raw[dominant_idx]
-            else:
-                # Fallback arithmetic mean if a theoretical component captured zero real data mass
-                if "m" in params:
-                    rdr_means[k] = np.mean(rdr_raw[mask], axis=0)
-                if "p" in params:
-                    gmm_p_binom[k] = np.mean(baf_folded[mask], axis=0) if only_minor else baf_raw[np.where(mask)[0][0]]
+                else:
+                    if "m" in params:
+                        rdr_means[k] = np.mean(rdr_raw[mask], axis=0)
+                    if "p" in params:
+                        gmm_p_binom[k] = np.mean(baf_folded[mask], axis=0)
 
     else:
         # Standard Extraction (No Augmentation)

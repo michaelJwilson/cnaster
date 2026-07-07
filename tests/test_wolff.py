@@ -28,9 +28,13 @@ def large_grid_graph_2d():
     L = 50
     n_spots = L * L
     spots, neighbors, weights = [], [], []
+    
     for i in range(L):
         for j in range(L):
             node = i * L + j
+            # For each direction, we create ONE edge (Source -> Neighbor)
+            # This ensures that for every neighbor added, exactly one 'node'
+            # is added to 'spots', keeping len(spots) == len(neighbors).
             if i > 0:       
                 spots.append(node); neighbors.append((i-1)*L + j); weights.append(1.0)
             if i < L - 1:   
@@ -39,13 +43,16 @@ def large_grid_graph_2d():
                 spots.append(node); neighbors.append(i*L + j-1); weights.append(1.0)
             if j < L - 1:   
                 spots.append(node); neighbors.append(i*L + j+1); weights.append(1.0)
-                
-    csr = scipy.sparse.csr_matrix((weights, (spots, neighbors)), shape=(n_spots, n_spots))
-    indptr = np.asarray(csr.indptr, dtype=np.int32)
-    indices = np.asarray(csr.indices, dtype=np.int32)
-    data = np.asarray(csr.data, dtype=np.float64)
     
-    return n_spots, indptr, indices, data
+    # These three MUST be the exact same length
+    s_arr = np.array(spots, dtype=np.int32)
+    n_arr = np.array(neighbors, dtype=np.int32)
+    w_arr = np.array(weights, dtype=np.float64)
+    
+    # Build the matrix using the coordinate format
+    csr = scipy.sparse.csr_matrix((w_arr, (s_arr, n_arr)), shape=(n_spots, n_spots))
+    
+    return n_spots, csr.indptr.astype(np.int32), csr.indices.astype(np.int32), csr.data.astype(np.float64)
 
 @pytest.fixture
 def zero_field_setup(large_grid_graph_2d):

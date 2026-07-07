@@ -1351,7 +1351,7 @@ class hmm_nophasing:
             "n_states": n_states,
         } | param_errors
     
-    def run_baum_welch_nb_bb(
+    def run_marginal_like_nb_bb(
         self,
         X,
         lengths,

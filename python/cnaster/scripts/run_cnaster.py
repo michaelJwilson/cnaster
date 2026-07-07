@@ -624,7 +624,7 @@ def run_cnaster(config_path, over_rides=None):
         sample_ids=sample_ids,
         sample_list=sample_list,
         max_iter_outer=config.hmrf.max_iter_outer,
-        hmmclass=hmm_nophasing_jax,  # NB {hmm_nophasing} hmm_phased?
+        hmmclass=hmm_nophasing,  # NB {hmm_nophasing} hmm_phased?
         params="sp",
         t=config.hmm.t,
         random_state=config.hmm.gmm_random_state,
@@ -881,7 +881,7 @@ def run_cnaster(config_path, over_rides=None):
 
     pause()
 
-    exit(0)
+    # exit(0)
 
     #
     # =================================================================================
@@ -1050,7 +1050,7 @@ def run_cnaster(config_path, over_rides=None):
         sample_ids=sample_ids,
         sample_list=sample_list,
         max_iter_outer=config.hmrf.max_iter_outer,
-        hmmclass=hmm_nophasing_jax,
+        hmmclass=hmm_nophasing,
         params="smp",
         t=config.hmm.t,
         random_state=config.hmm.gmm_random_state,

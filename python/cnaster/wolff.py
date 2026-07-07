@@ -91,7 +91,7 @@ def wolff_sweep(
     csr_weights,
     initial_assignment,
     spatial_weight,
-    num_temps=500,
+    num_temps=5_000,
     sweeps_per_temp=5,
 ):
     labels = initial_assignment.copy()

@@ -74,6 +74,7 @@ from cnaster.spatial import (  # fixed_rectangle_partition,; sufficient_umis_ini
 # from cnaster.hmm_initialize import plot_cna_mixture
 from cnaster.plot_copy_number_profile import plot_copy_number_profile
 from cnaster.utils import configure_output_dir, merge_dicts, pause, write_fig, write_tsv
+from cnaster.hmm_nophasing_jax import hmm_nophasing_jax
 
 # from cnaster.reference import get_reference_recomb_rates
 # from cnaster.perturb import perturb_phase
@@ -623,7 +624,7 @@ def run_cnaster(config_path, over_rides=None):
         sample_ids=sample_ids,
         sample_list=sample_list,
         max_iter_outer=config.hmrf.max_iter_outer,
-        hmmclass=hmm_nophasing,  # NB {hmm_nophasing} hmm_phased?
+        hmmclass=hmm_nophasing_jax,  # NB {hmm_nophasing} hmm_phased?
         params="sp",
         t=config.hmm.t,
         random_state=config.hmm.gmm_random_state,
@@ -642,6 +643,8 @@ def run_cnaster(config_path, over_rides=None):
     # TODO
     # res.lock()
 
+    # exit(0)
+    
     # TODO FINAL HACK?
     # res, _ = reindex_clones(res, posterior=None, single_tumor_prop=None)
 
@@ -1047,7 +1050,7 @@ def run_cnaster(config_path, over_rides=None):
         sample_ids=sample_ids,
         sample_list=sample_list,
         max_iter_outer=config.hmrf.max_iter_outer,
-        hmmclass=hmm_nophasing,
+        hmmclass=hmm_nophasing_jax,
         params="smp",
         t=config.hmm.t,
         random_state=config.hmm.gmm_random_state,

@@ -408,6 +408,8 @@ def run_cnaster(config_path, over_rides=None):
         max_binlength=config.quality.max_binlength,
     )
 
+    exit(0)
+
     pause()
 
     logger.info(

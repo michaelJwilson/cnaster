@@ -1,8 +1,50 @@
 import logging
 import sys
 import time
+import types
 
-# TODO DEPRECATE parent logger.
+# 1. Create a custom Logger class that shares state across all instances
+class SharedStateLogger(logging.Logger):
+    _shared_runtime_phase = None
+
+    @property
+    def runtime_phase(self):
+        return SharedStateLogger._shared_runtime_phase
+
+    @runtime_phase.setter
+    def runtime_phase(self, value):
+        SharedStateLogger._shared_runtime_phase = value
+
+# Tell Python's logging registry to use this class for all new loggers
+logging.setLoggerClass(SharedStateLogger)
+
+
+def warning_once(self, msg, *args, **kwargs):
+    if not hasattr(self, "_seen_warnings"):
+        self._seen_warnings = set()
+    if msg not in self._seen_warnings:
+        kwargs.setdefault("stacklevel", 2)
+        self.warning(msg, *args, **kwargs)
+        self._seen_warnings.add(msg)
+
+
+def info_once(self, msg, *args, **kwargs):
+    if not hasattr(self, "_seen_infos"):
+        self._seen_infos = set()
+    if msg not in self._seen_infos:
+        kwargs.setdefault("stacklevel", 2)
+        self.info(msg, *args, **kwargs)
+        self._seen_infos.add(msg)
+
+
+# 2. Update the Filter to read from the global shared state
+class RuntimePhaseFilter(logging.Filter):
+    def filter(self, record):
+        phase = SharedStateLogger._shared_runtime_phase
+        record.runtime_phase_str = f" ({phase})" if phase else ""
+        return True
+
+
 class RuntimeFormatter(logging.Formatter):
     def __init__(self, *args, start_time=None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -12,29 +54,10 @@ class RuntimeFormatter(logging.Formatter):
         runtime_minutes = (time.time() - self.start_time) / 60.0
         record.runtime = f"{runtime_minutes:.2f}m"
         
-        # Look up the parent logger to see if a runtime_phase keyword is currently set
-        parent_logger = logging.getLogger(record.name)
-        runtime_phase = getattr(parent_logger, "runtime_phase", None)
-        
-        # Inject the keyword string or clear it if None
-        record.runtime_phase_str = f" ({runtime_phase})" if runtime_phase else ""
+        if not hasattr(record, "runtime_phase_str"):
+            record.runtime_phase_str = ""
+            
         return super().format(record)
-
-
-def warning_once(self, msg, *args, **kwargs):
-    if not hasattr(warning_once, "_seen"):
-        warning_once._seen = set()
-    if msg not in warning_once._seen:
-        self.warning(msg, *args, **kwargs)
-        warning_once._seen.add(msg)
-
-
-def info_once(self, msg, *args, **kwargs):
-    if not hasattr(info_once, "_seen"):
-        info_once._seen = set()
-    if msg not in info_once._seen:
-        self.info(msg, *args, **kwargs)
-        info_once._seen.add(msg)
 
 
 def get_logger(name, start_time, level=logging.INFO):
@@ -44,13 +67,14 @@ def get_logger(name, start_time, level=logging.INFO):
 
     if logger.hasHandlers():
         logger.handlers.clear()
+        
+    logger.filters.clear()
 
-    # Initial state: defaults to None (original behavior)
-    logger.runtime_phase = None
+    # The filter no longer needs the specific logger instance passed to it
+    logger.addFilter(RuntimePhaseFilter())
 
-    # Place %(runtime_phase_str)s right next to levelname
     formatter = RuntimeFormatter(
-        fmt="%(asctime)s - %(runtime)s - %(levelname)-7s%(runtime_phase_str)s - %(name)s.%(funcName)s:%(lineno)d - %(message)s",
+        fmt="%(asctime)s - %(runtime)s - %(levelname)-4s%(runtime_phase_str)s - %(name)s.%(funcName)s:%(lineno)d - %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
         start_time=start_time,
     )
@@ -59,7 +83,7 @@ def get_logger(name, start_time, level=logging.INFO):
     stream_handler.setFormatter(formatter)
     logger.addHandler(stream_handler)
 
-    logger.warning_once = warning_once.__get__(logger)
-    logger.info_once = info_once.__get__(logger)
+    logger.warning_once = types.MethodType(warning_once, logger)
+    logger.info_once = types.MethodType(info_once, logger)
 
     return logger

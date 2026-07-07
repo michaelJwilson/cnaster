@@ -1351,7 +1351,8 @@ class hmm_nophasing:
             "n_states": n_states,
         } | param_errors
     
-    def run_marginal_like_nb_bb(
+    # TODO run_marginal_like_nb_bb
+    def run_baum_welch_nb_bb(
         self,
         X,
         lengths,
@@ -1554,3 +1555,6 @@ class hmm_nophasing:
             "llf": -res.fun,
             "n_states": n_states,
         } | param_errors
+    
+    def optimize(self, *args, **kwargs):
+        return self.run_baum_welch_nb_bb(*args, **kwargs)

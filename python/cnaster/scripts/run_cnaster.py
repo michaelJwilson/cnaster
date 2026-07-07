@@ -90,6 +90,7 @@ logger = get_logger(__name__, start_time=start_time)
 
 
 def run_cnaster(config_path, over_rides=None):
+    logger.runtime_phase = "PREP."
     logger.info("----  Welcome to cna-maste  ----")
 
     config = YAMLConfig.from_file(config_path)
@@ -251,6 +252,7 @@ def run_cnaster(config_path, over_rides=None):
     # baf-derived phasing (assuming initial / h&e derived clones
     # ============================================================
     #
+    logger.runtime_phase = "PHASING"
 
     # NB  rectangular partition across multiple slices, equivalent to parse_visium::perform_partition.
     initial_clone_for_phasing = initialize_clones(
@@ -387,6 +389,8 @@ def run_cnaster(config_path, over_rides=None):
         df_gene_snp.block_id.map({i: x for i, x in enumerate(phase_indicator)}),
     )
 
+    logger.runtime_phase = "PHASED GENOMIC SEGMENTATION"
+
     # NB generates new genomic intervals ("bin_id") by genomic aggregation
     #    accounting for baf-derived phasing and user defined thresholds.
     df_gene_snp = create_bin_ranges(
@@ -479,6 +483,8 @@ def run_cnaster(config_path, over_rides=None):
     # baf-derived inference of clone assignment and copy number profiles
     # ===================================================================
     #
+
+    logger.runtime_phase = "BAF-ONLY CLONE & COPY STATE INFERENCE"
 
     # TODO
     # NB smooth pooling matrix & distance based (exponential decay) adjacency.
@@ -889,6 +895,8 @@ def run_cnaster(config_path, over_rides=None):
     # =================================================================================
     #
 
+    logger.runtime_phase = "NORMAL CANDIDATE DETERMINATION"
+
     # NB normal candidates (per-spot boolean) with baf only.
     normal_candidate = determine_normal_candidates(
         config,
@@ -1016,6 +1024,8 @@ def run_cnaster(config_path, over_rides=None):
     # <<<<<
 
     pause()
+
+    logger.runtime_phase = "BAF & RDR CLONE & COPY STATE INFERENCE"
 
     logger.info(
         f"Refinining {n_baf_clones} baf-identified clones with umi data assuming n_clones_rdr={config.hmrf.n_clones_rdr}"
@@ -1705,6 +1715,8 @@ def run_cnaster(config_path, over_rides=None):
     # =========================================================================================
     #
 
+    logger.runtime_phase = "INTEGER COPY NUMBER DETERMINATION"
+
     # >>>>>
     # >>>>>  TODO updated res_combine keys for integer copies, and clone assignment according to unique inferred states. 
     # >>>>>
@@ -2104,6 +2116,8 @@ def run_cnaster(config_path, over_rides=None):
 
         # TODO HACK first ploidy constraint only;
         break
+
+    logger.runtime_phase = "FINALIZE (WRITE & PLOT)"
 
     # NB complete inner loop over clones, and parent loop of assumed ploidy.
     #    i.e. currently assuming the last of the possible ploidy constraints,

@@ -1420,7 +1420,6 @@ class hmm_nophasing:
         logger.info(f"Assuming kwargs={kwargs_str}")
         logger.info(f"Assumed initial p_binom and dispersion:\n{np.hstack((p_binom, taus))}")
 
-        # Pack parameters into a flat array for scipy
         x0 = self.pack_params(
             log_startprob, log_mu, p_binom, alphas, taus,
             optimize_nb=optimize_nb,
@@ -1429,9 +1428,6 @@ class hmm_nophasing:
             use_logit=use_logit,
         )
 
-        # ---------------------------------------------------------
-        # Direct Marginal Log-Likelihood Objective
-        # ---------------------------------------------------------
         def nll_forward(params):
             this_log_startprob, this_log_mu, this_p_binom, this_alphas, this_taus = (
                 self.unpack_params(
@@ -1451,13 +1447,10 @@ class hmm_nophasing:
             )
             
             log_emissions = (log_emission_rdr + log_emission_baf)[:, :, np.newaxis]
-
-            # Run Forward algorithm to integrate out the hidden states exactly
             log_alpha = self.forward_lattice(
                 lengths, log_transmat, this_log_startprob, log_emissions, log_sitewise_transmat,
             )
 
-            # Sum the terminal log-probabilities for each independent contig/segment
             curr = 0
             total_nll = 0
             for le in lengths:

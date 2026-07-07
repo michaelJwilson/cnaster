@@ -6,8 +6,6 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
 import functools
 import time
-import logging
-import sys
 import numpy as np
 import scipy.optimize
 
@@ -15,8 +13,6 @@ import jax
 import jax.numpy as jnp
 import jax.scipy.stats as jstats
 from jax.scipy.special import logsumexp, expit, gammaln, betaln
-
-from cnaster.count_encoder import CountEncoder
 from cnaster.hmm_nophasing import hmm_nophasing
 from cnaster.config import start_time
 from cnaster.logger import get_logger
@@ -97,7 +93,7 @@ def jax_unpack(
 
     return j_log_startprob, j_log_mu, j_p_binom, j_alphas, j_taus
 
-
+# NB compiles once per set of static arguments.
 @functools.partial(
     jax.jit,
     static_argnames=[
@@ -134,9 +130,6 @@ def jax_nll_objective(
     use_logit,
     lengths,
 ):
-    """
-    Pure, JIT-compiled Marginal Likelihood. Will only compile ONCE per unique set of static arguments (like `lengths`).
-    """
     j_log_start, j_log_mu, j_p_binom, j_alphas, j_taus = jax_unpack(
         flat_params,
         n_states,
@@ -153,8 +146,6 @@ def jax_nll_objective(
         alphas_init,
         taus_init,
     )
-
-    # Vectorized Emissions
     mu_nb = base_nb_mean * jnp.exp(j_log_mu)
     n_nb = 1.0 / j_alphas
     p_nb = n_nb / (n_nb + mu_nb)
@@ -171,30 +162,30 @@ def jax_nll_objective(
         0.0,
     )
 
-    # Mitigate underflow variance poisoning by clamping lowest possible log likelihoods
+    # NB mitigate underflow variance poisoning by clamping lowest possible log likelihoods
     MIN_LOG_PROB = -1e4
     log_emissions = jnp.maximum(log_rdr, MIN_LOG_PROB) + jnp.maximum(log_baf, MIN_LOG_PROB)
 
-    # Forward Algorithm (Scan)
+    # NB forward algorithm (scan).
     def scan_fn(prev_alpha, curr_emission):
         next_alpha = (
             logsumexp(prev_alpha[:, None] + log_transmat, axis=0) + curr_emission
         )
-        return next_alpha, next_alpha
+        return next_alpha
 
     total_nll = 0.0
     curr = 0
     for le in lengths:
         contig_emissions = log_emissions[:, curr : curr + le]
         init_alpha = j_log_start + contig_emissions[:, 0]
-        final_alpha, _ = jax.lax.scan(scan_fn, init_alpha, contig_emissions[:, 1:].T)
+        final_alpha = jax.lax.scan(scan_fn, init_alpha, contig_emissions[:, 1:].T)
         total_nll += -logsumexp(final_alpha)
         curr += le
 
     return total_nll
 
 
-# Automatically generate optimized gradient and hessian functions based on the JIT objective
+# NB automatically generate optimized gradient and hessian functions based on the JIT objective
 jax_value_and_grad = jax.jit(
     jax.value_and_grad(jax_nll_objective, argnums=0),
     static_argnames=[
@@ -224,12 +215,6 @@ jax_exact_hessian = jax.jit(
     ],
 )
 
-
-# -------------------------------------------------------------------------
-# OVERRIDDEN CLASS
-# -------------------------------------------------------------------------
-
-
 class hmm_nophasing_jax(hmm_nophasing):
     def unpack_param_errors(
         self,
@@ -244,12 +229,12 @@ class hmm_nophasing_jax(hmm_nophasing):
         use_logit=True,
     ):
         """
-        Vectorized error unpacking utilizing the EXACT inverse Hessian (Covariance matrix)
-        computed by JAX. Applies the Delta method for parameter transformations.
+        Vectorized error unpacking utilizing the jax inverse Hessian.
+        Applies the Delta method for parameter transformations.
         """
         idx = 0
 
-        # Extract base standard errors (variance diagonal)
+        # NB base standard errors (variance diagonal)
         parameter_errors_diag = np.sqrt(
             np.clip(np.diag(exact_cov_matrix), a_min=0, a_max=None)
         )
@@ -330,7 +315,7 @@ class hmm_nophasing_jax(hmm_nophasing):
 
         return log_startprob_err, log_mu_err, p_binom_err, alphas_err, taus_err
 
-    def run_baum_welch_nb_bb(
+    def run_marginal_likelihood_nb_bb(
         self,
         X,
         lengths,
@@ -402,17 +387,16 @@ class hmm_nophasing_jax(hmm_nophasing):
             use_logit=use_logit,
         )
 
-        # 1. Bind dynamic data to JAX arrays once
         jax_X_rdr = jnp.array(X[:, 0, 0])
         jax_base_nb_mean = jnp.array(base_nb_mean[:, 0])
         jax_X_baf = jnp.array(X[:, 1, 0])
         jax_total_bb_RD = jnp.array(total_bb_RD[:, 0])
         jax_log_transmat = jnp.array(log_transmat)
 
-        # We must pass lengths as a tuple so JAX can hash it as a static compile-time argument
+        # NB pass lengths as a tuple so JAX can hash it as a static compile-time argument
         static_lengths = tuple(lengths)
 
-        # 2. Setup the bridge to Scipy
+        # TODO jax optimization.
         def objective_fn(params_np):
             v, g = jax_value_and_grad(
                 jnp.array(params_np),
@@ -450,18 +434,15 @@ class hmm_nophasing_jax(hmm_nophasing):
         )
 
         logger.info(
-            f"JAX Optimization complete: {time.time() - start_time_opt:.2f}s. NLL: {res.fun:.6e}"
+            f"JAX optimization complete: {time.time() - start_time_opt:.2f}s. NLL: {res.fun:.6e}"
         )
 
-        # ---------------------------------------------------------------------
-        # Finalization & EXACT Hessian Computation
-        # ---------------------------------------------------------------------
         if propagate_errors:
             logger.info(
                 "Computing exact Hessian via JAX for parameter standard errors..."
             )
 
-            # Compute Exact Hessian
+            # TODO direct jax inverse hessian? 
             H_jax = jax_exact_hessian(
                 jnp.array(res.x),
                 jax_X_rdr,
@@ -486,7 +467,6 @@ class hmm_nophasing_jax(hmm_nophasing):
             )
             H_np = np.array(H_jax, dtype=np.float64)
 
-            # Invert to obtain the precise Covariance Matrix
             try:
                 exact_cov_matrix = np.linalg.inv(H_np)
             except np.linalg.LinAlgError:

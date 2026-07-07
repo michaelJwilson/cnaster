@@ -578,7 +578,7 @@ def hill_climbing_integer_copynumber_fixdiploid_milp(
     cost_type="L1",
     enforce_order=False,
     uniform_state_weights=False,
-    rdr_relative_weight=0.0,
+    rdr_relative_weight=0.3,
     enforce_states={},
     max_samples=20,  # Retained in signature for compatibility, but ignored by MILP
 ):

@@ -1350,3 +1350,207 @@ class hmm_nophasing:
             "llf": -cost(res.x),
             "n_states": n_states,
         } | param_errors
+    
+    def run_baum_welch_nb_bb(
+        self,
+        X,
+        lengths,
+        n_states,
+        base_nb_mean,
+        total_bb_RD,
+        log_sitewise_transmat=None,
+        tumor_prop=None,
+        fix_NB_dispersion=False,
+        shared_NB_dispersion=False,
+        fix_BB_dispersion=False,
+        shared_BB_dispersion=False,
+        is_diag=False,
+        init_log_mu=None,
+        init_p_binom=None,
+        init_alphas=None,
+        init_taus=None,
+        max_iter=1000,
+        max_rdr=5.0,
+        tol=1e-4,
+        use_logit=False,
+        propagate_errors=False,
+        **kwargs,
+    ):
+        _, n_comp, n_spots = X.shape
+
+        assert n_spots == 1
+        assert n_comp == 2
+
+        base_nb_mean = base_nb_mean.copy()
+
+        if max_rdr is not None:
+            with np.errstate(divide="ignore", invalid="ignore"):
+                est_rdr = X[:, 0, :] / base_nb_mean
+                est_rdr[np.isnan(est_rdr)] = 0.0
+                base_nb_mean[est_rdr > max_rdr] = 0.0
+
+        optimize_nb = np.any(base_nb_mean > 0)
+
+        nbEncoder = CountEncoder(X[:, 0, :], base_nb_mean)
+        bbEncoder = CountEncoder(X[:, 1, :], total_bb_RD)
+
+        logger.info(
+            f"Solved for med. {np.median(nbEncoder.total_count):.4f} and max. {np.max(nbEncoder.total_count):.4f} total counts for nbEncoder."
+        )
+        logger.info(
+            f"Solved for med. {np.median(bbEncoder.total_count):.4f} and max. {np.max(bbEncoder.total_count):.4f} total counts for bbEncoder."
+        )
+
+        (
+            log_mu,
+            p_binom,
+            alphas,
+            taus,
+            log_startprob,
+            log_transmat,
+        ) = self.get_initial_params(
+            n_states, n_spots, init_log_mu, init_p_binom, init_alphas, init_taus,
+        )
+
+        kwargs_str = (
+            "{\n" + "\n".join(f"  '{k}': {v}" for k, v in kwargs.items()) + "\n}"
+            if kwargs else "{}"
+        )
+        logger.info(f"Assuming kwargs={kwargs_str}")
+        logger.info(f"Assumed initial p_binom and dispersion:\n{np.hstack((p_binom, taus))}")
+
+        # Pack parameters into a flat array for scipy
+        x0 = self.pack_params(
+            log_startprob, log_mu, p_binom, alphas, taus,
+            optimize_nb=optimize_nb,
+            fix_NB_dispersion=fix_NB_dispersion, shared_NB_dispersion=shared_NB_dispersion,
+            fix_BB_dispersion=fix_BB_dispersion, shared_BB_dispersion=shared_BB_dispersion,
+            use_logit=use_logit,
+        )
+
+        # ---------------------------------------------------------
+        # Direct Marginal Log-Likelihood Objective
+        # ---------------------------------------------------------
+        def nll_forward(params):
+            this_log_startprob, this_log_mu, this_p_binom, this_alphas, this_taus = (
+                self.unpack_params(
+                    params, n_states, log_startprob, log_mu, p_binom, alphas, taus,
+                    optimize_nb=optimize_nb,
+                    fix_NB_dispersion=fix_NB_dispersion, shared_NB_dispersion=shared_NB_dispersion,
+                    fix_BB_dispersion=fix_BB_dispersion, shared_BB_dispersion=shared_BB_dispersion,
+                    use_logit=use_logit,
+                )
+            )
+
+            # Compute emissions
+            log_emission_rdr, log_emission_baf = (
+                self.compute_emission_probability_nb_betabinom_coded(
+                    nbEncoder, bbEncoder, this_log_mu, this_alphas, this_p_binom, this_taus,
+                )
+            )
+            
+            log_emissions = (log_emission_rdr + log_emission_baf)[:, :, np.newaxis]
+
+            # Run Forward algorithm to integrate out the hidden states exactly
+            log_alpha = self.forward_lattice(
+                lengths, log_transmat, this_log_startprob, log_emissions, log_sitewise_transmat,
+            )
+
+            # Sum the terminal log-probabilities for each independent contig/segment
+            curr = 0
+            total_nll = 0
+            for le in lengths:
+                total_nll += -mylogsumexp(log_alpha[:, curr + le - 1])
+                curr += le
+
+            return total_nll
+
+        start_time_opt = time.time()
+        logger.info(f"Starting Direct Marginal Likelihood Optimization with BFGS\ninitial NLL={nll_forward(x0):.6e}")
+
+        # Removed the callback. The landscape is now perfectly stationary.
+        options = {
+            "maxiter": kwargs.get("max_iter", max_iter),
+            "disp": False,
+        }
+
+        # We highly recommend switching to 'L-BFGS-B' if you start exceeding ~15 states
+        # as dense BFGS Hessian updates become computationally expensive O(N^2).
+        res = scipy.optimize.minimize(
+            nll_forward,
+            x0,
+            method="BFGS",
+            options=options,
+        )
+
+        runtime = time.time() - start_time_opt
+
+        logger.info(
+            f"Optimization complete: {runtime:.2f}s\n"
+            f"converged: {res.success}\n"
+            f"message: {res.message}\n"
+            f"final NLL: {res.fun:.6e}\n"
+        )
+
+        # ---------------------------------------------------------
+        # Finalization & Error Extraction
+        # ---------------------------------------------------------
+        if propagate_errors:
+            (
+                log_startprob_err, log_mu_err, p_binom_err, alphas_err, taus_err
+            ) = self.unpack_param_errors(
+                x=res.x, hess_inv=res.hess_inv, n_states=n_states,
+                optimize_nb=optimize_nb,
+                fix_NB_dispersion=fix_NB_dispersion, shared_NB_dispersion=shared_NB_dispersion,
+                fix_BB_dispersion=fix_BB_dispersion, shared_BB_dispersion=shared_BB_dispersion,
+                use_logit=use_logit
+            )
+
+            param_errors = {
+                "new_log_mu_err": log_mu_err,
+                "new_alphas_err": alphas_err,
+                "new_p_binom_err": p_binom_err,
+                "new_taus_err": taus_err,
+                "new_log_startprob_err": log_startprob_err,
+            }
+        else:
+            param_errors = {}
+
+        final_log_startprob, final_log_mu, final_p_binom, final_alphas, final_taus = (
+            self.unpack_params(
+                res.x, n_states, log_startprob, log_mu, p_binom, alphas, taus,
+                optimize_nb=optimize_nb,
+                fix_NB_dispersion=fix_NB_dispersion, shared_NB_dispersion=shared_NB_dispersion,
+                fix_BB_dispersion=fix_BB_dispersion, shared_BB_dispersion=shared_BB_dispersion,
+                use_logit=use_logit,
+            )
+        )
+
+        # ---------------------------------------------------------
+        # Calculate Final Viterbi / Posteriors
+        # ---------------------------------------------------------
+        final_rdr, final_baf = self.compute_emission_probability_nb_betabinom(
+            X, base_nb_mean, final_log_mu, final_alphas, total_bb_RD, final_p_binom, final_taus,
+        )
+
+        log_emission = final_rdr + final_baf
+
+        log_gamma = self.get_state_posteriors(
+            lengths, log_transmat, final_log_startprob, log_emission, log_sitewise_transmat,
+        )
+
+        state_prior = np.sum(np.exp(log_gamma), axis=1) / np.sum(np.exp(log_gamma))
+        logger.info(f"Final State posterior breakdown:\n{[f'{xx:.4e}' for xx in state_prior]}")
+
+        return {
+            "new_log_mu": final_log_mu,
+            "new_alphas": final_alphas,
+            "new_p_binom": final_p_binom,
+            "new_taus": final_taus,
+            "new_log_startprob": final_log_startprob,
+            "new_log_transmat": log_transmat, 
+            "log_gamma": log_gamma,
+            "pred_cnv": np.argmax(log_gamma, axis=0),
+            "llf": -res.fun,
+            "n_states": n_states,
+        } | param_errors

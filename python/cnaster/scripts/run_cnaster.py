@@ -41,6 +41,7 @@ from cnaster.neyman_pearson import (
 from cnaster.normal_spot import (
     binned_gene_snp,
     determine_normal_baseline,
+    determine_local_normal_baseline,
     determine_normal_candidates,
     filter_normal_diffexp,
     normal_baf_bin_filter,
@@ -1013,6 +1014,18 @@ def run_cnaster(config_path, over_rides=None):
         copy_single_X_rdr,
         normal_candidate,
         config,
+    )
+
+    # TODO HACK FINAL
+    _, copy_single_X_rdr, copy_single_base_nb_mean, _ = determine_local_normal_baseline(
+        config,
+        merged_res,
+        merged_baf_profiles,
+        single_X,
+        copy_single_X_rdr,
+        smooth_mat=None,
+        single_tumor_prop=None,
+        window_size=10
     )
 
     # NB adding back RDR signal

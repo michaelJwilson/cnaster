@@ -1612,7 +1612,7 @@ class hmm_nophasing:
         } | param_errors
     '''
 
-    def run_marginal_like_nb_bb(
+    def run_marg_likelihood_nb_bb(
         self,
         X,
         lengths,
@@ -1633,7 +1633,7 @@ class hmm_nophasing:
         max_iter=1000,
         max_rdr=5.0,
         tol=1e-4,
-        use_logit=False,
+        use_logit=True,
         propagate_errors=False,
         **kwargs,
     ):
@@ -1727,7 +1727,7 @@ class hmm_nophasing:
             
             # TODO 
             if max_change < 1.e-2:
-                logger.info(f"Stopping early: max parameter change ({max_change:.6e}) dropped below tolerance ({tol:.6e}).")
+                logger.info(f"Stopping early: max parameter change ({max_change:.6e}) dropped below tolerance ({1.e-2:.6e}).")
                 return True
 
         start_time_opt = time.time()
@@ -1748,7 +1748,7 @@ class hmm_nophasing:
             x0,
             method="L-BFGS-B", # BFGS
             options=options,
-            callback=param_tol_callback,
+            callback=None, # param_tol_callback,
             bounds=self.get_bounds(
                 n_states=n_states,
                 optimize_nb=optimize_nb,

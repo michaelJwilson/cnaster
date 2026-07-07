@@ -642,8 +642,6 @@ def run_cnaster(config_path, over_rides=None):
     )
     # TODO
     # res.lock()
-
-    # exit(0)
     
     # TODO FINAL HACK?
     # res, _ = reindex_clones(res, posterior=None, single_tumor_prop=None)
@@ -882,6 +880,8 @@ def run_cnaster(config_path, over_rides=None):
     )
 
     pause()
+
+    exit(0)
 
     #
     # =================================================================================

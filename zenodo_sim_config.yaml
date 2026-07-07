@@ -115,7 +115,7 @@ hmm:
   fix_BB_dispersion : False
   shared_BB_dispersion : True
   compression_decimals: 0
-  max_iter : 30
+  max_iter : 100
   tol : 0.001
   max_workers : 2
   gmm_random_state : 0

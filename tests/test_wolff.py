@@ -1,16 +1,16 @@
+import logging
+
+logging.disable(logging.INFO)
+
 import numpy as np
 import scipy.sparse
 import pytest
-# from numba import njit
-# from collections import deque
-# from scipy.special import logsumexp
-# import logging
 
-# logger = logging.getLogger(__name__)
 
 from cnaster.icm import icm_sweep_deque
-from cnaster.wolff import build_csr_graph, wolff_update, wolff_sweep
+from cnaster.wolff import wolff_sweep
 
+logging.getLogger("cnaster").setLevel(logging.WARNING)
 
 def calculate_total_cost(assignment, single_llf, indptr, indices, weights, spatial_weight):
     """Calculates the objective function cost to fairly compare ICM and Wolff outputs."""
@@ -55,10 +55,7 @@ def zero_field_setup(large_grid_graph_2d):
     np.random.seed(42)
     initial_assignment = np.random.randint(0, n_clones, size=n_spots, dtype=np.int32)
     
-    # Create empty posterior for ICM
     posterior = np.zeros_like(single_llf)
-    
-    # We pass None for true_labels since it's zero field
     return single_llf, initial_assignment, 1.0, posterior, None
 
 @pytest.fixture
@@ -83,16 +80,7 @@ def strong_field_setup(large_grid_graph_2d):
 
     initial_assignment = 1 - true_labels
     posterior = np.zeros_like(single_llf)
-    
     return single_llf, initial_assignment, 1.5, posterior, true_labels
-
-
-# =============================================================================
-# 4. BENCHMARK TESTS
-# =============================================================================
-
-# Global dictionary to hold custom metrics for the Pytest hook table
-custom_metrics = {}
 
 def test_benchmark_wolff_zero_field(benchmark, large_grid_graph_2d, zero_field_setup):
     n_spots, indptr, indices, weights = large_grid_graph_2d
@@ -106,14 +94,13 @@ def test_benchmark_wolff_zero_field(benchmark, large_grid_graph_2d, zero_field_s
     cost = calculate_total_cost(final_assignment, single_llf, indptr, indices, weights, spatial_weight)
     majority_fraction = np.max(np.bincount(final_assignment)) / n_spots
     
-    custom_metrics["Wolff Zero Field"] = {"Cost": cost, "Accuracy (%)": f"Condensation: {majority_fraction*100:.1f}%"}
+    print(f"\n[Wolff Zero Field] Cost: {cost:,.2f} | Condensation: {majority_fraction*100:.1f}%")
 
 def test_benchmark_icm_zero_field(benchmark, large_grid_graph_2d, zero_field_setup):
     n_spots, indptr, indices, weights = large_grid_graph_2d
     single_llf, initial_assignment, spatial_weight, posterior, _ = zero_field_setup
 
     def run_wrapper():
-        # Fresh copy needed every iteration so ICM doesn't start from an already solved state
         current_assignment = initial_assignment.copy()
         icm_sweep_deque(
             single_llf, indptr, indices, weights, current_assignment,
@@ -126,8 +113,7 @@ def test_benchmark_icm_zero_field(benchmark, large_grid_graph_2d, zero_field_set
     cost = calculate_total_cost(final_assignment, single_llf, indptr, indices, weights, spatial_weight)
     majority_fraction = np.max(np.bincount(final_assignment)) / n_spots
     
-    custom_metrics["ICM Zero Field"] = {"Cost": cost, "Accuracy (%)": f"Condensation: {majority_fraction*100:.1f}%"}
-
+    print(f"\n[ICM Zero Field] Cost: {cost:,.2f} | Condensation: {majority_fraction*100:.1f}%")
 
 def test_benchmark_wolff_strong_field(benchmark, large_grid_graph_2d, strong_field_setup):
     n_spots, indptr, indices, weights = large_grid_graph_2d
@@ -141,7 +127,7 @@ def test_benchmark_wolff_strong_field(benchmark, large_grid_graph_2d, strong_fie
     cost = calculate_total_cost(final_assignment, single_llf, indptr, indices, weights, spatial_weight)
     accuracy = np.mean(final_assignment == true_labels) * 100
     
-    custom_metrics["Wolff Strong Field"] = {"Cost": cost, "Accuracy (%)": f"{accuracy:.2f}%"}
+    print(f"\n[Wolff Strong Field] Cost: {cost:,.2f} | Accuracy: {accuracy:.2f}%")
 
 def test_benchmark_icm_strong_field(benchmark, large_grid_graph_2d, strong_field_setup):
     n_spots, indptr, indices, weights = large_grid_graph_2d
@@ -160,25 +146,4 @@ def test_benchmark_icm_strong_field(benchmark, large_grid_graph_2d, strong_field
     cost = calculate_total_cost(final_assignment, single_llf, indptr, indices, weights, spatial_weight)
     accuracy = np.mean(final_assignment == true_labels) * 100
     
-    custom_metrics["ICM Strong Field"] = {"Cost": cost, "Accuracy (%)": f"{accuracy:.2f}%"}
-
-
-# =============================================================================
-# 5. CUSTOM PYTEST TERMINAL HOOK (Renders the extra metrics table)
-# =============================================================================
-
-def pytest_terminal_summary(terminalreporter, exitstatus, config):
-    """Hooks into Pytest teardown to print a custom metrics table to the terminal."""
-    if not custom_metrics:
-        return
-        
-    terminalreporter.write("\n")
-    terminalreporter.write_sep("=", "Custom Algorithm Metrics")
-    terminalreporter.write_line(f"{'Benchmark Name':<30} | {'Final Cost (Energy)':<20} | {'Match / Condensation (%)'}")
-    terminalreporter.write_line("-" * 80)
-    
-    for name, metrics in custom_metrics.items():
-        cost_str = f"{metrics['Cost']:,.2f}"
-        acc_str = metrics['Accuracy (%)']
-        terminalreporter.write_line(f"{name:<30} | {cost_str:<20} | {acc_str}")
-    terminalreporter.write_sep("=", "")
+    print(f"\n[ICM Strong Field] Cost: {cost:,.2f} | Accuracy: {accuracy:.2f}%")

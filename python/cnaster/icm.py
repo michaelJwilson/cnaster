@@ -653,7 +653,7 @@ def icm_sweep_deque(
 
     return niter, cost
 '''
-
+'''
 def icm_sweep_deque(
     single_llf,
     adj_indptr,     
@@ -800,7 +800,166 @@ def icm_sweep_deque(
             q_next = []
 
     return niter, cost
+'''
 
+def icm_sweep_deque(
+    single_llf,
+    adj_indptr,     
+    adj_indices,  
+    adj_weights,  
+    new_assignment,
+    spatial_weight,
+    posterior,
+    onehot_allowed_clones=None, 
+    tol=0.0,
+    log_persample_weights=None,
+    sample_ids=None,
+    cost_zeropoint=0.0,
+    temp=1.0,
+    min_clone_spots=200,
+):
+    n_spots, n_clones = single_llf.shape
+    cost = cost_zeropoint
+
+    w_edge = np.zeros(n_clones, dtype=np.float64)
+    assignment_cost = np.zeros(n_clones, dtype=np.float64)
+    niter = 0
+
+    # 1. Initialize the Two Queues
+    initial_nodes = np.arange(n_spots)
+    np.random.shuffle(initial_nodes)
+    
+    q_sweep = deque(initial_nodes)  
+    q_next = []                     
+    
+    in_queue = np.ones(n_spots, dtype=np.bool_)
+    clone_counts = np.bincount(new_assignment, minlength=n_clones).astype(np.int32)
+
+    logger.info(
+        f"Starting (two-queue BFS) icm sweep with clone proportion:\n{clone_counts / clone_counts.sum()}, edit tolerance={tol:.6e} and min_clone_spots={min_clone_spots}."
+    )
+
+    min_spot_guard = 0
+    spatial_temp_factor = spatial_weight / temp
+
+    while q_sweep or q_next:
+        edits = 0
+        
+        while q_sweep:
+            i = q_sweep.popleft() 
+            in_queue[i] = False
+
+            # Fast CSR Neighbor Lookup
+            w_edge[:] = 0.0
+            start_idx = adj_indptr[i]
+            end_idx = adj_indptr[i + 1]
+            
+            for k in range(start_idx, end_idx):
+                neighbor = adj_indices[k]
+                w_edge[new_assignment[neighbor]] += adj_weights[k]
+
+            # Inlined Assignment Cost Calculation
+            max_cost = -np.inf
+            label = 0
+            
+            sample_idx = sample_ids[i] if log_persample_weights is not None else -1
+
+            for c in range(n_clones):
+                c_cost = single_llf[i, c]
+                if sample_idx >= 0:
+                    c_cost += log_persample_weights[c, sample_idx]
+                
+                c_cost += w_edge[c] * spatial_temp_factor
+
+                if onehot_allowed_clones is not None and not onehot_allowed_clones[i, c]:
+                    c_cost = -np.inf
+                
+                assignment_cost[c] = c_cost
+                if c_cost > max_cost:
+                    max_cost = c_cost
+                    label = c
+
+            # Process Edits
+            if label != new_assignment[i]:
+                edits += 1
+                cost += assignment_cost[label] - assignment_cost[new_assignment[i]]
+
+                clone_counts[new_assignment[i]] -= 1
+                clone_counts[label] += 1
+                new_assignment[i] = label
+
+                # 3. Add neighbors to the SECOND queue (q_next)
+                for k in range(start_idx, end_idx):
+                    neighbor = adj_indices[k]
+                    if not in_queue[neighbor]:
+                        q_next.append(neighbor)
+                        in_queue[neighbor] = True
+
+            # Inlined Posterior Update 
+            sum_exp = 0.0
+            for c in range(n_clones):
+                val = np.exp(assignment_cost[c] - max_cost)
+                posterior[i, c] = val
+                sum_exp += val
+            
+            for c in range(n_clones):
+                posterior[i, c] /= sum_exp
+
+        sweep_edit_rate = edits / n_spots
+        logger.info(f"Completed icm sweep epoch with a sweep edit rate={sweep_edit_rate:.6e}.")
+
+        # Minimum Spot Enforcement
+        if (min_clone_spots > 0) and (0 < clone_counts.min() < min_clone_spots):
+            eligible_clones_global = np.where(clone_counts >= min_clone_spots)[0]
+
+            for c in range(n_clones):
+                if clone_counts[c] > 0 and clone_counts[c] < min_clone_spots and len(eligible_clones_global) > 0:
+                    spot_indices = np.where(new_assignment == c)[0]
+                    
+                    for idx in spot_indices:
+                        if onehot_allowed_clones is not None:
+                            valid_for_spot = eligible_clones_global[onehot_allowed_clones[idx, eligible_clones_global]]
+                            if len(valid_for_spot) == 0:
+                                continue 
+                        else:
+                            valid_for_spot = eligible_clones_global
+
+                        new_label = np.random.choice(valid_for_spot)
+                        
+                        new_assignment[idx] = new_label
+                        clone_counts[c] -= 1
+                        clone_counts[new_label] += 1
+                        
+                        # Add forced edit's neighbors to SECOND queue
+                        start_idx = adj_indptr[idx]
+                        end_idx = adj_indptr[idx + 1]
+                        for k in range(start_idx, end_idx):
+                            neighbor = adj_indices[k]
+                            if not in_queue[neighbor]:
+                                q_next.append(neighbor)
+                                in_queue[neighbor] = True
+
+            logger.warning(
+                f"For enforcing min_clone_spot={min_clone_spots} with n_spots={n_spots}, found {len(eligible_clones_global)} valid clones. New clone proportion:\n{clone_counts / clone_counts.sum()}"
+            )
+
+            if len(eligible_clones_global) > 1:
+                sweep_edit_rate = np.inf
+                min_spot_guard += 1
+
+        niter += 1
+
+        if (sweep_edit_rate <= tol) or (np.count_nonzero(clone_counts) <= 1) or (min_spot_guard > 10):
+            break
+
+        # 4. Randomize the second queue and promote it when the first is empty
+        if q_next:
+            np.random.shuffle(q_next)
+            q_sweep = deque(q_next)
+            q_next = []
+
+    return niter, cost
+    
 def icm_sweep_pqueue(
     single_llf,
     adj_indptr,     

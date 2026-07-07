@@ -1,3 +1,4 @@
+import os
 import time
 import numpy as np
 import scipy.optimize
@@ -30,10 +31,15 @@ logger = get_logger(__name__, start_time=start_time)
 
 jax.config.update("jax_enable_x64", True)
 
+# NB {metal}
+os.environ["JAX_PLATFORMS"] = "cpu"
+
+# NB suppress XLA/Eigen C++ compiler warnings
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
+
 # -------------------------------------------------------------------------
 # PURE JAX FUNCTIONS (Defined outside the class to allow JIT caching)
 # -------------------------------------------------------------------------
-
 
 def jax_unpack(
     flat_params,

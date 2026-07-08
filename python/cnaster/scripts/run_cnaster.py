@@ -412,8 +412,6 @@ def run_cnaster(config_path, over_rides=None):
         bbox_inches="tight",
     )
 
-    exit(0)
-
     logger.runtime_phase = "PHASED GENOMIC SEGMENTATION"
 
     # NB generates new genomic intervals ("bin_id") by genomic aggregation
@@ -464,7 +462,7 @@ def run_cnaster(config_path, over_rides=None):
 
     pause()
 
-    postphasing_clones_genomic = plot_clones_genomic(
+    postphasing_aggr_clones_genomic = plot_clones_genomic(
         df_cnv=None,
         lengths=lengths,
         single_X=single_X,
@@ -477,8 +475,8 @@ def run_cnaster(config_path, over_rides=None):
     )
 
     write_fig(
-        f"{plots_dir}/postphasing_clones_genomic.pdf",
-        postphasing_clones_genomic,
+        f"{plots_dir}/postphasing_aggr_clones_genomic.pdf",
+        postphasing_aggr_clones_genomic,
         transparent=True,
         bbox_inches="tight",
     )

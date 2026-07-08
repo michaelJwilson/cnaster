@@ -43,7 +43,7 @@ def initial_phase_given_partition(
     tol,
     threshold,
     known_normal=False,
-    hmm_initializer=gmm_init,
+    hmm_initializer=cna_mixture_init,
     # min_snpumi=2e3,
 ):
     """

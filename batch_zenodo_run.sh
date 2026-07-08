@@ -1,6 +1,10 @@
 #!/bin/bash
 set -o pipefail
 
+#
+#  ensure <numcnas6.3_cnasize5e7_ploidy2_random6> in zenodo_sample_sheet.tsv, or update.
+# 
+
 # ROOT="/u/mw9568/scratch/calicost_sims/"
 ROOT="/Users/mw9568/Work/ragr/sim/"
 
@@ -37,7 +41,7 @@ echo "Found ${#SAMPLE_IDS[@]} sample ids @ ${ROOT}"
 echo "Running with ${#RANDOM_STATES[@]} random states: ${RANDOM_STATES[@]}"
 
 for SAMPLE_ID in "${SAMPLE_IDS[@]}"; do
-    sed "s|numcnas1.2_cnasize1e7_ploidy2_random0|${SAMPLE_ID}|g; s|Z001-U1|${SAMPLE_ID}|g" \
+    sed "s|numcnas6.3_cnasize5e7_ploidy2_random6|${SAMPLE_ID}|g; s|Z001-U1|${SAMPLE_ID}|g" \
         ./zenodo_sample_sheet.tsv > "zenodo_sample_sheets/zenodo_${SAMPLE_ID}_sheet.tsv"
 done
 
@@ -115,4 +119,4 @@ else
         run_single_job {1} {2} "$ROOT" "$USE_EXISTING"
 fi
 
-echo "All cnaster jobs completed."
+echo "All cna-maste jobs completed."

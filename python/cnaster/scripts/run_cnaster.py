@@ -354,7 +354,7 @@ def run_cnaster(config_path, over_rides=None):
             n_states_phasing = config.hmm.n_states
 
         # NB single_base_nb_mean initialized to zero - requires normal spot determination.
-        _, phase_indicator, refined_lengths = initial_phase_given_partition(
+        res_phasing, phase_indicator, refined_lengths = initial_phase_given_partition(
             single_X,
             lengths,
             single_base_nb_mean,
@@ -375,6 +375,9 @@ def run_cnaster(config_path, over_rides=None):
             threshold=config.hmrf.tumorprop_threshold,
         )
 
+        # TODO PATCH
+        res_phasing["new_assignment"] = get_clone_assignment(coords, initial_clone_for_phasing)
+
         logger.info(
             f"Solution for initial phase given pop. phasing (eagle) & observed baf in {(time.time() - start_time):.2f} seconds."
         )
@@ -388,6 +391,25 @@ def run_cnaster(config_path, over_rides=None):
         df_gene_snp.snp_id.isnull(),
         None,
         df_gene_snp.block_id.map({i: x for i, x in enumerate(phase_indicator)}),
+    )
+
+    postphasing_clones_genomic = plot_clones_genomic(
+        df_cnv=None,
+        lengths=lengths,
+        single_X=single_X,
+        single_base_nb_mean=single_base_nb_mean,
+        single_total_bb_RD=single_total_bb_RD,
+        clone_index=initial_clone_for_phasing,
+        res_combine=res_phasing,
+        single_tumor_prop=None,
+        sample_list=sample_list,
+    )
+
+    write_fig(
+        f"{plots_dir}/postphasing_clones_genomic.pdf",
+        postphasing_clones_genomic,
+        transparent=True,
+        bbox_inches="tight",
     )
 
     exit(0)

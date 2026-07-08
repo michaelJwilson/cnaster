@@ -275,7 +275,7 @@ def fit_dispersions_mle(X, base_nb_mean, total_bb_RD, log_mu, p_binom, n_states)
 
     return np.exp(res.x[0]), np.exp(res.x[1])
 
-
+'''
 def cna_mixture_init(
     n_states,
     X,
@@ -440,7 +440,215 @@ def cna_mixture_init(
     )
 
     return log_mu, p_binom # alphas, taus
+'''
 
+def cna_mixture_init(
+    n_states,
+    X,
+    base_nb_mean,
+    total_bb_RD,
+    params,
+    lengths,
+    log_transmat,
+    log_sitewise_transmat,
+    max_iter=100,
+    anneal=False,
+    max_rdr=np.inf,
+    random_state=42,
+    in_log_space=False,
+    only_minor=False,
+):
+    """
+    cna-mixture++: adaptive burn-in mirroring k-means++.
+
+    1. Starts at Poisson/Binomial limits.
+    2. Samples centers proportional to -ln(P) under the emission model.
+    3. Fits new dispersions given the complete set of centers.
+    4. Feeds back the best dispersions to sample better centers iteratively.
+    5. Evaluates the posteriors across the phase-expanded space to return the most populated states.
+    """
+    assert not in_log_space
+
+    np.random.seed(random_state)
+
+    known_normal = np.any(base_nb_mean > 0.0)
+
+    current_alpha, current_tau = 0.1, 1_000
+    best_solution, best_solution_lnlike = None, -np.inf
+    final_lnlike_matrix = None
+
+    logger.info(f"Starting cna-mixture++ (max_iter={max_iter}, states={n_states})")
+
+    (
+        clone_stack_X,
+        clone_stack_base_nb_mean,
+        clone_stack_total_bb_RD,
+        _,
+        _,
+        _,
+    ) = clone_stack_obs(
+        X, base_nb_mean, total_bb_RD, None, None, None
+    )
+
+    num_segments, _, _ = clone_stack_X.shape
+    flat_idx = np.arange(num_segments)
+
+    for iteration in range(max_iter):
+        log_mu = np.array([0.0 if known_normal else np.nan]).reshape((1, 1))
+        p_binom = np.array([0.5]).reshape((1, 1))
+
+        while len(log_mu) < n_states:
+            alphas = current_alpha * np.ones((len(log_mu), 1))
+            taus = current_tau * np.ones((len(log_mu), 1))
+
+            lnlike_rdr, lnlike_baf = (
+                hmm_sitewise.compute_emission_probability_nb_betabinom(
+                    clone_stack_X, clone_stack_base_nb_mean, log_mu, alphas, clone_stack_total_bb_RD, p_binom, taus
+                )
+            )
+
+            lnlike = lnlike_rdr + lnlike_baf
+            lnlike = np.nan_to_num(lnlike, nan=-1e6, posinf=1e6, neginf=-1e6)
+
+            best_lnlike = np.max(lnlike, axis=0)
+
+            # NB shift relative to global best fit to guarantee non-negative probabilities
+            # rel_lnlike = best_lnlike - np.max(best_lnlike)
+            # ps = -rel_lnlike
+
+            ps = -best_lnlike
+
+            if known_normal:
+                ps[clone_stack_base_nb_mean.ravel() == 0.0] = 0.0
+
+            # NB a lot more marginally disfavored data.
+            if anneal:
+                thres = np.percentile(ps, 100.0 * 1.0 - (len(log_mu) / (n_states - 1)))
+                ps[ps < thres] = 0.0
+
+            ps_sum = ps.sum()
+            if ps_sum > 0:
+                ps /= ps_sum
+            else:
+                ps = np.ones_like(ps) / len(ps)
+
+            ps = ps.ravel()
+
+            logger.debug(f"Solving for ps={ps}")
+
+            sample_ln_rdr, sample_baf = np.inf, np.inf
+
+            while (
+                ((known_normal and ~np.isfinite(sample_ln_rdr)))
+                or ~np.isfinite(sample_baf)
+                or sample_ln_rdr > np.log(max_rdr)
+            ):
+                # NB clones are concatenated across the genomic axis.
+                sample_idx = np.random.choice(flat_idx, p=ps)
+
+                with np.errstate(divide="ignore", invalid="ignore"):
+                    sample_ln_rdr = np.log(
+                        clone_stack_X[sample_idx, 0, 0]
+                        / clone_stack_base_nb_mean[sample_idx, 0]
+                    ) if known_normal else 0.0 
+
+                    sample_baf = (
+                        clone_stack_X[sample_idx, 1, 0]
+                        / clone_stack_total_bb_RD[sample_idx, 0]
+                    )
+
+                    logger.debug(
+                        f"Drawn new sample with log_mu={sample_ln_rdr:.4f}, p_binom={sample_baf:.4f}"
+                    )
+
+            log_mu = np.vstack([log_mu, [[sample_ln_rdr]]])
+            p_binom = np.vstack([p_binom, [[sample_baf]]])
+
+            logger.debug(
+                f"Found new center: log_mu={sample_ln_rdr:.4f}, p_binom={sample_baf:.4f}"
+            )
+
+        new_alpha, new_tau = fit_dispersions_mle(
+            clone_stack_X, clone_stack_base_nb_mean, clone_stack_total_bb_RD, log_mu, p_binom, n_states
+        )
+
+        logger.debug(f"Found new dispersions: alpha={new_alpha:.4f}, tau={new_tau:.2f}")
+
+        fit_alphas = new_alpha * np.ones((n_states, 1))
+        fit_taus = new_tau * np.ones((n_states, 1))
+
+        lnlike_rdr, lnlike_baf = hmm_sitewise.compute_emission_probability_nb_betabinom(
+            clone_stack_X, clone_stack_base_nb_mean, log_mu, fit_alphas, clone_stack_total_bb_RD, p_binom, fit_taus
+        )
+
+        final_lnlike = lnlike_rdr + lnlike_baf
+        final_lnlike = np.nan_to_num(final_lnlike, nan=-1e6, posinf=1e6, neginf=-1e6)
+
+        total_lnlike = np.sum(np.max(final_lnlike, axis=0))
+
+        if total_lnlike > best_solution_lnlike:
+            best_solution = [log_mu, fit_alphas, p_binom, fit_taus]
+            best_solution_lnlike = total_lnlike
+            final_lnlike_matrix = final_lnlike
+
+            logger.info(
+                f"Iteration {iteration}: new best ln. likelihood = {total_lnlike:.2f} | alpha = {new_alpha:.4f}, tau = {new_tau:.2f}"
+            )
+            current_alpha = new_alpha
+            current_tau = new_tau
+
+    log_mu, alphas, p_binom, taus = best_solution
+
+    if only_minor:
+        p_binom = np.where(p_binom > 0.5, 1.0 - p_binom, p_binom)
+    else:
+        lnlike_rdr, lnlike_baf = hmm_sitewise.compute_emission_probability_nb_betabinom(
+            clone_stack_X, clone_stack_base_nb_mean, log_mu, alphas, clone_stack_total_bb_RD, p_binom, taus
+        )
+        
+        log_emission = lnlike_rdr + lnlike_baf
+        log_startprob = np.full(2 * n_states, -np.log(2 * n_states))
+
+        # NB (n_states, n_states) according to phase flip.
+        log_gamma = hmm_sitewise.get_state_posteriors(
+            lengths,
+            log_transmat,
+            log_startprob,
+            log_emission,
+            log_sitewise_transmat,
+        )
+
+        # TODO check normalization.
+        posteriors = np.exp(log_gamma)
+        
+        sum_axes = tuple(range(1, posteriors.ndim))
+        component_weights = np.sum(posteriors, axis=sum_axes)
+        
+        full_log_mu = np.vstack([log_mu, log_mu])
+        full_p_binom = np.vstack([p_binom, 1.0 - p_binom])
+        
+        if len(component_weights) == len(full_log_mu):
+            top_indices = np.argsort(component_weights)[-n_states:][::-1]
+            
+            log_mu = full_log_mu[top_indices]
+            p_binom = full_p_binom[top_indices]
+            
+            logger.info(f"Selected top {n_states} states from phase-expanded space via HMM posteriors.")
+        else:
+            logger.warning("Emission likelihood shape does not match 2 * n_states. Skipping phase selection.")
+
+    if not known_normal:
+        log_mu, alphas = None, None
+
+    log_mu_str = log_mu.ravel() if log_mu is not None else "None"
+    alpha_str = f"{alphas[0,0]:.4f}" if alphas is not None else "None"
+
+    logger.info(
+        f"cna-mixture++ converged (max. ln. likelihood = {best_solution_lnlike:.6e}):\n"
+        f"log_mu={log_mu_str},\nalpha={alpha_str},\np_binom={p_binom.ravel()},\ntau={taus[0,0]:.2f}"
+    )
+
+    return log_mu, p_binom # alphas, taus
 
 # TODO define width
 def plot_cna_mixture(
@@ -784,13 +992,16 @@ def gmm_init(
     return gmm_log_mu, gmm_p_binom
 """
 
-
+# TODO FINAL utilize state posteriors to determine most populated
 def gmm_init(
     n_states,
     X,
     base_nb_mean,
     total_bb_RD,
     params,
+    lengths,
+    log_transmat,
+    log_sitewise_transmat,
     random_state=None,
     in_log_space=True,
     only_minor=True,

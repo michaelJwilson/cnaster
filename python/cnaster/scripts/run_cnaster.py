@@ -67,12 +67,12 @@ from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
 from cnaster.spatial import (  # fixed_rectangle_partition,; sufficient_umis_initial_clone,
     best_equal_partition,
     initialize_clones,
-    # multislice_adjacency,
+    multislice_adjacency,
     # rectangle_initialize_initial_clone,
     initialize_rdr_clone_refininement, 
 )
 
-from cnaster.adjacency import multislice_adjacency
+# from cnaster.adjacency import multislice_adjacency
 
 # from cnaster.hmm_initialize import plot_cna_mixture
 from cnaster.plot_copy_number_profile import plot_copy_number_profile
@@ -181,6 +181,8 @@ def run_cnaster(config_path, over_rides=None):
     sample_list, sample_ids = get_sample_list(adata)
     single_tumor_prop = read_tumor_prop(adata, config=config)
 
+    '''
+    # TODO HACK
     adjacency_mat, smooth_mat = multislice_adjacency(
         coords, 
         sample_ids, 
@@ -190,6 +192,7 @@ def run_cnaster(config_path, over_rides=None):
         dy=1.0, 
         across_slice_adjacency_mat=None 
     )
+    '''
 
     # NB parse_visium::combine_gene_snps
     #    [ chr, start, end, snp_id, gene, is_interval (is_gene) ]
@@ -380,6 +383,11 @@ def run_cnaster(config_path, over_rides=None):
         else:
             n_states_phasing = config.hmm.n_states
 
+        # TODO HACK
+        transmat = np.ones((config.hmm.n_states, config.hmm.n_states)) * (1.0 - config.hmm.t) / (config.hmm.n_states - 1)
+        np.fill_diagonal(transmat, config.hmm.t)
+        log_transmat = np.log(transmat)
+
         # NB single_base_nb_mean initialized to zero - requires normal spot determination.
         res_phasing, phase_indicator, refined_lengths = initial_phase_given_partition(
             single_X,
@@ -389,6 +397,7 @@ def run_cnaster(config_path, over_rides=None):
             single_tumor_prop,
             initial_clone_for_phasing,
             n_states_phasing,
+            log_transmat,
             log_sitewise_transmat,
             "sp",  # MAGIC params (start prob. & baf states, no transition).
             config.hmm.t_phaseing,
@@ -535,7 +544,7 @@ def run_cnaster(config_path, over_rides=None):
     #
 
     logger.runtime_phase = "BAF-ONLY CLONE & COPY STATE INFERENCE"
-    '''
+    
     # TODO
     # NB smooth pooling matrix & distance based (exponential decay) adjacency.
     #    requires pre-defined single_total_bb_RD, but largely on data loading.
@@ -552,7 +561,6 @@ def run_cnaster(config_path, over_rides=None):
         unit_xsquared=config.hmrf.unit_xsquared, # TODO
         unit_ysquared=config.hmrf.unit_ysquared, # TODO
     )
-    '''
 
     # adjacency_fig = plot_adjacency(
     #     coords,

@@ -625,6 +625,7 @@ def hmrfmix_concatenate_pipeline(
     max_iter_outer=5,
     # nodepotential="max",
     hmmclass=hmm_sitewise,
+    hmm_init=gmm_init,
     params="stmp",
     t=1 - 1e-6,
     random_state=0,
@@ -706,14 +707,21 @@ def hmrfmix_concatenate_pipeline(
 
     merge = False
 
-    # TODO initializes hmm (with gmm).
     if (init_log_mu is None) or (init_p_binom is None):
-        new_init_log_mu, new_init_p_binom = gmm_init(
+        # TODO HACK
+        transmat = np.ones((n_states, n_states)) * (1.0 - t) / (n_states - 1)
+        np.fill_diagonal(transmat, t)
+        log_transmat = np.log(transmat)
+
+        new_init_log_mu, new_init_p_binom = hmm_init(
             n_states,
             clone_stack_X,
             clone_stack_base_nb_mean,
             clone_stack_total_bb_RD,
             params,
+            clone_stack_lengths,
+            log_transmat,
+            clone_stack_sitewise_transmat,
             random_state=random_state,
             in_log_space=False,
             only_minor=False,  # NB with no phasing, we need states > 0.5;

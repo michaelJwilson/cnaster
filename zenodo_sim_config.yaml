@@ -1,9 +1,11 @@
 # NB mirrors original @ /n/fs/ragr-data/users/congma/Datasets/CalicoST_simulation/nomixing_calicost_related/numcnas1.2_cnasize1e7_ploidy2_random0/parsed_inputs/
 #
 # WARNING output_dir should match input naming convention in zenodo_sample_sheet.tsv
+#
+# {numcnas6.3_cnasize5e7_ploidy2_random6} 
 paths:
   sample_sheet : zenodo_sample_sheet.tsv
-  output_dir : /Users/mw9568/Work/ragr/sim/nomixing_cnaster_related/numcnas6.3_cnasize5e7_ploidy2_random6/
+  output_dir : /Users/mw9568/Work/ragr/sim/nomixing_cnaster_related/numcnas3.3_cnasize5e7_ploidy2_random4/
   perf_path : logs/cnaster.perf
 
 # tumorprop_file : /n/fs/scratch/mw9568/cnaster/loh_estimator_tumor_prop.tsv
@@ -136,13 +138,13 @@ hmm:
 nbinom:
   run_default : False 
   start_params: 0.1,0.1,0.1,0.1,0.1,0.1,0.1
-  start_disp: 1.0e-2
+  start_disp: 1.0e-1
 
-# TODO HACK start_disp: 1 ->
+# TODO HACK start_disp: 1 -> 20 -> 1_000.
 betabinom:
   run_default : False
   start_params: 0.5,0.5,0.5,0.5,0.5,0.5,0.5
-  start_disp:  20.0
+  start_disp: 1000.
 
 # TODO HACK ploidy : "diploid,triploid,tetraploid" ->
 #           rdr_weight : 0.3 ->

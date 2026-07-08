@@ -10,7 +10,7 @@ ROOT="/Users/mw9568/Work/ragr/sim/"
 
 SEED=12345
 RANDOM_STATES=(0) # (0 1 2 3 4)
-USE_EXISTING=false
+USE_EXISTING=true
 MAX_JOBS=1
 
 echo "Preparing workspace..."
@@ -41,7 +41,7 @@ echo "Found ${#SAMPLE_IDS[@]} sample ids @ ${ROOT}"
 echo "Running with ${#RANDOM_STATES[@]} random states: ${RANDOM_STATES[@]}"
 
 for SAMPLE_ID in "${SAMPLE_IDS[@]}"; do
-    sed "s|numcnas6.3_cnasize5e7_ploidy2_random6|${SAMPLE_ID}|g; s|Z001-U1|${SAMPLE_ID}|g" \
+    sed "s|numcnas3.3_cnasize5e7_ploidy2_random4|${SAMPLE_ID}|g; s|Z001-U1|${SAMPLE_ID}|g" \
         ./zenodo_sample_sheet.tsv > "zenodo_sample_sheets/zenodo_${SAMPLE_ID}_sheet.tsv"
 done
 
@@ -64,7 +64,7 @@ run_single_job() {
         
         if [[ ${#existing_files[@]} -gt 0 ]]; then
             # -mtime -1 accurately checks for modifications within the last 24 hours
-            if find "${existing_files[@]}" -maxdepth 0 -mtime -1 2>/dev/null | grep -q .; then
+            if find "${existing_files[@]}" -maxdepth 0 -mmin -360 2>/dev/null | grep -q .; then
                 echo "Utilizing existing results (modified < 24h) for SAMPLE_ID=${SAMPLE_ID}; RANDOM_STATE=${RANDOM_STATE}."
                 return 0
             fi

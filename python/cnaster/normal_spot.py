@@ -1008,6 +1008,7 @@ def normal_baf_bin_filter(
     col = np.where(df_gene_snp.columns == "bin_id")[0][0]
     df_gene_snp.iloc[np.where(df_gene_snp.bin_id.isin(index_removal))[0], col] = None
 
+    # NB reassign bin_id to be unique integers in [0, n_bins_remaining) for downstream processing.
     df_gene_snp["bin_id"] = df_gene_snp["bin_id"].map(
         {x: i for i, x in enumerate(index_remaining)}
     )

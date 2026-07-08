@@ -67,15 +67,18 @@ from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
 from cnaster.spatial import (  # fixed_rectangle_partition,; sufficient_umis_initial_clone,
     best_equal_partition,
     initialize_clones,
-    multislice_adjacency,
+    # multislice_adjacency,
     # rectangle_initialize_initial_clone,
     initialize_rdr_clone_refininement, 
 )
+
+from cnaster.adjacency import multislice_adjacency
 
 # from cnaster.hmm_initialize import plot_cna_mixture
 from cnaster.plot_copy_number_profile import plot_copy_number_profile
 from cnaster.utils import configure_output_dir, merge_dicts, pause, write_fig, write_tsv
 from cnaster.hmm_nophasing_jax import hmm_nophasing_jax
+from cnaster.wolff import initialize_clones_wolff
 
 # from cnaster.reference import get_reference_recomb_rates
 # from cnaster.perturb import perturb_phase
@@ -178,6 +181,16 @@ def run_cnaster(config_path, over_rides=None):
     sample_list, sample_ids = get_sample_list(adata)
     single_tumor_prop = read_tumor_prop(adata, config=config)
 
+    adjacency_mat, smooth_mat = multislice_adjacency(
+        coords, 
+        sample_ids, 
+        lattice_type=None,
+        n_nearest=6,    
+        dx=1.0, 
+        dy=1.0, 
+        across_slice_adjacency_mat=None 
+    )
+
     # NB parse_visium::combine_gene_snps
     #    [ chr, start, end, snp_id, gene, is_interval (is_gene) ]
     df_gene_snp = form_gene_snp_table(
@@ -254,7 +267,7 @@ def run_cnaster(config_path, over_rides=None):
     # ============================================================
     #
     logger.runtime_phase = "PHASING"
-
+    '''
     # NB  rectangular partition across multiple slices, equivalent to parse_visium::perform_partition.
     initial_clone_for_phasing = initialize_clones(
         coords,
@@ -262,6 +275,40 @@ def run_cnaster(config_path, over_rides=None):
         x_part=config.phasing.npart_phasing,
         y_part=config.phasing.npart_phasing,
         config=config,
+    )
+    '''
+
+    initial_clone_for_phasing = initialize_clones_wolff(
+        sample_ids,
+        adjacency_mat,
+        n_init=1,
+        base_n_clones=5,
+        spatial_weight=1.0,
+        wolff_num_temps=25,
+        wolff_sweeps_per_temp=1,
+        min_spots=None,
+        random_state=None,
+        config=None,
+    ).pop()
+
+    assignment = pd.Series(
+        [f"clone {x}" for x in get_clone_assignment(coords, initial_clone_for_phasing)]
+    )
+
+    phasing_clones_fig = plot_clones_spatial(
+        coords,
+        assignment,
+        single_tumor_prop=single_tumor_prop,
+        sample_list=sample_list,
+        sample_ids=sample_ids,
+    )
+
+    # NB plot of the clones assumed for initial phasing.
+    write_fig(
+        f"{plots_dir}/phasing_clones_spatial.pdf",
+        phasing_clones_fig,
+        transparent=True,
+        bbox_inches="tight",
     )
 
     # if annotation is available, we assume it; else, we'll initialize later.
@@ -306,26 +353,6 @@ def run_cnaster(config_path, over_rides=None):
             transparent=True,
             bbox_inches="tight",
         )
-
-    assignment = pd.Series(
-        [f"clone {x}" for x in get_clone_assignment(coords, initial_clone_for_phasing)]
-    )
-
-    phasing_clones_fig = plot_clones_spatial(
-        coords,
-        assignment,
-        single_tumor_prop=single_tumor_prop,
-        sample_list=sample_list,
-        sample_ids=sample_ids,
-    )
-
-    # NB plot of the clones assumed for initial phasing.
-    write_fig(
-        f"{plots_dir}/phasing_clones_spatial.pdf",
-        phasing_clones_fig,
-        transparent=True,
-        bbox_inches="tight",
-    )
 
     prephasing_clones_genomic = plot_clones_genomic(
         df_cnv=None,
@@ -508,7 +535,7 @@ def run_cnaster(config_path, over_rides=None):
     #
 
     logger.runtime_phase = "BAF-ONLY CLONE & COPY STATE INFERENCE"
-
+    '''
     # TODO
     # NB smooth pooling matrix & distance based (exponential decay) adjacency.
     #    requires pre-defined single_total_bb_RD, but largely on data loading.
@@ -522,9 +549,10 @@ def run_cnaster(config_path, over_rides=None):
         construct_adjacency_method=config.hmrf.construct_adjacency_method,
         maxspots_pooling=config.hmrf.maxspots_pooling,
         construct_adjacency_w=config.hmrf.construct_adjacency_w,
-        unit_xsquared=config.hmrf.unit_xsquared,  # TODO
-        unit_ysquared=config.hmrf.unit_ysquared,  # TODO
+        unit_xsquared=config.hmrf.unit_xsquared, # TODO
+        unit_ysquared=config.hmrf.unit_ysquared, # TODO
     )
+    '''
 
     # adjacency_fig = plot_adjacency(
     #     coords,
@@ -909,8 +937,6 @@ def run_cnaster(config_path, over_rides=None):
     )
 
     pause()
-
-    # exit(0)
 
     #
     # =================================================================================

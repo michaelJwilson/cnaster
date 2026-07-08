@@ -1,6 +1,18 @@
 import numpy as np
 from numba import njit
 
+
+import scipy.sparse
+from scipy.sparse.csgraph import connected_components
+from cnaster.logger import get_logger
+from cnaster.config import start_time
+from cnaster.annotation import get_clone_label_annotation
+
+
+
+logger = get_logger(__name__, start_time=start_time)
+
+
 @njit(cache=True)
 def _wolff_annealing_core(
     labels, 
@@ -131,3 +143,122 @@ def wolff_sweep(
     )
 
     return labels
+
+
+import numpy as np
+import scipy.sparse
+from scipy.sparse.csgraph import connected_components
+import logging
+
+logger = logging.getLogger(__name__)
+
+def initialize_clones_wolff(
+    sample_ids,
+    adjacency_mat,
+    n_init=1,
+    base_n_clones=5,
+    spatial_weight=1.0,
+    wolff_num_temps=25,
+    wolff_sweeps_per_temp=1,
+    min_spots=None,
+    relabel=False,  
+    random_state=None,
+    config=None,
+):
+    """
+    Mirrors 'initialize_clones' to generate n_init random initializations.
+    Uses a Random Field Wolff algorithm: spatial smoothing is guided by a 
+    randomized external field to guarantee diverse, contiguous domain formation.
+    
+    If `relabel=True`, identifies spatially separated components of the same 
+    label and splits them into distinct clones.
+    """
+    if config is not None and config.annotation.clone_label is not None:
+        assert n_init == 1, "Cannot generate multiple initializations when using a fixed clone label."
+
+        clone_annotation, _ = get_clone_label_annotation(config)
+        return clone_annotation
+
+    if random_state is not None:
+        np.random.seed(random_state)
+
+    logger.info(
+        f"Generating {n_init} random Wolff-smoothed clone initializations "
+        f"(base_n_clones={base_n_clones}, spatial_weight={spatial_weight}, relabel={relabel})."
+    )
+
+    n_spots = len(sample_ids)
+    all_initializations = []
+    
+    # Extract CSR arrays directly from the provided adjacency matrix
+    adj = adjacency_mat.tocsr()
+    adj_indptr = adj.indptr
+    adj_indices = adj.indices
+    adj_weights = adj.data
+    
+    if relabel:
+        row_indices = np.repeat(np.arange(n_spots), np.diff(adj_indptr))
+
+    for i in range(n_init):
+        logger.debug(f"Building Wolff initialization {i+1}/{n_init}")
+        
+        initial_assignment = np.random.randint(0, base_n_clones, size=n_spots, dtype=np.int32)
+        
+        single_llf = 1.e-2 * spatial_weight * np.random.randn(n_spots, base_n_clones)
+ 
+        # 1. Wolff Sweep (Condensation guided by the random field)
+        smoothed_labels = wolff_sweep(
+            single_llf,
+            adj_indptr,
+            adj_indices,
+            adj_weights,
+            initial_assignment,
+            spatial_weight,
+            num_temps=wolff_num_temps,
+            sweeps_per_temp=wolff_sweeps_per_temp,
+        )
+        
+        # 2. Apply optional connected components relabeling
+        if relabel:
+            # Mask edges: keep edges ONLY if both spots share the SAME label and SAME slice
+            valid_edges = (
+                (smoothed_labels[row_indices] == smoothed_labels[adj_indices]) & 
+                (sample_ids[row_indices] == sample_ids[adj_indices])
+            )
+            
+            masked_weights = adj_weights[valid_edges]
+            masked_rows = row_indices[valid_edges]
+            masked_cols = adj_indices[valid_edges]
+            
+            masked_adj = scipy.sparse.csr_matrix(
+                (masked_weights, (masked_rows, masked_cols)), 
+                shape=(n_spots, n_spots)
+            )
+            
+            _, final_labels = connected_components(masked_adj, directed=False)
+        else:
+            # Directly use the labels output by the Wolff sweep
+            final_labels = smoothed_labels
+        
+        # 3. Extract the spot indices for each distinct clone
+        initial_clone_index = []
+        unique_labels = np.unique(final_labels)
+        
+        for c in unique_labels:
+            idx = np.where(final_labels == c)[0]
+            
+            if min_spots is not None and len(idx) < min_spots:
+                continue
+                
+            if len(idx) > 0:
+                initial_clone_index.append(idx)
+                
+        all_initializations.append(initial_clone_index)
+        
+        logger.debug(
+            f"Initialization {i+1} resulted in {len(initial_clone_index)} "
+            f"distinct spatial clones."
+        )
+
+    logger.info(f"Successfully returned {n_init} initialized partitions.")
+    return all_initializations

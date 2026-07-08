@@ -390,6 +390,8 @@ def run_cnaster(config_path, over_rides=None):
         df_gene_snp.block_id.map({i: x for i, x in enumerate(phase_indicator)}),
     )
 
+    exit(0)
+
     logger.runtime_phase = "PHASED GENOMIC SEGMENTATION"
 
     # NB generates new genomic intervals ("bin_id") by genomic aggregation

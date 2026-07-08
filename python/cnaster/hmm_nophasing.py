@@ -448,6 +448,7 @@ class hmm_nophasing:
         else:
             log_startprob = log_startprob_init
 
+        # NB returns default log_mu if not optimizing NB mean.
         if optimize_nb and "m" in self.params:
             log_mu = x[idx : idx + n_states].reshape(n_states, 1)
             idx += n_states
@@ -1128,69 +1129,6 @@ class hmm_nophasing:
             # NB em cost is sum_iid of obs., sum_state of gamma * log_emission, which is negative log likelihood.
             return -np.sum(self.state_posteriors * self.log_emissions[..., 0])
 
-        '''
-        def nll_forward(params):
-            this_log_startprob, this_log_mu, this_p_binom, this_alphas, this_taus = (
-                self.unpack_params(
-                    params,
-                    n_states,
-                    log_startprob,
-                    log_mu,  # TODO init_log_mu
-                    p_binom,
-                    alphas,  # TODO init_alphas
-                    taus,  # TODO init_taus
-                    optimize_nb=optimize_nb,
-                    fix_NB_dispersion=fix_NB_dispersion,
-                    shared_NB_dispersion=shared_NB_dispersion,
-                    fix_BB_dispersion=fix_BB_dispersion,
-                    shared_BB_dispersion=shared_BB_dispersion,
-                    use_logit=use_logit,
-                )
-            )
-
-            # NB emission is (nstates, n_observations, n_spots), but currently only supports n_spots=1.
-            log_emission_rdr, log_emission_baf = (
-                self.compute_emission_probability_nb_betabinom_coded(
-                    nbEncoder,
-                    bbEncoder,
-                    this_log_mu,
-                    this_alphas,
-                    this_p_binom,
-                    this_taus,
-                )
-            )
-            """
-            log_emission_rdr, log_emission_baf = self.compute_emission_probability_nb_betabinom(
-                X,
-                base_nb_mean,
-                this_log_mu,
-                this_alphas,
-                total_bb_RD,
-                this_p_binom,
-                this_taus,
-            )
-            """
-
-            self.log_emissions = (log_emission_rdr + log_emission_baf)[:, :, np.newaxis]
-
-            log_alpha = self.forward_lattice(
-                lengths,
-                log_transmat,
-                this_log_startprob,
-                self.log_emissions,
-                log_sitewise_transmat,
-            )
-
-            curr = 0
-            total_nll = 0
-
-            for le in lengths:
-                total_nll += -mylogsumexp(log_alpha[:, curr + le - 1])
-                curr += le
-
-            return total_nll
-        '''
-
         # NB vanilla max. likelihood or baum welch.
         # cost, callback = nll_forward, None
         cost, callback = baum_welch_forward, update_state_posteriors
@@ -1234,7 +1172,7 @@ class hmm_nophasing:
         if propagate_errors:
             # parameter_errors = np.sqrt(np.diag(res.hess_inv.todense()))
             (
-                log_startprob_err, 
+                _,
                 log_mu_err, 
                 p_binom_err, 
                 alphas_err, 

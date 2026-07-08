@@ -62,8 +62,8 @@ def compute_emission_probability_nb_betabinom_coded(
                 np.array([log_mu[i, 0], alphas[i, 0]]),
                 reduce=False,
             )
-        else:
-            log_emit_rdr_uniq[:, :] = 0.0
+        # else:
+        #     log_emit_rdr_uniq[:, :] = 0.0
 
         if np.any(bb_valid):
             log_emit_baf_uniq[i, bb_valid] = -nloglikeobs_bb(
@@ -74,8 +74,8 @@ def compute_emission_probability_nb_betabinom_coded(
                 np.array([p_binom[i, 0], taus[i, 0]]),
                 reduce=False,
             )
-        else:
-            log_emit_baf_uniq[:, :] = 0.0
+        # else:
+        #     log_emit_baf_uniq[:, :] = 0.0
 
     log_emit_rdr = nbEncoder.decode_array(log_emit_rdr_uniq, 0)
     log_emit_baf = bbEncoder.decode_array(log_emit_baf_uniq, 0)

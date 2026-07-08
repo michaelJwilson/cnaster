@@ -2,10 +2,10 @@ import time
 import numpy as np
 
 # from collections import namedtuple
-from cnaster.utils import cacher
-from cnaster.hmm import pipeline_baum_welch, hmm_sitewise
+# from cnaster.utils import cacher
+# from cnaster.hmm import pipeline_baum_welch, hmm_sitewise
 from cnaster.hmm_phased import hmm_phased
-from cnaster.hmm_nophasing import hmm_nophasing
+# from cnaster.hmm_nophasing import hmm_nophasing
 from cnaster.hmrf_utils import clone_stack_obs
 from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
 from cnaster.config import get_global_config
@@ -77,32 +77,32 @@ def initial_phase_given_partition(
         single_tumor_prop,
         threshold=threshold,
     )
-
+    '''
     # NB force baf < 0.5 by taking (1. - single_X[:,1,:]) where single_X[:,1,:]) / single_total_bb_RD > 0.5
     baf = X[:, 1, :] / total_bb_RD
 
     minor_X = np.zeros_like(X)
     minor_X[:, 0, :] = X[:, 0, :]
     minor_X[:, 1, :] = np.where(baf > 0.5, total_bb_RD - X[:, 1, :], X[:, 1, :])
-
+    '''
     # NB (initial clones, segments).
-    n_clones = X.shape[2]
+    n_obs, _, n_clones = X.shape
 
     (
-        clone_stack_minor_X,
+        clone_stack_X,
         clone_stack_base_nb_mean,
         clone_stack_total_bb_RD,
         clone_stack_lengths,
         clone_stack_sitewise_transmat,
         clone_stack_tumor_prop,
     ) = clone_stack_obs(
-        minor_X, base_nb_mean, total_bb_RD, lengths, log_sitewise_transmat, tumor_prop
+        X, base_nb_mean, total_bb_RD, lengths, log_sitewise_transmat, tumor_prop
     )
 
     # TODO
     init_log_mu, init_p_binom = hmm_initializer(
         n_states,
-        clone_stack_minor_X,
+        clone_stack_X,
         clone_stack_base_nb_mean,
         clone_stack_total_bb_RD,
         params,
@@ -111,6 +111,63 @@ def initial_phase_given_partition(
         only_minor=True,
     )
 
+    # >>>>>>>>
+    # TODO rename model_baf_profiles
+    res = hmm_phased(params="sp", t=t).run_baum_welch_nb_bb(
+        clone_stack_X,
+        clone_stack_lengths,
+        n_states,
+        clone_stack_base_nb_mean,
+        total_bb_RD=clone_stack_total_bb_RD,
+        log_sitewise_transmat=clone_stack_sitewise_transmat,
+        fix_NB_dispersion=fix_NB_dispersion,
+        shared_NB_dispersion=shared_NB_dispersion,
+        fix_BB_dispersion=fix_BB_dispersion,
+        shared_BB_dispersion=shared_BB_dispersion,
+        init_log_mu=init_log_mu,
+        init_p_binom=init_p_binom,
+        max_iter=max_iter,
+        tol=tol,
+    )
+
+    # n_clones = len(np.unique(res["new_assignment"]))
+
+    # NB includes (combinatorial-space) phase.
+    pred = np.argmax(res["log_gamma"], axis=0)
+    
+    # NB vectorize split into clone-wise array shape: (n_clones, n_obs)
+    pred = pred.reshape(n_clones, n_obs)
+
+    # Vectorized model_baf_profiles construction
+    base_states = pred % n_states
+    phase_mask = pred < n_states
+    base_bafs = res["new_p_binom"][base_states, 0]
+    
+    model_baf_profiles = np.where(phase_mask, base_bafs, 1.0 - base_bafs)
+    minor_baf_profiles = np.where(model_baf_profiles < 0.5, model_baf_profiles, 1.0 - model_baf_profiles)
+
+    assumed_normal = np.abs(model_baf_profiles - 0.5) < EPS_BAF
+
+    # Explicitly cast to integer so assigning -1 actually works
+    phase_profiles = phase_mask.astype(np.int8)
+
+    # NB do not define phase for normal-like segments (for this clone).
+    phase_profiles[assumed_normal] = -1
+    
+    # Define phase votes
+    phase_votes = phase_profiles[1:, :] if known_normal else phase_profiles
+
+    # Vectorize the voting logic (avoids python loop over n_obs)
+    valid_mask = phase_votes != -1
+    valid_counts = np.sum(valid_mask, axis=0)
+    valid_sums = np.sum(np.where(valid_mask, phase_votes, 0), axis=0)
+
+    phase_indicator = np.zeros(n_obs, dtype=int)
+    has_votes = valid_counts > 0
+    phase_indicator[has_votes] = (valid_sums[has_votes] / valid_counts[has_votes]) >= 0.5
+    # <<<<<<<<<<<<
+
+    '''
     # NB initial dispersion estimate assuming no phasing.
     res = pipeline_baum_welch(
         None,
@@ -209,9 +266,9 @@ def initial_phase_given_partition(
 
         # NB do not define phase for normal-like segments (for this clone).
         phase_profiles[i, assumed_normal] = -1
-
+    
     minor_baf_profiles = np.where(baf_profiles < 0.5, baf_profiles, 1.0 - baf_profiles)
-
+    
     # NB phase_indicator is the majority vote across clones; assuming normal is clone 0.
     phase_indicator = np.zeros(X.shape[0], dtype=int)
     phase_votes = phase_profiles[1:, :] if known_normal else phase_profiles[:, :]
@@ -222,7 +279,7 @@ def initial_phase_given_partition(
             phase_indicator[idx] = 0
         else:
             phase_indicator[idx] = np.mean(valid_votes) >= 0.5
-
+    '''
     # TODO HACK < -> <= to reduce flips for EPS_BAF.
     config = get_global_config()
     BAF_CHANGE_THRESHOLD = config.phasing.baf_change_threshold

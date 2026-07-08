@@ -95,16 +95,18 @@ def _wolff_annealing_core(
                     nu = k
                     break
 
-            print(
-                "Temp:",
-                round(temp, 4),
-                "| Cluster size:",
-                c_tail,
-                "| Old label:",
-                mu,
-                "| New label:",
-                nu,
-            )
+            # NB 1% sampling
+            if np.random.rand() < 1.e-2:
+                print(
+                    "Temp:",
+                    round(temp, 4),
+                    "| Cluster size:",
+                    c_tail,
+                    "| Old label:",
+                    mu,
+                    "| New label:",
+                    nu,
+                )
 
             if nu != mu:
                 for i in range(c_tail):
@@ -142,6 +144,12 @@ def wolff_sweep(
     ]
 
     logger.info(f"Solving for temperature schedule:\n{anneal_temps}")
+
+    beta = 1.0 / anneal_temps
+    base_J = 1.0 * spatial_weight
+    p_add_base = 1.0 - np.exp(-beta * base_J)
+
+    logger.info(f"Expected prob. to add=\n{p_add_base}")
 
     _wolff_annealing_core(
         labels,
@@ -205,8 +213,12 @@ def initialize_clones_wolff(
         logger.debug(f"Building Wolff initialization {i+1}/{n_init}")
 
         initial_assignment = np.random.randint(
-            0, base_n_clones, size=n_spots, dtype=np.int32
+             0, base_n_clones, size=n_spots, dtype=np.int32
         )
+
+        # NB wolff will perturb to truth.
+        # initial_assignment = np.zeros(n_spots, dtype=np.int32)
+
         single_llf = np.zeros((n_spots, base_n_clones), dtype=np.float64)
 
         smoothed_labels = wolff_sweep(

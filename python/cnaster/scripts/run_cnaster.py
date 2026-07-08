@@ -267,7 +267,7 @@ def run_cnaster(config_path, over_rides=None):
     # ============================================================
     #
     logger.runtime_phase = "PHASING"
-    '''
+    
     # NB  rectangular partition across multiple slices, equivalent to parse_visium::perform_partition.
     initial_clone_for_phasing = initialize_clones(
         coords,
@@ -276,8 +276,8 @@ def run_cnaster(config_path, over_rides=None):
         y_part=config.phasing.npart_phasing,
         config=config,
     )
+    
     '''
-
     initial_clone_for_phasing = initialize_clones_wolff(
         sample_ids,
         adjacency_mat,
@@ -290,7 +290,7 @@ def run_cnaster(config_path, over_rides=None):
         random_state=None,
         config=None,
     ).pop()
-
+    '''
     assignment = pd.Series(
         [f"clone {x}" for x in get_clone_assignment(coords, initial_clone_for_phasing)]
     )
@@ -438,6 +438,8 @@ def run_cnaster(config_path, over_rides=None):
         transparent=True,
         bbox_inches="tight",
     )
+
+    exit(0)
 
     logger.runtime_phase = "PHASED GENOMIC SEGMENTATION"
 

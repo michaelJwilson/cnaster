@@ -9,7 +9,7 @@ from cnaster.hmm_phased import hmm_phased
 from cnaster.hmrf_utils import clone_stack_obs
 from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
 from cnaster.config import get_global_config
-from cnaster.hmm_initialize import gmm_init
+from cnaster.hmm_initialize import gmm_init, cna_mixture_init
 from cnaster.config import start_time
 from cnaster.logger import get_logger
 
@@ -42,7 +42,7 @@ def initial_phase_given_partition(
     tol,
     threshold,
     known_normal=False,
-    hmm_initializer=gmm_init,
+    hmm_initializer=cna_mixture_init,
     # min_snpumi=2e3,
 ):
     """
@@ -94,7 +94,7 @@ def initial_phase_given_partition(
         clone_stack_total_bb_RD,
         clone_stack_lengths,
         clone_stack_sitewise_transmat,
-        clone_stack_tumor_prop,
+        _,
     ) = clone_stack_obs(
         X, base_nb_mean, total_bb_RD, lengths, log_sitewise_transmat, tumor_prop
     )

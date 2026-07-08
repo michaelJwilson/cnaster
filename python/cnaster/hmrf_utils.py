@@ -108,9 +108,16 @@ def clone_stack_obs(
     clone_stack_base_nb_mean = base_nb_mean.T.reshape(-1, 1)
     clone_stack_total_bb_RD = total_bb_RD.T.reshape(-1, 1)
 
-    # NB replicate lengths and transmats n_clones times (e.g., [A, B] -> [A, B, A, B])
-    clone_stack_lengths = np.tile(lengths, n_clones)
-    clone_stack_sitewise_transmat = np.tile(log_sitewise_transmat, n_clones)
+    if lengths is not None:
+        # NB replicate lengths and transmats n_clones times (e.g., [A, B] -> [A, B, A, B])
+        clone_stack_lengths = np.tile(lengths, n_clones)
+    else:
+        clone_stack_lengths = None
+
+    if log_sitewise_transmat is not None:
+        clone_stack_sitewise_transmat = np.tile(log_sitewise_transmat, n_clones)
+    else:
+        clone_stack_sitewise_transmat = None
 
     # NB repeat scalar per clone n_obs times (e.g., [A, B] -> [A, A, B, B])
     if tumor_prop is not None:

@@ -359,10 +359,10 @@ class hmm_nophasing:
 
         # NB small alpha tend to Poisson.
         alphas = (
-            0.5 * np.ones((n_states, n_spots)) if init_alphas is None else init_alphas
+            0.1 * np.ones((n_states, n_spots)) if init_alphas is None else init_alphas
         )
-        # NB large dispersions tend to Binomial, flat landscape, initialize just before.  30 -> 
-        taus = 1_000 * np.ones((n_states, n_spots)) if init_taus is None else init_taus
+        # NB large dispersions tend to Binomial, flat landscape, initialize just before.  30 -> 1_000
+        taus = 30 * np.ones((n_states, n_spots)) if init_taus is None else init_taus
 
         # NB initialize start probability and emission probability
         log_startprob = np.log(np.ones(n_states) / n_states)

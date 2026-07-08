@@ -817,6 +817,7 @@ def icm_sweep_deque(
     cost_zeropoint=0.0,
     temp=1.0,
     min_clone_spots=200,
+    epsilon=0.0,
 ):
     n_spots, n_clones = single_llf.shape
     cost = cost_zeropoint
@@ -878,6 +879,14 @@ def icm_sweep_deque(
                 if c_cost > max_cost:
                     max_cost = c_cost
                     label = c
+
+            if epsilon > 0.0 and np.random.rand() < epsilon:
+                if onehot_allowed_clones is not None:
+                    valid_labels = np.where(onehot_allowed_clones[i, :])[0]
+                    if len(valid_labels) > 0:
+                        label = int(np.random.choice(valid_labels))
+                else:
+                    label = np.random.randint(n_clones)
 
             # Process Edits
             if label != new_assignment[i]:

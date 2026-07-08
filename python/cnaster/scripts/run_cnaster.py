@@ -180,15 +180,17 @@ def run_cnaster(config_path, over_rides=None):
     #    sample_ids: unique enum for each entry in sample_list.  One per adata.obs entry.
     sample_list, sample_ids = get_sample_list(adata)
     single_tumor_prop = read_tumor_prop(adata, config=config)
-
+    '''
     # TODO HACK
     adjacency_mat, smooth_mat = multislice_adjacency_simple(
         coords, 
         sample_ids, 
         lattice_type=None,
         n_nearest=6,
+        dx=1.0, 
+        dy=1.0, # sqrt(3)/2 for hexagonal lattice
     )
-
+    '''
     # NB parse_visium::combine_gene_snps
     #    [ chr, start, end, snp_id, gene, is_interval (is_gene) ]
     df_gene_snp = form_gene_snp_table(
@@ -265,7 +267,7 @@ def run_cnaster(config_path, over_rides=None):
     # ============================================================
     #
     logger.runtime_phase = "PHASING"
-    '''
+    
     # NB  rectangular partition across multiple slices, equivalent to parse_visium::perform_partition.
     initial_clone_for_phasing = initialize_clones(
         coords,
@@ -275,22 +277,22 @@ def run_cnaster(config_path, over_rides=None):
         config=config,
     )
     '''
-
     initial_clone_for_phasing = initialize_clones_wolff(
         sample_ids,
         adjacency_mat,
         n_init=1,
-        base_n_clones=1,
-        spatial_weight=2.0,
+        base_n_clones=5,
+        spatial_weight=0.65,
         wolff_num_temps=1,
-        wolff_sweeps_per_temp=25,
-        min_spots=None,
+        wolff_sweeps_per_temp=1_000,
+        min_spots=100,
         random_state=None,
         config=None,
+        relabel=True,
         min_temp=1.,
         max_temp=1.,
     ).pop()
-    
+    '''
     assignment = pd.Series(
         [f"clone {x}" for x in get_clone_assignment(coords, initial_clone_for_phasing)]
     )
@@ -310,8 +312,6 @@ def run_cnaster(config_path, over_rides=None):
         transparent=True,
         bbox_inches="tight",
     )
-
-    exit(0)
 
     # if annotation is available, we assume it; else, we'll initialize later.
     initial_clone_index_baf = (
@@ -544,6 +544,7 @@ def run_cnaster(config_path, over_rides=None):
 
     logger.runtime_phase = "BAF-ONLY CLONE & COPY STATE INFERENCE"
     
+    
     # TODO
     # NB smooth pooling matrix & distance based (exponential decay) adjacency.
     #    requires pre-defined single_total_bb_RD, but largely on data loading.
@@ -560,7 +561,7 @@ def run_cnaster(config_path, over_rides=None):
         unit_xsquared=config.hmrf.unit_xsquared, # TODO
         unit_ysquared=config.hmrf.unit_ysquared, # TODO
     )
-
+    
     # adjacency_fig = plot_adjacency(
     #     coords,
     #     smooth_mat,

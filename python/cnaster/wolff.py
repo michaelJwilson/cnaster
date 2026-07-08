@@ -1,3 +1,4 @@
+import pandas as pd
 import numpy as np
 from numba import njit
 import scipy.sparse
@@ -27,6 +28,14 @@ def _wolff_annealing_core(
     queue = np.empty(n_spots, dtype=np.int32)
     cluster_llf = np.zeros(n_clones, dtype=np.float64)
     exp_logits = np.empty(n_clones, dtype=np.float64)
+
+    target_n_steps = int(np.sum(anneal_temps**0 * sweeps_per_temp * n_spots)) # Max possible steps
+    hist_temp = np.empty(target_n_steps, dtype=np.float64)
+    hist_root = np.empty(target_n_steps, dtype=np.int32)
+    hist_size = np.empty(target_n_steps, dtype=np.int32)
+    hist_old_label = np.empty(target_n_steps, dtype=np.int32)
+    hist_new_label = np.empty(target_n_steps, dtype=np.int32)
+    step_idx = 0
 
     for temp in anneal_temps:
         beta = 1.0 / temp
@@ -96,17 +105,24 @@ def _wolff_annealing_core(
                     break
 
             # NB 1% sampling
-            if np.random.rand() < 1.e-2:
-                print(
-                    "Temp:",
-                    round(temp, 4),
-                    "| Cluster size:",
-                    c_tail,
-                    "| Old label:",
-                    mu,
-                    "| New label:",
-                    nu,
-                )
+            # if np.random.rand() < 1.e-2:
+            #     print(
+            #         "Temp:",
+            #         round(temp, 4),
+            #         "| Cluster size:",
+            #         c_tail,
+            #         "| Old label:",
+            #         mu,
+            #         "| New label:",
+            #         nu,
+            #     )
+
+            hist_temp[step_idx] = temp
+            hist_root[step_idx] = rho
+            hist_size[step_idx] = c_tail
+            hist_old_label[step_idx] = mu
+            hist_new_label[step_idx] = nu
+            step_idx += 1
 
             if nu != mu:
                 for i in range(c_tail):
@@ -115,7 +131,7 @@ def _wolff_annealing_core(
             for i in range(c_tail):
                 in_cluster[cluster_nodes[i]] = False
 
-    return labels
+    return labels, hist_temp[:step_idx], hist_root[:step_idx], hist_size[:step_idx], hist_old_label[:step_idx], hist_new_label[:step_idx]
 
 
 def wolff_sweep(
@@ -151,7 +167,7 @@ def wolff_sweep(
 
     logger.info(f"Expected prob. to add=\n{p_add_base}")
 
-    _wolff_annealing_core(
+    labels, hist_temp, hist_root, hist_size, hist_old_label, hist_new_label = _wolff_annealing_core(
         labels,
         single_llf,
         indptr,
@@ -161,6 +177,18 @@ def wolff_sweep(
         anneal_temps,
         sweeps_per_temp,
     )
+
+    df = pd.DataFrame({"temp": hist_temp, "size": hist_size})
+
+    for t, group in df.groupby("temp", sort=False):
+        c_min = group["size"].min()
+        c_max = group["size"].max()
+        c_med = group["size"].median()
+        c_mean = group["size"].mean()
+        logger.info(
+            f"Temp: {t:.4g} | Cluster Size Min: {c_min}, Max: {c_max}, "
+            f"Median: {c_med:.1f}, Mean: {c_mean:.1f}"
+        )
 
     return labels
 
@@ -249,19 +277,30 @@ def initialize_clones_wolff(
 
             _, final_labels = connected_components(masked_adj, directed=False)
         else:
-            final_labels = smoothed_labels
+            final_labels = smoothed_labels.copy()
+
+        if min_spots is not None:
+            unique_labels, counts = np.unique(final_labels, return_counts=True)
+            invalid_labels = unique_labels[counts < min_spots]
+            valid_labels = unique_labels[counts >= min_spots]
+
+            if len(valid_labels) > 0 and len(invalid_labels) > 0:
+                invalid_mask = np.isin(final_labels, invalid_labels)
+                final_labels[invalid_mask] = np.random.choice(
+                    valid_labels, size=np.sum(invalid_mask)
+                )
 
         initial_clone_index = []
         unique_labels = np.unique(final_labels)
+        relabeled_final_labels = np.empty_like(final_labels)
 
-        for c in unique_labels:
-            idx = np.where(final_labels == c)[0]
-
-            if min_spots is not None and len(idx) < min_spots:
-                continue
-
+        for new_idx, old_label in enumerate(unique_labels):
+            idx = np.where(final_labels == old_label)[0]
+            relabeled_final_labels[idx] = new_idx
             if len(idx) > 0:
                 initial_clone_index.append(idx)
+                
+        final_labels = relabeled_final_labels
 
         all_initializations.append(initial_clone_index)
 

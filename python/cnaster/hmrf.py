@@ -627,7 +627,7 @@ def hmrfmix_concatenate_pipeline(
     max_iter_outer=5,
     # nodepotential="max",
     hmmclass=hmm_phased, # hmm_sitewise
-    hmm_initializer=cna_mixture_init, # {gmm_init}
+    hmm_initializer=gmm_init, # {cna_mixture_init, gmm_init}
     params="stmp",
     t=1 - 1e-6,
     random_state=0,

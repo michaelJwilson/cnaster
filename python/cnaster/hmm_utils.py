@@ -143,8 +143,8 @@ def compute_posterior_obs(log_alpha, log_beta):
     Output:
         log_gamma: size n_states * n_observations. gamma[i,t] = P(q_t = i | O, lambda). gamma[i, t] propto alpha[i,t] * beta[i,t]
     """
-    n_states = log_alpha.shape[0]
-    n_obs = log_alpha.shape[1]
+    # n_states = log_alpha.shape[0]
+    # n_obs = log_alpha.shape[1]
 
     # log_gamma = np.zeros((n_states, n_obs))
     log_gamma = log_alpha + log_beta
@@ -153,6 +153,7 @@ def compute_posterior_obs(log_alpha, log_beta):
         logger.error("Sum of posterior probability is zero for some observations!")
         raise RuntimeError()
 
+    # NB normalize across states for each observation.
     log_gamma -= scipy.special.logsumexp(log_gamma, axis=0)
 
     return log_gamma

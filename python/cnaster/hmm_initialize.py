@@ -18,6 +18,7 @@ from cnaster.utils import top_hat_sum, cast_clone_label
 from cnaster.config import get_global_config
 from cnaster.utils import write_fig
 from cnaster.hmm_sitewise import hmm_sitewise
+from cnaster.hmm_phased import hmm_phased
 from sklearn.cluster import KMeans
 from cnaster.hmm_nophasing import hmm_nophasing
 from joblib import Parallel, delayed
@@ -607,9 +608,11 @@ def cna_mixture_init(
         )
         
         log_emission = lnlike_rdr + lnlike_baf
-        log_startprob = np.full(2 * n_states, -np.log(2 * n_states))
+        log_startprob = np.full(n_states, -np.log(n_states))
 
         # NB (n_states, n_states) according to phase flip.
+        #
+        # TODO HACK FINAL hmm_sitewise
         log_gamma = hmm_sitewise.get_state_posteriors(
             lengths,
             log_transmat,
@@ -648,7 +651,7 @@ def cna_mixture_init(
         f"log_mu={log_mu_str},\nalpha={alpha_str},\np_binom={p_binom.ravel()},\ntau={taus[0,0]:.2f}"
     )
 
-    return log_mu, p_binom # alphas, taus
+    return log_mu, p_binom, alphas, taus
 
 # TODO define width
 def plot_cna_mixture(
@@ -1228,4 +1231,219 @@ def gmm_init(
 
     logger.debug(f"Solved for GMM initialized parameters:\n{gmm_log_mu}\n{gmm_p_binom}")
 
-    return gmm_log_mu, gmm_p_binom
+    return gmm_log_mu, gmm_p_binom, None, None
+
+'''
+def gmm_init(
+    n_states,
+    X,
+    base_nb_mean,
+    total_bb_RD,
+    params,
+    lengths,
+    log_transmat,
+    log_sitewise_transmat,
+    random_state=None,
+    in_log_space=True,
+    only_minor=True,
+    mirrored_baf_augmentation=True,
+):
+    logger.info(
+        f"Initializing HMM emission with GMM (only_minor={only_minor}, log_space={in_log_space}, mirrored_baf={mirrored_baf_augmentation})."
+    )
+
+    n_explore = n_states if only_minor else (2 * n_states)
+    X_gmm_rdr, X_gmm_baf = None, None
+    n_samples = X.shape[2]
+
+    # ---------------------------------------------------------
+    # 1. RDR Processing
+    # ---------------------------------------------------------
+    if "m" in params:
+        rdr_ratio = X[:, 0, :] / base_nb_mean
+
+        if in_log_space:
+            rdr_ratio = np.clip(rdr_ratio, a_min=1e-6, a_max=None)
+            X_gmm_rdr = np.log(rdr_ratio)
+        else:
+            X_gmm_rdr = rdr_ratio
+
+        valid = ~np.isnan(X_gmm_rdr) & ~np.isinf(X_gmm_rdr)
+        if not np.any(valid):
+            raise RuntimeError("No valid RDR data.")
+
+        if in_log_space:
+            offset = np.median(X_gmm_rdr[valid])
+            scale_factor = np.percentile(X_gmm_rdr[valid], 99) - np.percentile(X_gmm_rdr[valid], 1)
+        else:
+            offset = 0
+            scale_factor = np.percentile(X_gmm_rdr[valid], 99)
+
+        scale_factor = max(scale_factor, 1.0)
+        X_gmm_rdr = (X_gmm_rdr - offset) / scale_factor
+
+    # ---------------------------------------------------------
+    # 2. BAF Processing
+    # ---------------------------------------------------------
+    if "p" in params:
+        X_gmm_baf = X[:, 1, :] / total_bb_RD
+        config = get_global_config().hmm
+        min_binom, max_binom = float(config.gmm_min_binom_prob), float(config.gmm_max_binom_prob)
+
+        X_gmm_baf = np.clip(X_gmm_baf, min_binom, max_binom)
+
+    # ---------------------------------------------------------
+    # 3. Concatenation & NaN Patching
+    # ---------------------------------------------------------
+    if ("m" in params) and ("p" in params):
+        X_gmm_original = np.hstack([X_gmm_rdr, X_gmm_baf])
+    else:
+        X_gmm_original = X_gmm_rdr if "m" in params else X_gmm_baf
+
+    if np.isnan(X_gmm_original).sum() > 0:
+        X_gmm_original = pd.DataFrame(X_gmm_original).ffill().bfill().to_numpy()
+
+    valid_rows = ~np.isnan(X_gmm_original).any(axis=1) & ~np.isinf(X_gmm_original).any(axis=1)
+    X_gmm_original = X_gmm_original[valid_rows, :]
+
+    # ---------------------------------------------------------
+    # 4. GMM Fit (with Optional Data Augmentation)
+    # ---------------------------------------------------------
+    max_iter = get_global_config().hmm.gmm_maxiter
+    is_augmented = mirrored_baf_augmentation and ("p" in params)
+    n_components_fit = (2 * n_explore) if is_augmented else n_explore
+    
+    X_gmm_fit = X_gmm_original
+    if is_augmented:
+        X_gmm_flipped = X_gmm_original.copy()
+        if "m" in params:
+            X_gmm_flipped[:, n_samples:] = 1.0 - X_gmm_flipped[:, n_samples:]
+        else:
+            X_gmm_flipped = 1.0 - X_gmm_flipped
+        X_gmm_fit = np.vstack([X_gmm_original, X_gmm_flipped])
+
+    gmm = GaussianMixture(
+        n_components=n_components_fit, max_iter=max_iter, random_state=random_state, n_init=3, reg_covar=1e-4
+    ).fit(X_gmm_fit)
+
+    # ---------------------------------------------------------
+    # 5. Parameter Extraction & Base-State Reduction
+    # ---------------------------------------------------------
+    rdr_means, gmm_p_binom = None, None
+
+    if is_augmented:
+        posteriors = gmm.predict_proba(X_gmm_original)
+        component_weights = posteriors.sum(axis=0)
+
+        if "m" in params: rdr_raw = gmm.means_[:, :n_samples]
+        if "p" in params:
+            baf_raw = gmm.means_[:, n_samples:] if ("m" in params) else gmm.means_
+            baf_folded = np.where(baf_raw > 0.5, 1.0 - baf_raw, baf_raw)
+
+        folded_for_clustering = np.hstack([rdr_raw, baf_folded]) if ("m" in params and "p" in params) else (rdr_raw if "m" in params else baf_folded)
+        group_labels = KMeans(n_clusters=n_explore, n_init=10, random_state=random_state).fit_predict(folded_for_clustering)
+
+        rdr_means = np.zeros((n_explore, n_samples)) if "m" in params else None
+        gmm_p_binom = np.zeros((n_explore, n_samples)) if "p" in params else None
+
+        for k in range(n_explore):
+            mask = group_labels == k
+            w = component_weights[mask]
+            if w.sum() > 1e-9:
+                if "m" in params: rdr_means[k] = np.average(rdr_raw[mask], axis=0, weights=w)
+                if "p" in params: gmm_p_binom[k] = np.average(baf_folded[mask], axis=0, weights=w)
+            else:
+                if "m" in params: rdr_means[k] = np.mean(rdr_raw[mask], axis=0)
+                if "p" in params: gmm_p_binom[k] = np.mean(baf_folded[mask], axis=0)
+    else:
+        if "m" in params: rdr_means = gmm.means_[:, :n_samples] if ("p" in params) else gmm.means_
+        if "p" in params: gmm_p_binom = gmm.means_[:, n_samples:] if ("m" in params) else gmm.means_
+
+    # ---------------------------------------------------------
+    # 6. Final Inverse Transforms (and Safe Defaults)
+    # ---------------------------------------------------------
+    if "m" in params:
+        mu_recovered = rdr_means * scale_factor + offset
+        gmm_log_mu = mu_recovered if in_log_space else np.log(mu_recovered)
+        gmm_log_mu = gmm_log_mu.reshape(-1, 1)
+    else:
+        # Dummy array to allow emission evaluation to proceed safely
+        gmm_log_mu = np.zeros((n_explore, 1))
+        
+    if "p" in params:
+        gmm_p_binom = gmm_p_binom.reshape(-1, 1)
+    else:
+        # Dummy array to allow emission evaluation to proceed safely
+        gmm_p_binom = np.full((n_explore, 1), 0.5)
+
+    # ---------------------------------------------------------
+    # 7. HMM Posterior Ranking
+    # ---------------------------------------------------------
+    # Guaranteed construction of stacked inputs required for Steps 7 & 8
+    (
+        clone_stack_X,
+        clone_stack_base_nb_mean,
+        clone_stack_total_bb_RD,
+        _, _, _,
+    ) = clone_stack_obs(X, base_nb_mean, total_bb_RD, None, None, None)
+
+    if only_minor:
+        gmm_p_binom = np.where(gmm_p_binom > 0.5, 1.0 - gmm_p_binom, gmm_p_binom)
+    else:
+        alphas = 0.1 * np.ones((n_explore, 1))
+        taus = 1_000.0 * np.ones((n_explore, 1))
+
+        lnlike_rdr, lnlike_baf = hmm_sitewise.compute_emission_probability_nb_betabinom(
+            clone_stack_X, clone_stack_base_nb_mean, gmm_log_mu, alphas, clone_stack_total_bb_RD, gmm_p_binom, taus
+        )
+        
+        if "m" not in params: lnlike_rdr = 0.0
+        if "p" not in params: lnlike_baf = 0.0
+        
+        log_emission = lnlike_rdr + lnlike_baf
+        
+        log_startprob = np.full(n_explore, -np.log(n_explore)) 
+
+        log_gamma = hmm_sitewise.get_state_posteriors(
+            lengths,
+            log_transmat,
+            log_startprob,
+            log_emission,
+            log_sitewise_transmat,
+        )
+
+        posteriors = np.exp(log_gamma)
+        sum_axes = tuple(range(1, posteriors.ndim))
+        component_weights = np.sum(posteriors, axis=sum_axes)
+        
+        full_log_mu = np.vstack([gmm_log_mu, gmm_log_mu])
+        full_p_binom = np.vstack([gmm_p_binom, 1.0 - gmm_p_binom])
+        
+        if len(component_weights) == len(full_log_mu):
+            top_indices = np.argsort(component_weights)[-n_states:][::-1]
+            gmm_log_mu = full_log_mu[top_indices]
+            gmm_p_binom = full_p_binom[top_indices]
+
+    # ---------------------------------------------------------
+    # 8. Fit Dispersions (MLE)
+    # ---------------------------------------------------------
+    logger.info("Fitting dispersions (alpha, tau) for the finalized GMM states via MLE.")
+    
+    new_alpha, new_tau = fit_dispersions_mle(
+        clone_stack_X, 
+        clone_stack_base_nb_mean, 
+        clone_stack_total_bb_RD, 
+        gmm_log_mu, 
+        gmm_p_binom, 
+        n_states
+    )
+
+    alphas = new_alpha * np.ones((n_states, 1))
+    taus = new_tau * np.ones((n_states, 1))
+
+    logger.info(
+        f"GMM init converged. Final MLE dispersions: alpha={new_alpha:.4f}, tau={new_tau:.2f}"
+    )
+
+    return gmm_log_mu, gmm_p_binom, alphas, taus
+    '''

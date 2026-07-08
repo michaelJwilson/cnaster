@@ -318,7 +318,6 @@ def forward_marginalize_phased(
     log_half = np.log(0.5)
     combined_log_startprob = log_half + np.append(log_startprob, log_startprob)
 
-    # Pre-allocate the buffer once
     combined_transmat = np.empty((n_paired_states, n_paired_states))
 
     cumlen = 0
@@ -330,7 +329,6 @@ def forward_marginalize_phased(
         for t in range(1, le):
             idx = cumlen + t - 1
 
-            # DRY Matrix Update
             update_combined_transmat(
                 out_transmat=combined_transmat,
                 n_states=n_states,
@@ -384,7 +382,6 @@ def backward_marginalize_phased(
         for t in range(le - 2, -1, -1):
             idx = cumlen + t
 
-            # DRY Matrix Update
             update_combined_transmat(
                 out_transmat=combined_transmat,
                 n_states=n_states,
@@ -433,12 +430,35 @@ class hmm_sitewise:
         )
 
     @staticmethod
+    # @njit TODO FINAL
     def backward_lattice(
         lengths, log_transmat, log_startprob, log_emission, log_sitewise_transmat
     ):
         return backward_marginalize_phased(
             lengths, log_transmat, log_startprob, log_emission, log_sitewise_transmat
         )
+    
+    @classmethod
+    def get_state_posteriors(
+        cls, lengths, log_transmat, log_startprob, log_emission, log_sitewise_transmat
+    ):
+        log_alpha = cls.forward_lattice(
+            lengths,
+            log_transmat,
+            log_startprob,
+            log_emission,
+            log_sitewise_transmat,
+        )
+
+        log_beta = cls.backward_lattice(
+            lengths,
+            log_transmat,
+            log_startprob,
+            log_emission,
+            log_sitewise_transmat,
+        )
+
+        return compute_posterior_obs(log_alpha, log_beta)
 
     def run_baum_welch_nb_bb(
         self,

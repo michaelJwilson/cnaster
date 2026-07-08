@@ -43,7 +43,7 @@ def initial_phase_given_partition(
     tol,
     threshold,
     known_normal=False,
-    hmm_initializer=cna_mixture_init,
+    hmm_initializer=cna_mixture_init, # {gmm_init}
     # min_snpumi=2e3,
 ):
     """
@@ -100,8 +100,7 @@ def initial_phase_given_partition(
         X, base_nb_mean, total_bb_RD, lengths, log_sitewise_transmat, tumor_prop
     )
 
-    # TODO
-    init_log_mu, init_p_binom = hmm_initializer(
+    init_log_mu, init_p_binom, _, _ = hmm_initializer(
         n_states,
         clone_stack_X,
         clone_stack_base_nb_mean,

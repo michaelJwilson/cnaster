@@ -17,8 +17,10 @@ from cnaster.icm import (
 )
 
 # from cnaster.wolff import wolff_sweep
-from cnaster.hmm import gmm_init, pipeline_baum_welch
+from cnaster.hmm_initialize import gmm_init, cna_mixture_init
+from cnaster.hmm import pipeline_baum_welch
 from cnaster.hmm_sitewise import hmm_sitewise
+from cnaster.hmm_phased import hmm_phased
 from cnaster.hmrf_utils import cast_csr, clone_stack_obs
 
 # from cnaster.utils import count_calls, get_output_dir, write_fig
@@ -624,8 +626,8 @@ def hmrfmix_concatenate_pipeline(
     sample_list=None,
     max_iter_outer=5,
     # nodepotential="max",
-    hmmclass=hmm_sitewise,
-    hmm_init=gmm_init,
+    hmmclass=hmm_phased, # hmm_sitewise
+    hmm_initializer=cna_mixture_init, # {gmm_init}
     params="stmp",
     t=1 - 1e-6,
     random_state=0,
@@ -713,7 +715,7 @@ def hmrfmix_concatenate_pipeline(
         np.fill_diagonal(transmat, t)
         log_transmat = np.log(transmat)
 
-        new_init_log_mu, new_init_p_binom = hmm_init(
+        new_init_log_mu, new_init_p_binom, _, _ = hmm_initializer(
             n_states,
             clone_stack_X,
             clone_stack_base_nb_mean,

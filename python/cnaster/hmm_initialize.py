@@ -345,11 +345,7 @@ def cna_mixture_init(
             # NB the worse the fit, the higher the probability of sampling it (k-means++ logic)
             ps = -best_lnlike
 
-            # rel_lnlike = best_lnlike - np.max(best_lnlike)
-            # ps = -rel_lnlike
-
             if known_normal:
-                # FIX: Check against the cloned stack and ensure flattened indexing matches ps
                 ps[clone_stack_base_nb_mean.ravel() == 0.0] = 0.0
 
             # NB a lot more marginally disfavored data.

@@ -342,21 +342,21 @@ def plot_clones_spatial(
         [cast_clone_label(cid) for cid in final_clone_ids],
         handlelength=0.1,
         loc="upper left",
-        bbox_to_anchor=(0.05, 0.02),  
+        bbox_to_anchor=(0.05, 0.02),
         ncol=n_final_clones,
         frameon=False,
         fontsize=8,
-        borderaxespad=0.0,            
+        borderaxespad=0.0,
     )
 
     if sample_list is not None:
         ax.text(
-            0.05,                      
-            0.99,                     
-            ", ".join(sample_list), 
+            0.05,
+            0.99,
+            ", ".join(sample_list),
             transform=ax.transAxes,
-            ha="left", 
-            va="bottom", 
+            ha="left",
+            va="bottom",
             fontsize=9,
         )
 
@@ -647,10 +647,11 @@ def plot_he(
     marker_size = np.clip(12000.0 / n_points, 0.1, 25.0)
 
     fig, axes = plt.subplots(
-        rows, cols,
+        rows,
+        cols,
         figsize=(base_width * cols, base_height * rows),
         dpi=300,
-        facecolor="white"
+        facecolor="white",
     )
 
     if n_channels == 1:
@@ -678,7 +679,7 @@ def plot_he(
             ax.scatter(frame["x"], -frame["y"], c=rgb_norm, s=marker_size, linewidth=0)
 
         elif col_lower in ["category", "label"]:
-            label_col = "label" if "label" in frame.columns else col 
+            label_col = "label" if "label" in frame.columns else col
             num_labels = len(np.unique(frame[label_col]))
             cmap_cat = mpl.colormaps["tab20c"].resampled(num_labels)
 
@@ -691,26 +692,33 @@ def plot_he(
                 norm=plt.Normalize(vmin=0, vmax=num_labels - 1),
                 linewidth=0,
             )
-            plt.colorbar(sc, ax=ax, ticks=np.arange(num_labels), fraction=0.046, pad=0.04)
+            plt.colorbar(
+                sc, ax=ax, ticks=np.arange(num_labels), fraction=0.046, pad=0.04
+            )
 
         else:
             cmap = cmap_dict.get(col_lower, "viridis")
             sc = ax.scatter(
-                frame["x"], -frame["y"], c=frame[col], s=marker_size, cmap=cmap, linewidth=0
+                frame["x"],
+                -frame["y"],
+                c=frame[col],
+                s=marker_size,
+                cmap=cmap,
+                linewidth=0,
             )
             plt.colorbar(sc, ax=ax, fraction=0.046, pad=0.04)
 
         # Matched to plot_clones_spatial title placement and sizing
         ax.text(
-            0.05,                      
-            0.99,                     
-            col.capitalize(), 
+            0.05,
+            0.99,
+            col.capitalize(),
             transform=ax.transAxes,
-            ha="left", 
-            va="bottom", 
+            ha="left",
+            va="bottom",
             fontsize=9,
         )
-        
+
         # ax.set_aspect("equal")
         ax.axis("off")
 
@@ -718,5 +726,5 @@ def plot_he(
         ax.axis("off")
 
     # fig.tight_layout()
-    
+
     return fig

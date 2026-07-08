@@ -241,14 +241,18 @@ def pipeline_baum_welch(
         f"Solved HMM with LLF={llf:.6e} for new_log_mu.shape={new_log_mu.shape} given X.shape={X.shape}"
     )
 
-    param_errors=HMMParamErrors(
-        new_log_mu_err=res["new_log_mu_err"],
-        new_alphas_err=res["new_alphas_err"],
-        new_p_binom_err=res["new_p_binom_err"],
-        new_taus_err=res["new_taus_err"],
-        new_log_startprob_err=None, # TODO
-        new_log_transmat_err=None, # TODO
-    ) if propagate_errors else None
+    param_errors = (
+        HMMParamErrors(
+            new_log_mu_err=res["new_log_mu_err"],
+            new_alphas_err=res["new_alphas_err"],
+            new_p_binom_err=res["new_p_binom_err"],
+            new_taus_err=res["new_taus_err"],
+            new_log_startprob_err=None,  # TODO
+            new_log_transmat_err=None,  # TODO
+        )
+        if propagate_errors
+        else None
+    )
 
     # NB pred (when clones concatenated along an axis) assumes a clone (order) definition.
     return CnaHMRFResult(

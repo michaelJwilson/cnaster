@@ -29,7 +29,9 @@ def _wolff_annealing_core(
     cluster_llf = np.zeros(n_clones, dtype=np.float64)
     exp_logits = np.empty(n_clones, dtype=np.float64)
 
-    target_n_steps = int(np.sum(anneal_temps**0 * sweeps_per_temp * n_spots)) # Max possible steps
+    target_n_steps = int(
+        np.sum(anneal_temps**0 * sweeps_per_temp * n_spots)
+    )  # Max possible steps
     hist_temp = np.empty(target_n_steps, dtype=np.float64)
     hist_root = np.empty(target_n_steps, dtype=np.int32)
     hist_size = np.empty(target_n_steps, dtype=np.int32)
@@ -131,7 +133,14 @@ def _wolff_annealing_core(
             for i in range(c_tail):
                 in_cluster[cluster_nodes[i]] = False
 
-    return labels, hist_temp[:step_idx], hist_root[:step_idx], hist_size[:step_idx], hist_old_label[:step_idx], hist_new_label[:step_idx]
+    return (
+        labels,
+        hist_temp[:step_idx],
+        hist_root[:step_idx],
+        hist_size[:step_idx],
+        hist_old_label[:step_idx],
+        hist_new_label[:step_idx],
+    )
 
 
 def wolff_sweep(
@@ -167,15 +176,17 @@ def wolff_sweep(
 
     logger.info(f"Expected prob. to add=\n{p_add_base}")
 
-    labels, hist_temp, hist_root, hist_size, hist_old_label, hist_new_label = _wolff_annealing_core(
-        labels,
-        single_llf,
-        indptr,
-        indices,
-        weights,
-        spatial_weight,
-        anneal_temps,
-        sweeps_per_temp,
+    labels, hist_temp, hist_root, hist_size, hist_old_label, hist_new_label = (
+        _wolff_annealing_core(
+            labels,
+            single_llf,
+            indptr,
+            indices,
+            weights,
+            spatial_weight,
+            anneal_temps,
+            sweeps_per_temp,
+        )
     )
 
     df = pd.DataFrame({"temp": hist_temp, "size": hist_size})
@@ -241,7 +252,7 @@ def initialize_clones_wolff(
         logger.debug(f"Building Wolff initialization {i+1}/{n_init}")
 
         initial_assignment = np.random.randint(
-             0, base_n_clones, size=n_spots, dtype=np.int32
+            0, base_n_clones, size=n_spots, dtype=np.int32
         )
 
         # NB wolff will perturb to truth.
@@ -299,7 +310,7 @@ def initialize_clones_wolff(
             relabeled_final_labels[idx] = new_idx
             if len(idx) > 0:
                 initial_clone_index.append(idx)
-                
+
         final_labels = relabeled_final_labels
 
         all_initializations.append(initial_clone_index)

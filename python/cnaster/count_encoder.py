@@ -56,17 +56,17 @@ class CountEncoder:
 
     def get_unique_total(self, spot):
         return self.unique_counts[spot][:, 1]
-    
+
     @property
     def compression_rate(self):
         total_original_elements = self.n_obs * self.n_spots
-        
+
         if total_original_elements == 0:
             return 0.0
-            
+
         total_compressed_elements = sum(u.shape[0] for u in self.unique_counts)
-        
-        return 1. - total_compressed_elements / total_original_elements
+
+        return 1.0 - total_compressed_elements / total_original_elements
 
     @staticmethod
     def construct_unique_encoding(obs_count, total_count, common_zero_depth=True):
@@ -104,7 +104,7 @@ class CountEncoder:
 
             csr_matrix = scipy.sparse.csr_matrix(
                 (np.ones(len(mat_row)), (mat_row, mat_col)),
-                shape=(n_obs, pairs.shape[0])
+                shape=(n_obs, pairs.shape[0]),
             )
 
             # Example usage:

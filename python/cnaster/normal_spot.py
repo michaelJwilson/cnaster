@@ -191,37 +191,38 @@ def determine_normal_baseline(single_X_rdr, normal_candidate, config=None):
 
     return rdr_normal, single_X_rdr, single_base_nb_mean
 
+
 @njit
 def compute_local_normal_mask(
-    baf_profiles,          # (n_clones, n_bins)
-    spot_assignments,      # (n_spots,) mapping each spot to a clone index
-    single_X_rdr,          # (n_bins, n_spots) raw RNA counts
-    window_size,           # int: The "n_segments" to look left and right
-    eps_baf=0.05,          # float: allowed BAF wiggle room around 0.5
-    baf_margin=0.01,       # float: margin to allow multiple identical clones to pass
+    baf_profiles,  # (n_clones, n_bins)
+    spot_assignments,  # (n_spots,) mapping each spot to a clone index
+    single_X_rdr,  # (n_bins, n_spots) raw RNA counts
+    window_size,  # int: The "n_segments" to look left and right
+    eps_baf=0.05,  # float: allowed BAF wiggle room around 0.5
+    baf_margin=0.01,  # float: margin to allow multiple identical clones to pass
     start_percentile=0.4,  # float: start relaxing from 40% of variance distribution
     percentile_step=0.05,  # float: step size (+5%) for relaxing transcript variance
     var_ratio_thresh=1.1,  # float: Required factor of SS_between / SS_within to stop
-    amp_min=0.8,           # float: lower bound for amplitude regression
-    amp_max=1.25           # float: upper bound for amplitude regression
+    amp_min=0.8,  # float: lower bound for amplitude regression
+    amp_max=1.25,  # float: upper bound for amplitude regression
 ):
     """
-    Creates a (n_bins x n_spots) boolean mask tracking which spots act as the optimal 
-    normal baseline for a given genomic segment. 
-    
-    Identifies a single global BAF-normal clone that is unconditionally anchored. 
-    Additional localized clones are checked for regression amplitude consistency 
+    Creates a (n_bins x n_spots) boolean mask tracking which spots act as the optimal
+    normal baseline for a given genomic segment.
+
+    Identifies a single global BAF-normal clone that is unconditionally anchored.
+    Additional localized clones are checked for regression amplitude consistency
     with the anchor, and iteratively merged if they fit within the variance ratio threshold.
     """
     n_clones, n_bins = baf_profiles.shape
     n_spots = single_X_rdr.shape[1]
-    
+
     local_mask = np.zeros((n_bins, n_spots), dtype=np.bool_)
-    
+
     # -------------------------------------------------------------------------
     # GLOBAL PRE-COMPUTE: Find global normal clone & normalize clone expressions
     # -------------------------------------------------------------------------
-    
+
     # 1A. Find single global BAF normal clone
     global_baf_devs = np.zeros(n_clones)
     for c in range(n_clones):
@@ -231,7 +232,7 @@ def compute_local_normal_mask(
             if diff > 0:
                 d += diff
         global_baf_devs[c] = d
-        
+
     global_anchor_clone = 0
     min_global_dev = global_baf_devs[0]
     for c in range(1, n_clones):
@@ -243,7 +244,7 @@ def compute_local_normal_mask(
     clone_X_rdr = np.zeros((n_bins, n_clones), dtype=np.float64)
     clone_spot_counts = np.zeros(n_clones, dtype=np.int32)
     clone_lib_size = np.zeros(n_clones, dtype=np.float64)
-    
+
     for s in range(n_spots):
         c = spot_assignments[s]
         clone_spot_counts[c] += 1
@@ -253,24 +254,26 @@ def compute_local_normal_mask(
             clone_X_rdr[i, c] += val
             s_sum += val
         clone_lib_size[c] += s_sum
-            
+
     # Precompute mean log1p of the clone expressions
     # and normalize clone_X_rdr raw counts by library size for fast regression
     log1p_clone_rdr = np.empty_like(clone_X_rdr)
     norm_clone_rdr = np.empty_like(clone_X_rdr)
-    
+
     for c in range(n_clones):
         if clone_spot_counts[c] > 0 and clone_lib_size[c] > 0:
             scale_factor = 1.0 / clone_lib_size[c]
         else:
             scale_factor = 0.0
-            
+
         for i in range(n_bins):
             if clone_spot_counts[c] > 0:
-                log1p_clone_rdr[i, c] = np.log1p(clone_X_rdr[i, c] / clone_spot_counts[c])
+                log1p_clone_rdr[i, c] = np.log1p(
+                    clone_X_rdr[i, c] / clone_spot_counts[c]
+                )
             else:
                 log1p_clone_rdr[i, c] = 0.0
-            
+
             norm_clone_rdr[i, c] = clone_X_rdr[i, c] * scale_factor
 
     # -------------------------------------------------------------------------
@@ -281,16 +284,16 @@ def compute_local_normal_mask(
         w_start = max(0, b - window_size)
         w_end = min(n_bins, b + window_size + 1)
         w_len = w_end - w_start
-        
+
         # 1. Start with the guaranteed global anchor
         accepted_clones = np.zeros(n_clones, dtype=np.bool_)
         if clone_spot_counts[global_anchor_clone] > 0:
             accepted_clones[global_anchor_clone] = True
-            
+
         # 2. Find LOCAL diploid clones based on BAF variance (initial candidates)
         local_baf_devs = np.zeros(n_clones)
         min_local_dev = 1e9
-        
+
         for c in range(n_clones):
             if clone_spot_counts[c] == 0:
                 continue
@@ -303,41 +306,41 @@ def compute_local_normal_mask(
             local_baf_devs[c] = dev_avg
             if dev_avg < min_local_dev:
                 min_local_dev = dev_avg
-                
+
         # 3. Filter candidates: check BAF margin AND check Negative Binomial Regression Proxy Amplitude
         candidate_clones = np.zeros(n_clones, dtype=np.int32)
         n_candidates = 0
-        
+
         for c in range(n_clones):
             if clone_spot_counts[c] > 0 and c != global_anchor_clone:
                 if local_baf_devs[c] <= min_local_dev + baf_margin:
-                    
+
                     # Compute pseudo-Poisson/NB weighted regression of candidate vs Global Anchor
                     # y = Candidate, x = Anchor.
                     # In count models, variance scales with mean. A 1st-order WLS sets weights ~ 1/mean.
                     sum_wxy = 0.0
                     sum_wxx = 0.0
-                    
+
                     for i in range(w_start, w_end):
                         x_val = norm_clone_rdr[i, global_anchor_clone]
                         y_val = norm_clone_rdr[i, c]
-                        
+
                         # Weight proportional to inverse expected variance
                         weight = 1.0 / (x_val + 1e-8)
-                        
+
                         sum_wxy += weight * x_val * y_val
                         sum_wxx += weight * x_val * x_val
-                        
+
                     if sum_wxx > 1e-12:
                         beta = sum_wxy / sum_wxx
                     else:
                         beta = 0.0
-                        
+
                     # Only accept as a candidate if amplitude difference is within 20% copy number bounds
                     if amp_min <= beta <= amp_max:
                         candidate_clones[n_candidates] = c
                         n_candidates += 1
-                        
+
         # 4. Calculate transcript variance specifically for surviving CLONES
         if n_candidates > 0:
             clone_stds = np.zeros(n_candidates)
@@ -347,20 +350,20 @@ def compute_local_normal_mask(
                 for i in range(w_start, w_end):
                     mean_val += log1p_clone_rdr[i, c]
                 mean_val /= w_len
-                
+
                 var_val = 0.0
                 for i in range(w_start, w_end):
                     diff = log1p_clone_rdr[i, c] - mean_val
                     var_val += diff * diff
                 var_val /= w_len
                 clone_stds[idx] = np.sqrt(var_val)
-                
+
             sorted_idx = np.argsort(clone_stds)
-            
+
             # 5. Iteratively relax the threshold to absorb ordered clones
             total_pool_size = n_candidates + 1
             pool_stds = np.zeros(total_pool_size)
-            
+
             # Get anchor variance
             mean_anchor = 0.0
             for i in range(w_start, w_end):
@@ -371,32 +374,36 @@ def compute_local_normal_mask(
                 diff = log1p_clone_rdr[i, global_anchor_clone] - mean_anchor
                 var_anchor += diff * diff
             var_anchor /= w_len
-            
+
             pool_stds[0] = np.sqrt(var_anchor)
             for i in range(n_candidates):
-                pool_stds[i+1] = clone_stds[sorted_idx[i]]
-                
+                pool_stds[i + 1] = clone_stds[sorted_idx[i]]
+
             mean_all_stds = np.mean(pool_stds)
-            
+
             if total_pool_size > 3:
-                best_keep = total_pool_size 
+                best_keep = total_pool_size
                 percentile = start_percentile
-                
-                while percentile <= 0.95: 
+
+                while percentile <= 0.95:
                     thresh_idx = int(percentile * total_pool_size)
-                    if thresh_idx < 1: thresh_idx = 1
-                    if thresh_idx >= total_pool_size - 1: thresh_idx = total_pool_size - 2
-                        
+                    if thresh_idx < 1:
+                        thresh_idx = 1
+                    if thresh_idx >= total_pool_size - 1:
+                        thresh_idx = total_pool_size - 2
+
                     n_in = thresh_idx + 1
                     sum_in = 0.0
-                    for i in range(n_in): sum_in += pool_stds[i]
+                    for i in range(n_in):
+                        sum_in += pool_stds[i]
                     mean_in = sum_in / n_in
-                    
+
                     n_out = total_pool_size - n_in
                     sum_out = 0.0
-                    for i in range(thresh_idx + 1, total_pool_size): sum_out += pool_stds[i]
+                    for i in range(thresh_idx + 1, total_pool_size):
+                        sum_out += pool_stds[i]
                     mean_out = sum_out / n_out
-                    
+
                     ss_w = 0.0
                     for i in range(n_in):
                         d = pool_stds[i] - mean_in
@@ -404,18 +411,18 @@ def compute_local_normal_mask(
                     for i in range(thresh_idx + 1, total_pool_size):
                         d = pool_stds[i] - mean_out
                         ss_w += d * d
-                        
+
                     d_in = mean_in - mean_all_stds
                     d_out = mean_out - mean_all_stds
                     ss_b = (n_in * d_in * d_in) + (n_out * d_out * d_out)
-                    
+
                     if ss_w > 1e-12:
                         if ss_b > var_ratio_thresh * ss_w:
                             best_keep = n_in
                             break
-                            
+
                     percentile += percentile_step
-                    
+
                 for i in range(best_keep - 1):
                     c = candidate_clones[sorted_idx[i]]
                     accepted_clones[c] = True
@@ -423,7 +430,7 @@ def compute_local_normal_mask(
                 for i in range(n_candidates):
                     c = candidate_clones[i]
                     accepted_clones[c] = True
-            
+
         # 6. Lock in spots from accepted clones for this segment
         accepted_count = 0
         for s in range(n_spots):
@@ -434,7 +441,7 @@ def compute_local_normal_mask(
         for c in range(n_clones):
             if accepted_clones[c]:
                 accepted_count += 1
-                
+
         total_accepted_clones += accepted_count
 
     avg_clones_included = total_accepted_clones / n_bins
@@ -444,12 +451,12 @@ def compute_local_normal_mask(
 @njit
 def _compute_baseline_core(single_X_rdr, local_normal_mask, min_normal_count_perbin):
     """
-    JIT compiled core for computing baseline stats and zeroing out low-confidence 
+    JIT compiled core for computing baseline stats and zeroing out low-confidence
     segments in-place without generating massive intermediate matrices.
     """
     n_bins, n_spots = single_X_rdr.shape
     rdr_normal = np.zeros(n_bins, dtype=np.float64)
-    
+
     # 1. Sum up normal spots per bin utilizing the 2D sliding-window mask
     for i in range(n_bins):
         b_sum = 0.0
@@ -457,7 +464,7 @@ def _compute_baseline_core(single_X_rdr, local_normal_mask, min_normal_count_per
             if local_normal_mask[i, j]:
                 b_sum += single_X_rdr[i, j]
         rdr_normal[i] = b_sum
-        
+
     # 2. Filter unconfident bins directly in place
     for i in range(n_bins):
         if rdr_normal[i] < min_normal_count_perbin:
@@ -465,21 +472,24 @@ def _compute_baseline_core(single_X_rdr, local_normal_mask, min_normal_count_per
             # Avoid ill-defined distributions if normal baseline falls short
             for j in range(n_spots):
                 single_X_rdr[i, j] = 0.0
-                
+
     # 3. Normalize rdr_normal to create a probability distribution across genomic segments
     rdr_sum = 0.0
-    for i in range(n_bins): rdr_sum += rdr_normal[i]
-        
+    for i in range(n_bins):
+        rdr_sum += rdr_normal[i]
+
     if rdr_sum > 0:
-        for i in range(n_bins): rdr_normal[i] /= rdr_sum
-            
+        for i in range(n_bins):
+            rdr_normal[i] /= rdr_sum
+
     # 4. Calculate total spot coverage AFTER zeroing out unconfident segments
     spots_coverage = np.zeros(n_spots, dtype=np.float64)
     for j in range(n_spots):
         s_sum = 0.0
-        for i in range(n_bins): s_sum += single_X_rdr[i, j]
+        for i in range(n_bins):
+            s_sum += single_X_rdr[i, j]
         spots_coverage[j] = s_sum
-        
+
     return rdr_normal, spots_coverage
 
 
@@ -489,18 +499,18 @@ def determine_local_normal_baseline(
     baf_profiles,
     single_X,
     single_X_rdr,
-    smooth_mat=None,         # Kept to preserve exact caller parameter index compatibility
+    smooth_mat=None,  # Kept to preserve exact caller parameter index compatibility
     single_tumor_prop=None,
     window_size=100,
 ):
     """
     Unified entrypoint replacing determine_normal_candidates and determine_normal_baseline.
-    Derives segment-specific normal cells dynamically and solves for the global expected 
+    Derives segment-specific normal cells dynamically and solves for the global expected
     baseline transcripts. Returns the derived rdr matrices alongside the completed 2D mask.
     """
     logger.info("Determining segment-specific normal spots...")
     n_bins, n_spots = single_X_rdr.shape
-    
+
     # 1. Override Check: Handle user-provided masks first
     if config.preprocessing.normalidx_file is not None:
         if config.preprocessing.tumorprop_file is not None:
@@ -516,46 +526,55 @@ def determine_local_normal_baseline(
         for prop_threshold in np.arange(0.05, 0.6, 0.05):
             global_mask = single_tumor_prop < prop_threshold
             if np.sum(single_X_rdr[:, global_mask]) > 200 * single_X.shape[0]:
-                logger.info(f"Determined normal spots with sufficient UMIs based on input tumor proportion @ prop_threshold={prop_threshold}")
+                logger.info(
+                    f"Determined normal spots with sufficient UMIs based on input tumor proportion @ prop_threshold={prop_threshold}"
+                )
                 break
         else:
-            logger.warning("Failed to determine normal spots with sufficient UMIs based on input tumor proportion.")
-            
+            logger.warning(
+                "Failed to determine normal spots with sufficient UMIs based on input tumor proportion."
+            )
+
         # Broadcast user's 1-dimensional array into 2-dimensional uniform mask
         local_normal_mask = np.tile(global_mask, (n_bins, 1))
 
     # 2. Dynamic Discovery: Run Numba optimized sliding-window
     else:
-        logger.info("Determining normal mask dynamically based on intra/inter-cluster statistical bounds.")
+        logger.info(
+            "Determining normal mask dynamically based on intra/inter-cluster statistical bounds."
+        )
         local_normal_mask, avg_clones_included = compute_local_normal_mask(
             baf_profiles=baf_profiles,
             spot_assignments=np.array(res["new_assignment"], dtype=np.int32),
             single_X_rdr=single_X_rdr,
-            window_size=window_size
+            window_size=window_size,
         )
-        logger.info(f"Average effective number of clones included per segment: {avg_clones_included:.2f}")
+        logger.info(
+            f"Average effective number of clones included per segment: {avg_clones_included:.2f}"
+        )
 
     # 3. Base Compute execution
     mean_sparsity = np.mean(np.sum(local_normal_mask, axis=1) == 0)
-    logger.info(f"Found sparsity of segment-normal spot set = {100. * mean_sparsity:.3f}%")
+    logger.info(
+        f"Found sparsity of segment-normal spot set = {100. * mean_sparsity:.3f}%"
+    )
 
     min_norm = config.quality.min_normal_count_perbin
     rdr_normal, spots_coverage = _compute_baseline_core(
-        single_X_rdr, 
-        local_normal_mask, 
-        min_norm
+        single_X_rdr, local_normal_mask, min_norm
     )
 
     # Calculate normalization outer-product and report
     single_base_nb_mean = rdr_normal.reshape(-1, 1) @ spots_coverage.reshape(1, -1)
     confident_fraction = np.mean(rdr_normal > 0)
-    
+
     logger.info(
         f"Found {100. * confident_fraction:.3f}% of segments with confident normal baseline for "
         f"MIN_NORMAL_COUNT_PERBIN={min_norm}"
     )
 
     return rdr_normal, single_X_rdr, single_base_nb_mean, local_normal_mask
+
 
 '''
 def filter_normal_diffexp(
@@ -732,6 +751,7 @@ def filter_normal_diffexp(
     return new_single_X_rdr, filtered_out_set
 '''
 
+
 def filter_normal_diffexp(
     exp_counts,
     df_bininfo,
@@ -744,9 +764,9 @@ def filter_normal_diffexp(
     use_kmeans=True,
 ):
     """
-    Cluster input transcripts per slice into "normal" vs "tumor" spots based on pca + kmeans 
+    Cluster input transcripts per slice into "normal" vs "tumor" spots based on pca + kmeans
     (or directly via pre-defined normal candidates), dropping differentially expressed genes.
-    
+
     Returns new counts structure of (genomic bins x spots) after filtering genes with estimated
     differential expression, namely new_single_X_rdr.
     """
@@ -779,7 +799,9 @@ def filter_normal_diffexp(
             np.sum(tmpadata.layers["count"][tmpadata.obs["normal_candidate"], :])
             < tmpadata.shape[1] * 10
         ):
-            logger.warning(f"Insufficient normal spot UMIs for slice {sname}. Skipping.")
+            logger.warning(
+                f"Insufficient normal spot UMIs for slice {sname}. Skipping."
+            )
             continue
 
         umi_threshold = np.percentile(
@@ -809,14 +831,16 @@ def filter_normal_diffexp(
             )
 
             idx_kmeans_label = np.argmax(
-                np.bincount(kmeans_labels[tmpadata.obs["normal_candidate"]], minlength=2)
+                np.bincount(
+                    kmeans_labels[tmpadata.obs["normal_candidate"]], minlength=2
+                )
             )
 
             # Log overlap with normal candidates
             normal_mask = tmpadata.obs["normal_candidate"].values
             n_candidates = np.sum(normal_mask)
             overlap = np.sum(kmeans_labels[normal_mask] == idx_kmeans_label)
-            
+
             if n_candidates > 0:
                 logger.info(
                     f"Overlap: {overlap}/{n_candidates} ({100.0 * overlap / n_candidates:.1f}%) "
@@ -826,12 +850,14 @@ def filter_normal_diffexp(
             clone = np.array(["normal"] * tmpadata.shape[0], dtype=object)
             clone[(kmeans_labels != idx_kmeans_label) & (~normal_mask)] = "tumor"
             clone[(kmeans_labels == idx_kmeans_label) & (~normal_mask)] = "unsure"
-            
+
         else:
             # Bypass K-means entirely, rely on pre-labeled normal candidates
-            logger.info(f"Skipping K-means for slice {sname}. Using pre-defined normal candidates directly.")
+            logger.info(
+                f"Skipping K-means for slice {sname}. Using pre-defined normal candidates directly."
+            )
             normal_mask = tmpadata.obs["normal_candidate"].values
-            
+
             clone = np.array(["tumor"] * tmpadata.shape[0], dtype=object)
             clone[normal_mask] = "normal"
             # Note: There are no "unsure" spots in this mode.
@@ -851,7 +877,7 @@ def filter_normal_diffexp(
         )
         # Avoid division by zero on empty slices/clusters
         row_sums = np.sum(agg_counts, axis=1, keepdims=True)
-        row_sums[row_sums == 0] = 1.0  
+        row_sums[row_sums == 0] = 1.0
         agg_counts = agg_counts / row_sums * 1e6
 
         geneumis = np.array([map_gene_umi[x] for x in tmpadata.var.index])
@@ -917,9 +943,12 @@ def filter_normal_diffexp(
             adata.layers["count"][:, adata.var.index.isin(involved_genes)], axis=1
         )
 
-    logger.info(f"Retained {100. * retained_counts / max(total_counts, 1):.3f}% of bin UMIs.")
+    logger.info(
+        f"Retained {100. * retained_counts / max(total_counts, 1):.3f}% of bin UMIs."
+    )
 
     return new_single_X_rdr, filtered_out_set
+
 
 def normal_baf_bin_filter(
     df_gene_snp,
@@ -999,7 +1028,7 @@ def normal_baf_bin_filter(
     index_remaining = np.where(~(removal_indicator1 | removal_indicator2))[0]
 
     removal_indicator = removal_indicator1 | removal_indicator2
-    
+
     logger.info(
         f"Removing {np.count_nonzero(removal_indicator)} [{100. * np.mean(removal_indicator):.4f}]% genomic segments with potential allele-specific expression, based on normal candidates --- confidence={confidence_interval} and min_betabinom_tau={min_betabinom_tau}."
     )
@@ -1017,7 +1046,9 @@ def normal_baf_bin_filter(
     logger.info(f"Solved for unique bin ids:\n{np.unique(df_gene_snp.bin_id)}")
 
     if df_gene_snp.bin_id.isnull().any():
-        logger.warning(f"Detected {df_gene_snp.bin_id.isnull().sum()} bin_ids with NaN value.")
+        logger.warning(
+            f"Detected {df_gene_snp.bin_id.isnull().sum()} bin_ids with NaN value."
+        )
 
     single_X = single_X[index_remaining, :, :]
     single_base_nb_mean = single_base_nb_mean[index_remaining, :]

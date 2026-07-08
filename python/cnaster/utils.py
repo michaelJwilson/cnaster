@@ -278,7 +278,11 @@ def write_fig(opath, fig=None, transparent=True, bbox_inches="tight", dpi=300):
 
     logger.info(f"Writing figure to:\n{opath}")
     fig.savefig(
-        opath, format="pdf", transparent=transparent, bbox_inches=bbox_inches, dpi=dpi,
+        opath,
+        format="pdf",
+        transparent=transparent,
+        bbox_inches=bbox_inches,
+        dpi=dpi,
     )
     plt.close(fig)
 

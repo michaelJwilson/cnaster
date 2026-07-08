@@ -276,6 +276,7 @@ def fit_dispersions_mle(X, base_nb_mean, total_bb_RD, log_mu, p_binom, n_states)
 
     return np.exp(res.x[0]), np.exp(res.x[1])
 
+
 '''
 def cna_mixture_init(
     n_states,
@@ -443,6 +444,7 @@ def cna_mixture_init(
     return log_mu, p_binom # alphas, taus
 '''
 
+
 def cna_mixture_init(
     n_states,
     X,
@@ -487,9 +489,7 @@ def cna_mixture_init(
         _,
         _,
         _,
-    ) = clone_stack_obs(
-        X, base_nb_mean, total_bb_RD, None, None, None
-    )
+    ) = clone_stack_obs(X, base_nb_mean, total_bb_RD, None, None, None)
 
     num_segments, _, _ = clone_stack_X.shape
     flat_idx = np.arange(num_segments)
@@ -504,7 +504,13 @@ def cna_mixture_init(
 
             lnlike_rdr, lnlike_baf = (
                 hmm_sitewise.compute_emission_probability_nb_betabinom(
-                    clone_stack_X, clone_stack_base_nb_mean, log_mu, alphas, clone_stack_total_bb_RD, p_binom, taus
+                    clone_stack_X,
+                    clone_stack_base_nb_mean,
+                    log_mu,
+                    alphas,
+                    clone_stack_total_bb_RD,
+                    p_binom,
+                    taus,
                 )
             )
 
@@ -548,10 +554,14 @@ def cna_mixture_init(
                 sample_idx = np.random.choice(flat_idx, p=ps)
 
                 with np.errstate(divide="ignore", invalid="ignore"):
-                    sample_ln_rdr = np.log(
-                        clone_stack_X[sample_idx, 0, 0]
-                        / clone_stack_base_nb_mean[sample_idx, 0]
-                    ) if known_normal else 0.0 
+                    sample_ln_rdr = (
+                        np.log(
+                            clone_stack_X[sample_idx, 0, 0]
+                            / clone_stack_base_nb_mean[sample_idx, 0]
+                        )
+                        if known_normal
+                        else 0.0
+                    )
 
                     sample_baf = (
                         clone_stack_X[sample_idx, 1, 0]
@@ -570,7 +580,12 @@ def cna_mixture_init(
             )
 
         new_alpha, new_tau = fit_dispersions_mle(
-            clone_stack_X, clone_stack_base_nb_mean, clone_stack_total_bb_RD, log_mu, p_binom, n_states
+            clone_stack_X,
+            clone_stack_base_nb_mean,
+            clone_stack_total_bb_RD,
+            log_mu,
+            p_binom,
+            n_states,
         )
 
         logger.debug(f"Found new dispersions: alpha={new_alpha:.4f}, tau={new_tau:.2f}")
@@ -579,7 +594,13 @@ def cna_mixture_init(
         fit_taus = new_tau * np.ones((n_states, 1))
 
         lnlike_rdr, lnlike_baf = hmm_sitewise.compute_emission_probability_nb_betabinom(
-            clone_stack_X, clone_stack_base_nb_mean, log_mu, fit_alphas, clone_stack_total_bb_RD, p_binom, fit_taus
+            clone_stack_X,
+            clone_stack_base_nb_mean,
+            log_mu,
+            fit_alphas,
+            clone_stack_total_bb_RD,
+            p_binom,
+            fit_taus,
         )
 
         final_lnlike = lnlike_rdr + lnlike_baf
@@ -604,9 +625,15 @@ def cna_mixture_init(
         p_binom = np.where(p_binom > 0.5, 1.0 - p_binom, p_binom)
     else:
         lnlike_rdr, lnlike_baf = hmm_sitewise.compute_emission_probability_nb_betabinom(
-            clone_stack_X, clone_stack_base_nb_mean, log_mu, alphas, clone_stack_total_bb_RD, p_binom, taus
+            clone_stack_X,
+            clone_stack_base_nb_mean,
+            log_mu,
+            alphas,
+            clone_stack_total_bb_RD,
+            p_binom,
+            taus,
         )
-        
+
         log_emission = lnlike_rdr + lnlike_baf
         log_startprob = np.full(n_states, -np.log(n_states))
 
@@ -623,22 +650,26 @@ def cna_mixture_init(
 
         # TODO check normalization.
         posteriors = np.exp(log_gamma)
-        
+
         sum_axes = tuple(range(1, posteriors.ndim))
         component_weights = np.sum(posteriors, axis=sum_axes)
-        
+
         full_log_mu = np.vstack([log_mu, log_mu])
         full_p_binom = np.vstack([p_binom, 1.0 - p_binom])
-        
+
         if len(component_weights) == len(full_log_mu):
             top_indices = np.argsort(component_weights)[-n_states:][::-1]
-            
+
             log_mu = full_log_mu[top_indices]
             p_binom = full_p_binom[top_indices]
-            
-            logger.info(f"Selected top {n_states} states from phase-expanded space via HMM posteriors.")
+
+            logger.info(
+                f"Selected top {n_states} states from phase-expanded space via HMM posteriors."
+            )
         else:
-            logger.warning("Emission likelihood shape does not match 2 * n_states. Skipping phase selection.")
+            logger.warning(
+                "Emission likelihood shape does not match 2 * n_states. Skipping phase selection."
+            )
 
     if not known_normal:
         log_mu, alphas = None, None
@@ -652,6 +683,7 @@ def cna_mixture_init(
     )
 
     return log_mu, p_binom, alphas, taus
+
 
 # TODO define width
 def plot_cna_mixture(
@@ -995,6 +1027,7 @@ def gmm_init(
     return gmm_log_mu, gmm_p_binom
 """
 
+
 # TODO FINAL utilize state posteriors to determine most populated
 def gmm_init(
     n_states,
@@ -1233,7 +1266,8 @@ def gmm_init(
 
     return gmm_log_mu, gmm_p_binom, None, None
 
-'''
+
+"""
 def gmm_init(
     n_states,
     X,
@@ -1446,4 +1480,4 @@ def gmm_init(
     )
 
     return gmm_log_mu, gmm_p_binom, alphas, taus
-    '''
+    """

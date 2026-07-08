@@ -196,7 +196,7 @@ def compute_single_llf(
     n_clones,
     smooth_indices=None,
     smooth_indptr=None,
-    non_zero_weight=True, # NB if False, rdr out-weighs the baf signal, which has many zero read_depth segments.
+    non_zero_weight=True,  # NB if False, rdr out-weighs the baf signal, which has many zero read_depth segments.
 ):
     # NB compute the log likelihood for each spot, for all clones.
     single_llf = np.zeros((N, n_clones))
@@ -249,6 +249,7 @@ def compute_single_llf(
             single_llf[i, c] = ratio_nonzeros[i] * term_rdr + term_baf
 
     return single_llf
+
 
 # NB aggregate by smooth mat. with tumor/normal mix, spot reassignment, concatenated by clone?
 def aggr_hmrfmix_reassignment_concatenate(
@@ -438,7 +439,7 @@ def aggr_hmrfmix_reassignment_concatenate(
         logger.info(f"Solving for updated clone assignment with icm_sweep_dequeue.")
 
         # NB updates new_assignment and posterior in place given log emission likelihood.
-        '''
+        """
         niter, new_cost = icm_sweep_deque(
             single_llf,
             adj_spots,
@@ -451,16 +452,16 @@ def aggr_hmrfmix_reassignment_concatenate(
             log_persample_weights=log_persample_weights,
             sample_ids=sample_ids,
         )
-        '''
+        """
         niter, new_cost = icm_sweep_deque(
             single_llf=single_llf,
-            adj_indptr=adjacency_mat.indptr,   
-            adj_indices=adjacency_mat.indices, 
+            adj_indptr=adjacency_mat.indptr,
+            adj_indices=adjacency_mat.indices,
             adj_weights=adjacency_mat.data,
-            new_assignment=new_assignment,    
+            new_assignment=new_assignment,
             spatial_weight=spatial_weight,
             posterior=posterior,
-            onehot_allowed_clones=None, 
+            onehot_allowed_clones=None,
             # tol=0.1,  # MAGIC TODO
             log_persample_weights=log_persample_weights,
             sample_ids=sample_ids,
@@ -552,7 +553,8 @@ def aggr_hmrfmix_reassignment_concatenate(
     else:
         return new_assignment, single_llf, total_llf
 
-'''
+
+"""
 def validation_summary(
     lengths,
     X,
@@ -606,7 +608,8 @@ def validation_summary(
         )
 
         zero_point += ll
-'''
+"""
+
 
 # @count_calls
 def hmrfmix_concatenate_pipeline(
@@ -626,8 +629,8 @@ def hmrfmix_concatenate_pipeline(
     sample_list=None,
     max_iter_outer=5,
     # nodepotential="max",
-    hmmclass=hmm_phased, # hmm_sitewise
-    hmm_initializer=gmm_init, # {cna_mixture_init, gmm_init}
+    hmmclass=hmm_phased,  # hmm_sitewise
+    hmm_initializer=gmm_init,  # {cna_mixture_init, gmm_init}
     params="stmp",
     t=1 - 1e-6,
     random_state=0,
@@ -834,7 +837,7 @@ def hmrfmix_concatenate_pipeline(
         )
 
         # NB [num_segments, num_segments ..., num_segments] of length num_clones.
-        sample_length = X.shape[0] * np.ones(X.shape[2], dtype=int) 
+        sample_length = X.shape[0] * np.ones(X.shape[2], dtype=int)
         remain_kwargs = {"sample_length": sample_length, "lambd": lambd}
 
         """
@@ -890,7 +893,7 @@ def hmrfmix_concatenate_pipeline(
             hmmclass=hmmclass,
             merge=merge,
         )
-        '''
+        """
         # NB new assignment did not populate an input clone.
         if len(np.unique(new_assignment)) < X.shape[2]:
             # DEPRECATE
@@ -917,15 +920,13 @@ def hmrfmix_concatenate_pipeline(
             # NB log_gamma and pred_cnv by new clone order (concatenated).
             res["log_gamma"] = res["log_gamma"][:, concat_idx]
             res["pred_cnv"] = res["pred_cnv"][concat_idx]
-        '''
+        """
         remaining_clones, new_assignment_reindexed = np.unique(
             new_assignment, return_inverse=True
         )
 
         if len(remaining_clones) < X.shape[2]:
-            logger.warning(
-                f"Detected clone loss on iteration {r}: re-indexing clones."
-            )
+            logger.warning(f"Detected clone loss on iteration {r}: re-indexing clones.")
 
             new_assignment = new_assignment_reindexed
             concat_idx = (remaining_clones[:, None] * n_obs + np.arange(n_obs)).ravel()
@@ -1102,7 +1103,7 @@ def hmrfmix_concatenate_pipeline(
         **remain_kwargs,
     )
 
-    # TODO llf should also technically be updated. 
+    # TODO llf should also technically be updated.
     res.params = final_bm_res.params
     res.param_errors = final_bm_res.param_errors if propagate_hmm_param_errors else None
     res.profile = final_bm_res.profile
@@ -1110,8 +1111,11 @@ def hmrfmix_concatenate_pipeline(
     if deconcatenate_clones:
         # NB shape=(state, segment, clone)
         res["log_gamma"] = np.stack(
-            [res["log_gamma"][:, (c * n_obs) : (c * n_obs + n_obs)] for c in range(len(np.unique(res["new_assignment"])))], 
-            axis=-1
+            [
+                res["log_gamma"][:, (c * n_obs) : (c * n_obs + n_obs)]
+                for c in range(len(np.unique(res["new_assignment"])))
+            ],
+            axis=-1,
         )
 
         res["pred_cnv"] = np.argmax(res["log_gamma"], axis=0)
@@ -1121,60 +1125,60 @@ def hmrfmix_concatenate_pipeline(
 
 def reindex_clones(res_combine, posterior=None, single_tumor_prop=None):
     assert single_tumor_prop is None, "single_tumor_prop must be None"
-    
+
     EPS_BAF = 0.05  # MAGIC
     new_res_combine = copy.copy(res_combine)
-    
+
     assignments = res_combine["new_assignment"]
     clone_labels = np.unique(assignments)
     n_clones = len(clone_labels)
 
     pred_cnv = res_combine["pred_cnv"]
 
-    is_concatenated = (pred_cnv.ndim == 1)
+    is_concatenated = pred_cnv.ndim == 1
 
     if is_concatenated:
         n_obs = len(pred_cnv) // n_clones
     else:
         n_obs = pred_cnv.shape[0]
 
-        
     assert res_combine["new_p_binom"].shape[1] == 1
-        
+
     baf_profile_list = []
     for c in range(n_clones):
         if is_concatenated:
             clone_path = pred_cnv[c * n_obs : (c + 1) * n_obs]
         else:
             clone_path = pred_cnv[:, c]
-            
-        baf_profile_list.append(res_combine["new_p_binom"][clone_path, 0])
-        
-    baf_profiles = np.column_stack(baf_profile_list).T
 
+        baf_profile_list.append(res_combine["new_p_binom"][clone_path, 0])
+
+    baf_profiles = np.column_stack(baf_profile_list).T
 
     # NB normal clone minimizes deviation from 0.5 (outside the EPS_BAF deadband)
     baf_penalty = np.maximum(np.abs(baf_profiles - 0.5) - EPS_BAF, 0)
     cid_normal = int(np.argmin(np.sum(baf_penalty, axis=1)))
 
     unique_clones, spot_counts = np.unique(assignments, return_counts=True)
-    
-    mask_rest = (unique_clones != cid_normal)
+
+    mask_rest = unique_clones != cid_normal
     cid_rest = unique_clones[mask_rest]
     counts_rest = spot_counts[mask_rest]
-    
+
     cid_rest_sorted = cid_rest[np.argsort(counts_rest)]
-    
+
     reidx = np.concatenate(([cid_normal], cid_rest_sorted)).astype(int)
-    
-    logger.info(f"Remapping clone index: {cid_normal} (normal) to 0, otherwise sorted by spot count.")
+
+    logger.info(
+        f"Remapping clone index: {cid_normal} (normal) to 0, otherwise sorted by spot count."
+    )
 
     max_id = np.max(unique_clones)
     palette = np.zeros(max_id + 1, dtype=int)
-    
+
     for new_idx, old_idx in enumerate(reidx):
         palette[old_idx] = new_idx
-        
+
     new_res_combine["new_assignment"] = palette[assignments]
 
     for key in ["new_log_mu", "new_alphas", "new_p_binom", "new_taus"]:
@@ -1182,15 +1186,15 @@ def reindex_clones(res_combine, posterior=None, single_tumor_prop=None):
             new_res_combine[key] = res_combine[key][:, reidx]
 
     if is_concatenated:
-        concat_idx = np.concatenate([
-            np.arange(c * n_obs, c * n_obs + n_obs) for c in reidx
-        ])
-        
+        concat_idx = np.concatenate(
+            [np.arange(c * n_obs, c * n_obs + n_obs) for c in reidx]
+        )
+
         new_res_combine["pred_cnv"] = pred_cnv[concat_idx]
-        
+
         if "log_gamma" in res_combine.keys():
             new_res_combine["log_gamma"] = res_combine["log_gamma"][:, concat_idx]
-            
+
     else:
         if pred_cnv.shape[1] > 1:
             new_res_combine["pred_cnv"] = pred_cnv[:, reidx]
@@ -1353,6 +1357,7 @@ def merge_by_minspots(
         merged_res["log_gamma"] = res["log_gamma"][:, :, rep_clones]
 
     return merging_groups, merged_res
+
 
 '''
 # NB point={aggr_hmrf_reassignment, aggr_hmrfmix_reassignment};
@@ -1533,6 +1538,7 @@ def aggr_hmrf_reassignment(
         return new_assignment, single_llf, total_llf
 '''
 
+
 def aggr_hmrfmix_reassignment(
     single_X,
     single_base_nb_mean,
@@ -1550,7 +1556,7 @@ def aggr_hmrfmix_reassignment(
     return_posterior=False,
 ):
     """
-    DEPRECATED: This function is slow and unvectorized. 
+    DEPRECATED: This function is slow and unvectorized.
     It has been re-routed to the highly optimized `aggr_hmrfmix_reassignment_concatenate`.
     """
     logger.warning(

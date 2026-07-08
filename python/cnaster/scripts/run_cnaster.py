@@ -12,6 +12,7 @@ from cnaster.config import YAMLConfig, set_global_config, start_time
 
 # from cnaster.sim import load_tables_to_matrices
 from cnaster.hmm_nophasing import hmm_nophasing
+
 # from cnaster.hmm_phased import hmm_phased
 from cnaster.hmrf import (  # hmrf_reassignment_posterior,; hmrfmix_reassignment_posterior,
     # aggr_hmrf_reassignment,
@@ -69,7 +70,7 @@ from cnaster.spatial import (  # fixed_rectangle_partition,; sufficient_umis_ini
     initialize_clones,
     multislice_adjacency,
     # rectangle_initialize_initial_clone,
-    initialize_rdr_clone_refininement, 
+    initialize_rdr_clone_refininement,
 )
 
 from cnaster.adjacency import multislice_adjacency as multislice_adjacency_simple
@@ -180,7 +181,7 @@ def run_cnaster(config_path, over_rides=None):
     #    sample_ids: unique enum for each entry in sample_list.  One per adata.obs entry.
     sample_list, sample_ids = get_sample_list(adata)
     single_tumor_prop = read_tumor_prop(adata, config=config)
-    '''
+    """
     # TODO HACK
     adjacency_mat, smooth_mat = multislice_adjacency_simple(
         coords, 
@@ -190,7 +191,7 @@ def run_cnaster(config_path, over_rides=None):
         dx=1.0, 
         dy=1.0, # sqrt(3)/2 for hexagonal lattice
     )
-    '''
+    """
     # NB parse_visium::combine_gene_snps
     #    [ chr, start, end, snp_id, gene, is_interval (is_gene) ]
     df_gene_snp = form_gene_snp_table(
@@ -267,7 +268,7 @@ def run_cnaster(config_path, over_rides=None):
     # ============================================================
     #
     logger.runtime_phase = "PHASING"
-    
+
     # NB  rectangular partition across multiple slices, equivalent to parse_visium::perform_partition.
     initial_clone_for_phasing = initialize_clones(
         coords,
@@ -276,7 +277,7 @@ def run_cnaster(config_path, over_rides=None):
         y_part=config.phasing.npart_phasing,
         config=config,
     )
-    '''
+    """
     initial_clone_for_phasing = initialize_clones_wolff(
         sample_ids,
         adjacency_mat,
@@ -292,7 +293,7 @@ def run_cnaster(config_path, over_rides=None):
         min_temp=1.,
         max_temp=1.,
     ).pop()
-    '''
+    """
     assignment = pd.Series(
         [f"clone {x}" for x in get_clone_assignment(coords, initial_clone_for_phasing)]
     )
@@ -383,7 +384,11 @@ def run_cnaster(config_path, over_rides=None):
             n_states_phasing = config.hmm.n_states
 
         # TODO HACK
-        transmat = np.ones((config.hmm.n_states, config.hmm.n_states)) * (1.0 - config.hmm.t) / (config.hmm.n_states - 1)
+        transmat = (
+            np.ones((config.hmm.n_states, config.hmm.n_states))
+            * (1.0 - config.hmm.t)
+            / (config.hmm.n_states - 1)
+        )
         np.fill_diagonal(transmat, config.hmm.t)
         log_transmat = np.log(transmat)
 
@@ -411,7 +416,9 @@ def run_cnaster(config_path, over_rides=None):
         )
 
         # TODO PATCH
-        res_phasing["new_assignment"] = get_clone_assignment(coords, initial_clone_for_phasing)
+        res_phasing["new_assignment"] = get_clone_assignment(
+            coords, initial_clone_for_phasing
+        )
 
         logger.info(
             f"Solution for initial phase given pop. phasing (eagle) & observed baf in {(time.time() - start_time):.2f} seconds."
@@ -543,8 +550,7 @@ def run_cnaster(config_path, over_rides=None):
     #
 
     logger.runtime_phase = "BAF-ONLY CLONE & COPY STATE INFERENCE"
-    
-    
+
     # TODO
     # NB smooth pooling matrix & distance based (exponential decay) adjacency.
     #    requires pre-defined single_total_bb_RD, but largely on data loading.
@@ -558,10 +564,10 @@ def run_cnaster(config_path, over_rides=None):
         construct_adjacency_method=config.hmrf.construct_adjacency_method,
         maxspots_pooling=config.hmrf.maxspots_pooling,
         construct_adjacency_w=config.hmrf.construct_adjacency_w,
-        unit_xsquared=config.hmrf.unit_xsquared, # TODO
-        unit_ysquared=config.hmrf.unit_ysquared, # TODO
+        unit_xsquared=config.hmrf.unit_xsquared,  # TODO
+        unit_ysquared=config.hmrf.unit_ysquared,  # TODO
     )
-    
+
     # adjacency_fig = plot_adjacency(
     #     coords,
     #     smooth_mat,
@@ -703,11 +709,11 @@ def run_cnaster(config_path, over_rides=None):
         spatial_weight=config.hmrf.spatial_weight,
         tumorprop_threshold=config.hmrf.tumorprop_threshold,
         propagate_hmm_param_errors=False,
-        deconcatenate_clones=False, 
+        deconcatenate_clones=False,
     )
     # TODO
     # res.lock()
-    
+
     # TODO FINAL HACK?
     # res, _ = reindex_clones(res, posterior=None, single_tumor_prop=None)
 
@@ -1017,7 +1023,7 @@ def run_cnaster(config_path, over_rides=None):
         logger.warning(f"Assuming no filter for normal differential expression.")
 
     pause()
-    
+
     # TODO HACK >>>>>>  do not filter, but merge segments with insufficient normal umi counts.
     #                   assumes ...  what assumption on phasing, baf-switches?
     df_gene_snp = create_bin_ranges(
@@ -1063,7 +1069,7 @@ def run_cnaster(config_path, over_rides=None):
 
     copy_single_X_rdr = single_X[:, 0, :]
     # <<<<<<<<<<<<
-    
+
     # NB >>>>>  zeros single_X_rdr entries with insufficient normal counts,
     #           given config.quality.min_normal_count_perbin.
     _, copy_single_X_rdr, copy_single_base_nb_mean = determine_normal_baseline(
@@ -1071,7 +1077,7 @@ def run_cnaster(config_path, over_rides=None):
         normal_candidate,
         config,
     )
-    '''
+    """
     # TODO HACK FINAL
     _, copy_single_X_rdr, copy_single_base_nb_mean, _ = determine_local_normal_baseline(
         config,
@@ -1083,7 +1089,7 @@ def run_cnaster(config_path, over_rides=None):
         single_tumor_prop=None,
         window_size=10
     )
-    '''
+    """
     # NB adding back RDR signal
     single_X[:, 0, :] = copy_single_X_rdr
     single_base_nb_mean = copy_single_base_nb_mean
@@ -1101,12 +1107,14 @@ def run_cnaster(config_path, over_rides=None):
     )
 
     # TODO HACK  >>>>>>>>
-    initial_rdr_clone_assignment, onehot_allowed_clones, total_clones = initialize_rdr_clone_refininement(
-        merged_baf_assignment=merged_baf_assignment,
-        coords=coords,
-        single_total_bb_RD=single_total_bb_RD,
-        n_obs=single_X.shape[0],
-        config=config
+    initial_rdr_clone_assignment, onehot_allowed_clones, total_clones = (
+        initialize_rdr_clone_refininement(
+            merged_baf_assignment=merged_baf_assignment,
+            coords=coords,
+            single_total_bb_RD=single_total_bb_RD,
+            n_obs=single_X.shape[0],
+            config=config,
+        )
     )
 
     global_initial_clone_index = [
@@ -1114,18 +1122,18 @@ def run_cnaster(config_path, over_rides=None):
     ]
 
     res_combine = hmrfmix_concatenate_pipeline(
-        single_X, 
+        single_X,
         lengths,
         single_base_nb_mean,
-        single_total_bb_RD,  
+        single_total_bb_RD,
         single_tumor_prop if single_tumor_prop is not None else None,
         global_initial_clone_index,
         n_states=config.hmm.n_states,
         prefix=None,
         coords=coords,
         log_sitewise_transmat=log_sitewise_transmat,
-        smooth_mat=smooth_mat,     
-        adjacency_mat=adjacency_mat, 
+        smooth_mat=smooth_mat,
+        adjacency_mat=adjacency_mat,
         sample_ids=sample_ids,
         sample_list=sample_list,
         max_iter_outer=config.hmrf.max_iter_outer,
@@ -1155,7 +1163,9 @@ def run_cnaster(config_path, over_rides=None):
         single_X,
         single_base_nb_mean,
         single_total_bb_RD,
-        get_clone_indices(res_combine["new_assignment"], np.unique(res_combine["new_assignment"])),
+        get_clone_indices(
+            res_combine["new_assignment"], np.unique(res_combine["new_assignment"])
+        ),
         single_tumor_prop if single_tumor_prop is not None else None,
         threshold=config.hmrf.tumorprop_threshold,
     )
@@ -1219,7 +1229,9 @@ def run_cnaster(config_path, over_rides=None):
             hmmclass=hmm_nophasing,
         )
     else:
-        logger.warning(f"No Neyman-Pearson merging applied to rdr-baf-identified clones.")
+        logger.warning(
+            f"No Neyman-Pearson merging applied to rdr-baf-identified clones."
+        )
 
         # NB a shallow copy.
         merged_res_combine = res_combine.copy()
@@ -1275,7 +1287,8 @@ def run_cnaster(config_path, over_rides=None):
         single_base_nb_mean=single_base_nb_mean,
         single_total_bb_RD=single_total_bb_RD,
         clone_index=get_clone_indices(
-            merged_res_combine["new_assignment"], np.unique(merged_res_combine["new_assignment"])
+            merged_res_combine["new_assignment"],
+            np.unique(merged_res_combine["new_assignment"]),
         ),
         res_combine=merged_res_combine,
         single_tumor_prop=None,
@@ -1624,7 +1637,7 @@ def run_cnaster(config_path, over_rides=None):
 
         pause()
     '''
-        
+
     # TODO prev_assignment renaming.
     n_final_clones = len(np.unique(res_combine["prev_assignment"]))
 
@@ -1638,7 +1651,7 @@ def run_cnaster(config_path, over_rides=None):
     logger.info(
         f"Assuming min. tau dispersion={np.min(res_combine['new_taus']):.4f} between clones given current:\n{res_combine['new_taus']}"
     )
-    '''
+    """
     # HACK broadcast max. dispersion - parameters assumed to be shared across rdr-split clones only.
     res_combine["new_alphas"][:, :] = np.max(res_combine["new_alphas"])
 
@@ -1741,8 +1754,8 @@ def run_cnaster(config_path, over_rides=None):
     # NB total Potts likelihood given final copy states and clone assignment.
     res_combine["total_llf"] = total_llf
     res_combine["new_assignment"] = new_assignment
-    '''
-    
+    """
+
     # NB re-order clones such that the index of the most-normal clone is 0.
     res_combine, _ = reindex_clones(res_combine, posterior=None, single_tumor_prop=None)
     res_combine.lock()
@@ -1787,7 +1800,7 @@ def run_cnaster(config_path, over_rides=None):
     logger.runtime_phase = "INTEGER COPY NUMBER DETERMINATION"
 
     # >>>>>
-    # >>>>>  TODO updated res_combine keys for integer copies, and clone assignment according to unique inferred states. 
+    # >>>>>  TODO updated res_combine keys for integer copies, and clone assignment according to unique inferred states.
     # >>>>>
 
     # NB assumed ploidy for integer copy number problem, expects e.g. "diploid", "triploid", "tetraploid"
@@ -2342,7 +2355,7 @@ def run_cnaster(config_path, over_rides=None):
         transparent=True,
         bbox_inches="tight",
     )
-    
+
     logger.info(f"Done in {(time.time() - start_time)/60.:.2f} minutes.")
 
 

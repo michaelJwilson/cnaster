@@ -8,6 +8,7 @@ from cnaster.utils import cast_clone_label
 
 NORMAL_OPACITY = 0.25
 
+
 def get_intervals(pred_cnv):
     """
     Find contiguous intervals in the state label array (pred_cnv)
@@ -79,9 +80,7 @@ def plot_ascn_legend(
 
     swatch_w = box_w * 0.5
     ax.add_patch(
-        Rectangle(
-            (0.0, 0.0), swatch_w, box_h, facecolor="white", edgecolor="black"
-        )
+        Rectangle((0.0, 0.0), swatch_w, box_h, facecolor="white", edgecolor="black")
     )
 
     _draw_mirror_chevrons(ax, 0.0, 0.0, swatch_w, box_h / 2, direction=1)
@@ -95,7 +94,7 @@ def plot_ascn_legend(
         fontsize=label_fontsize,
     )
 
-    x0 = swatch_w + 0.5 
+    x0 = swatch_w + 0.5
 
     for i, label in enumerate(boxes):
         color = state_style.get(label)
@@ -103,10 +102,11 @@ def plot_ascn_legend(
             (x0 + i * box_w, 0.0),
             box_w,
             box_h,
-            facecolor=mcolors.to_rgba(color, alpha=(NORMAL_OPACITY if label == 1 else 1.0)), 
-            edgecolor="black", 
+            facecolor=mcolors.to_rgba(
+                color, alpha=(NORMAL_OPACITY if label == 1 else 1.0)
+            ),
+            edgecolor="black",
         )
-
 
         ax.add_patch(rect)
 
@@ -122,7 +122,7 @@ def plot_ascn_legend(
         )
 
     total_boxes_w = len(boxes) * box_w
-    
+
     ax.text(
         x0 + total_boxes_w + 0.2,
         box_h / 2.0,
@@ -165,17 +165,17 @@ def plot_copy_number_profile(
     deviations = []
     for k in range(len(clone_ids)):
         a_col, b_col = A_full[:, k], B_full[:, k]
-        
+
         # Combine into a single state array to identify contiguous blocks
         encoded = a_col * 1_000 + b_col
         intervals, _ = get_intervals(encoded)
-        
+
         # Extract the start indices of each interval
         starts = [s for s, e in intervals]
-        
+
         a_rle = a_col[starts]
         b_rle = b_col[starts]
-        
+
         # Sum the deviation of just the segments (unweighted by genomic length)
         deviations.append(np.sum(np.abs(a_rle - 1) + np.abs(b_rle - 1)))
 
@@ -247,7 +247,9 @@ def plot_copy_number_profile(
                         (x0, y_b),
                         w,
                         h_sub,
-                        facecolor=state_style.get(cnb, state_style.get("default", "lightgray")),
+                        facecolor=state_style.get(
+                            cnb, state_style.get("default", "lightgray")
+                        ),
                         edgecolor="none",
                         linewidth=0,
                         alpha=(NORMAL_OPACITY if cnb == 1 else 1.0),
@@ -259,7 +261,9 @@ def plot_copy_number_profile(
                         (x0, y_a),
                         w,
                         h_sub,
-                        facecolor=state_style.get(cna, state_style.get("default", "lightgray")),
+                        facecolor=state_style.get(
+                            cna, state_style.get("default", "lightgray")
+                        ),
                         edgecolor="none",
                         linewidth=0,
                         alpha=(NORMAL_OPACITY if cna == 1 else 1.0),

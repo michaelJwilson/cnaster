@@ -769,12 +769,10 @@ def get_sample_estimate(root, sample_id, method, rectangle, cna_only=False):
         separator="\t",
     ).rename({"CHR": "Chromosome", "START": "Start", "END": "End"})
 
-    copy_num_columns = [
-        c for c in calls.columns if re.match(r"clone.* [AB]$", c)
-    ]
+    copy_num_columns = [c for c in calls.columns if re.match(r"clone.* [AB]$", c)]
 
     logger.info(f"Found copy num. columns: {copy_num_columns}")
-    
+
     if cna_only:
         logger.warning("Retaining only segments with CNA in at least one clone.")
 
@@ -790,9 +788,11 @@ def get_sample_estimate(root, sample_id, method, rectangle, cna_only=False):
     if col_rename:
         logger.info(f"Renaming columns: {col_rename}")
         calls = calls.rename(col_rename)
-    
-    logger.info(f"Creating table of estimated CNAs for all spots and segments given sample calls=\n{calls}.")
-    
+
+    logger.info(
+        f"Creating table of estimated CNAs for all spots and segments given sample calls=\n{calls}."
+    )
+
     # NB cross join: all segments × all spots, i.e. replicates each segment for all spots.
     spot_cna = calls.join(clones, how="cross")
 
@@ -851,7 +851,7 @@ def get_best_sample_estimate(root, sample_id, method, cna_only=False):
     best_rectangle, best_loglike = None, -np.inf
 
     loglikes = []
-    
+
     for rectangle in range(10):
         loglike = get_sample_loglike(root, sample_id, method, rectangle)
         loglikes.append(loglike)

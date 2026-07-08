@@ -79,8 +79,8 @@ def find_diploid_balanced_state(
         # DEPRECATE the diploid balanced states has the smallest inferred log_mu (supposedly).
         # normal_candidate_idx = np.argmin(new_log_mu[candidate]
 
-        normal_candidate_idx = np.argmin(np.abs(1. - np.exp(new_log_mu[candidate])))
-        normal_candidate = candidate[normal_candidate_idx]    
+        normal_candidate_idx = np.argmin(np.abs(1.0 - np.exp(new_log_mu[candidate])))
+        normal_candidate = candidate[normal_candidate_idx]
 
         log_mu = new_log_mu[normal_candidate]
 
@@ -581,7 +581,7 @@ def hill_climbing_integer_copynumber_fixdiploid_milp(
     cost_type="L1",
     enforce_order=False,
     uniform_state_weights=False,
-    rdr_relative_weight=0.3, # TODO HACK
+    rdr_relative_weight=0.3,  # TODO HACK
     enforce_states={},
     max_samples=20,  # Retained in signature for compatibility, but ignored by MILP
 ):

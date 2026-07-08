@@ -53,7 +53,8 @@ def cast_csr(csr_matrix):
 
     return result
 
-'''
+
+"""
 def clone_stack_obs(
     X, base_nb_mean, total_bb_RD, lengths, log_sitewise_transmat, tumor_prop
 ):
@@ -91,7 +92,8 @@ def clone_stack_obs(
         clone_stack_sitewise_transmat,
         stack_tumor_prop,
     )
-'''
+"""
+
 
 def clone_stack_obs(
     X, base_nb_mean, total_bb_RD, lengths, log_sitewise_transmat, tumor_prop
@@ -99,7 +101,7 @@ def clone_stack_obs(
     n_obs, n_comp, n_clones = X.shape
 
     # NB. transpose moves clones to the first dimension: (n_clones, n_obs, 2)
-    #     reshaping to (-1, 2, 1) perfectly mimics the flatten("F") + vstack logic 
+    #     reshaping to (-1, 2, 1) perfectly mimics the flatten("F") + vstack logic
     #     but strictly requires only one C-level memory copy.
     clone_stack_X = X.transpose(2, 0, 1).reshape(-1, n_comp, 1)
 
@@ -138,6 +140,7 @@ def clone_stack_obs(
         clone_stack_sitewise_transmat,
         stack_tumor_prop,
     )
+
 
 def get_clone_indices(assignments, clone_ids):
     """

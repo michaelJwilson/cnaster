@@ -85,6 +85,7 @@ def jax_unpack(
 
     return j_log_startprob, j_log_mu, j_p_binom, j_alphas, j_taus
 
+
 @functools.partial(
     jax.jit,
     static_argnames=[
@@ -154,7 +155,9 @@ def jax_nll_objective(
     )
 
     MIN_LOG_PROB = -1e4
-    log_emissions = jnp.maximum(log_rdr, MIN_LOG_PROB) + jnp.maximum(log_baf, MIN_LOG_PROB)
+    log_emissions = jnp.maximum(log_rdr, MIN_LOG_PROB) + jnp.maximum(
+        log_baf, MIN_LOG_PROB
+    )
 
     def scan_fn(prev_alpha, curr_emission):
         next_alpha = (
@@ -173,6 +176,7 @@ def jax_nll_objective(
         curr += le
 
     return total_nll
+
 
 jax_value_and_grad = jax.jit(
     jax.value_and_grad(jax_nll_objective, argnums=0),
@@ -202,6 +206,7 @@ jax_exact_hessian = jax.jit(
         "lengths",
     ],
 )
+
 
 @functools.partial(
     jax.jit,
@@ -244,11 +249,28 @@ def jax_compute_flat_errors(
     Derives the exact Jacobian of the transformations and propagates through the Hessian.
     """
     H = jax_exact_hessian(
-        flat_params, X_rdr, base_nb_mean, X_baf, total_bb_RD, log_transmat,
-        log_start_init, log_mu_init, p_binom_init, alphas_init, taus_init,
-        n_states, params_str, optimize_nb, fix_NB, shared_NB, fix_BB, shared_BB, use_logit, lengths
+        flat_params,
+        X_rdr,
+        base_nb_mean,
+        X_baf,
+        total_bb_RD,
+        log_transmat,
+        log_start_init,
+        log_mu_init,
+        p_binom_init,
+        alphas_init,
+        taus_init,
+        n_states,
+        params_str,
+        optimize_nb,
+        fix_NB,
+        shared_NB,
+        fix_BB,
+        shared_BB,
+        use_logit,
+        lengths,
     )
-    
+
     # NB pseudo-inverse natively stabilizes strict singularities
     cov_raw = jnp.linalg.pinv(H)
 
@@ -347,7 +369,6 @@ class hmm_nophasing_jax(hmm_nophasing):
             taus_err = None
 
         return log_startprob_err, log_mu_err, p_binom_err, alphas_err, taus_err
-
 
     def run_marginal_likelihood_nb_bb(
         self,
@@ -471,8 +492,10 @@ class hmm_nophasing_jax(hmm_nophasing):
         )
 
         if propagate_errors:
-            logger.info("Computing exact Hessian and propagating errors via JAX Delta Method...")
-            
+            logger.info(
+                "Computing exact Hessian and propagating errors via JAX Delta Method..."
+            )
+
             errs_flat_jax = jax_compute_flat_errors(
                 jnp.asarray(res.x),
                 jax_X_rdr,

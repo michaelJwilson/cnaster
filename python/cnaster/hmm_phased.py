@@ -123,6 +123,7 @@ def compute_emission_probability_nb_betabinom_phased_coded(
 
     return log_emission_rdr, log_emission_baf
 
+
 # TODO?
 # NB phased HMM class inherits run_baum_welch from the unphased variety, but overrides emission and forward/backward.
 class hmm_phased(hmm_nophasing):

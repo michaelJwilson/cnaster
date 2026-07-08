@@ -3,6 +3,7 @@ import sys
 import time
 import types
 
+
 # 1. Create a custom Logger class that shares state across all instances
 class SharedStateLogger(logging.Logger):
     _shared_runtime_phase = None
@@ -14,6 +15,7 @@ class SharedStateLogger(logging.Logger):
     @runtime_phase.setter
     def runtime_phase(self, value):
         SharedStateLogger._shared_runtime_phase = value
+
 
 # Tell Python's logging registry to use this class for all new loggers
 logging.setLoggerClass(SharedStateLogger)
@@ -53,10 +55,10 @@ class RuntimeFormatter(logging.Formatter):
     def format(self, record):
         runtime_minutes = (time.time() - self.start_time) / 60.0
         record.runtime = f"{runtime_minutes:.2f}m"
-        
+
         if not hasattr(record, "runtime_phase_str"):
             record.runtime_phase_str = ""
-            
+
         return super().format(record)
 
 
@@ -67,7 +69,7 @@ def get_logger(name, start_time, level=logging.INFO):
 
     if logger.hasHandlers():
         logger.handlers.clear()
-        
+
     logger.filters.clear()
 
     # The filter no longer needs the specific logger instance passed to it

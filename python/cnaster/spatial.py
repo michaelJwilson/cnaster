@@ -2,10 +2,13 @@ import numpy as np
 import scipy.linalg
 import scipy.sparse
 from collections import namedtuple
+
 # from scipy.sparse import lil_matrix
 from scipy.spatial import cKDTree
+
 # from scipy.spatial import distance
 from scipy.sparse import csr_matrix
+
 # from cnaster.utils import cacher
 from cnaster.config import start_time
 from cnaster.logger import get_logger
@@ -886,53 +889,53 @@ def multislice_adjacency(
 
 
 def initialize_rdr_clone_refininement(
-    merged_baf_assignment, 
-    coords, 
-    single_total_bb_RD, 
-    n_obs, 
-    config
+    merged_baf_assignment, coords, single_total_bb_RD, n_obs, config
 ):
     n_spots = len(merged_baf_assignment)
     n_baf_clones = len(np.unique(merged_baf_assignment))
-    
+
     # TODO HACK assert (0, ..., N-1) for clone labels.
 
     splits_per_baf, total_rdr_clones = [], 0
-    
+
     for bafc in range(n_baf_clones):
         idx_spots = np.where(merged_baf_assignment == bafc)[0]
-        
+
         sufficient_snp_umi = np.sum(single_total_bb_RD[:, idx_spots]) >= 20 * n_obs
-        
+
         n_splits = config.hmrf.n_clones_rdr if sufficient_snp_umi else 1
         splits_per_baf.append(n_splits)
         total_rdr_clones += n_splits
 
-    logger.info(f"Global hmrf will optimize {total_rdr_clones} rdr-refined clones given {n_baf_clones} baf-identified clones.")
+    logger.info(
+        f"Global hmrf will optimize {total_rdr_clones} rdr-refined clones given {n_baf_clones} baf-identified clones."
+    )
 
     global_initial_assignment = np.zeros(n_spots, dtype=np.int32)
 
     # NB one-hot allowed (rdr-refined) clones.
     allowed_clones = np.zeros((n_spots, total_rdr_clones), dtype=bool)
     global_clone_offset = 0
-    
+
     for bafc, n_splits in enumerate(splits_per_baf):
         idx_spots = np.where(merged_baf_assignment == bafc)[0]
-        
+
         # TODO HACK define initializer; define seed.
         initial_clone_index, _ = rectangle_initialize_initial_clone(
             coords[idx_spots],
             n_splits,
-            random_state=config.hmm.gmm_random_state, 
+            random_state=config.hmm.gmm_random_state,
         )
-        
+
         for local_c, local_idx in enumerate(initial_clone_index):
             global_c = global_clone_offset + local_c
 
             global_spot_ids = idx_spots[local_idx]
             global_initial_assignment[global_spot_ids] = global_c
-            
-        allowed_clones[idx_spots, global_clone_offset : global_clone_offset + n_splits] = True        
+
+        allowed_clones[
+            idx_spots, global_clone_offset : global_clone_offset + n_splits
+        ] = True
         global_clone_offset += n_splits
 
     return global_initial_assignment, allowed_clones, total_rdr_clones

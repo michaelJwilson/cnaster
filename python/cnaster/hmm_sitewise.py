@@ -28,6 +28,7 @@ logger = get_logger(__name__, start_time=start_time)
 
 PEANLIZE_PHASE_ONLY_ON_SAME_CNV = False  # TODO config derived.
 
+
 def switch_betabinom(log_emission_baf_nophase, k, n, alpha, beta):
     # NB expect:
     #    log_emission_baf_nophase.shape=(n_states, n_obs, n_spots),
@@ -304,7 +305,7 @@ def forward_marginalize_phased(
     log_startprob,
     log_emission,
     log_sitewise_transmat,
-    penalize_phase_only_on_same_cnv: bool = PEANLIZE_PHASE_ONLY_ON_SAME_CNV, # TODO config derived.
+    penalize_phase_only_on_same_cnv: bool = PEANLIZE_PHASE_ONLY_ON_SAME_CNV,  # TODO config derived.
 ):
     n_paired_states = log_emission.shape[0]
     n_states = int(np.ceil(n_paired_states / 2))
@@ -359,7 +360,7 @@ def backward_marginalize_phased(
     log_startprob,
     log_emission,
     log_sitewise_transmat,
-    penalize_phase_only_on_same_cnv: bool = PEANLIZE_PHASE_ONLY_ON_SAME_CNV, # TODO config derived.
+    penalize_phase_only_on_same_cnv: bool = PEANLIZE_PHASE_ONLY_ON_SAME_CNV,  # TODO config derived.
 ):
     n_paired_states = log_emission.shape[0]
     n_states = int(np.ceil(n_paired_states / 2))
@@ -437,7 +438,7 @@ class hmm_sitewise:
         return backward_marginalize_phased(
             lengths, log_transmat, log_startprob, log_emission, log_sitewise_transmat
         )
-    
+
     @classmethod
     def get_state_posteriors(
         cls, lengths, log_transmat, log_startprob, log_emission, log_sitewise_transmat

@@ -13,8 +13,8 @@ class LockableMixin:
     _locked: bool = False
 
     def lock(self) -> None:
-        object.__setattr__(self, '_locked', True)
-        
+        object.__setattr__(self, "_locked", True)
+
         if is_dataclass(self):
             for f in fields(self):
                 val = getattr(self, f.name)
@@ -24,8 +24,8 @@ class LockableMixin:
                     val.flags.writeable = False
 
     def unlock(self) -> None:
-        object.__setattr__(self, '_locked', False)
-        
+        object.__setattr__(self, "_locked", False)
+
         if is_dataclass(self):
             for f in fields(self):
                 val = getattr(self, f.name)
@@ -42,10 +42,10 @@ class LockableMixin:
 
 @dataclass
 class SpatioGenomicCounts(LockableMixin):
-    lengths: np.ndarray       # (n_contigs,) num. segments per contig
-    X: np.ndarray             # (n_segments, 2, n_spots) observed counts, 0: genes, 1: snps
+    lengths: np.ndarray  # (n_contigs,) num. segments per contig
+    X: np.ndarray  # (n_segments, 2, n_spots) observed counts, 0: genes, 1: snps
     base_nb_mean: np.ndarray  # (n_segments, n_spots) expected baseline expression
-    total_bb_RD: np.ndarray   # (n_segments, n_spots) total snp-covering reads
+    total_bb_RD: np.ndarray  # (n_segments, n_spots) total snp-covering reads
 
     @property
     def n_segments(self) -> int:
@@ -88,13 +88,19 @@ class SpatioGenomicCounts(LockableMixin):
         n_spt = self.n_spots
 
         if np.sum(self.lengths) != n_seg:
-            raise ValueError(f"Lengths array sum ({np.sum(self.lengths)}) does not match X n_segments ({n_seg}).")
+            raise ValueError(
+                f"Lengths array sum ({np.sum(self.lengths)}) does not match X n_segments ({n_seg})."
+            )
 
         if self.base_nb_mean.shape != (n_seg, n_spt):
-            raise ValueError(f"base_nb_mean shape {self.base_nb_mean.shape} mismatch. Expected: ({n_seg}, {n_spt})")
+            raise ValueError(
+                f"base_nb_mean shape {self.base_nb_mean.shape} mismatch. Expected: ({n_seg}, {n_spt})"
+            )
 
         if self.total_bb_RD.shape != (n_seg, n_spt):
-            raise ValueError(f"total_bb_RD shape {self.total_bb_RD.shape} mismatch. Expected: ({n_seg}, {n_spt})")
+            raise ValueError(
+                f"total_bb_RD shape {self.total_bb_RD.shape} mismatch. Expected: ({n_seg}, {n_spt})"
+            )
 
         logger.debug(
             f"Validated SpatioGenomicCounts with n_segments={n_seg}, n_spots={n_spt}, "
@@ -103,11 +109,13 @@ class SpatioGenomicCounts(LockableMixin):
 
     def __str__(self) -> str:
         lines = ["SpatioGenomicCounts:"]
-        
+
         def format_val(val: Any, indent: str) -> str:
             if isinstance(val, np.ndarray):
-                arr_str = np.array2string(val, threshold=10, edgeitems=2, separator=', ')
-                indented_arr = indent + arr_str.replace('\n', '\n' + indent)
+                arr_str = np.array2string(
+                    val, threshold=10, edgeitems=2, separator=", "
+                )
+                indented_arr = indent + arr_str.replace("\n", "\n" + indent)
                 return f"<ndarray shape={val.shape} dtype={val.dtype}>\n{indented_arr}"
             return str(val)
 

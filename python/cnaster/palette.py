@@ -50,10 +50,10 @@ def get_full_palette(palette_name="chisel_joint"):
 
         palette.update({(0, 0): "lightblue"})  # TODO never used??
         palette.update({(1, 0): "darkblue"})  # NB swapped with (0,0)
-        palette.update({(1, 1): "steelblue"}) # NB chisel is lightgray
+        palette.update({(1, 1): "steelblue"})  # NB chisel is lightgray
         palette.update({(2, 0): "dimgray"})
-        palette.update({(2, 1): "gold"}) # lightgoldenrodyellow
-        palette.update({(3, 0): "goldenrod"}) # gold
+        palette.update({(2, 1): "gold"})  # lightgoldenrodyellow
+        palette.update({(3, 0): "goldenrod"})  # gold
         palette.update({(2, 2): "navajowhite"})
         palette.update({(3, 1): "orange"})
         palette.update({(4, 0): "darkorange"})
@@ -68,7 +68,7 @@ def get_full_palette(palette_name="chisel_joint"):
     elif palette_name == "chisel_single":
         ordered_acn = get_ordered_acn(mode="single")
 
-        '''
+        """
         palette.update(
             {
                 0: "white", 
@@ -81,18 +81,20 @@ def get_full_palette(palette_name="chisel_joint"):
                 "7+": "darkred",
             }
         )
-        '''
+        """
 
-        palette.update({
-            0: "white",        # Negative space for complete loss
-            1: "steelblue",      
-            2: "khaki",  
-            3: "#feb24c",      # Orange
-            4: "#fd8d3c",      # Dark orange
-            5: "#f03b20",      # Red
-            6: "#bd0026",      # Dark red
-            "7+": "#660013",   # Deep burgundy
-        })
+        palette.update(
+            {
+                0: "white",  # Negative space for complete loss
+                1: "steelblue",
+                2: "khaki",
+                3: "#feb24c",  # Orange
+                4: "#fd8d3c",  # Dark orange
+                5: "#f03b20",  # Red
+                6: "#bd0026",  # Dark red
+                "7+": "#660013",  # Deep burgundy
+            }
+        )
 
         # NB default to color for 1
         palette["default"] = palette[1]

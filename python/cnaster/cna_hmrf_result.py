@@ -7,12 +7,13 @@ from cnaster.logger import get_logger
 
 logger = get_logger(__name__, start_time=start_time)
 
+
 class LockableMixin:
     _locked: bool = False
 
     def lock(self) -> None:
-        object.__setattr__(self, '_locked', True)
-        
+        object.__setattr__(self, "_locked", True)
+
         if is_dataclass(self):
             for f in fields(self):
                 val = getattr(self, f.name)
@@ -20,8 +21,8 @@ class LockableMixin:
                     val.lock()
 
     def unlock(self) -> None:
-        object.__setattr__(self, '_locked', False)
-        
+        object.__setattr__(self, "_locked", False)
+
         if is_dataclass(self):
             for f in fields(self):
                 val = getattr(self, f.name)
@@ -33,6 +34,7 @@ class LockableMixin:
             raise RuntimeError(f"Instance is locked. Cannot modify attribute '{name}'.")
         super().__setattr__(name, value)
 
+
 @dataclass
 class HMMParams(LockableMixin):
     new_log_mu: np.ndarray
@@ -42,6 +44,7 @@ class HMMParams(LockableMixin):
     new_log_startprob: np.ndarray
     new_log_transmat: np.ndarray
 
+
 @dataclass
 class HMMParamErrors(LockableMixin):
     new_log_mu_err: np.ndarray | None = None
@@ -50,6 +53,7 @@ class HMMParamErrors(LockableMixin):
     new_taus_err: np.ndarray | None = None
     new_log_startprob_err: np.ndarray | None = None
     new_log_transmat_err: np.ndarray | None = None
+
 
 @dataclass
 class HMMProfile(LockableMixin):
@@ -75,6 +79,7 @@ class CloneAssignment(LockableMixin):
         unique_labels = self.unique_clone_labels
         return len(unique_labels) if unique_labels is not None else None
 
+
 @dataclass
 class CnaHMRFResult(LockableMixin):
     params: HMMParams
@@ -89,7 +94,10 @@ class CnaHMRFResult(LockableMixin):
 
     def validate(self) -> None:
         # NB valid clone assignment must be 0...N labels
-        if self.assignment is not None and getattr(self.assignment, "new_assignment", None) is not None:
+        if (
+            self.assignment is not None
+            and getattr(self.assignment, "new_assignment", None) is not None
+        ):
             unique_labels = np.unique(self.assignment.new_assignment)
 
             if not np.array_equal(unique_labels, np.arange(len(unique_labels))):
@@ -143,25 +151,31 @@ class CnaHMRFResult(LockableMixin):
 
         self.validate()
 
-        logger.debug(f"Successfully set '{key}' in CnaHMRFResult with new value: {value}.")
+        logger.debug(
+            f"Successfully set '{key}' in CnaHMRFResult with new value: {value}."
+        )
 
     def __str__(self) -> str:
         lines = ["CnaHMRFResult:"]
-        
+
         def format_val(val: Any, is_param: bool, indent: str) -> str:
             if isinstance(val, np.ndarray):
                 if is_param:
-                    arr_str = np.array2string(val, threshold=np.inf, separator=', ')
-                    indented_arr = indent + arr_str.replace('\n', '\n' + indent)
+                    arr_str = np.array2string(val, threshold=np.inf, separator=", ")
+                    indented_arr = indent + arr_str.replace("\n", "\n" + indent)
                     return f"\n{indented_arr}"
                 else:
-                    arr_str = np.array2string(val, threshold=10, edgeitems=2, separator=', ')
-                    indented_arr = indent + arr_str.replace('\n', '\n' + indent)
-                    return f"<ndarray shape={val.shape} dtype={val.dtype}>\n{indented_arr}"
-                    
+                    arr_str = np.array2string(
+                        val, threshold=10, edgeitems=2, separator=", "
+                    )
+                    indented_arr = indent + arr_str.replace("\n", "\n" + indent)
+                    return (
+                        f"<ndarray shape={val.shape} dtype={val.dtype}>\n{indented_arr}"
+                    )
+
             elif isinstance(val, float):
                 return f"{val:.6f}" if not np.isnan(val) else "nan"
-            
+
             return str(val)
 
         nested_fields = {"params", "param_errors", "profile", "assignment"}
@@ -173,19 +187,19 @@ class CnaHMRFResult(LockableMixin):
 
         for nested_name in ["params", "param_errors", "profile", "assignment"]:
             nested_obj = getattr(self, nested_name)
-            
+
             if nested_obj is None:
                 lines.append(f"  {nested_name}: None")
                 continue
-                
+
             lines.append(f"  {nested_name} ({nested_obj.__class__.__name__}):")
-            
-            is_param = (nested_name == "params")
-            
+
+            is_param = nested_name == "params"
+
             for f in fields(nested_obj):
                 val = getattr(nested_obj, f.name)
                 val_str = format_val(val, is_param, "      ")
-                
+
                 if val_str.startswith("\n"):
                     lines.append(f"    {f.name}:{val_str}")
                 else:

@@ -29,7 +29,15 @@ def switch_betabinom(log_emission_baf_nophase, k, n, alpha, beta):
 
 
 def compute_emission_probability_nb_betabinom_coded(
-    nbEncoder, bbEncoder, log_mu, alphas, p_binom, taus, clone_stack=True, scratch_rdr=None, scratch_baf=None
+    nbEncoder,
+    bbEncoder,
+    log_mu,
+    alphas,
+    p_binom,
+    taus,
+    clone_stack=True,
+    scratch_rdr=None,
+    scratch_baf=None,
 ):
     """
     Efficient emission probability evaluation:  calculates for the

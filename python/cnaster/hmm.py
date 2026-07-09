@@ -88,14 +88,14 @@ def pipeline_baum_welch(
 
     logger.info(f"Assuming kwargs={remain_kwargs.keys()}")
 
-    res = hmm_model.run_baum_welch_nb_bb(
+    res = hmm_model.optimize(
         X,
         lengths,
         n_states,
         base_nb_mean,
         total_bb_RD,
-        log_sitewise_transmat,
-        tumor_prop,
+        log_sitewise_transmat=log_sitewise_transmat,
+        tumor_prop=tumor_prop,
         fix_NB_dispersion=fix_NB_dispersion,
         shared_NB_dispersion=shared_NB_dispersion,
         fix_BB_dispersion=fix_BB_dispersion,

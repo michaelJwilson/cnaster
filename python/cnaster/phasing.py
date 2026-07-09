@@ -117,7 +117,7 @@ def initial_phase_given_partition(
 
     # >>>>>>>>
     # TODO rename model_baf_profiles
-    res = hmm_phased(params="sp", t=t).run_baum_welch_nb_bb(
+    res = hmm_phased(params="sp", t=t).optimize(
         clone_stack_X,
         clone_stack_lengths,
         n_states,

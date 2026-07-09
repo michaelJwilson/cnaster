@@ -87,6 +87,7 @@ class hmm_phased(hmm_nophasing):
         taus,
         clone_stack=False,
     ):
+        # TODO
         nbEncoder = CountEncoder(X[:, 0, :], base_nb_mean)
         bbEncoder = CountEncoder(X[:, 1, :], total_bb_RD)
 

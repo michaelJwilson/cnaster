@@ -2,6 +2,10 @@ import numpy as np
 import scipy.special
 import scipy.optimize
 import time
+import numpy as np
+from math import lgamma, log, exp, sqrt
+import numba
+from numba import njit
 
 # from cnaster.hmm_update import (
 # update_emission_params_bb_nophasing_uniqvalues_mix,
@@ -10,6 +14,7 @@ import time
 # update_startprob_nophasing,
 # update_transition_nophasing,
 # )
+from math import lgamma
 from cnaster.hmm_utils import (
     # compute_posterior_obs,
     compute_posterior_transition_nophasing,
@@ -20,8 +25,10 @@ from cnaster.hmm_utils import (
     # get_em_solver_params,
 )
 from cnaster.count_encoder import CountEncoder
-from cnaster.hmm_emission_eval import compute_emissions
-from cnaster.hmm_emission import nloglikeobs_nb, nloglikeobs_bb
+
+# from cnaster.hmm_emission_eval import compute_emissions
+
+# from cnaster.hmm_emission import nloglikeobs_nb, nloglikeobs_bb
 
 # from cnaster.hmm_sitewise import (
 # compute_emission_probability_nb_betabinom_phased,
@@ -29,15 +36,249 @@ from cnaster.hmm_emission import nloglikeobs_nb, nloglikeobs_bb
 # backward_marginalize_phased,
 # )
 from scipy.optimize import OptimizeResult
-from numba import njit
+from numba import njit, prange
 from cnaster.config import start_time
 from cnaster.logger import get_logger
 
 logger = get_logger(__name__, start_time=start_time)
 
 
+@njit(nogil=True, cache=True, fastmath=False, error_model="numpy")
+def convert_params_numba(mean, std):
+    # TODO better parameterization for numerical stability.
+    var = std * std
+    p = mean / var
+    n = mean * p / (1.0 - p)
+    return n, p
+
+
+@njit(nogil=True, cache=True, fastmath=False, error_model="numpy")
+def nbinom_logpmf_numba(k, r, p):
+    if p <= 0.0 or p >= 1.0 or r <= 0.0:
+        return 0.0
+
+    if k < 0:
+        return 0.0
+
+    # TODO keyword to drop parameter-independent terms.
+    log_coeff = lgamma(k + r) - lgamma(k + 1) - lgamma(r)
+    return log_coeff + r * log(p) + k * log(1.0 - p)
+
+
+@njit(nogil=True, cache=True, fastmath=False, error_model="numpy")
+def betabinom_logpmf_numba(k, n, alpha, beta):
+    if alpha <= 0.0 or beta <= 0.0 or n < 0 or k < 0 or k > n:
+        return 0.0
+
+    # TODO keyword to drop parameter-independent terms.
+    log_binom_coeff = lgamma(n + 1) - lgamma(k + 1) - lgamma(n - k + 1)
+    log_beta_num = lgamma(k + alpha) + lgamma(n - k + beta) - lgamma(n + alpha + beta)
+    log_beta_denom = lgamma(alpha) + lgamma(beta) - lgamma(alpha + beta)
+
+    return log_binom_coeff + log_beta_num - log_beta_denom
+
+
+@njit(nogil=True, cache=True, fastmath=False, parallel=True, error_model="numpy")
+def compute_emissions_nb(
+    X,
+    base_nb_mean,
+    log_mu,
+    alphas,
+    n_states,
+    n_obs,
+    n_spots,
+):
+    # TODO guard against log_mu parameters defined with a "spot" (clone) axis > 1.
+    assert log_mu.shape[1] == 1
+
+    # TODO in-place scratch array.
+    log_emission_rdr = np.full((n_states, n_obs, n_spots), 0.0)
+
+    # TODO parallel actually faster?
+    for i in numba.prange(n_states):
+        for obs in range(n_obs):
+            for s in range(n_spots):
+                # TODO lift out?
+                if base_nb_mean[obs, s] > 0:
+                    nb_mean = base_nb_mean[obs, s] * exp(log_mu[i, 0])
+                    nb_var = nb_mean + alphas[i, 0] * nb_mean**2.0
+                    nb_std = sqrt(nb_var)
+
+                    n, p = convert_params_numba(nb_mean, nb_std)
+                    log_emission_rdr[i, obs, s] = nbinom_logpmf_numba(
+                        X[obs, 0, s], n, p
+                    )
+
+    return log_emission_rdr
+
+
+@njit(nogil=True, cache=True, fastmath=False, parallel=True, error_model="numpy")
+def compute_emissions_bb(
+    X,
+    total_bb_RD,
+    p_binom,
+    taus,
+    n_states,
+    n_obs,
+    n_spots,
+):
+    # TODO guard against p_binom parameters defined with a "spot" (clone) axis > 1.
+    assert p_binom.shape[1] == 1
+
+    # TODO in-place scratch array.
+    log_emission_baf = np.full((n_states, n_obs, n_spots), 0.0)
+
+    # TODO parallel actually faster?
+    for i in numba.prange(n_states):
+        for obs in range(n_obs):
+            for s in range(n_spots):
+                if total_bb_RD[obs, s] > 0:
+                    # TODO lift out?
+                    alpha = p_binom[i, 0] * taus[i, 0]
+                    beta = (1.0 - p_binom[i, 0]) * taus[i, 0]
+
+                    log_emission_baf[i, obs, s] = betabinom_logpmf_numba(
+                        X[obs, 1, s], total_bb_RD[obs, s], alpha, beta
+                    )
+
+    return log_emission_baf
+
+
+# TODO in-place scratch array.
+def compute_emissions(X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus):
+    n_obs, _, n_spots = X.shape
+    n_states = log_mu.shape[0]
+
+    # DEPRECATE
+    base_nb_mean = np.ascontiguousarray(base_nb_mean, dtype=np.float64)
+    log_mu = np.ascontiguousarray(log_mu, dtype=np.float64)
+    alphas = np.ascontiguousarray(alphas, dtype=np.float64)
+    total_bb_RD = np.ascontiguousarray(total_bb_RD, dtype=np.int32)
+    p_binom = np.ascontiguousarray(p_binom, dtype=np.float64)
+    taus = np.ascontiguousarray(taus, dtype=np.float64)
+    X = np.ascontiguousarray(X, dtype=np.int32)
+
+    log_emission_rdr = compute_emissions_nb(
+        X,
+        base_nb_mean,
+        log_mu,
+        alphas,
+        n_states,
+        n_obs,
+        n_spots,
+    )
+    log_emission_baf = compute_emissions_bb(
+        X,
+        total_bb_RD,
+        p_binom,
+        taus,
+        n_states,
+        n_obs,
+        n_spots,
+    )
+
+    return log_emission_rdr, log_emission_baf
+
+
+@njit(nogil=True, cache=True, inline='always', error_model="numpy")
+def _core_nb_logpmf(k, r, p):
+    """Pure scalar math for Negative Binomial log PMF."""
+    if p <= 0.0 or p >= 1.0 or k < 0:
+        return -np.inf
+    log_coeff = lgamma(k + r) - lgamma(k + 1) - lgamma(r)
+    return log_coeff + r * log(p) + k * log(1.0 - p)
+
+@njit(nogil=True, cache=True, inline='always', error_model="numpy")
+def _core_bb_logpmf(k, n, alpha, beta):
+    """Pure scalar math for Beta-Binomial log PMF."""
+    if n <= 0 or k < 0 or k > n:
+        return -np.inf
+    log_binom_coeff = lgamma(n + 1) - lgamma(k + 1) - lgamma(n - k + 1)
+    log_beta_num = lgamma(k + alpha) + lgamma(n - k + beta) - lgamma(n + alpha + beta)
+    log_beta_denom = lgamma(alpha) + lgamma(beta) - lgamma(alpha + beta)
+    return log_binom_coeff + log_beta_num - log_beta_denom
+
+@njit(nogil=True, cache=True, error_model="numpy")
+def _nb_logpmf_unique(unique_obs, unique_exposure, mu, alpha):
+    out = np.empty_like(unique_obs, dtype=np.float64)
+    r = 1.0 / max(alpha, 1.0e-10)
+    
+    for i in range(len(unique_obs)):
+        k = unique_obs[i]
+        lambda_i = unique_exposure[i] * mu
+        
+        if lambda_i <= 0.0:
+            out[i] = -np.inf
+            continue
+            
+        p = 1.0 / (1.0 + alpha * lambda_i)
+        out[i] = _core_nb_logpmf(k, r, p)
+        
+    return out
+
+@njit(nogil=True, cache=True, parallel=True, error_model="numpy")
+def _dense_nb_logpmf(X_nb, base_nb_mean, log_mu, alphas):
+    """Directly evaluates NB log-likelihood over dense arrays."""
+    n_states = log_mu.shape[0]
+    n_obs, n_spots = X_nb.shape  # Extract clone axis from data, not parameters
+    
+    out = np.empty((n_states, n_obs, n_spots), dtype=np.float64)
+    
+    for i in prange(n_states):
+        # Parameters apply universally across clones, so we use index 0
+        mu_val = exp(log_mu[i, 0])
+        alpha_val = alphas[i, 0]
+        
+        r = 1.0 / max(alpha_val, 1.0e-10)
+        
+        for s in range(n_spots):
+            for obs in range(n_obs):
+                lambda_i = base_nb_mean[obs, s] * mu_val
+                
+                if lambda_i <= 0.0:
+                    out[i, obs, s] = -np.inf
+                    continue
+                    
+                p = 1.0 / (1.0 + alpha_val * lambda_i)
+                out[i, obs, s] = _core_nb_logpmf(X_nb[obs, s], r, p)
+                
+    return out
+
+@njit(nogil=True, cache=True, error_model="numpy")
+def _bb_logpmf_unique(unique_obs, unique_total, p_binom, tau, EPS=1e-10):
+    out = np.empty_like(unique_obs, dtype=np.float64)
+    alpha = max(p_binom * tau, EPS)
+    beta = max((1.0 - p_binom) * tau, EPS)
+    
+    for i in range(len(unique_obs)):
+        out[i] = _core_bb_logpmf(unique_obs[i], unique_total[i], alpha, beta)
+        
+    return out
+
+@njit(nogil=True, cache=True, parallel=True, error_model="numpy")
+def _dense_bb_logpmf(X_bb, total_bb_RD, p_binom, taus, EPS=1e-10):
+    """Directly evaluates BB log-likelihood over dense arrays."""
+    n_states = p_binom.shape[0]
+    n_obs, n_spots = X_bb.shape  # Extract clone axis from data, not parameters
+    
+    out = np.empty((n_states, n_obs, n_spots), dtype=np.float64)
+    
+    for i in prange(n_states):
+        # Parameters apply universally across clones, so we use index 0
+        alpha = max(p_binom[i, 0] * taus[i, 0], EPS)
+        beta = max((1.0 - p_binom[i, 0]) * taus[i, 0], EPS)
+        
+        for s in range(n_spots):
+            for obs in range(n_obs):
+                out[i, obs, s] = _core_bb_logpmf(
+                    X_bb[obs, s], total_bb_RD[obs, s], alpha, beta
+                )
+                
+    return out
+
 @njit
 def np_sum_ax_squeeze(arr, axis=0):
+    """
     assert arr.ndim == 2
     assert axis in [0, 1]
 
@@ -51,10 +292,11 @@ def np_sum_ax_squeeze(arr, axis=0):
 
         for i in range(len(result)):
             result[i] = np.sum(arr[i, :])
+    """
+    return np.sum(arr, axis=axis)
 
-    return result
 
-
+"""
 @njit
 def mylogsumexp(a):
     a_max = np.max(a)
@@ -68,6 +310,143 @@ def mylogsumexp(a):
     s = np.log(s)
 
     return s + a_max
+"""
+
+
+@njit
+def numba_logsumexp(a):
+    a_max = np.max(a)
+    if np.isinf(a_max):
+        return a_max
+    return a_max + np.log(np.sum(np.exp(a - a_max)))
+
+
+@njit
+def convert_params_disp(mean, overdisp):
+    p = 1.0 / (1.0 + overdisp * mean)
+
+    # NB guard on min. overdispersion, such that (overdisp * mean) << 1.
+    n = 1.0 / np.maximum(overdisp, 1.0e-10)
+
+    return n, p
+
+
+def nloglikeobs_nb(
+    endog,
+    exog,
+    weights,
+    exposure,
+    params,
+    reduce=True,
+):
+    num_states = exog.shape[-1]
+    nb_mean = exog @ np.exp(params[:num_states]) * exposure
+    nb_disp = exog @ params[num_states:]
+
+    # NB vectorized call.
+    n, p = convert_params_disp(nb_mean, nb_disp)
+
+    result = -scipy.stats.nbinom.logpmf(endog, n, p)
+    result[np.isnan(result)] = np.inf
+
+    if reduce:
+        result = result.dot(weights)
+        assert not np.isnan(result), f"{params}: {result}"
+
+    return result
+
+
+@njit(nogil=True, cache=True, error_model="numpy")
+def betabinom_logpmf(endog, exposure, a, b, zero_point, EPS=1.0e-10):
+    result_array = np.empty_like(endog, dtype=np.float64)
+
+    for i in range(len(endog)):
+        ai = a[i]
+        bi = b[i]
+
+        # NB guard against numerical instability at 0
+        if ai < EPS:
+            ai = EPS
+        if bi < EPS:
+            bi = EPS
+
+        result_array[i] = (
+            zero_point[i]
+            + lgamma(endog[i] + ai)
+            + lgamma(exposure[i] - endog[i] + bi)
+            + lgamma(ai + bi)
+            - lgamma(exposure[i] + ai + bi)
+            - lgamma(ai)
+            - lgamma(bi)
+        )
+        if np.isnan(result_array[i]):
+            result_array[i] = -np.inf
+
+    return result_array
+
+
+@njit(nogil=True, cache=True, error_model="numpy")
+def compute_bb_ab(exog, params):
+    num_states = exog.shape[-1]
+
+    p = np.dot(exog, params[:num_states])
+    t = np.dot(exog, params[num_states:])
+
+    a = p * t
+    b = (1.0 - p) * t
+
+    return a, b
+
+
+def nloglikeobs_bb(
+    endog,
+    exog,
+    weights,
+    exposure,
+    params,
+    zero_point=None,
+    reduce=True,
+):
+    a, b = compute_bb_ab(exog, params)
+
+    if zero_point is not None:
+        result = -betabinom_logpmf(endog, exposure, a, b, zero_point)
+    else:
+        result = -scipy.stats.betabinom.logpmf(endog, exposure, a, b)
+        result[np.isnan(result)] = np.inf
+
+    if reduce:
+        reduced_result = result.dot(weights)
+
+        if np.isnan(reduced_result):
+            logger.info(
+                f"Detected invalid ln. likelihood={reduced_result} for:\n{params}"
+            )
+
+            nan_mask = np.isnan(weights)
+            nan_weights = weights[nan_mask]
+
+            nan_mask = np.isnan(result)
+            nan_endog = np.unique(endog[nan_mask])
+            nan_exposure = np.unique(exposure[nan_mask])
+            nan_alphas = np.unique(a[nan_mask])
+            nan_betas = np.unique(b[nan_mask])
+
+            logger.info(
+                f"NaN identified:\n"
+                f"  weights: {nan_weights}\n"
+                f"  endog: {nan_endog}\n"
+                f"  exposure: {nan_exposure}\n"
+                f"  alphas: {nan_alphas}\n"
+                f"  betas: {nan_betas}\n"
+                f"  Fraction of NaN observations: {np.mean(nan_mask):.6e}"
+            )
+
+            raise RuntimeError()
+
+        result = reduced_result
+
+    return result
 
 
 class hmm_nophasing:
@@ -75,6 +454,7 @@ class hmm_nophasing:
         self.params = params
         self.t = t
 
+    
     @staticmethod
     def compute_emission_probability_nb_betabinom(
         X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus
@@ -82,17 +462,30 @@ class hmm_nophasing:
         return compute_emissions(
             X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus
         )
-
+    """
+    @staticmethod
+    def compute_emission_probability_nb_betabinom(
+        X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus
+    ):
+        # X is shape (n_obs, 2, n_spots). Split into NB (index 0) and BB (index 1) arrays
+        log_emit_rdr = _dense_nb_logpmf(
+            X[:, 0, :], base_nb_mean, log_mu, alphas
+        )
+        log_emit_baf = _dense_bb_logpmf(
+            X[:, 1, :], total_bb_RD, p_binom, taus
+        )
+        
+        return log_emit_rdr, log_emit_baf
+    """
     @staticmethod
     def compute_emission_probability_nb_betabinom_coded(
         nbEncoder, bbEncoder, log_mu, alphas, p_binom, taus
     ):
-        """
-        Computes the emission probability for a compression of the
-        unique instances; subsequently, broadcasting to the entire
-        array.
-        """
+        # TODO assumes called on each clone independently.
         n_states = log_mu.shape[0]
+
+        # TODO guard against log_mu parameters defined with a "spot" (clone) axis > 1.
+        assert log_mu.shape[1] == 1
 
         # NB assumes a single spot, index 0.
         nb_endog = nbEncoder.get_unique_obs(0)
@@ -103,9 +496,11 @@ class hmm_nophasing:
         bb_exposure = bbEncoder.get_unique_total(0)
         bb_valid = bb_exposure > 0
 
+        # TODO in-place scratch array.
         nb_ones = np.ones_like(nb_endog, dtype=float).reshape(-1, 1)
         bb_ones = np.ones_like(bb_endog, dtype=float).reshape(-1, 1)
 
+        # TODO in-place scratch array.
         log_emit_rdr_uniq = np.zeros((n_states, len(nb_endog)))
         log_emit_baf_uniq = np.zeros((n_states, len(bb_endog)))
 
@@ -134,11 +529,40 @@ class hmm_nophasing:
             else:
                 log_emit_baf_uniq[:, :] = 0.0
 
+        # TODO zero?
         log_emit_rdr = nbEncoder.decode_array(log_emit_rdr_uniq, 0)
         log_emit_baf = bbEncoder.decode_array(log_emit_baf_uniq, 0)
 
         return log_emit_rdr, log_emit_baf
+    
+    """
+    @staticmethod
+    def compute_emission_probability_nb_betabinom_coded(nbEncoder, bbEncoder, log_mu, alphas, p_binom, taus):
+        n_states = log_mu.shape[0]
+        
+        nb_endog = nbEncoder.get_unique_obs(0)
+        nb_exposure = nbEncoder.get_unique_total(0)
+        bb_endog = bbEncoder.get_unique_obs(0)
+        bb_exposure = bbEncoder.get_unique_total(0)
 
+        log_emit_rdr_uniq = np.zeros((n_states, len(nb_endog)))
+        log_emit_baf_uniq = np.zeros((n_states, len(bb_endog)))
+
+        # Evaluate states sequentially; unique element arrays can be evaluated fast
+        for i in range(n_states):
+            log_emit_rdr_uniq[i, :] = _nb_logpmf_unique(
+                nb_endog, nb_exposure, exp(log_mu[i, 0]), alphas[i, 0]
+            )
+            log_emit_baf_uniq[i, :] = _bb_logpmf_unique(
+                bb_endog, bb_exposure, p_binom[i, 0], taus[i, 0]
+            )
+
+        # Broadcast evaluation back out onto target shape
+        log_emit_rdr = nbEncoder.decode_array(log_emit_rdr_uniq, 0)
+        log_emit_baf = bbEncoder.decode_array(log_emit_baf_uniq, 0)
+
+        return log_emit_rdr, log_emit_baf
+    """
     """
     @staticmethod
     def compute_emission_probability_nb_betabinom_mix(
@@ -267,7 +691,7 @@ class hmm_nophasing:
                     for i in np.arange(n_states):
                         buf[i] = log_alpha[i, (cumlen + t - 1)] + log_transmat[i, j]
 
-                    log_alpha[j, (cumlen + t)] = mylogsumexp(buf) + np.sum(
+                    log_alpha[j, (cumlen + t)] = numba_logsumexp(buf) + np.sum(
                         log_emission[j, (cumlen + t), :]
                     )
 
@@ -319,7 +743,7 @@ class hmm_nophasing:
                             + log_transmat[i, j]
                             + np.sum(log_emission[j, (cumlen + t + 1), :])
                         )
-                    log_beta[i, (cumlen + t)] = mylogsumexp(buf)
+                    log_beta[i, (cumlen + t)] = numba_logsumexp(buf)
             cumlen += le
         return log_beta
 
@@ -1354,6 +1778,10 @@ class hmm_nophasing:
         )
         """
 
+        # TODO coded emission calc.
+        #      No implementation of function Function(<built-in function getitem>) found for signature:
+        #      >>> getitem(array(float64, 2d, C), Tuple(slice<a:b>, int64, slice<a:b>))
+        # 
         log_emission_rdr, log_emission_baf = (
             self.compute_emission_probability_nb_betabinom(
                 X,
@@ -1509,7 +1937,7 @@ class hmm_nophasing:
             curr = 0
             total_nll = 0
             for le in lengths:
-                total_nll += -mylogsumexp(log_alpha[:, curr + le - 1])
+                total_nll += -numba_logsumexp(log_alpha[:, curr + le - 1])
                 curr += le
 
             return total_nll
@@ -1742,7 +2170,7 @@ class hmm_nophasing:
             curr = 0
             total_nll = 0
             for le in lengths:
-                total_nll += -mylogsumexp(log_alpha[:, curr + le - 1])
+                total_nll += -numba_logsumexp(log_alpha[:, curr + le - 1])
                 curr += le
 
             return total_nll

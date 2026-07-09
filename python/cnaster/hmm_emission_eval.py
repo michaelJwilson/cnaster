@@ -6,6 +6,7 @@ from numba import njit
 
 @njit(nogil=True, cache=True, fastmath=False, error_model="numpy")
 def convert_params_numba(mean, std):
+    # TODO better parameterization for numerical stability.
     var = std * std
     p = mean / var
     n = mean * p / (1.0 - p)
@@ -20,6 +21,7 @@ def nbinom_logpmf_numba(k, r, p):
     if k < 0:
         return 0.0
 
+    # TODO keyword to drop parameter-independent terms.
     log_coeff = lgamma(k + r) - lgamma(k + 1) - lgamma(r)
     return log_coeff + r * log(p) + k * log(1.0 - p)
 
@@ -29,6 +31,7 @@ def betabinom_logpmf_numba(k, n, alpha, beta):
     if alpha <= 0.0 or beta <= 0.0 or n < 0 or k < 0 or k > n:
         return 0.0
 
+    # TODO keyword to drop parameter-independent terms.
     log_binom_coeff = lgamma(n + 1) - lgamma(k + 1) - lgamma(n - k + 1)
     log_beta_num = lgamma(k + alpha) + lgamma(n - k + beta) - lgamma(n + alpha + beta)
     log_beta_denom = lgamma(alpha) + lgamma(beta) - lgamma(alpha + beta)
@@ -49,14 +52,17 @@ def compute_emissions_nb(
     # TODO guard against log_mu parameters defined with a "spot" (clone) axis > 1.
     assert log_mu.shape[1] == 1
 
+    # TODO in-place scratch array.
     log_emission_rdr = np.full((n_states, n_obs, n_spots), 0.0)
 
+    # TODO parallel actually faster?
     for i in numba.prange(n_states):
         for obs in range(n_obs):
             for s in range(n_spots):
+                # TODO lift out?
                 if base_nb_mean[obs, s] > 0:
                     nb_mean = base_nb_mean[obs, s] * exp(log_mu[i, 0])
-                    nb_var = nb_mean + alphas[i, 0] * nb_mean * nb_mean
+                    nb_var = nb_mean + alphas[i, 0] * nb_mean **2.
                     nb_std = sqrt(nb_var)
 
                     n, p = convert_params_numba(nb_mean, nb_std)
@@ -80,12 +86,15 @@ def compute_emissions_bb(
     # TODO guard against p_binom parameters defined with a "spot" (clone) axis > 1.
     assert p_binom.shape[1] == 1
 
+    # TODO in-place scratch array.
     log_emission_baf = np.full((n_states, n_obs, n_spots), 0.0)
 
+    # TODO parallel actually faster?
     for i in numba.prange(n_states):
         for obs in range(n_obs):
             for s in range(n_spots):
                 if total_bb_RD[obs, s] > 0:
+                    # TODO lift out?
                     alpha = p_binom[i, 0] * taus[i, 0]
                     beta = (1.0 - p_binom[i, 0]) * taus[i, 0]
 
@@ -95,11 +104,12 @@ def compute_emissions_bb(
 
     return log_emission_baf
 
-
+# TODO in-place scratch array.
 def compute_emissions(X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus):
     n_obs, _, n_spots = X.shape
     n_states = log_mu.shape[0]
 
+    # DEPRECATE
     base_nb_mean = np.ascontiguousarray(base_nb_mean, dtype=np.float64)
     log_mu = np.ascontiguousarray(log_mu, dtype=np.float64)
     alphas = np.ascontiguousarray(alphas, dtype=np.float64)

@@ -645,7 +645,7 @@ def plot_clones_genomic(
             ):
                 this_pred = (
                     res_combine["pred_cnv"][(c * n_obs) : (c * n_obs + n_obs)].flatten()
-                    % n_states
+                    % res_combine["new_log_mu"].shape[0]
                 )
             else:
                 n_states = res_combine["new_log_mu"].shape[0]

@@ -62,12 +62,9 @@ def convert_params_disp(mean, overdisp):
     return n, p
 
 
-@njit(nogil=True, cache=True, fastmath=False, error_model="numpy")
+@njit(nogil=True, cache=True, inline='always', fastmath=False, error_model="numpy")
 def nbinom_logpmf_numba(k, r, p):
-    if p <= 0.0 or p >= 1.0 or r <= 0.0:
-        return 0.0
-
-    if k < 0:
+    if p <= 0.0 or p >= 1.0 or r <= 0.0 or k < 0:
         return 0.0
 
     # TODO keyword to drop parameter-independent terms.
@@ -75,7 +72,7 @@ def nbinom_logpmf_numba(k, r, p):
     return log_coeff + r * log(p) + k * log(1.0 - p)
 
 
-@njit(nogil=True, cache=True, fastmath=False, error_model="numpy")
+@njit(nogil=True, cache=True, inline='always', fastmath=False, error_model="numpy")
 def betabinom_logpmf_numba(k, n, alpha, beta):
     if alpha <= 0.0 or beta <= 0.0 or n < 0 or k < 0 or k > n:
         return 0.0
@@ -100,6 +97,10 @@ def compute_emissions_nb(
 ):
     # TODO guard against log_mu parameters defined with a "spot" (clone) axis > 1.
     assert log_mu.shape[1] == 1
+
+    assert log_mu.shape[0] == n_states
+    assert X.shape[0] == n_obs
+    assert X.shape[2] == n_spots
 
     # TODO in-place scratch array.
     log_emission_rdr = np.full((n_states, n_obs, n_spots), 0.0)
@@ -134,6 +135,10 @@ def compute_emissions_bb(
 ):
     # TODO guard against p_binom parameters defined with a "spot" (clone) axis > 1.
     assert p_binom.shape[1] == 1
+
+    assert p_binom.shape[0] == n_states
+    assert X.shape[0] == n_obs
+    assert X.shape[2] == n_spots
 
     # TODO in-place scratch array.
     log_emission_baf = np.full((n_states, n_obs, n_spots), 0.0)
@@ -190,25 +195,9 @@ def compute_emissions(X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, tau
     return log_emission_rdr, log_emission_baf
 
 
-@njit(nogil=True, cache=True, inline='always', error_model="numpy")
-def _core_nb_logpmf(k, r, p):
-    if p <= 0.0 or p >= 1.0 or k < 0:
-        return -np.inf
-    log_coeff = lgamma(k + r) - lgamma(k + 1) - lgamma(r)
-    return log_coeff + r * log(p) + k * log(1.0 - p)
-
-@njit(nogil=True, cache=True, inline='always', error_model="numpy")
-def _core_bb_logpmf(k, n, alpha, beta):
-    if n <= 0 or k < 0 or k > n:
-        return -np.inf
-    log_binom_coeff = lgamma(n + 1) - lgamma(k + 1) - lgamma(n - k + 1)
-    log_beta_num = lgamma(k + alpha) + lgamma(n - k + beta) - lgamma(n + alpha + beta)
-    log_beta_denom = lgamma(alpha) + lgamma(beta) - lgamma(alpha + beta)
-    return log_binom_coeff + log_beta_num - log_beta_denom
-
 @njit(nogil=True, cache=True, error_model="numpy")
 def _nb_logpmf_unique(unique_obs, unique_exposure, mu, alpha):
-    out = np.empty_like(unique_obs, dtype=np.float64)
+    out = np.zeros_like(unique_obs, dtype=np.float64)
     r = 1.0 / max(alpha, 1.0e-10)
     
     for i in range(len(unique_obs)):
@@ -216,11 +205,11 @@ def _nb_logpmf_unique(unique_obs, unique_exposure, mu, alpha):
         lambda_i = unique_exposure[i] * mu
         
         if lambda_i <= 0.0:
-            out[i] = -np.inf
+            out[i] = 0.0
             continue
             
         p = 1.0 / (1.0 + alpha * lambda_i)
-        out[i] = _core_nb_logpmf(k, r, p)
+        out[i] = nbinom_logpmf_numba(k, r, p)
         
     return out
 
@@ -229,7 +218,7 @@ def _dense_nb_logpmf(X_nb, base_nb_mean, log_mu, alphas):
     n_states = log_mu.shape[0]
     n_obs, n_spots = X_nb.shape  # Extract clone axis from data, not parameters
     
-    out = np.empty((n_states, n_obs, n_spots), dtype=np.float64)
+    out = np.zeros((n_states, n_obs, n_spots), dtype=np.float64)
     
     for i in prange(n_states):
         # Parameters apply universally across clones, so we use index 0
@@ -243,22 +232,22 @@ def _dense_nb_logpmf(X_nb, base_nb_mean, log_mu, alphas):
                 lambda_i = base_nb_mean[obs, s] * mu_val
                 
                 if lambda_i <= 0.0:
-                    out[i, obs, s] = -np.inf
+                    out[i, obs, s] = 0.0
                     continue
                     
                 p = 1.0 / (1.0 + alpha_val * lambda_i)
-                out[i, obs, s] = _core_nb_logpmf(X_nb[obs, s], r, p)
+                out[i, obs, s] = nbinom_logpmf_numba(X_nb[obs, s], r, p)
                 
     return out
 
 @njit(nogil=True, cache=True, error_model="numpy")
 def _bb_logpmf_unique(unique_obs, unique_total, p_binom, tau, EPS=1e-10):
-    out = np.empty_like(unique_obs, dtype=np.float64)
+    out = np.zeros_like(unique_obs, dtype=np.float64)
     alpha = max(p_binom * tau, EPS)
     beta = max((1.0 - p_binom) * tau, EPS)
     
     for i in range(len(unique_obs)):
-        out[i] = _core_bb_logpmf(unique_obs[i], unique_total[i], alpha, beta)
+        out[i] = betabinom_logpmf_numba(unique_obs[i], unique_total[i], alpha, beta)
         
     return out
 
@@ -267,16 +256,15 @@ def _dense_bb_logpmf(X_bb, total_bb_RD, p_binom, taus, EPS=1e-10):
     n_states = p_binom.shape[0]
     n_obs, n_spots = X_bb.shape
     
-    out = np.empty((n_states, n_obs, n_spots), dtype=np.float64)
+    out = np.zeros((n_states, n_obs, n_spots), dtype=np.float64)
     
     for i in prange(n_states):
-        # Parameters apply universally across clones, so we use index 0
         alpha = max(p_binom[i, 0] * taus[i, 0], EPS)
         beta = max((1.0 - p_binom[i, 0]) * taus[i, 0], EPS)
         
         for s in range(n_spots):
             for obs in range(n_obs):
-                out[i, obs, s] = _core_bb_logpmf(
+                out[i, obs, s] = betabinom_logpmf_numba(
                     X_bb[obs, s], total_bb_RD[obs, s], alpha, beta
                 )
                 
@@ -458,7 +446,7 @@ class hmm_nophasing:
         return compute_emissions(
             X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus
         )
-    """
+    
     @staticmethod
     def compute_emission_probability_nb_betabinom(
         X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus
@@ -472,7 +460,7 @@ class hmm_nophasing:
         )
         
         return log_emit_rdr, log_emit_baf
-    """
+    
     @staticmethod
     def compute_emission_probability_nb_betabinom_coded(
         nbEncoder, bbEncoder, log_mu, alphas, p_binom, taus
@@ -531,9 +519,9 @@ class hmm_nophasing:
 
         return log_emit_rdr, log_emit_baf
     
-    """
     @staticmethod
     def compute_emission_probability_nb_betabinom_coded(nbEncoder, bbEncoder, log_mu, alphas, p_binom, taus):
+        # TODO assumes called on each clone independently.
         n_states = log_mu.shape[0]
         
         nb_endog = nbEncoder.get_unique_obs(0)
@@ -556,7 +544,7 @@ class hmm_nophasing:
         log_emit_baf = bbEncoder.decode_array(log_emit_baf_uniq, 0)
 
         return log_emit_rdr, log_emit_baf
-    """
+    
     """
     @staticmethod
     def compute_emission_probability_nb_betabinom_mix(

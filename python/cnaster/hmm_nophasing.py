@@ -17,26 +17,32 @@ logger = get_logger(__name__, start_time=start_time)
 
 
 @njit(nogil=True, cache=True, inline="always", fastmath=False, error_model="numpy")
-def nbinom_logpmf_numba(k, r, p):
+def nbinom_logpmf_numba(k, r, p, parameter_terms_only=True):
     if p <= 0.0 or p >= 1.0 or r <= 0.0 or k < 0:
         return 0.0
 
     # TODO keyword to drop parameter-independent terms.
-    log_coeff = lgamma(k + r) - lgamma(k + 1) - lgamma(r)
+    log_coeff = lgamma(k + r) - lgamma(r)
+
+    if parameter_terms_only:
+        log_coeff -= lgamma(k + 1)
+
     return log_coeff + r * log(p) + k * log(1.0 - p)
 
 
 @njit(nogil=True, cache=True, inline="always", fastmath=False, error_model="numpy")
-def betabinom_logpmf_numba(k, n, alpha, beta):
+def betabinom_logpmf_numba(k, n, alpha, beta, parameter_terms_only=True):
     if alpha <= 0.0 or beta <= 0.0 or n < 0 or k < 0 or k > n:
         return 0.0
 
-    # TODO keyword to drop parameter-independent terms.
-    log_binom_coeff = lgamma(n + 1) - lgamma(k + 1) - lgamma(n - k + 1)
     log_beta_num = lgamma(k + alpha) + lgamma(n - k + beta) - lgamma(n + alpha + beta)
     log_beta_denom = lgamma(alpha) + lgamma(beta) - lgamma(alpha + beta)
 
-    return log_binom_coeff + log_beta_num - log_beta_denom
+    if parameter_terms_only:
+        log_binom_coeff = lgamma(n + 1) - lgamma(k + 1) - lgamma(n - k + 1)
+        return log_binom_coeff + log_beta_num - log_beta_denom
+    else:
+        return log_beta_num - log_beta_denom
 
 
 @njit(nogil=True, cache=True, error_model="numpy")

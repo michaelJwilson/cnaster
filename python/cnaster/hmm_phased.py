@@ -148,16 +148,13 @@ class hmm_phased(hmm_nophasing):
                     log_emit_baf_uniq[i, :],
                 )
 
-            # ---> NEW: Phase split happens in compressed space <---
             log_emit_baf_uniq_switched = _switch_betabinom_1d(
                 log_emit_baf_uniq, bb_endog, bb_exposure, p_binom[:, s], taus[:, s]
             )
 
-            # Stack phases (Phase 0 top, Phase 1 bottom)
             phased_rdr_uniq = np.vstack((log_emit_rdr_uniq, log_emit_rdr_uniq))
             phased_baf_uniq = np.vstack((log_emit_baf_uniq, log_emit_baf_uniq_switched))
 
-            # Decode expanded arrays
             log_emit_rdr_list.append(nbEncoder.decode_array(phased_rdr_uniq, s))
             log_emit_baf_list.append(bbEncoder.decode_array(phased_baf_uniq, s))
 

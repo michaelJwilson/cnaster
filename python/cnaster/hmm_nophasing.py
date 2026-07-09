@@ -1583,7 +1583,7 @@ class hmm_nophasing:
         tol=1e-4,
         use_logit=True,
         propagate_errors=False,
-        optimizer=None,
+        optimizer="BFGS",
         **kwargs,
     ):
         _, n_comp, n_spots = X.shape
@@ -1648,7 +1648,6 @@ class hmm_nophasing:
             self.log_emissions, self.state_posteriors = None, None
             self.log_startprob = log_startprob
             self.iterations = 0
-            default_optimizer = "BFGS"
 
             def callback(intermediate_result: OptimizeResult = None):
                 if (self.iterations > 0) and (self.iterations % 2 != 0):
@@ -1703,7 +1702,6 @@ class hmm_nophasing:
 
         elif mode == "marginal":
             callback = None
-            default_optimizer = "L-BFGS-B"
 
             def cost_fn(params):
                 (
@@ -1755,13 +1753,13 @@ class hmm_nophasing:
         else:
             raise ValueError(f"Unknown optimization mode: {mode}")
 
-        opt_method = optimizer or default_optimizer
         options = {
             "maxiter": max_iter,
             "ftol": 1e-6,
             "gtol": 1e-5,
             "disp": False,
         } | kwargs.get("options", {})
+
         bounds = self.get_bounds(
             n_states,
             optimize_nb=optimize_nb,
@@ -1774,21 +1772,21 @@ class hmm_nophasing:
 
         start_time_opt = time.time()
         logger.info(
-            f"Starting {mode} optimization with {opt_method}. Initial cost={cost_fn(x0):.6e}"
+            f"Starting {mode} optimization with {optimizer}. Initial cost={cost_fn(x0):.6e}"
         )
 
         res = scipy.optimize.minimize(
             cost_fn,
             x0,
-            method=opt_method,
-            bounds=bounds if mode == "marginal" else None,
+            method=optimizer,
+            bounds=None,
             callback=callback,
             options=options,
         )
 
         logger.info(
             f"Optimization complete: {time.time() - start_time_opt:.2f}s | "
-            f"{res.nit} iter | converged: {res.success} | NLL: {res.fun:.6e}"
+            f"{res.nit} iter | converged={res.success} | negative ln. likelihood={res.fun:.6e}"
         )
 
         final_log_startprob, final_log_mu, final_p_binom, final_alphas, final_taus = (

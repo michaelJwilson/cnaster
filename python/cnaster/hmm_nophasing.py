@@ -42,7 +42,7 @@ from cnaster.logger import get_logger
 
 logger = get_logger(__name__, start_time=start_time)
 
-
+"""
 @njit(nogil=True, cache=True, fastmath=False, error_model="numpy")
 def convert_params_numba(mean, std):
     # NB negative binomial (n, p) given mean and std.
@@ -60,9 +60,10 @@ def convert_params_disp(mean, overdisp):
     n = 1.0 / np.maximum(overdisp, 1.0e-10)
 
     return n, p
+"""
 
 
-@njit(nogil=True, cache=True, inline='always', fastmath=False, error_model="numpy")
+@njit(nogil=True, cache=True, inline="always", fastmath=False, error_model="numpy")
 def nbinom_logpmf_numba(k, r, p):
     if p <= 0.0 or p >= 1.0 or r <= 0.0 or k < 0:
         return 0.0
@@ -72,7 +73,7 @@ def nbinom_logpmf_numba(k, r, p):
     return log_coeff + r * log(p) + k * log(1.0 - p)
 
 
-@njit(nogil=True, cache=True, inline='always', fastmath=False, error_model="numpy")
+@njit(nogil=True, cache=True, inline="always", fastmath=False, error_model="numpy")
 def betabinom_logpmf_numba(k, n, alpha, beta):
     if alpha <= 0.0 or beta <= 0.0 or n < 0 or k < 0 or k > n:
         return 0.0
@@ -85,6 +86,7 @@ def betabinom_logpmf_numba(k, n, alpha, beta):
     return log_binom_coeff + log_beta_num - log_beta_denom
 
 
+"""
 @njit(nogil=True, cache=True, fastmath=False, parallel=True, error_model="numpy")
 def compute_emissions_nb(
     X,
@@ -193,86 +195,81 @@ def compute_emissions(X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, tau
     )
 
     return log_emission_rdr, log_emission_baf
+"""
 
 
 @njit(nogil=True, cache=True, error_model="numpy")
-def _nb_logpmf_unique(unique_obs, unique_exposure, mu, alpha):
-    out = np.zeros_like(unique_obs, dtype=np.float64)
+def _nb_logpmf_1d(obs, exposure, mu, alpha):
+    out = np.zeros_like(obs, dtype=np.float64)
     r = 1.0 / max(alpha, 1.0e-10)
-    
-    for i in range(len(unique_obs)):
-        k = unique_obs[i]
-        lambda_i = unique_exposure[i] * mu
-        
+
+    for i in range(len(obs)):
+        k = obs[i]
+        lambda_i = exposure[i] * mu
+
         if lambda_i <= 0.0:
             out[i] = 0.0
             continue
-            
+
         p = 1.0 / (1.0 + alpha * lambda_i)
         out[i] = nbinom_logpmf_numba(k, r, p)
-        
+
     return out
+
+
+@njit(nogil=True, cache=True, error_model="numpy")
+def _bb_logpmf_1d(obs, total, p_binom, tau, EPS=1e-10):
+    out = np.zeros_like(obs, dtype=np.float64)
+    alpha = max(p_binom * tau, EPS)
+    beta = max((1.0 - p_binom) * tau, EPS)
+
+    for i in range(len(obs)):
+        out[i] = betabinom_logpmf_numba(obs[i], total[i], alpha, beta)
+
+    return out
+
 
 @njit(nogil=True, cache=True, parallel=True, error_model="numpy")
 def _dense_nb_logpmf(X_nb, base_nb_mean, log_mu, alphas):
     n_states = log_mu.shape[0]
-    n_obs, n_spots = X_nb.shape  # Extract clone axis from data, not parameters
-    
+    n_obs, n_spots = X_nb.shape
+
     out = np.zeros((n_states, n_obs, n_spots), dtype=np.float64)
-    
+
     for i in prange(n_states):
-        # Parameters apply universally across clones, so we use index 0
         mu_val = exp(log_mu[i, 0])
         alpha_val = alphas[i, 0]
-        
-        r = 1.0 / max(alpha_val, 1.0e-10)
-        
+
         for s in range(n_spots):
-            for obs in range(n_obs):
-                lambda_i = base_nb_mean[obs, s] * mu_val
-                
-                if lambda_i <= 0.0:
-                    out[i, obs, s] = 0.0
-                    continue
-                    
-                p = 1.0 / (1.0 + alpha_val * lambda_i)
-                out[i, obs, s] = nbinom_logpmf_numba(X_nb[obs, s], r, p)
-                
+            out[i, :, s] = _nb_logpmf_1d(
+                X_nb[:, s], base_nb_mean[:, s], mu_val, alpha_val
+            )
+
     return out
 
-@njit(nogil=True, cache=True, error_model="numpy")
-def _bb_logpmf_unique(unique_obs, unique_total, p_binom, tau, EPS=1e-10):
-    out = np.zeros_like(unique_obs, dtype=np.float64)
-    alpha = max(p_binom * tau, EPS)
-    beta = max((1.0 - p_binom) * tau, EPS)
-    
-    for i in range(len(unique_obs)):
-        out[i] = betabinom_logpmf_numba(unique_obs[i], unique_total[i], alpha, beta)
-        
-    return out
 
 @njit(nogil=True, cache=True, parallel=True, error_model="numpy")
 def _dense_bb_logpmf(X_bb, total_bb_RD, p_binom, taus, EPS=1e-10):
     n_states = p_binom.shape[0]
     n_obs, n_spots = X_bb.shape
-    
+
     out = np.zeros((n_states, n_obs, n_spots), dtype=np.float64)
-    
+
     for i in prange(n_states):
-        alpha = max(p_binom[i, 0] * taus[i, 0], EPS)
-        beta = max((1.0 - p_binom[i, 0]) * taus[i, 0], EPS)
-        
+        p_val = p_binom[i, 0]
+        tau_val = taus[i, 0]
+
         for s in range(n_spots):
-            for obs in range(n_obs):
-                out[i, obs, s] = betabinom_logpmf_numba(
-                    X_bb[obs, s], total_bb_RD[obs, s], alpha, beta
-                )
-                
+            out[i, :, s] = _bb_logpmf_1d(
+                X_bb[:, s], total_bb_RD[:, s], p_val, tau_val, EPS
+            )
+
     return out
 
+
+"""
 @njit
 def np_sum_ax_squeeze(arr, axis=0):
-    """
     assert arr.ndim == 2
     assert axis in [0, 1]
 
@@ -286,7 +283,13 @@ def np_sum_ax_squeeze(arr, axis=0):
 
         for i in range(len(result)):
             result[i] = np.sum(arr[i, :])
-    """
+
+    return result
+"""
+
+
+@njit
+def np_sum_ax_squeeze(arr, axis=0):
     return np.sum(arr, axis=axis)
 
 
@@ -315,6 +318,7 @@ def numba_logsumexp(a):
     return a_max + np.log(np.sum(np.exp(a - a_max)))
 
 
+"""
 def nloglikeobs_nb(
     endog,
     exog,
@@ -431,6 +435,18 @@ def nloglikeobs_bb(
         result = reduced_result
 
     return result
+"""
+
+
+def get_log_transmat(n_states, t):
+    if n_states > 1:
+        transmat = np.ones((n_states, n_states)) * (1.0 - t) / (n_states - 1)
+        np.fill_diagonal(transmat, t)
+        log_transmat = np.log(transmat)
+    else:
+        log_transmat = np.zeros((1, 1))
+
+    return log_transmat
 
 
 class hmm_nophasing:
@@ -438,7 +454,16 @@ class hmm_nophasing:
         self.params = params
         self.t = t
 
-    
+        # NB small alpha tend to Poisson. 0.1 ->
+        # NB large dispersions tend to Binomial, flat landscape, initialize just before.  30 -> 1_000
+        # self.n_states = n_states
+        # self.default_log_mu = np.linspace(-0.1, 0.1, n_states)
+        # self.default_p_binom = np.linspace(0.05, 0.45, n_states)
+        # self.default_alphas = 0.5 * np.ones(n_states)
+        # self.default_taus = 1_000 * np.ones(n_states)
+        # self.default_log_startprob = np.log(np.ones(n_states) / n_states)
+
+    """
     @staticmethod
     def compute_emission_probability_nb_betabinom(
         X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus
@@ -446,21 +471,19 @@ class hmm_nophasing:
         return compute_emissions(
             X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus
         )
-    
+    """
+
     @staticmethod
     def compute_emission_probability_nb_betabinom(
         X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus
     ):
         # X is shape (n_obs, 2, n_spots). Split into NB (index 0) and BB (index 1) arrays
-        log_emit_rdr = _dense_nb_logpmf(
-            X[:, 0, :], base_nb_mean, log_mu, alphas
-        )
-        log_emit_baf = _dense_bb_logpmf(
-            X[:, 1, :], total_bb_RD, p_binom, taus
-        )
-        
+        log_emit_rdr = _dense_nb_logpmf(X[:, 0, :], base_nb_mean, log_mu, alphas)
+        log_emit_baf = _dense_bb_logpmf(X[:, 1, :], total_bb_RD, p_binom, taus)
+
         return log_emit_rdr, log_emit_baf
-    
+
+    """
     @staticmethod
     def compute_emission_probability_nb_betabinom_coded(
         nbEncoder, bbEncoder, log_mu, alphas, p_binom, taus
@@ -518,14 +541,18 @@ class hmm_nophasing:
         log_emit_baf = bbEncoder.decode_array(log_emit_baf_uniq, 0)
 
         return log_emit_rdr, log_emit_baf
-    
+    """
+
     @staticmethod
-    def compute_emission_probability_nb_betabinom_coded(nbEncoder, bbEncoder, log_mu, alphas, p_binom, taus):
+    def compute_emission_probability_nb_betabinom_coded(
+        nbEncoder, bbEncoder, log_mu, alphas, p_binom, taus
+    ):
         # TODO assumes called on each clone independently.
         n_states = log_mu.shape[0]
-        
+
         nb_endog = nbEncoder.get_unique_obs(0)
         nb_exposure = nbEncoder.get_unique_total(0)
+
         bb_endog = bbEncoder.get_unique_obs(0)
         bb_exposure = bbEncoder.get_unique_total(0)
 
@@ -533,10 +560,10 @@ class hmm_nophasing:
         log_emit_baf_uniq = np.zeros((n_states, len(bb_endog)))
 
         for i in range(n_states):
-            log_emit_rdr_uniq[i, :] = _nb_logpmf_unique(
+            log_emit_rdr_uniq[i, :] = _nb_logpmf_1d(
                 nb_endog, nb_exposure, exp(log_mu[i, 0]), alphas[i, 0]
             )
-            log_emit_baf_uniq[i, :] = _bb_logpmf_unique(
+            log_emit_baf_uniq[i, :] = _bb_logpmf_1d(
                 bb_endog, bb_exposure, p_binom[i, 0], taus[i, 0]
             )
 
@@ -544,7 +571,7 @@ class hmm_nophasing:
         log_emit_baf = bbEncoder.decode_array(log_emit_baf_uniq, 0)
 
         return log_emit_rdr, log_emit_baf
-    
+
     """
     @staticmethod
     def compute_emission_probability_nb_betabinom_mix(
@@ -792,26 +819,25 @@ class hmm_nophasing:
         self,
         n_states,
         n_spots,
-        init_log_mu=None,
-        init_p_binom=None,
-        init_alphas=None,
-        init_taus=None,
+        init_log_mu=None, # DEPRECATE
+        init_p_binom=None, # DEPRECATE
+        init_alphas=None, # DEPRECATE
+        init_taus=None, # DEPRECATE
     ):
-        # TODO define self.init_log_mu on class instance
+        # TODO use self.default_log_mu on class instance
         log_mu = (
             np.vstack([np.linspace(-0.1, 0.1, n_states) for _ in range(n_spots)]).T
             if init_log_mu is None
             else init_log_mu
         )
 
-        # TODO define self.init_p_binom on class instance
+        # TODO define self.default_p_binom on class instance
         p_binom = (
             np.vstack([np.linspace(0.05, 0.45, n_states) for _ in range(n_spots)]).T
             if init_p_binom is None
             else init_p_binom
         )
 
-        # TODO define ...
         # NB small alpha tend to Poisson. 0.1 ->
         alphas = (
             0.5 * np.ones((n_states, n_spots)) if init_alphas is None else init_alphas
@@ -824,7 +850,7 @@ class hmm_nophasing:
         # NB initialize start probability and emission probability
         log_startprob = np.log(np.ones(n_states) / n_states)
 
-        # TODO define method with transition matrix construction.
+        '''
         # TODO definse self.trans_mat on class instance
         if n_states > 1:
             transmat = np.ones((n_states, n_states)) * (1.0 - self.t) / (n_states - 1)
@@ -832,6 +858,8 @@ class hmm_nophasing:
             log_transmat = np.log(transmat)
         else:
             log_transmat = np.zeros((1, 1))
+        '''
+        log_transmat = get_log_transmat(n_states, self.t)
 
         return log_mu, p_binom, alphas, taus, log_startprob, log_transmat
 
@@ -1763,7 +1791,7 @@ class hmm_nophasing:
         # TODO coded emission calc.
         #      No implementation of function Function(<built-in function getitem>) found for signature:
         #      >>> getitem(array(float64, 2d, C), Tuple(slice<a:b>, int64, slice<a:b>))
-        # 
+        #
         log_emission_rdr, log_emission_baf = (
             self.compute_emission_probability_nb_betabinom(
                 X,

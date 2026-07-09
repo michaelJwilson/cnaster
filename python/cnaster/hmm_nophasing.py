@@ -1,19 +1,16 @@
-import numpy as np
-import scipy.special
-import scipy.optimize
-import time
-import numpy as np
-from math import lgamma, log, exp
 import pprint
-from numba import njit
+import time
+from math import exp, lgamma, log
 
-from math import lgamma
-from cnaster.hmm_utils import compute_posterior_transition_nophasing,
-
-from cnaster.count_encoder import CountEncoder
-from scipy.optimize import OptimizeResult
+import numpy as np
+import scipy.optimize
+import scipy.special
 from numba import njit, prange
+from scipy.optimize import OptimizeResult
+
 from cnaster.config import start_time
+from cnaster.count_encoder import CountEncoder
+from cnaster.hmm_utils import compute_posterior_transition_nophasing
 from cnaster.logger import get_logger
 
 logger = get_logger(__name__, start_time=start_time)
@@ -110,6 +107,7 @@ def _dense_bb_logpmf(X_bb, total_bb_RD, p_binom, taus, EPS=1e-10):
 
     return out
 
+
 @njit(cache=True, inline="always", fastmath=False, error_model="numpy")
 def np_sum_ax_squeeze(arr, axis=0):
     return np.sum(arr, axis=axis)
@@ -158,7 +156,6 @@ class hmm_nophasing:
         log_emit_baf = _dense_bb_logpmf(X[:, 1, :], total_bb_RD, p_binom, taus)
 
         return log_emit_rdr, log_emit_baf
-    
 
     @staticmethod
     def compute_emission_probability_nb_betabinom_coded(

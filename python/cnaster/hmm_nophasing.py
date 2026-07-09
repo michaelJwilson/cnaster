@@ -2,36 +2,72 @@ import numpy as np
 import scipy.special
 import scipy.optimize
 import time
-from cnaster.hmm_update import (
-    update_emission_params_bb_nophasing_uniqvalues_mix,
-    update_emission_params_nb_nophasing_uniqvalues,
-    update_emission_params_nb_nophasing_uniqvalues_mix,
-    update_startprob_nophasing,
-    update_transition_nophasing,
-)
+
+# from cnaster.hmm_update import (
+# update_emission_params_bb_nophasing_uniqvalues_mix,
+# update_emission_params_nb_nophasing_uniqvalues,
+# update_emission_params_nb_nophasing_uniqvalues_mix,
+# update_startprob_nophasing,
+# update_transition_nophasing,
+# )
 from cnaster.hmm_utils import (
-    compute_posterior_obs,
+    # compute_posterior_obs,
     compute_posterior_transition_nophasing,
-    construct_unique_matrix,
+    # construct_unique_matrix,
     # convert_params_disp,
-    mylogsumexp,
-    np_sum_ax_squeeze,
+    # mylogsumexp,
+    # np_sum_ax_squeeze,
     # get_em_solver_params,
 )
 from cnaster.count_encoder import CountEncoder
 from cnaster.hmm_emission_eval import compute_emissions
 from cnaster.hmm_emission import nloglikeobs_nb, nloglikeobs_bb
-from cnaster.hmm_sitewise import (
-    compute_emission_probability_nb_betabinom_phased,
-    forward_marginalize_phased,
-    backward_marginalize_phased,
-)
+
+# from cnaster.hmm_sitewise import (
+# compute_emission_probability_nb_betabinom_phased,
+# forward_marginalize_phased,
+# backward_marginalize_phased,
+# )
 from scipy.optimize import OptimizeResult
 from numba import njit
 from cnaster.config import start_time
 from cnaster.logger import get_logger
 
 logger = get_logger(__name__, start_time=start_time)
+
+
+@njit
+def np_sum_ax_squeeze(arr, axis=0):
+    assert arr.ndim == 2
+    assert axis in [0, 1]
+
+    if axis == 0:
+        result = np.zeros(arr.shape[1])
+
+        for i in range(len(result)):
+            result[i] = np.sum(arr[:, i])
+    else:
+        result = np.empty(arr.shape[0])
+
+        for i in range(len(result)):
+            result[i] = np.sum(arr[i, :])
+
+    return result
+
+
+@njit
+def mylogsumexp(a):
+    a_max = np.max(a)
+
+    if np.isinf(a_max):
+        return a_max
+
+    tmp = np.exp(a - a_max)
+
+    s = np.sum(tmp)
+    s = np.log(s)
+
+    return s + a_max
 
 
 class hmm_nophasing:
@@ -307,7 +343,16 @@ class hmm_nophasing:
         )
 
         # NB log_gamma (n_states * n_observations), potentially concatenated by clone.
-        return compute_posterior_obs(log_alpha, log_beta)
+        log_gamma = log_alpha + log_beta
+
+        if np.any(np.sum(log_gamma, axis=0) == 0):
+            logger.error("Sum of posterior probability is zero for some observations!")
+            raise RuntimeError()
+
+        # NB normalize across states for each observation.
+        log_gamma -= scipy.special.logsumexp(log_gamma, axis=0)
+
+        return log_gamma
 
     # DEPRECATE
     def get_transition_posteriors(
@@ -336,6 +381,7 @@ class hmm_nophasing:
             log_emission,
         )
 
+    # TODO define self.n_states
     def get_initial_params(
         self,
         n_states,
@@ -345,28 +391,35 @@ class hmm_nophasing:
         init_alphas=None,
         init_taus=None,
     ):
+        # TODO define self.init_log_mu on class instance
         log_mu = (
             np.vstack([np.linspace(-0.1, 0.1, n_states) for _ in range(n_spots)]).T
             if init_log_mu is None
             else init_log_mu
         )
 
+        # TODO define self.init_p_binom on class instance
         p_binom = (
             np.vstack([np.linspace(0.05, 0.45, n_states) for _ in range(n_spots)]).T
             if init_p_binom is None
             else init_p_binom
         )
 
+        # TODO define ...
         # NB small alpha tend to Poisson. 0.1 ->
         alphas = (
             0.5 * np.ones((n_states, n_spots)) if init_alphas is None else init_alphas
         )
+
+        # TODO define ...
         # NB large dispersions tend to Binomial, flat landscape, initialize just before.  30 -> 1_000
         taus = 1_000 * np.ones((n_states, n_spots)) if init_taus is None else init_taus
 
         # NB initialize start probability and emission probability
         log_startprob = np.log(np.ones(n_states) / n_states)
 
+        # TODO define method with transition matrix construction.
+        # TODO definse self.trans_mat on class instance
         if n_states > 1:
             transmat = np.ones((n_states, n_states)) * (1.0 - self.t) / (n_states - 1)
             np.fill_diagonal(transmat, self.t)
@@ -375,6 +428,57 @@ class hmm_nophasing:
             log_transmat = np.zeros((1, 1))
 
         return log_mu, p_binom, alphas, taus, log_startprob, log_transmat
+
+    def get_bounds(
+        self,
+        n_states,
+        optimize_nb=True,
+        fix_NB_dispersion=False,
+        shared_NB_dispersion=False,
+        fix_BB_dispersion=False,
+        shared_BB_dispersion=False,
+        use_logit=True,
+        max_alpha=1_000.0,
+        min_alpha=1e-6,
+        max_tau=5_000.0,
+        min_tau=1e-4,
+    ):
+        """
+        Dynamically constructs the bounds list of (min, max) tuples to exactly
+        match the flattened optimization vector generated by pack_params.
+        """
+        bounds = []
+
+        if "s" in self.params:
+            # Unconstrained because they pass through a Softmax upon unpack
+            bounds.extend([(None, None)] * n_states)
+
+        if optimize_nb and "m" in self.params:
+            bounds.extend([(None, None)] * n_states)
+
+        if "p" in self.params:
+            if use_logit:
+                # Logit constraint automatically bounds domain to (0, 1) upon unpack
+                bounds.extend([(None, None)] * n_states)
+            else:
+                bounds.extend([(1e-6, 1.0 - 1e-6)] * n_states)
+
+        if optimize_nb and "m" in self.params and not fix_NB_dispersion:
+            alpha_bnds = (float(np.log(min_alpha)), float(np.log(max_alpha)))
+            if shared_NB_dispersion:
+                bounds.append(alpha_bnds)
+            else:
+                bounds.extend([alpha_bnds] * n_states)
+
+        if "p" in self.params and not fix_BB_dispersion:
+            tau_bnds = (float(np.log(min_tau)), float(np.log(max_tau)))
+
+            if shared_BB_dispersion:
+                bounds.append(tau_bnds)
+            else:
+                bounds.extend([tau_bnds] * n_states)
+
+        return bounds
 
     def pack_params(
         self,
@@ -398,6 +502,8 @@ class hmm_nophasing:
         if "s" in self.params:
             params_list.append(log_startprob.flatten())
 
+        # TODO assert m not in self.params if optimize_nb is False on class instance,
+        #      drop branch clause.
         if optimize_nb and "m" in self.params:
             params_list.append(log_mu.flatten())
 
@@ -436,7 +542,7 @@ class hmm_nophasing:
         shared_NB_dispersion=False,
         fix_BB_dispersion=False,
         shared_BB_dispersion=False,
-        use_logit=True,  # Add use_logit flag
+        use_logit=True,
     ):
         """
         Reconstruct canonical parameterization given optimization vector & runtime settings.
@@ -494,6 +600,7 @@ class hmm_nophasing:
 
         return log_startprob, log_mu, p_binom, alphas, taus
 
+    # WARNING
     def unpack_param_errors(
         self,
         x,
@@ -591,6 +698,7 @@ class hmm_nophasing:
 
         return log_startprob_err, log_mu_err, p_binom_err, alphas_err, taus_err
 
+    '''
     def run_baum_welch_nb_bb(
         self,
         X,
@@ -964,6 +1072,7 @@ class hmm_nophasing:
             "new_log_transmat": new_log_transmat,  # TODO
             "log_gamma": log_gamma,
         }
+    '''
 
     def run_baum_welch_nb_bb(
         self,
@@ -978,7 +1087,7 @@ class hmm_nophasing:
         shared_NB_dispersion=False,
         fix_BB_dispersion=False,
         shared_BB_dispersion=False,
-        is_diag=False,
+        is_diag=False,  # DEPRECATE
         init_log_mu=None,
         init_p_binom=None,
         init_alphas=None,
@@ -1297,64 +1406,6 @@ class hmm_nophasing:
             "n_states": n_states,
         } | param_errors
 
-    def get_bounds(
-        self,
-        n_states,
-        optimize_nb=True,
-        fix_NB_dispersion=False,
-        shared_NB_dispersion=False,
-        fix_BB_dispersion=False,
-        shared_BB_dispersion=False,
-        use_logit=True,
-        max_alpha=1_000.0,
-        min_alpha=1e-6,
-        max_tau=5_000.0,
-        min_tau=1e-4,
-    ):
-        """
-        Dynamically constructs the bounds list of (min, max) tuples to exactly
-        match the flattened optimization vector generated by pack_params.
-        """
-        bounds = []
-
-        # 1. Start Probabilities ("s")
-        if "s" in self.params:
-            # Unconstrained because they pass through a Softmax upon unpack
-            bounds.extend([(None, None)] * n_states)
-
-        # 2. Extract Mean ("m") (log_mu)
-        if optimize_nb and "m" in self.params:
-            bounds.extend([(None, None)] * n_states)
-
-        # 3. Binomial Probability ("p") (p_binom)
-        if "p" in self.params:
-            if use_logit:
-                # Logit constraint automatically bounds domain to (0, 1) upon unpack
-                bounds.extend([(None, None)] * n_states)
-            else:
-                bounds.extend([(1e-6, 1.0 - 1e-6)] * n_states)
-
-        # 4. NB Dispersion ("m" -> log_alpha)
-        if optimize_nb and "m" in self.params and not fix_NB_dispersion:
-            # Optimize x = log(alpha)
-            alpha_bnds = (float(np.log(min_alpha)), float(np.log(max_alpha)))
-            if shared_NB_dispersion:
-                bounds.append(alpha_bnds)
-            else:
-                bounds.extend([alpha_bnds] * n_states)
-
-        # 5. BB Dispersion ("p" -> log_tau)
-        if "p" in self.params and not fix_BB_dispersion:
-            # Optimize x = log(tau)
-            tau_bnds = (float(np.log(min_tau)), float(np.log(max_tau)))
-
-            if shared_BB_dispersion:
-                bounds.append(tau_bnds)
-            else:
-                bounds.extend([tau_bnds] * n_states)
-
-        return bounds
-
     """
     # TODO run_marginal_like_nb_bb
     def run_baum_welch_nb_bb(
@@ -1572,7 +1623,7 @@ class hmm_nophasing:
         shared_NB_dispersion=False,
         fix_BB_dispersion=False,
         shared_BB_dispersion=False,
-        is_diag=False,
+        is_diag=False,  # DEPRECATE
         init_log_mu=None,
         init_p_binom=None,
         init_alphas=None,

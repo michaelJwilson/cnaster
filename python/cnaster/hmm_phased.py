@@ -29,7 +29,7 @@ def switch_betabinom(log_emission_baf_nophase, k, n, alpha, beta):
 
 
 def compute_emission_probability_nb_betabinom_coded(
-    nbEncoder, bbEncoder, log_mu, alphas, p_binom, taus
+    nbEncoder, bbEncoder, log_mu, alphas, p_binom, taus, clone_stack=True, scratch_rdr=None, scratch_baf=None
 ):
     """
     Efficient emission probability evaluation:  calculates for the
@@ -84,11 +84,16 @@ def compute_emission_probability_nb_betabinom_coded(
 
 
 def compute_emission_probability_nb_betabinom_phased_coded(
-    nbEncoder, bbEncoder, log_mu, alphas, p_binom, taus
+    nbEncoder,
+    bbEncoder,
+    log_mu,
+    alphas,
+    p_binom,
+    taus,
+    clone_stack=True,
+    scratch_rdr=None,
+    scratch_baf=None,
 ):
-    """
-    Efficient emission probability evaluation for the phased betabinomial model.
-    """
     n_states = p_binom.shape[0]
 
     # NB guard against
@@ -99,7 +104,15 @@ def compute_emission_probability_nb_betabinom_phased_coded(
 
     log_emission_rdr_nophase, log_emission_baf_nophase = (
         compute_emission_probability_nb_betabinom_coded(
-            nbEncoder, bbEncoder, log_mu, alphas, p_binom, taus
+            nbEncoder,
+            bbEncoder,
+            log_mu,
+            alphas,
+            p_binom,
+            taus,
+            clone_stack=clone_stack,
+            scratch_rdr=scratch_rdr,
+            scratch_baf=scratch_baf,
         )
     )
 
@@ -140,10 +153,26 @@ class hmm_phased(hmm_nophasing):
 
     @staticmethod
     def compute_emission_probability_nb_betabinom_coded(
-        nbEncoder, bbEncoder, log_mu, alphas, p_binom, taus
+        nbEncoder,
+        bbEncoder,
+        log_mu,
+        alphas,
+        p_binom,
+        taus,
+        clone_stack=True,
+        scratch_rdr=None,
+        scratch_baf=None,
     ):
         return compute_emission_probability_nb_betabinom_phased_coded(
-            nbEncoder, bbEncoder, log_mu, alphas, p_binom, taus
+            nbEncoder,
+            bbEncoder,
+            log_mu,
+            alphas,
+            p_binom,
+            taus,
+            clone_stack=clone_stack,
+            scratch_rdr=scratch_rdr,
+            scratch_baf=scratch_baf,
         )
 
     @staticmethod

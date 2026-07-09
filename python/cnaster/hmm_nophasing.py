@@ -21,7 +21,6 @@ def nbinom_logpmf_numba(k, r, p, parameter_terms_only=True):
     if p <= 0.0 or p >= 1.0 or r <= 0.0 or k < 0:
         return 0.0
 
-    # TODO keyword to drop parameter-independent terms.
     log_coeff = lgamma(k + r) - lgamma(r)
 
     if parameter_terms_only:
@@ -46,8 +45,8 @@ def betabinom_logpmf_numba(k, n, alpha, beta, parameter_terms_only=True):
 
 
 @njit(nogil=True, cache=True, error_model="numpy")
-def _nb_logpmf_1d(obs, exposure, mu, alpha):
-    out = np.zeros_like(obs, dtype=np.float64)
+def _nb_logpmf_1d(obs, exposure, mu, alpha, out):
+    # out = np.zeros_like(obs, dtype=np.float64)
     r = 1.0 / max(alpha, 1.0e-10)
 
     for i in range(len(obs)):
@@ -61,19 +60,19 @@ def _nb_logpmf_1d(obs, exposure, mu, alpha):
         p = 1.0 / (1.0 + alpha * lambda_i)
         out[i] = nbinom_logpmf_numba(k, r, p)
 
-    return out
+    # return out
 
 
 @njit(nogil=True, cache=True, error_model="numpy")
-def _bb_logpmf_1d(obs, total, p_binom, tau, EPS=1e-10):
-    out = np.zeros_like(obs, dtype=np.float64)
+def _bb_logpmf_1d(obs, total, p_binom, tau, out, EPS=1e-10):
+    # out = np.zeros_like(obs, dtype=np.float64)
     alpha = max(p_binom * tau, EPS)
     beta = max((1.0 - p_binom) * tau, EPS)
 
     for i in range(len(obs)):
         out[i] = betabinom_logpmf_numba(obs[i], total[i], alpha, beta)
 
-    return out
+    # return out
 
 
 @njit(nogil=True, cache=True, parallel=True, error_model="numpy")
@@ -88,8 +87,11 @@ def _dense_nb_logpmf(X_nb, base_nb_mean, log_mu, alphas):
         alpha_val = alphas[i, 0]
 
         for s in range(n_spots):
-            out[i, :, s] = _nb_logpmf_1d(
-                X_nb[:, s], base_nb_mean[:, s], mu_val, alpha_val
+            # out[i, :, s] = _nb_logpmf_1d(
+            #     X_nb[:, s], base_nb_mean[:, s], mu_val, alpha_val
+            # )
+            _nb_logpmf_1d(
+                X_nb[:, s], base_nb_mean[:, s], mu_val, alpha_val, out[i, :, s]
             )
 
     return out
@@ -107,10 +109,12 @@ def _dense_bb_logpmf(X_bb, total_bb_RD, p_binom, taus, EPS=1e-10):
         tau_val = taus[i, 0]
 
         for s in range(n_spots):
-            out[i, :, s] = _bb_logpmf_1d(
-                X_bb[:, s], total_bb_RD[:, s], p_val, tau_val, EPS
+            # out[i, :, s] = _bb_logpmf_1d(
+            #     X_bb[:, s], total_bb_RD[:, s], p_val, tau_val, EPS
+            # )
+            _bb_logpmf_1d(
+                X_bb[:, s], total_bb_RD[:, s], p_val, tau_val, out[i, :, s], EPS
             )
-
     return out
 
 
@@ -162,6 +166,7 @@ class hmm_nophasing:
         log_emit_baf = _dense_bb_logpmf(X[:, 1, :], total_bb_RD, p_binom, taus)
 
         return log_emit_rdr, log_emit_baf
+
     """
     @staticmethod
     def compute_emission_probability_nb_betabinom_coded(
@@ -191,49 +196,66 @@ class hmm_nophasing:
         log_emit_baf = bbEncoder.decode_array(log_emit_baf_uniq, 0)
 
         return log_emit_rdr, log_emit_baf
-    """                                                                                                                                                                                                                                                                      
-    @staticmethod                                                                                                                                                                                                                                                               
-    def compute_emission_probability_nb_betabinom_coded(                                                                                                                                                                                                                        
-        nbEncoder, bbEncoder, log_mu, alphas, p_binom, taus, clone_stack=True,                                                                                                                                                                                                                     
-    ):                                                                                                                                                                                                                                                                          
-        n_states = log_mu.shape[0]                                                                                                                                                                                                                                              
-        n_spots = nbEncoder.n_spots                                                                                                                                                                                                                                             
-                                                                                                                                                                                                                                                                                
-        assert bbEncoder.n_spots == n_spots                                                                                                                                                                                                                                     
-                                                                                                                                                                                                                                                                                
-        log_emit_rdr_list, log_emit_baf_list = [],[]                                                                                                                                                                                                                            
-                                                                                                                                                                                                                                                                                
-        for s in range(n_spots):                                                                                                                                                                                                                                                
-            nb_endog = nbEncoder.get_unique_obs(s)                                                                                                                                                                                                                              
-            nb_exposure = nbEncoder.get_unique_total(s)                                                                                                                                                                                                                         
-                                                                                                                                                                                                                                                                                
-            bb_endog = bbEncoder.get_unique_obs(s)                                                                                                                                                                                                                              
-            bb_exposure = bbEncoder.get_unique_total(s)                                                                                                                                                                                                                         
-                                                                                                                                                                                                                                                                                
-            log_emit_rdr_uniq = np.zeros((n_states, len(nb_endog)))                                                                                                                                                                                                             
-            log_emit_baf_uniq = np.zeros((n_states, len(bb_endog)))                                                                                                                                                                                                             
-                                                                                                                                                                                                                                                                                
-            for i in range(n_states):                                                                                                                                                                                                                                           
-                log_emit_rdr_uniq[i, :] = _nb_logpmf_1d(                                                                                                                                                                                                                        
-                    nb_endog, nb_exposure, exp(log_mu[i, s]), alphas[i, s]                                                                                                                                                                                                      
-                )                                                                                                                                                                                                                                                               
-                log_emit_baf_uniq[i, :] = _bb_logpmf_1d(                                                                                                                                                                                                                        
-                    bb_endog, bb_exposure, p_binom[i, s], taus[i, s]                                                                                                                                                                                                            
-                )                                                                                                                                                                                                                                                               
-                                                                                                                                                                                                                                                                                
-            log_emit_rdr_list.append(nbEncoder.decode_array(log_emit_rdr_uniq, s))                                                                                                                                                                                              
-            log_emit_baf_list.append(bbEncoder.decode_array(log_emit_baf_uniq, s))                                                                                                                                                                                              
-                                                                                                                                                                                                                                                                                
+    """
+
+    @staticmethod
+    def compute_emission_probability_nb_betabinom_coded(
+        nbEncoder,
+        bbEncoder,
+        log_mu,
+        alphas,
+        p_binom,
+        taus,
+        clone_stack=True,
+        scratch_rdr=None,
+        scratch_baf=None,
+    ):
+        n_states = log_mu.shape[0]
+        n_spots = nbEncoder.n_spots
+
+        assert bbEncoder.n_spots == n_spots
+
+        log_emit_rdr_list, log_emit_baf_list = [], []
+
+        for s in range(n_spots):
+            nb_endog = nbEncoder.get_unique_obs(s)
+            nb_exposure = nbEncoder.get_unique_total(s)
+
+            bb_endog = bbEncoder.get_unique_obs(s)
+            bb_exposure = bbEncoder.get_unique_total(s)
+
+            log_emit_rdr_uniq = (
+                scratch_rdr[s] if scratch_rdr else np.zeros((n_states, len(nb_endog)))
+            )
+            log_emit_baf_uniq = (
+                scratch_baf[s] if scratch_baf else np.zeros((n_states, len(bb_endog)))
+            )
+
+            for i in range(n_states):
+                _nb_logpmf_1d(
+                    nb_endog, nb_exposure, exp(log_mu[i, s]), alphas[i, s], log_emit_rdr_uniq[i, :]
+                )
+                _bb_logpmf_1d(
+                    bb_endog, bb_exposure, p_binom[i, s], taus[i, s], log_emit_baf_uniq[i, :]
+                )
+
+            log_emit_rdr_list.append(nbEncoder.decode_array(log_emit_rdr_uniq, s))
+            log_emit_baf_list.append(bbEncoder.decode_array(log_emit_baf_uniq, s))
+
         if clone_stack:
             # NB concatenate clones along the genomic axis (n_states, total_obs) -> (n_states, total_obs, 1)
-            log_emit_rdr = np.concatenate(log_emit_rdr_list, axis=1) # [:, :, np.newaxis]
-            log_emit_baf = np.concatenate(log_emit_baf_list, axis=1) # [:, :, np.newaxis]
+            log_emit_rdr = np.concatenate(
+                log_emit_rdr_list, axis=1
+            )  # [:, :, np.newaxis]
+            log_emit_baf = np.concatenate(
+                log_emit_baf_list, axis=1
+            )  # [:, :, np.newaxis]
         else:
             # NB (n_states, n_obs, n_spots)
             log_emit_rdr = np.stack(log_emit_rdr_list, axis=2)
             log_emit_baf = np.stack(log_emit_baf_list, axis=2)
-                                                                                                                                                                                                                                                                                
-        return log_emit_rdr, log_emit_baf                                                                                                                                                                                                                                       
+
+        return log_emit_rdr, log_emit_baf
 
     @staticmethod
     @njit
@@ -809,6 +831,15 @@ class hmm_nophasing:
             use_logit=use_logit,
         )
 
+        scratch_rdr = [
+            np.zeros((n_states, len(nbEncoder.get_unique_obs(s))))
+            for s in range(n_spots)
+        ]
+        scratch_baf = [
+            np.zeros((n_states, len(bbEncoder.get_unique_obs(s))))
+            for s in range(n_spots)
+        ]
+
         if mode == "em":
             self.log_emissions, self.state_posteriors = None, None
             self.log_startprob = log_startprob
@@ -855,6 +886,8 @@ class hmm_nophasing:
                         this_alphas,
                         this_p_binom,
                         this_taus,
+                        scratch_rdr=scratch_rdr,
+                        scratch_baf=scratch_baf,
                     )
                 )
                 self.log_emissions = (log_emission_rdr + log_emission_baf)[
@@ -898,6 +931,8 @@ class hmm_nophasing:
                         this_alphas,
                         this_p_binom,
                         this_taus,
+                        scratch_rdr=scratch_rdr,
+                        scratch_baf=scratch_baf,
                     )
                 )
                 log_emissions = (log_emission_rdr + log_emission_baf)[:, :, np.newaxis]

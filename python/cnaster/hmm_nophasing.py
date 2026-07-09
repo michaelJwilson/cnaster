@@ -45,10 +45,20 @@ logger = get_logger(__name__, start_time=start_time)
 
 @njit(nogil=True, cache=True, fastmath=False, error_model="numpy")
 def convert_params_numba(mean, std):
+    # NB negative binomial (n, p) given mean and std.
     # TODO better parameterization for numerical stability.
     var = std * std
     p = mean / var
     n = mean * p / (1.0 - p)
+    return n, p
+
+@njit
+def convert_params_disp(mean, overdisp):
+    p = 1.0 / (1.0 + overdisp * mean)
+
+    # NB guard on min. overdispersion, such that (overdisp * mean) << 1.
+    n = 1.0 / np.maximum(overdisp, 1.0e-10)
+
     return n, p
 
 
@@ -182,7 +192,6 @@ def compute_emissions(X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, tau
 
 @njit(nogil=True, cache=True, inline='always', error_model="numpy")
 def _core_nb_logpmf(k, r, p):
-    """Pure scalar math for Negative Binomial log PMF."""
     if p <= 0.0 or p >= 1.0 or k < 0:
         return -np.inf
     log_coeff = lgamma(k + r) - lgamma(k + 1) - lgamma(r)
@@ -190,7 +199,6 @@ def _core_nb_logpmf(k, r, p):
 
 @njit(nogil=True, cache=True, inline='always', error_model="numpy")
 def _core_bb_logpmf(k, n, alpha, beta):
-    """Pure scalar math for Beta-Binomial log PMF."""
     if n <= 0 or k < 0 or k > n:
         return -np.inf
     log_binom_coeff = lgamma(n + 1) - lgamma(k + 1) - lgamma(n - k + 1)
@@ -218,7 +226,6 @@ def _nb_logpmf_unique(unique_obs, unique_exposure, mu, alpha):
 
 @njit(nogil=True, cache=True, parallel=True, error_model="numpy")
 def _dense_nb_logpmf(X_nb, base_nb_mean, log_mu, alphas):
-    """Directly evaluates NB log-likelihood over dense arrays."""
     n_states = log_mu.shape[0]
     n_obs, n_spots = X_nb.shape  # Extract clone axis from data, not parameters
     
@@ -257,9 +264,8 @@ def _bb_logpmf_unique(unique_obs, unique_total, p_binom, tau, EPS=1e-10):
 
 @njit(nogil=True, cache=True, parallel=True, error_model="numpy")
 def _dense_bb_logpmf(X_bb, total_bb_RD, p_binom, taus, EPS=1e-10):
-    """Directly evaluates BB log-likelihood over dense arrays."""
     n_states = p_binom.shape[0]
-    n_obs, n_spots = X_bb.shape  # Extract clone axis from data, not parameters
+    n_obs, n_spots = X_bb.shape
     
     out = np.empty((n_states, n_obs, n_spots), dtype=np.float64)
     
@@ -319,16 +325,6 @@ def numba_logsumexp(a):
     if np.isinf(a_max):
         return a_max
     return a_max + np.log(np.sum(np.exp(a - a_max)))
-
-
-@njit
-def convert_params_disp(mean, overdisp):
-    p = 1.0 / (1.0 + overdisp * mean)
-
-    # NB guard on min. overdispersion, such that (overdisp * mean) << 1.
-    n = 1.0 / np.maximum(overdisp, 1.0e-10)
-
-    return n, p
 
 
 def nloglikeobs_nb(
@@ -548,7 +544,6 @@ class hmm_nophasing:
         log_emit_rdr_uniq = np.zeros((n_states, len(nb_endog)))
         log_emit_baf_uniq = np.zeros((n_states, len(bb_endog)))
 
-        # Evaluate states sequentially; unique element arrays can be evaluated fast
         for i in range(n_states):
             log_emit_rdr_uniq[i, :] = _nb_logpmf_unique(
                 nb_endog, nb_exposure, exp(log_mu[i, 0]), alphas[i, 0]
@@ -557,7 +552,6 @@ class hmm_nophasing:
                 bb_endog, bb_exposure, p_binom[i, 0], taus[i, 0]
             )
 
-        # Broadcast evaluation back out onto target shape
         log_emit_rdr = nbEncoder.decode_array(log_emit_rdr_uniq, 0)
         log_emit_baf = bbEncoder.decode_array(log_emit_baf_uniq, 0)
 

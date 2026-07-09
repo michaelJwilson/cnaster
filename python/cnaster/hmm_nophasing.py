@@ -156,7 +156,7 @@ class hmm_nophasing:
         log_emit_baf = _dense_bb_logpmf(X[:, 1, :], total_bb_RD, p_binom, taus)
 
         return log_emit_rdr, log_emit_baf
-
+    """
     @staticmethod
     def compute_emission_probability_nb_betabinom_coded(
         nbEncoder, bbEncoder, log_mu, alphas, p_binom, taus
@@ -185,11 +185,10 @@ class hmm_nophasing:
         log_emit_baf = bbEncoder.decode_array(log_emit_baf_uniq, 0)
 
         return log_emit_rdr, log_emit_baf
-    
-    """                                                                                                                                                                                                                                                                         
+    """                                                                                                                                                                                                                                                                      
     @staticmethod                                                                                                                                                                                                                                                               
     def compute_emission_probability_nb_betabinom_coded(                                                                                                                                                                                                                        
-        nbEncoder, bbEncoder, log_mu, alphas, p_binom, taus                                                                                                                                                                                                                     
+        nbEncoder, bbEncoder, log_mu, alphas, p_binom, taus, clone_stack=True,                                                                                                                                                                                                                     
     ):                                                                                                                                                                                                                                                                          
         n_states = log_mu.shape[0]                                                                                                                                                                                                                                              
         n_spots = nbEncoder.n_spots                                                                                                                                                                                                                                             
@@ -219,11 +218,16 @@ class hmm_nophasing:
             log_emit_rdr_list.append(nbEncoder.decode_array(log_emit_rdr_uniq, s))                                                                                                                                                                                              
             log_emit_baf_list.append(bbEncoder.decode_array(log_emit_baf_uniq, s))                                                                                                                                                                                              
                                                                                                                                                                                                                                                                                 
-        log_emit_rdr = np.stack(log_emit_rdr_list, axis=2)                                                                                                                                                                                                                      
-        log_emit_baf = np.stack(log_emit_baf_list, axis=2)                                                                                                                                                                                                                      
+        if clone_stack:
+            # NB concatenate clones along the genomic axis (n_states, total_obs) -> (n_states, total_obs, 1)
+            log_emit_rdr = np.concatenate(log_emit_rdr_list, axis=1) # [:, :, np.newaxis]
+            log_emit_baf = np.concatenate(log_emit_baf_list, axis=1) # [:, :, np.newaxis]
+        else:
+            # NB (n_states, n_obs, n_spots)
+            log_emit_rdr = np.stack(log_emit_rdr_list, axis=2)
+            log_emit_baf = np.stack(log_emit_baf_list, axis=2)
                                                                                                                                                                                                                                                                                 
         return log_emit_rdr, log_emit_baf                                                                                                                                                                                                                                       
-    """
 
     @staticmethod
     @njit
@@ -984,6 +988,7 @@ class hmm_nophasing:
         else:
             param_errors = {}
 
+        # TODO call coded
         log_emission_rdr, log_emission_baf = (
             self.compute_emission_probability_nb_betabinom(
                 X,

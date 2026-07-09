@@ -62,7 +62,7 @@ def compute_emissions_nb(
                 # TODO lift out?
                 if base_nb_mean[obs, s] > 0:
                     nb_mean = base_nb_mean[obs, s] * exp(log_mu[i, 0])
-                    nb_var = nb_mean + alphas[i, 0] * nb_mean **2.
+                    nb_var = nb_mean + alphas[i, 0] * nb_mean**2.0
                     nb_std = sqrt(nb_var)
 
                     n, p = convert_params_numba(nb_mean, nb_std)
@@ -103,6 +103,7 @@ def compute_emissions_bb(
                     )
 
     return log_emission_baf
+
 
 # TODO in-place scratch array.
 def compute_emissions(X, base_nb_mean, log_mu, alphas, total_bb_RD, p_binom, taus):

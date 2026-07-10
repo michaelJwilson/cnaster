@@ -1,13 +1,16 @@
+from collections import namedtuple
+
 import numpy as np
 import pandas as pd
-from collections import namedtuple
-from cnaster.reference import get_reference_genes
-from cnaster.utils import cacher
+
 from cnaster.config import start_time
 from cnaster.logger import get_logger
 from cnaster.recomb import get_sitewise_transmat
+from cnaster.reference import get_reference_genes
+from cnaster.utils import cacher
 
 logger = get_logger(__name__, start_time=start_time)
+
 
 def greedy_binning_nobreak(
     block_lengths,
@@ -110,6 +113,7 @@ def greedy_binning_nobreak(
 
     # NB return new bin ids for each block, where new bins meet umi, length, etc. requirements.
     return bin_ids
+
 
 # TODO assumes reference gene contains all those present in Visium anndata.
 @cacher("gene_snp_table.tsv")
@@ -232,6 +236,7 @@ def form_gene_snp_table(
     logger.info(f"Created gene-snp query table:\n{df_gene_snp.head()}")
 
     return df_gene_snp
+
 
 def summarize_blocks(
     gene_snp_table,
@@ -367,6 +372,7 @@ def summarize_blocks(
     if block_summary.index.isna().any():
         logger.warning(f"Found ill-defined group:/n{block_summary.loc[np.nan]}")
 
+
 # @cacher("blocked_counts.hdf5")
 def summarize_counts_for_blocks(
     df_gene_snp,
@@ -452,6 +458,7 @@ def summarize_counts_for_blocks(
         single_base_nb_mean=single_base_nb_mean,
         single_total_bb_RD=single_total_bb_RD,
     )
+
 
 # @cacher("blocked_gene_snp_table.tsv")
 def assign_initial_blocks(
@@ -849,6 +856,7 @@ def create_bin_ranges(
     # NB return df_gene_snp with an updated bin_id column, and potentially deifned block_id column if it was overwritten.
     return df_gene_snp
 
+
 # @cacher("binned_counts.hdf5")
 def summarize_counts_for_bins(
     df_gene_snp,
@@ -958,11 +966,11 @@ def summarize_counts_for_bins(
     )
 
     log_sitewise_transmat = get_sitewise_transmat(
-        segment_key="bin_id", 
-        df_gene_snp=df_gene_snp, 
-        geneticmap_file=geneticmap_file, 
-        nu=nu, 
-        logphase_shift=logphase_shift
+        segment_key="bin_id",
+        df_gene_snp=df_gene_snp,
+        geneticmap_file=geneticmap_file,
+        nu=nu,
+        logphase_shift=logphase_shift,
     )
 
     assert bin_single_X.ndim == 3

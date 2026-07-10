@@ -1,7 +1,9 @@
 import copy
-import numpy as np
-from typing import Optional, Any
 from dataclasses import dataclass, fields, is_dataclass
+from typing import Any, Optional
+
+import numpy as np
+
 from cnaster.config import start_time
 from cnaster.logger import get_logger
 

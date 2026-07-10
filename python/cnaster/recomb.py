@@ -1,6 +1,6 @@
 import numpy as np
-from cnaster.config import get_global_config
-from cnaster.config import start_time
+
+from cnaster.config import get_global_config, start_time
 from cnaster.logger import get_logger
 from cnaster.reference import get_reference_recomb_rates
 
@@ -111,7 +111,9 @@ def assign_centiMorgans(chr_pos_vector, ref_positions_cM):
     return position_cM
 
 
-def get_sitewise_transmat(segment_key, df_gene_snp, geneticmap_file, nu, logphase_shift):
+def get_sitewise_transmat(
+    segment_key, df_gene_snp, geneticmap_file, nu, logphase_shift
+):
     """
     Phase switch probability from recombination rate / genetic distance [cM].
 

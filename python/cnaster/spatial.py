@@ -1,18 +1,17 @@
+from collections import namedtuple
+
 import numpy as np
 import scipy.linalg
 import scipy.sparse
-from collections import namedtuple
-
+# from scipy.spatial import distance
+from scipy.sparse import csr_matrix
 # from scipy.sparse import lil_matrix
 from scipy.spatial import cKDTree
 
-# from scipy.spatial import distance
-from scipy.sparse import csr_matrix
-
+from cnaster.annotation import get_clone_label_annotation
 # from cnaster.utils import cacher
 from cnaster.config import start_time
 from cnaster.logger import get_logger
-from cnaster.annotation import get_clone_label_annotation
 
 logger = get_logger(__name__, start_time=start_time)
 

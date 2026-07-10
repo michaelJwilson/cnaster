@@ -1,7 +1,7 @@
 import numpy as np
 import scipy
-from cnaster.config import get_global_config
-from cnaster.config import start_time
+
+from cnaster.config import get_global_config, start_time
 from cnaster.logger import get_logger
 
 logger = get_logger(__name__, start_time=start_time)

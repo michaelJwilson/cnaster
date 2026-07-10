@@ -1,9 +1,10 @@
-import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.colors as mcolors
-from scipy.ndimage import gaussian_filter1d
-from typing import Optional, Dict, Any
 import logging
+from typing import Any, Dict, Optional
+
+import matplotlib.colors as mcolors
+import matplotlib.pyplot as plt
+import numpy as np
+from scipy.ndimage import gaussian_filter1d
 
 logger = logging.getLogger(__name__)
 

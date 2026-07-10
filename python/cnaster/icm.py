@@ -1,18 +1,19 @@
+import heapq
+# from cnaster.wolff import build_wolff_cluster
+from collections import deque
+
 import numpy as np
 from numba import njit
+from scipy.special import logsumexp
+
+from cnaster.config import start_time
+from cnaster.hmrf_utils import hmrf_perf_entry
+from cnaster.logger import get_logger
 
 # from dataclasses import dataclass, asdict, field
 
-from cnaster.config import start_time
-from cnaster.logger import get_logger
-from cnaster.hmrf_utils import hmrf_perf_entry
 
-import numpy as np
-import heapq
-from scipy.special import logsumexp
 
-# from cnaster.wolff import build_wolff_cluster
-from collections import deque
 
 logger = get_logger(__name__, start_time=start_time)
 

@@ -4,12 +4,8 @@ import numpy as np
 from numba import njit
 
 from cnaster.count_encoder import CountEncoder
-from cnaster.hmm_nophasing import (
-    _bb_logpmf_1d,
-    _nb_logpmf_1d,
-    hmm_nophasing,
-    numba_logsumexp,
-)
+from cnaster.hmm_nophasing import (_bb_logpmf_1d, _nb_logpmf_1d, hmm_nophasing,
+                                   numba_logsumexp)
 
 PEANLIZE_PHASE_ONLY_ON_SAME_CNV = False  # TODO config derived.
 

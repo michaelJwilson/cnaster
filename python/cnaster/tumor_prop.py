@@ -1,9 +1,11 @@
-import scipy
 import logging
+
 import numpy as np
 import pandas as pd
-from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
+import scipy
 from statsmodels.base.model import GenericLikelihoodModel
+
+from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
 
 logger = logging.getLogger(__name__)
 

@@ -1,9 +1,10 @@
 import copy
-import numpy as np
 
+import numpy as np
 # from cnaster.config import get_global_config
-from scipy.optimize import milp, LinearConstraint, Bounds
+from scipy.optimize import Bounds, LinearConstraint, milp
 from scipy.sparse import lil_matrix
+
 from cnaster.config import start_time
 from cnaster.logger import get_logger
 

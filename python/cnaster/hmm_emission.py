@@ -1,22 +1,21 @@
+import csv
 import time
 import warnings
+from dataclasses import asdict, dataclass
+from functools import partial
+from math import lgamma
+from pathlib import Path
+from typing import Any, Optional
 
 import numpy as np
-import scipy.stats
-from math import lgamma
-from scipy.special import loggamma
-from functools import partial
-from cnaster.config import get_global_config
-from cnaster.hmm_utils import get_solver
-from dataclasses import dataclass, asdict
-from typing import Optional, Any
-import csv
-from pathlib import Path
-from numba import njit
 import scipy.optimize
-from cnaster.config import start_time
-from cnaster.logger import get_logger
+import scipy.stats
+from numba import njit
+from scipy.special import loggamma
 
+from cnaster.config import get_global_config, start_time
+from cnaster.hmm_utils import get_solver
+from cnaster.logger import get_logger
 
 logger = get_logger(__name__, start_time=start_time)
 
@@ -158,6 +157,7 @@ def collapse_exog(exog):
 
     return states, switches
 
+
 def betabinom_logpmf_zp(endog, exposure):
     return loggamma(exposure + 1) - loggamma(endog + 1) - loggamma(exposure - endog + 1)
 
@@ -253,6 +253,7 @@ def nloglikeobs_bb(
         result = reduced_result
 
     return result
+
 
 class Weighted_BetaBinom_mix:
     def __init__(

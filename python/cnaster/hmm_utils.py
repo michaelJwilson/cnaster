@@ -1,12 +1,12 @@
+from cnaster.config import get_global_config, start_time
 from cnaster.count_encoder import CountEncoder
-from cnaster.config import get_global_config
-from cnaster.config import start_time
 from cnaster.logger import get_logger
 
 logger = get_logger(__name__, start_time=start_time)
 
 # NB define global alias for legacy
 construct_unique_matrix = CountEncoder.construct_unique_encoding
+
 
 def get_solver():
     known_solvers = ("BFGS", "L-BFGS-B", "Nelder-Mead")
@@ -18,6 +18,7 @@ def get_solver():
     ), f"Unknown solver: {name}. Supported solvers: {known_solvers}"
 
     return name
+
 
 def get_em_solver_params():
     """

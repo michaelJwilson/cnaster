@@ -1,7 +1,8 @@
-import logging
-import numpy as np
-import networkx as nx
 import copy
+import logging
+
+import networkx as nx
+import numpy as np
 import scipy
 
 # from cnaster.hmm_sitewise import hmm_sitewise

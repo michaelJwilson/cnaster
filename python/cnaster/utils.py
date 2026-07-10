@@ -1,20 +1,21 @@
-from copyreg import pickle
-import os
-import h5py
-import scipy
-import pickle
 import datetime
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-import anndata
-from anndata.io import read_elem, write_elem
+import os
+import pickle
 from collections import namedtuple
-from pathlib import Path
+from copyreg import pickle
 from functools import wraps
+from pathlib import Path
+
+import anndata
+import h5py
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import scipy
+from anndata.io import read_elem, write_elem
 from numba import njit
-from cnaster.config import get_global_config
-from cnaster.config import start_time
+
+from cnaster.config import get_global_config, start_time
 from cnaster.logger import get_logger
 
 logger = get_logger(__name__, start_time=start_time)
@@ -203,8 +204,8 @@ def cacher(filename):
 
 def count_calls(func):
     """Decorator: increments func.call_count each time func is called."""
-    from functools import wraps
     import threading
+    from functools import wraps
 
     lock = threading.Lock()
 

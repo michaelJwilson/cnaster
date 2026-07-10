@@ -5,7 +5,6 @@ from functools import cmp_to_key
 import matplotlib as mpl
 import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
-import matplotlib as mpl
 import numpy as np
 import seaborn as sns
 from matplotlib.lines import Line2D

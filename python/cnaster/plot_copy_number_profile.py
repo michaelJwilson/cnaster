@@ -1,8 +1,9 @@
+import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.colors as mcolors
 from matplotlib.patches import Rectangle
+
 from cnaster.palette import get_full_palette
 from cnaster.utils import cast_clone_label
 

@@ -9,60 +9,34 @@ import pandas as pd
 from numba import njit
 
 from cnaster.config import YAMLConfig, set_global_config, start_time
-
+from cnaster.he import get_he_image
 # from cnaster.sim import load_tables_to_matrices
 from cnaster.hmm_nophasing import hmm_nophasing
-
 # from cnaster.hmm_phased import hmm_phased
-from cnaster.hmrf import (
-    run_core_inference,
-    merge_by_minspots,
-    reindex_clones,
-)
+from cnaster.hmrf import merge_by_minspots, reindex_clones, run_core_inference
 from cnaster.hmrf_utils import get_clone_assignment, get_clone_indices
 from cnaster.integer_copy import (
     hill_climbing_integer_copynumber_fixdiploid_milp,
-    hill_climbing_integer_copynumber_oneclone,
-)
-from cnaster.io import (
-    get_sample_list,
-    load_input_data,
-    read_tumor_prop,
-    construct_df_clone_label,
-)
-from cnaster.he import get_he_image
+    hill_climbing_integer_copynumber_oneclone)
+from cnaster.io import (construct_df_clone_label, get_sample_list,
+                        load_input_data, read_tumor_prop)
 from cnaster.logger import get_logger
 from cnaster.neyman_pearson import neyman_pearson_similarity
-from cnaster.normal_spot import (
-    binned_gene_snp,
-    determine_normal_baseline,
-    determine_normal_candidates,
-    filter_normal_diffexp,
-    normal_baf_bin_filter,
-)
-from cnaster.omics import (
-    assign_initial_blocks,
-    create_bin_ranges,
-    form_gene_snp_table,
-    get_sitewise_transmat,
-    summarize_counts_for_bins,
-    summarize_counts_for_blocks,
-)
+from cnaster.normal_spot import (binned_gene_snp, determine_normal_baseline,
+                                 determine_normal_candidates,
+                                 filter_normal_diffexp, normal_baf_bin_filter)
+from cnaster.omics import (assign_initial_blocks, create_bin_ranges,
+                           form_gene_snp_table, get_sitewise_transmat,
+                           summarize_counts_for_bins,
+                           summarize_counts_for_blocks)
 from cnaster.phasing import initial_phase_given_partition
-from cnaster.plot_genomic import plot_clones_genomic
-from cnaster.plotting import (
-    plot_clones_spatial,
-    plot_he,
-)
-
-from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
-from cnaster.spatial import (
-    best_equal_partition,
-    initialize_clones,
-    multislice_adjacency,
-    initialize_rdr_clone_refininement,
-)
 from cnaster.plot_copy_number_profile import plot_copy_number_profile
+from cnaster.plot_genomic import plot_clones_genomic
+from cnaster.plotting import plot_clones_spatial, plot_he
+from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
+from cnaster.spatial import (best_equal_partition, initialize_clones,
+                             initialize_rdr_clone_refininement,
+                             multislice_adjacency)
 from cnaster.utils import configure_output_dir, pause, write_fig, write_tsv
 
 # from cnaster.plot_loh_density import plot_loh_density
@@ -204,7 +178,7 @@ def run_cnaster(config_path, over_rides=None):
 
     # NB 1D array of expected phase error rate.
     log_sitewise_transmat = get_sitewise_transmat(
-        "block_id", 
+        "block_id",
         df_gene_snp,
         config.references.geneticmap_file,
         config.phasing.nu,
@@ -1069,7 +1043,7 @@ def run_cnaster(config_path, over_rides=None):
         prefix=None,
         coords=coords,
         log_sitewise_transmat=log_sitewise_transmat,
-        smooth_mat=smooth_mat, # TODO HACK FINAL
+        smooth_mat=smooth_mat,  # TODO HACK FINAL
         adjacency_mat=adjacency_mat,
         sample_ids=sample_ids,
         sample_list=sample_list,

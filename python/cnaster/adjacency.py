@@ -1,8 +1,9 @@
+import logging
+from collections import namedtuple
+
 import numpy as np
 import scipy.sparse
 from scipy.spatial import cKDTree
-from collections import namedtuple
-import logging
 
 logger = logging.getLogger(__name__)
 

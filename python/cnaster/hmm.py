@@ -1,23 +1,20 @@
 import numpy as np
 import scipy.special
-from cnaster.hmm_initialize import gmm_init
 
-from cnaster.hmm_phased import hmm_phased
-from cnaster.cna_hmrf_result import (
-    CnaHMRFResult,
-    HMMParams,
-    HMMParamErrors,
-    HMMProfile,
-    CloneAssignment,
-)
+from cnaster.cna_hmrf_result import (CloneAssignment, CnaHMRFResult,
+                                     HMMParamErrors, HMMParams, HMMProfile)
 from cnaster.config import start_time
+from cnaster.hmm_initialize import gmm_init
+from cnaster.hmm_phased import hmm_phased
 from cnaster.logger import get_logger
 
 logger = get_logger(__name__, start_time=start_time)
 
+
 # TODO
 def compute_posterior_obs(
-    log_alpha, log_beta, 
+    log_alpha,
+    log_beta,
 ):
     # NB log_gamma (n_states * n_observations), potentially concatenated by clone.
     log_gamma = log_alpha + log_beta
@@ -30,6 +27,7 @@ def compute_posterior_obs(
     log_gamma -= scipy.special.logsumexp(log_gamma, axis=0)
 
     return log_gamma
+
 
 def pipeline_baum_welch(
     _,

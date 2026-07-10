@@ -4,24 +4,17 @@ import time
 import numpy as np
 import scipy.special
 from numba import njit, prange
-
-from cnaster.icm import (
-    icm_sweep_deque,
-    unpack_adjacency,
-    merge_assignment,
-)
-
-# from cnaster.wolff import wolff_sweep
-from cnaster.hmm_initialize import gmm_init, cna_mixture_init
-from cnaster.hmm import pipeline_baum_welch
-
-from cnaster.hmm_phased import hmm_phased
-from cnaster.hmrf_utils import cast_csr, clone_stack_obs
-from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
-from cnaster.config import get_global_config
 from sklearn.metrics import adjusted_rand_score
-from cnaster.config import start_time
+
+from cnaster.config import get_global_config, start_time
+from cnaster.hmm import pipeline_baum_welch
+# from cnaster.wolff import wolff_sweep
+from cnaster.hmm_initialize import cna_mixture_init, gmm_init
+from cnaster.hmm_phased import hmm_phased
+from cnaster.hmrf_utils import cast_csr, clone_stack_obs, validate_clone_ids
+from cnaster.icm import icm_sweep_deque, merge_assignment, unpack_adjacency
 from cnaster.logger import get_logger
+from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
 
 logger = get_logger(__name__, start_time=start_time)
 
@@ -31,18 +24,6 @@ def logsumexp(x):
     x_max = np.max(x)
     return x_max + np.log(np.sum(np.exp(x - x_max)))
 
-
-def validate_clone_ids(assignments):
-    unique_ids = np.unique(assignments)
-
-    # NB check that clone ids are contiguous, i.e. 0,1,...,n_clones-1
-    expected = np.arange(len(unique_ids))
-
-    if not np.array_equal(unique_ids, expected):
-        logger.error(f"Found invalid clone ids (e.g. not contiguous): {unique_ids}.")
-        raise RuntimeError()
-
-    return True
 
 # TODO
 @njit(cache=True)
@@ -116,7 +97,8 @@ def pool_hmrf_data(
         weighted_tp,
     )
 
-# TODO 
+
+# TODO
 @njit(parallel=True, cache=True)
 def compute_single_llf(
     N,
@@ -401,7 +383,7 @@ def pipeline_clone_assignment(
             log_persample_weights=log_persample_weights,
             sample_ids=sample_ids,
         )
-        
+
         logger.info(f"Ready for potential merging of clones?  {merge}.")
 
         while merge:
@@ -982,6 +964,7 @@ def reindex_clones(res_combine, posterior=None, single_tumor_prop=None):
         new_posterior = posterior
 
     return new_res_combine, new_posterior
+
 
 # TODO FINAL
 def merge_by_minspots(

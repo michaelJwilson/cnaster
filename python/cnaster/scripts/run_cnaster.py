@@ -52,12 +52,12 @@ from cnaster.spatial import (
     construct_multislice_lattice_adjacency,
 )
 from cnaster.utils import configure_output_dir, pause, write_fig, write_tsv
+from cnaster.sandbox.hmm_nophasing_jax import hmm_nophasing_jax
 
 # from cnaster.sim import load_tables_to_matrices
 # from cnaster.hmm_phased import hmm_phased
 # from cnaster.plot_loh_density import plot_loh_density
 # from cnaster.adjacency import multislice_adjacency as multislice_adjacency_simple
-# from cnaster.hmm_nophasing_jax import hmm_nophasing_jax
 # from cnaster.wolff import initialize_clones_wolff
 
 
@@ -97,7 +97,7 @@ def run_cnaster(config_path, over_rides=None):
     #     single_base_nb_mean,
     #     single_total_bb_RD,
     #     log_sitewise_transmat,
-    #     df_bininfo,
+    #     df_bin_info,
     #     df_gene_snp,
     #     barcodes,
     #     coords,
@@ -159,6 +159,8 @@ def run_cnaster(config_path, over_rides=None):
         unique_snp_ids, config.references.hgtable_file, adata
     )
 
+    df_gene_snp_len = len(df_gene_snp)
+
     pause()
 
     # NB parse_visium::create_haplotype_block_ranges
@@ -170,6 +172,8 @@ def run_cnaster(config_path, over_rides=None):
         unique_snp_ids,
         initial_min_umi=config.quality.phasing_min_snp_umis,
     )
+
+    assert len(df_gene_snp) == df_gene_snp_len
 
     pause()
 
@@ -435,6 +439,8 @@ def run_cnaster(config_path, over_rides=None):
         max_binlength=config.quality.max_binlength,
     )
 
+    assert len(df_gene_snp) == df_gene_snp_len
+
     pause()
 
     logger.info(
@@ -630,7 +636,7 @@ def run_cnaster(config_path, over_rides=None):
         sample_ids=sample_ids,
         sample_list=sample_list,
         max_iter_outer=config.hmrf.max_iter_outer,
-        hmmclass=hmm_nophasing,  # NB {hmm_nophasing} hmm_phased?
+        hmmclass=hmm_nophasing_jax,  # NB {hmm_nophasing, hmm_phased, hmm_nophasing_jax}
         params="sp",
         t=config.hmm.t,
         random_state=config.hmm.gmm_random_state,
@@ -939,8 +945,10 @@ def run_cnaster(config_path, over_rides=None):
         config.references.geneticmap_file,
     )
 
+    assert len(df_gene_snp) == df_gene_snp_len
+
     # NB table of per-bin intervals with set(genes) and set(sites).
-    df_bininfo = binned_gene_snp(df_gene_snp)
+    df_bin_info = binned_gene_snp(df_gene_snp)
 
     # NB update to post-normal filtering single_X.
     copy_single_X_rdr = single_X[:, 0, :]
@@ -952,7 +960,7 @@ def run_cnaster(config_path, over_rides=None):
     if config.quality.filter_normal_diffexp:
         copy_single_X_rdr, _ = filter_normal_diffexp(
             exp_counts,
-            df_bininfo,
+            df_bin_info,
             normal_candidate,
             sample_list=sample_list,
             sample_ids=sample_ids,
@@ -981,7 +989,9 @@ def run_cnaster(config_path, over_rides=None):
         key="bin_id",
     )
 
-    df_bininfo = binned_gene_snp(df_gene_snp)
+    assert len(df_gene_snp) == df_gene_snp_len
+
+    df_bin_info = binned_gene_snp(df_gene_snp)
 
     # TODO separate transmat.
     phase_indicator = np.ones(single_X.shape[0])
@@ -1491,7 +1501,7 @@ def run_cnaster(config_path, over_rides=None):
 
         # NB output genome segment-level copy number with
         #    best integer copies for each clone and each ploidy.
-        df_seglevel_cnv = df_bininfo[["CHR", "START", "END"]].join(
+        df_seglevel_cnv = df_bin_info[["CHR", "START", "END"]].join(
             pd.concat(allele_specific_copy).T
         )
 

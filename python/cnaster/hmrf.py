@@ -19,6 +19,7 @@ from cnaster.icm import (
 # from cnaster.wolff import wolff_sweep
 from cnaster.hmm_initialize import gmm_init, cna_mixture_init
 from cnaster.hmm import pipeline_baum_welch
+
 # from cnaster.hmm_sitewise import hmm_sitewise
 from cnaster.hmm_phased import hmm_phased
 from cnaster.hmrf_utils import cast_csr, clone_stack_obs

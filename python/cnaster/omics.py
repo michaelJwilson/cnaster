@@ -687,6 +687,7 @@ def summarize_counts_for_blocks(
         single_total_bb_RD=single_total_bb_RD,
     )
 
+
 '''
 def get_sitewise_transmat(df_gene_snp, geneticmap_file, nu, logphase_shift):
     """
@@ -746,6 +747,7 @@ def get_sitewise_transmat(df_gene_snp, geneticmap_file, nu, logphase_shift):
     # NB returns array.
     return log_sitewise_transmat
 '''
+
 
 def greedy_binning_nobreak_legacy(
     block_lengths, block_umi, secondary_min_umi, max_binlength

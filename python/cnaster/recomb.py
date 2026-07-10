@@ -166,14 +166,15 @@ def get_sitewise_transmat(df_gene_snp, geneticmap_file, nu, logphase_shift):
         np.arange(1, len(log_sitewise_transmat), 2)
     ]
 
-    logger.info(f"Solved for (recombination based) sitewise transition matrix for phasing with shape={log_sitewise_transmat.shape}.")
-
-    exit(0)
+    logger.info(
+        f"Solved for (recombination based) sitewise transition matrix for phasing with shape={log_sitewise_transmat.shape}."
+    )
 
     # NB returns array.
     return log_sitewise_transmat
 
-'''
+
+"""
 def compute_numbat_phase_switch_prob(
     position_cM, chr_pos_vector, nu=1.0, min_prob=None
 ):
@@ -290,4 +291,4 @@ def get_sitewise_transmat(df_gene_snp, geneticmap_file, nu, logphase_shift):
     log_sitewise_transmat = log_sitewise_transmat[1::2]
 
     return log_sitewise_transmat
-'''
+"""

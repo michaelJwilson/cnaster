@@ -1,6 +1,7 @@
 import numpy as np
 import scipy.special
 from cnaster.hmm_initialize import gmm_init
+
 # from cnaster.hmm_sitewise import hmm_sitewise
 from cnaster.hmm_phased import hmm_phased
 from cnaster.hmm_utils import compute_posterior_obs

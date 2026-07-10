@@ -4,20 +4,23 @@ from numba import njit
 from sklearn.mixture import GaussianMixture
 import seaborn as sns
 from cnaster.config import get_global_config
+
 # from cnaster.hmm_emission import (
-    # Weighted_BetaBinom_mix,
-    # Weighted_NegativeBinomial_mix,
-    # nloglikeobs_bb,
-    # get_nbinom_start_params,
-    # get_betabinom_start_params,
+# Weighted_BetaBinom_mix,
+# Weighted_NegativeBinomial_mix,
+# nloglikeobs_bb,
+# get_nbinom_start_params,
+# get_betabinom_start_params,
 # )
 # from cnaster.hmm_update import get_em_solver_params
 from cnaster.utils import top_hat_sum, cast_clone_label
 from cnaster.config import get_global_config
 from cnaster.utils import write_fig
+
 # from cnaster.hmm_sitewise import hmm_sitewise
 # from cnaster.hmm_phased import hmm_phased
 from sklearn.cluster import KMeans
+
 # from cnaster.hmm_nophasing import hmm_nophasing
 # from joblib import Parallel, delayed
 import matplotlib.patches as mpatches
@@ -27,6 +30,7 @@ from cnaster.hmrf_utils import clone_stack_obs
 
 import numpy as np
 from scipy.optimize import minimize
+
 # from joblib import Parallel, delayed
 # import logging
 

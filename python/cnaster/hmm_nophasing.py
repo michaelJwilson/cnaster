@@ -233,10 +233,18 @@ class hmm_nophasing:
 
             for i in range(n_states):
                 _nb_logpmf_1d(
-                    nb_endog, nb_exposure, exp(log_mu[i, s]), alphas[i, s], log_emit_rdr_uniq[i, :]
+                    nb_endog,
+                    nb_exposure,
+                    exp(log_mu[i, s]),
+                    alphas[i, s],
+                    log_emit_rdr_uniq[i, :],
                 )
                 _bb_logpmf_1d(
-                    bb_endog, bb_exposure, p_binom[i, s], taus[i, s], log_emit_baf_uniq[i, :]
+                    bb_endog,
+                    bb_exposure,
+                    p_binom[i, s],
+                    taus[i, s],
+                    log_emit_baf_uniq[i, :],
                 )
 
             log_emit_rdr_list.append(nbEncoder.decode_array(log_emit_rdr_uniq, s))

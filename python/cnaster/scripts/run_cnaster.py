@@ -10,7 +10,7 @@ from numba import njit
 
 from cnaster.config import YAMLConfig, set_global_config, start_time
 from cnaster.he import get_he_image
-from cnaster.hmm_nophasing import hmm_nophasing
+from cnaster.hmm_nophasing import hmm_nophasing, get_log_transmat
 from cnaster.sandbox.hmm_nophasing_jax_v2 import hmm_nophasing_jax
 
 from cnaster.hmrf import merge_by_minspots, reindex_clones, run_core_inference
@@ -53,6 +53,7 @@ from cnaster.spatial import (
     construct_multislice_lattice_adjacency,
 )
 from cnaster.utils import configure_output_dir, pause, write_fig, write_tsv
+from cnaster.annotation import get_clone_label_annotation
 
 # from cnaster.sim import load_tables_to_matrices
 # from cnaster.hmm_phased import hmm_phased
@@ -70,7 +71,7 @@ logger = get_logger(__name__, start_time=start_time)
 
 
 def run_cnaster(config_path, over_rides=None):
-    logger.runtime_phase = "PREP."
+    logger.runtime_phase = "prep."
     logger.info("----  Welcome to cna-maste  ----")
 
     config = YAMLConfig.from_file(config_path)
@@ -229,33 +230,37 @@ def run_cnaster(config_path, over_rides=None):
     # baf-derived phasing (assuming initial / h&e derived clones
     # ============================================================
     #
-    logger.runtime_phase = "PHASING"
+    logger.runtime_phase = "phasing"
 
-    # NB  rectangular partition across multiple slices, equivalent to parse_visium::perform_partition.
-    initial_clone_for_phasing = initialize_clones(
-        coords,
-        sample_ids,  # NB for all spots in all slices.
-        x_part=config.phasing.npart_phasing,
-        y_part=config.phasing.npart_phasing,
-        config=config,
-    )
-    """
-    initial_clone_for_phasing = initialize_clones_wolff(
-        sample_ids,
-        adjacency_mat,
-        n_init=1,
-        base_n_clones=5,
-        spatial_weight=0.65,
-        wolff_num_temps=1,
-        wolff_sweeps_per_temp=1_000,
-        min_spots=100,
-        random_state=None,
-        config=None,
-        relabel=True,
-        min_temp=1.,
-        max_temp=1.,
-    ).pop()
-    """
+    if config.annotation.clone_label is not None:
+        initial_clone_for_phasing, known_single_base_nb_mean = get_clone_label_annotation(config)
+
+    else:
+        # NB  rectangular partition across multiple slices, equivalent to parse_visium::perform_partition.
+        initial_clone_for_phasing = initialize_clones(
+            coords,
+            sample_ids,  # NB for all spots in all slices.
+            x_part=config.phasing.npart_phasing,
+            y_part=config.phasing.npart_phasing,
+            config=config,
+        ) 
+        """
+        initial_clone_for_phasing = initialize_clones_wolff(
+            sample_ids,
+            adjacency_mat,
+            n_init=1,
+            base_n_clones=5,
+            spatial_weight=0.65,
+            wolff_num_temps=1,
+            wolff_sweeps_per_temp=1_000,
+            min_spots=100,
+            random_state=None,
+            config=None,
+            relabel=True,
+            min_temp=1.,
+            max_temp=1.,
+        ).pop()
+        """
     assignment = pd.Series(
         [f"clone {x}" for x in get_clone_assignment(coords, initial_clone_for_phasing)]
     )
@@ -276,10 +281,8 @@ def run_cnaster(config_path, over_rides=None):
         bbox_inches="tight",
     )
 
-    # if annotation is available, we assume it; else, we'll initialize later.
-    initial_clone_index_baf = (
-        initial_clone_for_phasing if config.annotation.clone_label is not None else None
-    )
+    # TODO
+    initial_clone_index_baf = initial_clone_for_phasing
 
     # NB utilize initial spot assignment based on h&e image; potts model may (will!) merge, or blur h&e boundaries.
     if "he_label" in adata.obsm:
@@ -338,21 +341,8 @@ def run_cnaster(config_path, over_rides=None):
     )
 
     if config.phasing.run:
-        # TODO DEPRECATE legacy?
-        # if config.run.legacy:
-        #     logger.warning("Assuming (magic) five baf states for phasing.")
-        #     n_states_phasing = 5
-        # else:
         n_states_phasing = config.hmm.n_states
-
-        # TODO HACK get ...
-        transmat = (
-            np.ones((config.hmm.n_states, config.hmm.n_states))
-            * (1.0 - config.hmm.t)
-            / (config.hmm.n_states - 1)
-        )
-        np.fill_diagonal(transmat, config.hmm.t)
-        log_transmat = np.log(transmat)
+        log_transmat = get_log_transmat(config.hmm.n_states, config.hmm.t)
 
         # NB single_base_nb_mean initialized to zero - requires normal spot determination.
         res_phasing, phase_indicator, refined_lengths = initial_phase_given_partition(
@@ -416,7 +406,7 @@ def run_cnaster(config_path, over_rides=None):
         bbox_inches="tight",
     )
 
-    logger.runtime_phase = "PHASED GENOMIC SEGMENTATION"
+    logger.runtime_phase = "phased genomic segmentation"
 
     # NB generates new genomic intervals ("bin_id") by genomic aggregation
     #    accounting for baf-derived phasing and user defined thresholds.
@@ -516,7 +506,7 @@ def run_cnaster(config_path, over_rides=None):
     # ===================================================================
     #
 
-    logger.runtime_phase = "BAF-ONLY CLONE & COPY STATE INFERENCE"
+    logger.runtime_phase = "baf-only clone & copy state inference"
 
     # TODO
     # NB smooth pooling matrix & distance based (exponential decay) adjacency.
@@ -901,7 +891,7 @@ def run_cnaster(config_path, over_rides=None):
     # =================================================================================
     #
 
-    logger.runtime_phase = "NORMAL CANDIDATE DETERMINATION"
+    logger.runtime_phase = "normal candidate determination"
 
     # NB normal candidates (per-spot boolean) with baf only.
     normal_candidate = determine_normal_candidates(
@@ -1047,7 +1037,7 @@ def run_cnaster(config_path, over_rides=None):
 
     pause()
 
-    logger.runtime_phase = "BAF/RDR CLONE & COPY STATE INFERENCE"
+    logger.runtime_phase = "baf/rdr clone & copy state inference"
 
     logger.info(
         f"Refinining {n_baf_clones} baf-identified clones with umi data assuming n_clones_rdr={config.hmrf.n_clones_rdr}"
@@ -1303,7 +1293,7 @@ def run_cnaster(config_path, over_rides=None):
     # =========================================================================================
     #
 
-    logger.runtime_phase = "INTEGER COPY NUMBER DETERMINATION"
+    logger.runtime_phase = "integer copy number determination"
 
     # >>>>>
     # >>>>>  TODO updated res_combine keys for integer copies, and clone assignment according to unique inferred states.
@@ -1585,7 +1575,7 @@ def run_cnaster(config_path, over_rides=None):
         # TODO HACK first ploidy constraint only;
         break
 
-    logger.runtime_phase = "FINALIZE -- WRITE & PLOT"
+    logger.runtime_phase = "finalize"
 
     # NB complete inner loop over clones, and parent loop of assumed ploidy.
     #    i.e. currently assuming the last of the possible ploidy constraints,

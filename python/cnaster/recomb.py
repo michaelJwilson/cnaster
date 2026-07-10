@@ -127,16 +127,16 @@ def get_sitewise_transmat(df_gene_snp, geneticmap_file, nu, logphase_shift):
         {"CHR": "first", "START": "first"}
     )
 
+    sorted_chr_pos_last = df_gene_snp.groupby("block_id").agg(
+        {"CHR": "last", "END": "last"}
+    )
+
     if sorted_chr_pos_first.index.isna().any():
         logger.warning(f"Found ill-defined group with None entries for group.")
 
     # NB dataframe to list.
     sorted_chr_pos_first = list(
         zip(sorted_chr_pos_first.CHR.to_numpy(), sorted_chr_pos_first.START.to_numpy())
-    )
-
-    sorted_chr_pos_last = df_gene_snp.groupby("block_id").agg(
-        {"CHR": "last", "END": "last"}
     )
 
     sorted_chr_pos_last = list(
@@ -165,6 +165,10 @@ def get_sitewise_transmat(df_gene_snp, geneticmap_file, nu, logphase_shift):
     log_sitewise_transmat = log_sitewise_transmat[
         np.arange(1, len(log_sitewise_transmat), 2)
     ]
+
+    logger.info(f"Solved for (recombination based) sitewise transition matrix for phasing with shape={log_sitewise_transmat.shape}.")
+
+    exit(0)
 
     # NB returns array.
     return log_sitewise_transmat

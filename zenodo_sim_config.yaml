@@ -39,6 +39,10 @@ references:
 #           secondary_min_snp_umi : 300 ->
 #           normal_allele_specific_confidence : (0.05, 0.95) ->
 #           min_normal_count_perbin : 20 ->
+#
+# FINAL
+#           local_outlier_filter : True ->
+#           filter_normal_diffexp : True ->
 quality:
   phasing_min_snp_umis : 50
   spot_min_snp_umis : 50
@@ -47,8 +51,8 @@ quality:
   secondary_min_snp_umi : 200
   secondary_min_normal_umi : 100
   max_binlength : 5000000
-  local_outlier_filter : False # FINAL
-  filter_normal_diffexp : False # FINAL
+  local_outlier_filter : False
+  filter_normal_diffexp : False 
   normalize_gene_outliers : False
   normal_allele_specific_confidence : (0.01, 0.99)
   min_normal_count_perbin : 100

@@ -14,16 +14,13 @@ from cnaster.config import YAMLConfig, set_global_config, start_time
 from cnaster.hmm_nophasing import hmm_nophasing
 
 # from cnaster.hmm_phased import hmm_phased
-from cnaster.hmrf import (  # hmrf_reassignment_posterior,; hmrfmix_reassignment_posterior,
-    # aggr_hmrf_reassignment,
+from cnaster.hmrf import (
     run_core_inference,
     merge_by_minspots,
     reindex_clones,
-    # aggr_hmrfmix_reassignment,
 )
 from cnaster.hmrf_utils import get_clone_assignment, get_clone_indices
 from cnaster.integer_copy import (
-    # hill_climbing_integer_copynumber_fixdiploid,
     hill_climbing_integer_copynumber_fixdiploid_milp,
     hill_climbing_integer_copynumber_oneclone,
 )
@@ -35,14 +32,10 @@ from cnaster.io import (
 )
 from cnaster.he import get_he_image
 from cnaster.logger import get_logger
-from cnaster.neyman_pearson import (
-    # combine_similar_states_across_clones,
-    neyman_pearson_similarity,
-)
+from cnaster.neyman_pearson import neyman_pearson_similarity
 from cnaster.normal_spot import (
     binned_gene_snp,
     determine_normal_baseline,
-    determine_local_normal_baseline,
     determine_normal_candidates,
     filter_normal_diffexp,
     normal_baf_bin_filter,
@@ -57,34 +50,25 @@ from cnaster.omics import (
 )
 from cnaster.phasing import initial_phase_given_partition
 from cnaster.plot_genomic import plot_clones_genomic
-from cnaster.plotting import (  # plot_gene_snp_spatial,; plot_recombination_rates,
-    # plot_adjacency,
+from cnaster.plotting import (
     plot_clones_spatial,
     plot_he,
-    # plot_copy_states,
 )
-from cnaster.plot_loh_density import plot_loh_density
+
 from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
-from cnaster.spatial import (  # fixed_rectangle_partition,; sufficient_umis_initial_clone,
+from cnaster.spatial import (
     best_equal_partition,
     initialize_clones,
     multislice_adjacency,
-    # rectangle_initialize_initial_clone,
     initialize_rdr_clone_refininement,
 )
-
-from cnaster.adjacency import multislice_adjacency as multislice_adjacency_simple
-
-# from cnaster.hmm_initialize import plot_cna_mixture
 from cnaster.plot_copy_number_profile import plot_copy_number_profile
-from cnaster.utils import configure_output_dir, merge_dicts, pause, write_fig, write_tsv
+from cnaster.utils import configure_output_dir, pause, write_fig, write_tsv
 
+# from cnaster.plot_loh_density import plot_loh_density
+# from cnaster.adjacency import multislice_adjacency as multislice_adjacency_simple
 # from cnaster.hmm_nophasing_jax import hmm_nophasing_jax
-from cnaster.wolff import initialize_clones_wolff
-
-# from cnaster.reference import get_reference_recomb_rates
-# from cnaster.perturb import perturb_phase
-# from cnaster.hmm_utils import get_em_solver_params
+# from cnaster.wolff import initialize_clones_wolff
 
 
 @njit
@@ -134,20 +118,6 @@ def run_cnaster(config_path, over_rides=None):
     #     smooth_mat,
     #     exp_counts,
     # ) = load_tables_to_matrices()
-
-    # original_single_X = single_X.copy()
-
-    # TODO HACK check against above.
-    # smooth_mat, adjacency_mat = choose_adjacency_by_readcounts(
-    #     coords, single_total_bb_RD
-    # )
-    # smooth_mat.eliminate_zeros()
-    # adjacency_mat.eliminate_zeros()
-
-    # logger.info(f"Found adjacency matrix:\n{adjacency_mat}")
-
-    # NB renormalize cumulative edge weight to median in each case; as corners are under-weighted.
-    # adjacency_mat = renormalize_adjacency_mat(adjacency_mat)
 
     # NB start equivalent to run_parse_n_load::parse_visium::load_joint_data
     #
@@ -610,29 +580,6 @@ def run_cnaster(config_path, over_rides=None):
             threshold=0.5,
         )
 
-        # NB potential initialization strategies, common initial_clone_index_baf, clone_id return:
-        #
-        #    initial_clone_index_baf, clone_id = rectangle_initialize_initial_clone(
-        #       coords, config.hmrf.n_clones, random_state=0
-        #    )
-        #
-        # initial_clone_index_baf, _ = fixed_rectangle_partition(
-        #     coords,
-        #     x_part,
-        #     y_part,
-        #     single_tumor_prop=None,
-        #     threshold=0.5,  # random_state=int(config.hmrf.random_state,)
-        # )
-        #
-        # initial_clone_index_baf, _, _ = sufficient_umis_initial_clone(
-        #     coords,
-        #     single_X[:,0,:],
-        #     sample_list,
-        #     sample_ids,
-        #     500_000, # MAGIC determine by baf.
-        #     random_state=int(config.hmrf.random_state),
-        # )
-
     # NB triggers summary for initial clones, per single_X=1, etc; drop return.
     merge_pseudobulk_by_index_mix(
         single_X,
@@ -1079,19 +1026,7 @@ def run_cnaster(config_path, over_rides=None):
         normal_candidate,
         config,
     )
-    """
-    # TODO HACK FINAL
-    _, copy_single_X_rdr, copy_single_base_nb_mean, _ = determine_local_normal_baseline(
-        config,
-        merged_res,
-        merged_baf_profiles,
-        single_X,
-        copy_single_X_rdr,
-        smooth_mat=None,
-        single_tumor_prop=None,
-        window_size=10
-    )
-    """
+
     # NB adding back RDR signal
     single_X[:, 0, :] = copy_single_X_rdr
     single_base_nb_mean = copy_single_base_nb_mean
@@ -1305,341 +1240,6 @@ def run_cnaster(config_path, over_rides=None):
         bbox_inches="tight",
     )
 
-    # TODO HACK  <<<<<<<<<<<
-
-    '''
-    clone_res = {}
-
-    # NB umi-based refinement of baf-identified clones tries a potentially split only;
-    for bafc in range(n_baf_clones):
-        logger.info(
-            f"-----  Refining baf-identified clone {bafc}/{n_baf_clones}  -----"
-        )
-
-        prefix = f"clone{bafc}"
-
-        # NB only spots assigned to this baf-only clone (after merging based on Neyman-Pearson similarity),
-        #    can have their clone label updated.
-        idx_spots = np.where(merged_baf_assignment == bafc)[0]
-
-        """
-        # NB min. b-allele read count (equivalent to 20 per spot) on pseudobulk to split clones.
-        if np.sum(single_total_bb_RD[:, idx_spots]) < 20 * single_X.shape[0]:
-            logger.warning(
-                f"Skipping RDR refinment of baf identified clone {bafc} as too few snp-covering umis ({np.sum(single_total_bb_RD[:, idx_spots]):_}/{20 * single_X.shape[0]:_})!"
-            )
-            clone_res[prefix] = {
-                "barcodes": barcodes[idx_spots],
-                "num_iterations": 0,
-                "round-1_assignment": np.zeros(len(idx_spots), dtype=int),
-                "new_assignment": np.zeros(len(idx_spots), dtype=int),
-                "log_gamma": merged_res["log_gamma"][
-                    :, (bafc * n_obs) : (bafc * n_obs + n_obs)
-                ],  # NB first axis is state.
-                "pred_cnv": np.argmax(
-                    merged_res["log_gamma"][:, (bafc * n_obs) : (bafc * n_obs + n_obs)],
-                    axis=0,
-                ),
-            }
-
-            continue
-        """
-
-        # TODO? single_X[idx_spots] would make more sense.
-        sufficient_snp_umi_for_split = (
-            np.sum(single_total_bb_RD[:, idx_spots]) >= 20 * single_X.shape[0]
-        )
-
-        # NB initialize new set of clones within this baf identified clone.
-        # TODO tumor_prop, i.e. _mix.
-        initial_clone_index, _ = rectangle_initialize_initial_clone(
-            coords[idx_spots],
-            config.hmrf.n_clones_rdr if sufficient_snp_umi_for_split else 1,
-            random_state=0,  # TODO HACK.
-        )
-
-        # TODO HACK? splits each BAF clone along the x direction.
-        # TODO BUG require min spots/umis etc ...
-        # x_part, y_part = config.hmrf.n_clones_rdr, 1
-
-        # initial_clone_index, _ = fixed_rectangle_partition(
-        #     coords[idx_spots],
-        #     x_part,
-        #     y_part,
-        # )
-
-        initial_assignment = np.zeros(len(idx_spots), dtype=int)
-
-        # NB zero-indexes clones.
-        for c, idx in enumerate(initial_clone_index):
-            initial_assignment[idx] = c
-
-        # NB barcodes contained within this baf-identified clone.
-        clone_res[prefix] = {
-            "barcodes": barcodes[idx_spots],
-            "num_iterations": 0,
-            "round-1_assignment": initial_assignment,
-        }
-
-        # NB slice ids for each spot in this clone.
-        copy_slice_sample_ids = copy.copy(sample_ids[idx_spots])
-
-        # TODO HACK
-        copy_slice_sample_list = list(
-            np.unique(np.array(sample_list)[sample_ids[idx_spots]])
-        )
-
-        # NB hmrf + hmm with RDR data.
-        new_clone_res = hmrfmix_concatenate_pipeline(
-            single_X[:, :, idx_spots],
-            lengths,
-            single_base_nb_mean[
-                :, idx_spots
-            ],  # NB per-spot replications normalized to T_n.
-            single_total_bb_RD[:, idx_spots],
-            single_tumor_prop[idx_spots] if single_tumor_prop is not None else None,
-            initial_clone_index,
-            n_states=config.hmm.n_states,
-            prefix=prefix,
-            coords=coords[idx_spots],
-            log_sitewise_transmat=log_sitewise_transmat,
-            smooth_mat=smooth_mat[np.ix_(idx_spots, idx_spots)],
-            adjacency_mat=adjacency_mat[np.ix_(idx_spots, idx_spots)],
-            sample_ids=copy_slice_sample_ids,
-            sample_list=copy_slice_sample_list,
-            max_iter_outer=config.hmrf.max_iter_outer,
-            hmmclass=hmm_nophasing,
-            params="smp",
-            t=config.hmm.t,
-            random_state=config.hmm.gmm_random_state,
-            fix_NB_dispersion=config.hmm.fix_NB_dispersion,
-            shared_NB_dispersion=config.hmm.shared_NB_dispersion,
-            fix_BB_dispersion=config.hmm.fix_BB_dispersion,
-            shared_BB_dispersion=config.hmm.shared_BB_dispersion,
-            is_diag=True,
-            max_iter=config.hmm.max_iter,
-            tol=config.hmm.tol,
-            spatial_weight=config.hmrf.spatial_weight,
-            tumorprop_threshold=config.hmrf.tumorprop_threshold,
-            init_p_binom=None,
-            init_log_mu=None,
-        )
-
-        clone_res[prefix] = merge_dicts(clone_res[prefix], new_clone_res)
-
-        pause()
-
-    logger.info(
-        f"Found rdr-refinement of baf-identified clones.  Combining across clones."
-    )
-
-    # NB combined assignment for all spots.
-    res_combine = {"prev_assignment": np.zeros(single_X.shape[2], dtype=int)}
-    offset_clone = 0
-
-    # NB neyman-pearson & min. spot merging across baf clones refined/split by rdr
-    #    with subsequent determination of copy states and clone profiles (baum welch)
-    #    and potential state merging across rdr-split clones.
-    for bafc in range(n_baf_clones):
-        prefix = f"clone{bafc}"
-        res = clone_res[prefix]
-
-        idx_spots = np.where(barcodes.isin(res["barcodes"]))[0]
-
-        # NB baf clone was not split.
-        if len(np.unique(res["new_assignment"])) == 1:
-            logger.info(f"clone {bafc} was not split by rdr.")
-
-            # NB clone id.
-            c, n_merged_clones = res["new_assignment"][0], 1
-
-            # NB merging is a null op.
-            merged_res = copy.copy(res)
-
-            # NB BUG? assumes above c == 0?
-            merged_res["new_assignment"] = np.zeros(len(idx_spots), dtype=int)
-
-            # NB c must be zero here (1 clone, zero-indexed).
-            log_gamma = res["log_gamma"][:, (c * n_obs) : (c * n_obs + n_obs)].reshape(
-                (-1, n_obs, 1)
-            )
-
-            # NB MAP copy state - both this and log_gamma should be null-ops as already correct shape.
-            pred_cnv = res["pred_cnv"][(c * n_obs) : (c * n_obs + n_obs)].reshape(
-                (-1, 1)
-            )
-        else:
-            # NB clone indices for the rdr-refined (baf-identified) clone split.
-            clone_index = get_clone_indices(
-                res["new_assignment"], np.sort(np.unique(res["new_assignment"]))
-            )
-
-            # NB construct counts given this new
-            X, base_nb_mean, total_bb_RD, tumor_prop = merge_pseudobulk_by_index_mix(
-                single_X[:, :, idx_spots],
-                single_base_nb_mean[:, idx_spots],
-                single_total_bb_RD[:, idx_spots],
-                clone_index,
-                single_tumor_prop[idx_spots] if single_tumor_prop is not None else None,
-                threshold=config.hmrf.tumorprop_threshold,
-            )
-
-            if tumor_prop is not None:
-                tumor_prop = np.repeat(tumor_prop, X.shape[0]).reshape(-1, 1)
-
-            if config.hmrf.np_merge:
-                # NB merge rdr split clones (within baf clone) based on Neyman-Pearson similarity;
-                #    does not account for similarity across baf-clones.
-                _, merged_res = neyman_pearson_similarity(
-                    X,
-                    base_nb_mean,
-                    total_bb_RD,
-                    res,
-                    threshold=config.hmm.np_threshold,
-                    minlength=config.hmm.np_eventminlen,
-                    params="smp",
-                    tumor_prop=tumor_prop,
-                    hmmclass=hmm_nophasing,
-                )
-            else:
-                logger.warning(
-                    "No Neyman-Pearson merging applied to RDR identified clones."
-                )
-                merged_res = res.copy()
-
-            merging_groups, merged_res = merge_by_minspots(
-                merged_res["new_assignment"],
-                merged_res,
-                single_total_bb_RD[:, idx_spots],
-                min_spots_thresholds=config.hmrf.min_spots_per_clone,
-                min_umicount_thresholds=n_obs
-                * config.hmrf.min_avgumi_per_clone,  # MAGIC 31_420 SNP UMIs
-                single_tumor_prop=(
-                    single_tumor_prop[idx_spots]
-                    if single_tumor_prop is not None
-                    else None
-                ),
-                threshold=config.hmrf.tumorprop_threshold,
-            )
-
-            # NB num. of rdr-split clones within baf clone after merging.
-            n_merged_clones = len(merging_groups)
-            fixed_assignment = copy.copy(merged_res["new_assignment"])
-
-            # NB compute posterior using the newly merged pseudobulk
-            X, base_nb_mean, total_bb_RD, tumor_prop = merge_pseudobulk_by_index_mix(
-                single_X[:, :, idx_spots],
-                single_base_nb_mean[:, idx_spots],
-                single_total_bb_RD[:, idx_spots],
-                get_clone_indices(
-                    merged_res["new_assignment"], range(n_merged_clones)
-                ),  # TODO clone_ids def. vs range
-                single_tumor_prop[idx_spots] if single_tumor_prop is not None else None,
-                threshold=config.hmrf.tumorprop_threshold,
-            )
-
-            # NB recompute copy states and clone profiles based on new pseudobulk.  As a result,
-            #    (rdr, baf) copy states per clone vs universal.
-            # TODO clone stack.
-            merged_res = pipeline_baum_welch(
-                None,
-                np.vstack([X[:, 0, :].flatten("F"), X[:, 1, :].flatten("F")]).T.reshape(
-                    -1, 2, 1
-                ),
-                np.tile(lengths, X.shape[2]),
-                config.hmm.n_states,
-                base_nb_mean.flatten("F").reshape(-1, 1),
-                total_bb_RD.flatten("F").reshape(-1, 1),
-                np.tile(log_sitewise_transmat, X.shape[2]),
-                (
-                    np.repeat(tumor_prop, X.shape[0]).reshape(-1, 1)
-                    if not tumor_prop is None
-                    else None
-                ),
-                hmmclass=hmm_nophasing,
-                params="smp",
-                t=config.hmm.t,
-                random_state=config.hmm.gmm_random_state,
-                fix_NB_dispersion=config.hmm.fix_NB_dispersion,
-                shared_NB_dispersion=config.hmm.shared_NB_dispersion,
-                fix_BB_dispersion=config.hmm.fix_BB_dispersion,
-                shared_BB_dispersion=config.hmm.shared_BB_dispersion,
-                is_diag=True,
-                init_log_mu=res["new_log_mu"],
-                init_p_binom=res["new_p_binom"],
-                init_alphas=res["new_alphas"],
-                init_taus=res["new_taus"],
-                max_iter=config.hmm.max_iter,
-                tol=config.hmm.tol,
-                lambd=np.sum(base_nb_mean, axis=1) / np.sum(base_nb_mean),
-                sample_length=np.ones(X.shape[2], dtype=int) * X.shape[0],
-            )
-
-            # NB assignment has been fixed, but emission states updated; retain previous assignment.
-            merged_res["new_assignment"] = copy.copy(fixed_assignment)
-
-            # TODO CHECK
-            # NB combines only between similar states in the rdr-split clones by updating res["pred_cnv"]
-            merged_res = combine_similar_states_across_clones(
-                X,
-                base_nb_mean,
-                total_bb_RD,
-                merged_res,
-                params="smp",
-                tumor_prop=(
-                    np.repeat(tumor_prop, X.shape[0]).reshape(-1, 1)
-                    if not tumor_prop is None
-                    else None
-                ),
-                hmmclass=hmm_nophasing,
-                merge_threshold=config.hmm.np_merge_threshold,  # MAGIC 0.1
-            )
-
-            log_gamma = np.stack(
-                [
-                    merged_res["log_gamma"][:, (c * n_obs) : (c * n_obs + n_obs)]
-                    for c in range(n_merged_clones)
-                ],
-                axis=-1,
-            )
-            pred_cnv = np.vstack(
-                [
-                    merged_res["pred_cnv"][(c * n_obs) : (c * n_obs + n_obs)]
-                    for c in range(n_merged_clones)
-                ]
-            ).T
-
-        # NB res_combine has the "prev_assignment" key only on first iteration.
-        keys = ["new_log_mu", "new_alphas", "new_p_binom", "new_taus"]
-
-        if len(res_combine) == 1:
-            updates = {
-                k: np.hstack(n_merged_clones * [merged_res[k]]) for k in keys
-            } | {"log_gamma": log_gamma, "pred_cnv": pred_cnv}
-        else:
-            updates = {
-                k: np.hstack([res_combine[k]] + n_merged_clones * [merged_res[k]])
-                for k in keys
-            }
-            updates["log_gamma"] = np.dstack([res_combine["log_gamma"], log_gamma])
-            updates["pred_cnv"] = np.hstack([res_combine["pred_cnv"], pred_cnv])
-
-        res_combine.update(updates)
-
-        # TODO prev_assignment?
-        res_combine["prev_assignment"][idx_spots] = (
-            offset_clone + merged_res["new_assignment"]  # NB assumes 0.. M_new clones.
-        )
-
-        logger.info(
-            f"baf-identified clone={bafc} generated rdr-split clones={np.unique(merged_res['new_assignment'] + offset_clone)}"
-        )
-
-        offset_clone += n_merged_clones
-
-        pause()
-    '''
-
     # TODO prev_assignment renaming.
     n_final_clones = len(np.unique(res_combine["prev_assignment"]))
 
@@ -1653,110 +1253,6 @@ def run_cnaster(config_path, over_rides=None):
     logger.info(
         f"Assuming min. tau dispersion={np.min(res_combine['new_taus']):.4f} between clones given current:\n{res_combine['new_taus']}"
     )
-    """
-    # HACK broadcast max. dispersion - parameters assumed to be shared across rdr-split clones only.
-    res_combine["new_alphas"][:, :] = np.max(res_combine["new_alphas"])
-
-    # HACK broadcast min. dispersion across all clones; tau is total pseduocounts for BAF
-    #      min. is least significant.
-    res_combine["new_taus"][:, :] = np.min(res_combine["new_taus"])
-
-    pause()
-
-    # DEPRECATE favored clones per-slice.
-    log_persample_weights = np.zeros((n_final_clones, len(sample_list)))
-
-    for sidx in range(len(sample_list)):
-        index = np.where(sample_ids == sidx)[0]
-        this_persample_weight = np.bincount(
-            res_combine["prev_assignment"][index], minlength=n_final_clones
-        ) / len(index)
-        log_persample_weights[:, sidx] = np.where(
-            this_persample_weight > 0, np.log(this_persample_weight), -50
-        )
-        log_persample_weights[:, sidx] = log_persample_weights[
-            :, sidx
-        ] - scipy.special.logsumexp(log_persample_weights[:, sidx])
-
-    pred = np.vstack(
-        [
-            np.argmax(res_combine["log_gamma"][:, :, c], axis=0)
-            for c in range(res_combine["log_gamma"].shape[2])
-        ]
-    ).T
-
-    # NB final re-assignment across all spots using current copy states -
-    #    does not conserve original e.g. baf clone assignments, or normal spots.
-    #
-    #    Further, does not assume same clone concatenated shape!
-    logger.info(f"Finalizing clone assignment with refined parameters.")
-
-    if config.preprocessing.tumorprop_file is None:
-        # TODO FINAL takes forever to run.
-        new_assignment, _, total_llf, _ = aggr_hmrf_reassignment(
-            single_X,
-            single_base_nb_mean,
-            single_total_bb_RD,
-            res_combine,
-            pred,
-            smooth_mat,
-            adjacency_mat,
-            res_combine["prev_assignment"],
-            copy.copy(sample_ids),
-            log_persample_weights,
-            spatial_weight=config.hmrf.spatial_weight,
-            hmmclass=hmm_nophasing,
-            return_posterior=True,
-        )
-    else:
-        (
-            new_assignment,
-            _,
-            total_llf,
-            _,
-        ) = aggr_hmrfmix_reassignment(
-            single_X,
-            single_base_nb_mean,
-            single_total_bb_RD,
-            single_tumor_prop,
-            res_combine,
-            pred,
-            smooth_mat,
-            adjacency_mat,
-            res_combine["prev_assignment"],
-            copy.copy(sample_ids),
-            log_persample_weights,
-            spatial_weight=config.hmrf.spatial_weight,
-            hmmclass=hmm_nophasing,
-            return_posterior=True,
-        )
-
-    (
-        new_assignment,
-        _,
-        total_llf,
-        _,
-    ) = aggr_hmrfmix_reassignment(
-        single_X=single_X,
-        single_base_nb_mean=single_base_nb_mean,
-        single_total_bb_RD=single_total_bb_RD,
-        res=res_combine,
-        pred=res_combine["pred_cnv"],
-        adjacency_mat=adjacency_mat,
-        prev_assignment=res_combine["prev_assignment"],
-        sample_ids=copy.copy(sample_ids),
-        spatial_weight=config.hmrf.spatial_weight,
-        smooth_mat=smooth_mat,
-        log_persample_weights=log_persample_weights,
-        single_tumor_prop=single_tumor_prop,
-        hmmclass=hmm_nophasing,
-        return_posterior=True,
-    )
-
-    # NB total Potts likelihood given final copy states and clone assignment.
-    res_combine["total_llf"] = total_llf
-    res_combine["new_assignment"] = new_assignment
-    """
 
     # NB re-order clones such that the index of the most-normal clone is 0.
     res_combine, _ = reindex_clones(res_combine, posterior=None, single_tumor_prop=None)
@@ -1936,51 +1432,6 @@ def run_cnaster(config_path, over_rides=None):
                         columns=np.arange(n_obs),
                     )
                 )
-            """
-            allele_specific_copy.append(
-                pd.DataFrame(
-                    this_pred_cnv.reshape(1, -1),
-                    index=[f"clone{cid} Z"],
-                    columns=np.arange(n_obs),
-                )
-            )
-
-            # NB best model read depth for each clone and each ploidy.
-            allele_specific_copy.append(
-                pd.DataFrame(
-                    res_combine["new_log_mu"][this_pred_cnv, s].reshape(1, -1),
-                    index=[f"clone{cid} logmu"],
-                    columns=np.arange(n_obs),
-                )
-            )
-
-            # NB best model baf for each clone and each ploidy.
-            allele_specific_copy.append(
-                pd.DataFrame(
-                    res_combine["new_p_binom"][this_pred_cnv, s].reshape(1, -1),
-                    index=[f"clone{cid} p"],
-                    columns=np.arange(n_obs),
-                )
-            )
-
-            # NB best integer A-copies for each clone and each ploidy.
-            allele_specific_copy.append(
-                pd.DataFrame(
-                    best_integer_copies[this_pred_cnv, 0].reshape(1, -1),
-                    index=[f"clone{cid} A"],
-                    columns=np.arange(n_obs),
-                )
-            )
-
-            # NB best integer B-copies for each clone and each ploidy.
-            allele_specific_copy.append(
-                pd.DataFrame(
-                    best_integer_copies[this_pred_cnv, 1].reshape(1, -1),
-                    index=[f"clone{cid} B"],
-                    columns=np.arange(n_obs),
-                )
-            )
-            """
 
             for name, data in zip(
                 ("logmu", "p", "A", "B"),
@@ -2007,43 +1458,6 @@ def run_cnaster(config_path, over_rides=None):
                     )
                 )
 
-            """
-            # NB best per-state read depth for each clone and ploidy.
-            state_cnv.append(
-                pd.DataFrame(
-                    res_combine["new_log_mu"][:, s].reshape(-1, 1),
-                    columns=[f"clone{cid} logmu"],
-                    index=np.arange(config.hmm.n_states),
-                )
-            )
-
-            # NB best per-state baf for each clone and ploidy.
-            state_cnv.append(
-                pd.DataFrame(
-                    res_combine["new_p_binom"][:, s].reshape(-1, 1),
-                    columns=[f"clone{cid} p"],
-                    index=np.arange(config.hmm.n_states),
-                )
-            )
-
-            # NB best per-state integer A-copies for each clone and ploidy.
-            state_cnv.append(
-                pd.DataFrame(
-                    best_integer_copies[:, 0].reshape(-1, 1),
-                    columns=[f"clone{cid} A"],
-                    index=np.arange(config.hmm.n_states),
-                )
-            )
-            # NB best per-state integer B-copies for each clone and ploidy.
-            state_cnv.append(
-                pd.DataFrame(
-                    best_integer_copies[:, 1].reshape(-1, 1),
-                    columns=[f"clone{cid} B"],
-                    index=np.arange(config.hmm.n_states),
-                )
-            )
-            """
-
             df_genes = df_gene_snp[df_gene_snp.is_interval]
             bin_ids = df_genes["bin_id"].to_numpy(dtype=int)
 
@@ -2056,37 +1470,6 @@ def run_cnaster(config_path, over_rides=None):
                     f"clone{s} B": clone_copies[bin_ids, 1],
                 }
             ).set_index("gene")
-
-            """
-            # NB mapper of best A copy for each genomic segment
-            bin_Acopy_mappers = {
-                i: x
-                for i, x in enumerate(
-                    best_integer_copies[res_combine["pred_cnv"][:, s], 0]
-                )
-            }
-
-            # NB mapper of best B copy for each genomic segment
-            bin_Bcopy_mappers = {
-                i: x
-                for i, x in enumerate(
-                    best_integer_copies[res_combine["pred_cnv"][:, s], 1]
-                )
-            }
-
-            # NB create a dataframe with the gene names and the best (A, B) copies for each gene.
-            tmpdf = pd.DataFrame(
-                {
-                    "gene": df_gene_snp[df_gene_snp.is_interval].gene,
-                    f"clone{s} A": df_gene_snp[df_gene_snp.is_interval]["bin_id"].map(
-                        bin_Acopy_mappers
-                    ),
-                    f"clone{s} B": df_gene_snp[df_gene_snp.is_interval]["bin_id"].map(
-                        bin_Bcopy_mappers
-                    ),
-                }
-            ).set_index("gene")
-            """
 
             # NB join the temporary dataframe with the existing gene-level copy number dataframe,
             #    i.e. if a subsequent clone or ploidy.
@@ -2121,16 +1504,6 @@ def run_cnaster(config_path, over_rides=None):
         df_seglevel_cnv = df_bininfo[["CHR", "START", "END"]].join(
             pd.concat(allele_specific_copy).T
         )
-
-        """
-        a_cols = [c for c in df_seglevel_cnv.columns if c.endswith(" A")]
-        b_cols = [c.replace(" A", " B") for c in a_cols]
-
-        # NB mask any segments with all normal (1) copies (TBC!!).
-        mask = (df_seglevel_cnv[a_cols].ne(1) | df_seglevel_cnv[b_cols].ne(1)).any(
-            axis=1
-        )
-        """
 
         # TODO
         mask = df_seglevel_cnv.filter(regex=r" [AB]$").ne(1).any(axis=1)
@@ -2318,34 +1691,6 @@ def run_cnaster(config_path, over_rides=None):
         transparent=True,
         bbox_inches="tight",
     )
-
-    """
-    # DUPLICATE see above.
-    clone_index = [
-        np.where(res_combine["new_assignment"] == c)[0]
-        for c, _ in enumerate(final_clone_ids)
-    ]
-    # DUPLICATE see above.
-    X, base_nb_mean, total_bb_RD, _ = merge_pseudobulk_by_index_mix(
-        single_X,
-        single_base_nb_mean,
-        single_total_bb_RD,
-        clone_index,
-        single_tumor_prop,
-    )
-    """
-    """
-    plot_cna_mixture(
-        res_combine["new_log_mu"],
-        res_combine["new_alphas"],
-        res_combine["new_p_binom"],
-        res_combine["new_taus"],
-        X,
-        base_nb_mean,
-        total_bb_RD,
-        prefix="final",
-    )
-    """
 
     fig_copy_number_profile = plot_copy_number_profile(
         df_seglevel_cnv,  # segment level: chr, start, end, real states (Z), A/B copies, & model (log_mu, p_binom) for each clone.

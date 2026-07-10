@@ -1196,7 +1196,7 @@ def create_bin_ranges(
     # NB return df_gene_snp with an updated bin_id column, and potentially deifned block_id column if it was overwritten.
     return df_gene_snp
 
-
+'''
 # TODO duplicates summarize_counts_for_blocks?
 def summarize_counts_for_bins_legacy(
     df_gene_snp,
@@ -1342,7 +1342,7 @@ def summarize_counts_for_bins_legacy(
         bin_single_total_bb_RD,
         log_sitewise_transmat,
     )
-
+'''
 
 # @cacher("binned_counts.hdf5")
 def summarize_counts_for_bins(
@@ -1451,7 +1451,7 @@ def summarize_counts_for_bins(
         .reindex(chr_order, fill_value=0)
         .to_numpy()
     )
-
+    '''
     # NB phase switch probability from genetic distance
     sorted_chr_pos_first = df_gene_snp.groupby("bin_id").agg(
         {"CHR": "first", "START": "first"}
@@ -1483,6 +1483,15 @@ def summarize_counts_for_bins(
     log_sitewise_transmat = log_sitewise_transmat[
         np.arange(1, len(log_sitewise_transmat), 2)
     ]
+    '''
+
+    log_sitewise_transmat = get_sitewise_transmat(
+        segment_key="bin_id", 
+        df_gene_snp=df_gene_snp, 
+        geneticmap_file=geneticmap_file, 
+        nu=nu, 
+        logphase_shift=logphase_shift
+    )
 
     assert bin_single_X.ndim == 3
 

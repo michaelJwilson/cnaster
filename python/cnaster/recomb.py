@@ -111,23 +111,24 @@ def assign_centiMorgans(chr_pos_vector, ref_positions_cM):
     return position_cM
 
 
-def get_sitewise_transmat(df_gene_snp, geneticmap_file, nu, logphase_shift):
+def get_sitewise_transmat(segment_key, df_gene_snp, geneticmap_file, nu, logphase_shift):
     """
     Phase switch probability from recombination rate / genetic distance [cM].
+
+    segment_key: e.g. block_id, bin_id, etc.
     """
     logger.info(
         f"Constructing sitewise transition matrix for phasing given recombination rates."
     )
 
-    # NB define recombination rates.
     ref_positions_cM = get_reference_recomb_rates(geneticmap_file)
 
     # NB sorted contig,start per block.
-    sorted_chr_pos_first = df_gene_snp.groupby("block_id").agg(
+    sorted_chr_pos_first = df_gene_snp.groupby(segment_key).agg(
         {"CHR": "first", "START": "first"}
     )
 
-    sorted_chr_pos_last = df_gene_snp.groupby("block_id").agg(
+    sorted_chr_pos_last = df_gene_snp.groupby(segment_key).agg(
         {"CHR": "last", "END": "last"}
     )
 
@@ -162,15 +163,16 @@ def get_sitewise_transmat(df_gene_snp, geneticmap_file, nu, logphase_shift):
     )
 
     # NB positions -> pairs by sampling at rate 2.
-    log_sitewise_transmat = log_sitewise_transmat[
-        np.arange(1, len(log_sitewise_transmat), 2)
-    ]
+    # log_sitewise_transmat = log_sitewise_transmat[
+    #     np.arange(1, len(log_sitewise_transmat), 2)
+    # ]
+
+    log_sitewise_transmat = log_sitewise_transmat[1::2]
 
     logger.info(
         f"Solved for (recombination based) sitewise transition matrix for phasing with shape={log_sitewise_transmat.shape}."
     )
 
-    # NB returns array.
     return log_sitewise_transmat
 
 

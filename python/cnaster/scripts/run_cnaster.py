@@ -234,6 +234,7 @@ def run_cnaster(config_path, over_rides=None):
 
     # NB 1D array of expected phase error rate.
     log_sitewise_transmat = get_sitewise_transmat(
+        "block_id", 
         df_gene_snp,
         config.references.geneticmap_file,
         config.phasing.nu,

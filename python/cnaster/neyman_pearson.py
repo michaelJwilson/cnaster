@@ -4,7 +4,7 @@ import networkx as nx
 import copy
 import scipy
 
-from cnaster.hmm_sitewise import hmm_sitewise
+# from cnaster.hmm_sitewise import hmm_sitewise
 from cnaster.config import start_time
 from cnaster.logger import get_logger
 
@@ -101,7 +101,7 @@ def neyman_pearson_similarity(
     # topk=10,
     params="smp",
     tumor_prop=None,
-    hmmclass=hmm_sitewise,
+    hmmclass=None,
     # **kwargs,
 ):
     # TODO hmm config clash?
@@ -501,7 +501,7 @@ def combine_similar_states_across_clones(
     res,
     params="smp",
     tumor_prop=None,
-    hmmclass=hmm_sitewise,
+    hmmclass=None,
     merge_threshold=0.1,
     # **kwargs,
 ):

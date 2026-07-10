@@ -1,7 +1,8 @@
 import numpy as np
 import scipy.special
 from cnaster.hmm_initialize import gmm_init
-from cnaster.hmm_sitewise import hmm_sitewise
+# from cnaster.hmm_sitewise import hmm_sitewise
+from cnaster.hmm_phased import hmm_phased
 from cnaster.hmm_utils import compute_posterior_obs
 from cnaster.cna_hmrf_result import (
     CnaHMRFResult,
@@ -25,7 +26,7 @@ def pipeline_baum_welch(
     total_bb_RD,
     log_sitewise_transmat,
     tumor_prop=None,
-    hmmclass=hmm_sitewise,
+    hmmclass=hmm_phased,
     params="smp",
     t=1.0 - 1.0e-6,
     random_state=0,

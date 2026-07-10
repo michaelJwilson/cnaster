@@ -78,7 +78,7 @@ from cnaster.adjacency import multislice_adjacency as multislice_adjacency_simpl
 # from cnaster.hmm_initialize import plot_cna_mixture
 from cnaster.plot_copy_number_profile import plot_copy_number_profile
 from cnaster.utils import configure_output_dir, merge_dicts, pause, write_fig, write_tsv
-from cnaster.hmm_nophasing_jax import hmm_nophasing_jax
+# from cnaster.hmm_nophasing_jax import hmm_nophasing_jax
 from cnaster.wolff import initialize_clones_wolff
 
 # from cnaster.reference import get_reference_recomb_rates

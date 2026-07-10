@@ -9,9 +9,9 @@ from numba import njit, prange
 
 # from pathlib import Path
 from cnaster.icm import (
-    icm_sweep,
+    # icm_sweep,
     icm_sweep_deque,
-    icm_sweep_pqueue,
+    # icm_sweep_pqueue,
     unpack_adjacency,
     merge_assignment,
 )
@@ -19,7 +19,7 @@ from cnaster.icm import (
 # from cnaster.wolff import wolff_sweep
 from cnaster.hmm_initialize import gmm_init, cna_mixture_init
 from cnaster.hmm import pipeline_baum_welch
-from cnaster.hmm_sitewise import hmm_sitewise
+# from cnaster.hmm_sitewise import hmm_sitewise
 from cnaster.hmm_phased import hmm_phased
 from cnaster.hmrf_utils import cast_csr, clone_stack_obs
 
@@ -30,9 +30,9 @@ from cnaster.config import get_global_config
 
 # from cnaster.plotting import plot_clones_spatial
 # from cnaster.plot_genomic import plot_clones_genomic
-from cnaster.deprecated.hmrf import (
-    aggr_hmrfmix_reassignment_concatenate as dep_aggr_hmrfmix_reassignment_concatenate,
-)
+# from cnaster.deprecated.hmrf import (
+#     aggr_hmrfmix_reassignment_concatenate as dep_aggr_hmrfmix_reassignment_concatenate,
+# )
 from sklearn.metrics import adjusted_rand_score
 from cnaster.config import start_time
 from cnaster.logger import get_logger
@@ -265,7 +265,7 @@ def aggr_hmrfmix_reassignment_concatenate(
     smooth_mat=None,
     log_persample_weights=None,
     single_tumor_prop=None,
-    hmmclass=hmm_sitewise,
+    hmmclass=None,
     return_posterior=False,
     merge=False,
 ):
@@ -1552,7 +1552,7 @@ def aggr_hmrfmix_reassignment(
     sample_ids,
     log_persample_weights,
     spatial_weight,
-    hmmclass=hmm_sitewise,
+    hmmclass=None,
     return_posterior=False,
 ):
     """
@@ -1596,7 +1596,7 @@ def hmrf_reassignment_posterior(
     sample_ids,
     log_persample_weights,
     spatial_weight,
-    hmmclass=hmm_sitewise,
+    hmmclass=None,
     return_posterior=False,
 ):
     N = single_X.shape[2]

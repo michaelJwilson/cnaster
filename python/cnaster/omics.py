@@ -996,32 +996,6 @@ def summarize_counts_for_bins(
         .to_numpy()
     )
 
-    log_sitewise_transmat = get_sitewise_transmat(
-        segment_key="bin_id",
-        df_gene_snp=df_gene_snp,
-        geneticmap_file=geneticmap_file,
-        nu=nu,
-        logphase_shift=logphase_shift,
-    )
-
     assert bin_single_X.ndim == 3
 
-    # NB named tuple to return
-    BinnedCounts = namedtuple(
-        "BinnedCounts",
-        [
-            "lengths",
-            "bin_single_X",
-            "bin_single_base_nb_mean",
-            "bin_single_total_bb_RD",
-            "log_sitewise_transmat",
-        ],
-    )
-
-    return BinnedCounts(
-        lengths=lengths,
-        bin_single_X=bin_single_X,
-        bin_single_base_nb_mean=bin_single_base_nb_mean,
-        bin_single_total_bb_RD=bin_single_total_bb_RD,
-        log_sitewise_transmat=log_sitewise_transmat,
-    )
+    return SpatioGenomicCounts(lengths, bin_single_X, bin_single_base_nb_mean, bin_single_total_bb_RD)

@@ -159,8 +159,6 @@ def run_cnaster(config_path, over_rides=None):
         unique_snp_ids, config.references.hgtable_file, adata
     )
 
-    df_gene_snp_len = len(df_gene_snp)
-
     pause()
 
     # NB parse_visium::create_haplotype_block_ranges
@@ -172,8 +170,6 @@ def run_cnaster(config_path, over_rides=None):
         unique_snp_ids,
         initial_min_umi=config.quality.phasing_min_snp_umis,
     )
-
-    assert len(df_gene_snp) == df_gene_snp_len
 
     pause()
 
@@ -439,8 +435,6 @@ def run_cnaster(config_path, over_rides=None):
         max_binlength=config.quality.max_binlength,
     )
 
-    assert len(df_gene_snp) == df_gene_snp_len
-
     pause()
 
     logger.info(
@@ -449,16 +443,13 @@ def run_cnaster(config_path, over_rides=None):
 
     # TODO summarize_counts_for_blocks can be adapted to summarize_counts_for_bins,
     #      given new df_gene_snp with "bin_id" and "phase" columns.
-    #
-    # TODO separate transmat.
-    #
+    # 
     # NB   counters per baf-phasing derived genomic intervals.
     (
         lengths,
         single_X,
         single_base_nb_mean,
         single_total_bb_RD,
-        log_sitewise_transmat,
     ) = summarize_counts_for_bins(
         df_gene_snp,
         adata,
@@ -468,6 +459,14 @@ def run_cnaster(config_path, over_rides=None):
         nu=config.phasing.nu,
         logphase_shift=config.phasing.logphase_shift,
         geneticmap_file=config.references.geneticmap_file,
+    )
+
+    log_sitewise_transmat = get_sitewise_transmat(
+        segment_key="bin_id",
+        df_gene_snp=df_gene_snp,
+        geneticmap_file=config.references.geneticmap_file,
+        nu=config.phasing.nu,
+        logphase_shift=config.phasing.logphase_shift,
     )
 
     pause()
@@ -945,8 +944,6 @@ def run_cnaster(config_path, over_rides=None):
         config.references.geneticmap_file,
     )
 
-    assert len(df_gene_snp) == df_gene_snp_len
-
     # NB table of per-bin intervals with set(genes) and set(sites).
     df_bin_info = binned_gene_snp(df_gene_snp)
 
@@ -989,21 +986,18 @@ def run_cnaster(config_path, over_rides=None):
         key="bin_id",
     )
 
-    assert len(df_gene_snp) == df_gene_snp_len
-
     df_bin_info = binned_gene_snp(df_gene_snp)
 
     # TODO separate transmat.
     phase_indicator = np.ones(single_X.shape[0])
 
     # NB new segmentation and associated counts given normal candidate-based
-    #    filtering of baf-derived segments.
+    #    __filtering__ of baf-derived segments.
     (
         lengths,
         single_X,
         single_base_nb_mean,
         single_total_bb_RD,
-        log_sitewise_transmat,
     ) = summarize_counts_for_bins(
         df_gene_snp,
         adata,
@@ -1013,6 +1007,14 @@ def run_cnaster(config_path, over_rides=None):
         nu=config.phasing.nu,
         logphase_shift=config.phasing.logphase_shift,
         geneticmap_file=config.references.geneticmap_file,
+    )
+
+    log_sitewise_transmat = get_sitewise_transmat(
+        segment_key="bin_id",
+        df_gene_snp=df_gene_snp,
+        geneticmap_file=config.references.geneticmap_file,
+        nu=config.phasing.nu,
+        logphase_shift=config.phasing.logphase_shift,
     )
 
     copy_single_X_rdr = single_X[:, 0, :]

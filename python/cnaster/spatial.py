@@ -6,7 +6,7 @@ import scipy.sparse
 from scipy.sparse import csr_matrix
 from scipy.spatial import cKDTree
 
-from cnaster.annotation import get_clone_label_annotation
+# from cnaster.annotation import get_clone_label_annotation
 from cnaster.config import start_time
 from cnaster.logger import get_logger
 
@@ -135,6 +135,7 @@ def initialize_clones(
     random_state=None,
     config=None,
 ):
+    """
     if config is not None:
         # NB assumes the known clone labels for phasing.
         if config.annotation.clone_label is not None:
@@ -142,7 +143,7 @@ def initialize_clones(
 
             # NB assumes the known clone labels for phasing.
             return clone_annotation
-
+    """
     logger.info(
         f"Initializing clones given fixed grid partitions and max. sample_id={np.max(sample_ids)}"
     )

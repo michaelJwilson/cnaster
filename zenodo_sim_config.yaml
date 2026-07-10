@@ -18,8 +18,8 @@ visium:
   filtered_feature_name : "filtered_feature_bc_matrix"                                                                                                                                                            
 
 annotation:
-  clone_label : None # /Users/mw9568/Work/ragr/sim/simulated_data_related/numcnas1.2_cnasize1e7_ploidy2_random0/truth_clone_labels.tsv
-  true_cnv : None # /Users/mw9568/Work/ragr/sim/simulated_data_related/numcnas1.2_cnasize1e7_ploidy2_random0/truth_acn_profile.tsv
+  clone_label : /Users/mw9568/Work/ragr/sim/simulated_data_related/numcnas3.3_cnasize5e7_ploidy2_random4/truth_clone_labels.tsv
+  clone_ranges : /Users/mw9568/Work/ragr/sim/simulated_data_related/numcnas3.3_cnasize5e7_ploidy2_random4/truth_acn_profile.tsv
 
 run:
   cache : False

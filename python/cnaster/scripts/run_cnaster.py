@@ -53,7 +53,7 @@ from cnaster.spatial import (
     construct_multislice_lattice_adjacency,
 )
 from cnaster.utils import configure_output_dir, pause, write_fig, write_tsv
-from cnaster.annotation import get_clone_label_annotation
+from cnaster.annotation import load_clone_labels, load_clone_ranges, assign_clone_ranges
 
 # from cnaster.sim import load_tables_to_matrices
 # from cnaster.hmm_phased import hmm_phased
@@ -160,6 +160,14 @@ def run_cnaster(config_path, over_rides=None):
         unique_snp_ids, config.references.hgtable_file, adata
     )
 
+    if config.annotation.clone_ranges is not None:
+        clone_ranges = load_clone_ranges(config.annotation.clone_ranges)
+        df_gene_snp = assign_clone_ranges(df_gene_snp, clone_ranges, key="known_id", collapse=False)
+
+    print(df_gene_snp)
+
+    exit(0)
+
     pause()
 
     # NB parse_visium::create_haplotype_block_ranges
@@ -233,7 +241,9 @@ def run_cnaster(config_path, over_rides=None):
     logger.runtime_phase = "phasing"
 
     if config.annotation.clone_label is not None:
-        known_clone_assignment, known_single_base_nb_mean = get_clone_label_annotation(config)
+        known_clone_assignment, known_single_base_nb_mean = load_clone_labels(
+            single_X, config
+        )
         initial_clone_for_phasing = known_clone_assignment.copy()
 
     else:
@@ -244,7 +254,7 @@ def run_cnaster(config_path, over_rides=None):
             x_part=config.phasing.npart_phasing,
             y_part=config.phasing.npart_phasing,
             config=config,
-        ) 
+        )
         """
         initial_clone_for_phasing = initialize_clones_wolff(
             sample_ids,

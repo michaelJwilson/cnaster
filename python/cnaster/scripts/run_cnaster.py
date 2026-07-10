@@ -961,10 +961,10 @@ def run_cnaster(config_path, over_rides=None):
 
     # TODO likely removes high RDR (-only) states in simulations?
     #
-    # NB filter out high-umi differentially expressed genes,
+    # NB zeros out high-umi differentially expressed genes,
     #    which may bias rdr estimates.
     if config.quality.filter_normal_diffexp:
-        copy_single_X_rdr, _ = filter_normal_diffexp(
+        copy_single_X_rdr = filter_normal_diffexp(
             exp_counts,
             df_bin_info,
             normal_candidate,
@@ -1029,7 +1029,7 @@ def run_cnaster(config_path, over_rides=None):
     copy_single_X_rdr = single_X[:, 0, :]
     # <<<<<<<<<<<<
 
-    # NB >>>>>  zeros single_X_rdr entries with insufficient normal counts,
+    # NB >>>>>  zeros single_X_rdr entries with insufficient normal baseline counts,
     #           given config.quality.min_normal_count_perbin.
     _, copy_single_X_rdr, copy_single_base_nb_mean = determine_normal_baseline(
         copy_single_X_rdr,

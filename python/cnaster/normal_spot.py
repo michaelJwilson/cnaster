@@ -919,7 +919,7 @@ def filter_normal_diffexp(
         f"Retained {100. * retained_counts / max(total_counts, 1):.3f}% of bin UMIs."
     )
 
-    return new_single_X_rdr, filtered_out_set
+    return new_single_X_rdr
 
 
 def normal_baf_bin_filter(

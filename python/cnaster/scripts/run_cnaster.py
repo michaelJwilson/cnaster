@@ -10,11 +10,8 @@ from numba import njit
 
 from cnaster.config import YAMLConfig, set_global_config, start_time
 from cnaster.he import get_he_image
-
-# from cnaster.sim import load_tables_to_matrices
 from cnaster.hmm_nophasing import hmm_nophasing
 
-# from cnaster.hmm_phased import hmm_phased
 from cnaster.hmrf import merge_by_minspots, reindex_clones, run_core_inference
 from cnaster.hmrf_utils import get_clone_assignment, get_clone_indices
 from cnaster.integer_copy import (
@@ -28,7 +25,6 @@ from cnaster.io import (
     read_tumor_prop,
 )
 from cnaster.logger import get_logger
-# from cnaster.neyman_pearson import neyman_pearson_similarity
 from cnaster.normal_spot import (
     binned_gene_snp,
     determine_normal_baseline,
@@ -57,6 +53,8 @@ from cnaster.spatial import (
 )
 from cnaster.utils import configure_output_dir, pause, write_fig, write_tsv
 
+# from cnaster.sim import load_tables_to_matrices
+# from cnaster.hmm_phased import hmm_phased
 # from cnaster.plot_loh_density import plot_loh_density
 # from cnaster.adjacency import multislice_adjacency as multislice_adjacency_simple
 # from cnaster.hmm_nophasing_jax import hmm_nophasing_jax

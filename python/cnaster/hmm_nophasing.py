@@ -10,7 +10,6 @@ from scipy.optimize import OptimizeResult
 
 from cnaster.config import start_time
 from cnaster.count_encoder import CountEncoder
-# from cnaster.hmm_utils import compute_posterior_transition_nophasing
 from cnaster.logger import get_logger
 
 logger = get_logger(__name__, start_time=start_time)
@@ -399,34 +398,7 @@ class hmm_nophasing:
         log_gamma -= scipy.special.logsumexp(log_gamma, axis=0)
 
         return log_gamma
-    '''
-    # DEPRECATE
-    def get_transition_posteriors(
-        self, lengths, log_transmat, log_startprob, log_emission, log_sitewise_transmat
-    ):
-        log_alpha = self.forward_lattice(
-            lengths,
-            log_transmat,
-            log_startprob,
-            log_emission,
-            log_sitewise_transmat,
-        )
 
-        log_beta = self.backward_lattice(
-            lengths,
-            log_transmat,
-            log_startprob,
-            log_emission,
-            log_sitewise_transmat,
-        )
-
-        return compute_posterior_transition_nophasing(
-            log_alpha,
-            log_beta,
-            log_transmat,
-            log_emission,
-        )
-    '''
     # TODO define self.n_states
     def get_initial_params(
         self,

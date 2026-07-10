@@ -8,8 +8,6 @@ from scipy.special import loggamma
 from functools import partial
 from cnaster.config import get_global_config
 from cnaster.hmm_utils import get_solver
-
-# from cnaster.hmm_mcmc import run_mcmc_numba, plot_mcmc, numba_nloglikeobs_nb, numba_nloglikeobs_bb
 from dataclasses import dataclass, asdict
 from typing import Optional, Any
 import csv
@@ -160,32 +158,6 @@ def collapse_exog(exog):
 
     return states, switches
 
-"""
-def nloglikeobs_nb(
-    endog,
-    exog,
-    weights,
-    exposure,
-    params,
-    reduce=True,
-):
-    num_states = exog.shape[-1]
-    nb_mean = exog @ np.exp(params[:num_states]) * exposure
-    nb_disp = exog @ params[num_states:]
-
-    # NB vectorized call.
-    n, p = convert_params_disp(nb_mean, nb_disp)
-
-    result = -scipy.stats.nbinom.logpmf(endog, n, p)
-    result[np.isnan(result)] = np.inf
-
-    if reduce:
-        result = result.dot(weights)
-        assert not np.isnan(result), f"{params}: {result}"
-
-    return result
-"""
-
 def betabinom_logpmf_zp(endog, exposure):
     return loggamma(exposure + 1) - loggamma(endog + 1) - loggamma(exposure - endog + 1)
 
@@ -281,176 +253,6 @@ def nloglikeobs_bb(
         result = reduced_result
 
     return result
-
-"""
-class Weighted_NegativeBinomial_mix:
-    def __init__(
-        self,
-        endog,
-        exog,
-        weights,
-        exposure,
-        fixed_dispersion=False,
-        shared_dispersion=True,
-        max_rdr=5.0,  # TODO HACK MAGIC
-    ):
-        exog = exog.copy()
-
-        # NB corresponds to a single (potentially unknown) state.
-        if exog.ndim == 1:
-            exog = np.atleast_2d(exog).T
-
-        # NB EM-based posterior weights.
-        self.endog = np.asarray(endog, dtype=np.float64)
-        self.exog = np.asarray(exog, dtype=np.float64)
-        self.weights = np.asarray(weights, dtype=np.float64)
-        self.exposure = np.asarray(exposure, dtype=np.float64)
-        self.fixed_dispersion = fixed_dispersion
-        self.shared_dispersion = shared_dispersion
-
-        self.num_states = self.exog.shape[-1]
-
-        # TODO HACK
-        if np.mean(exposure == 0.0) > 0.0:
-            logger.warning(
-                f"Removing posterior weight of {100. * np.mean(exposure == 0.0):.3f} [%] data with zero exposure."
-            )
-
-            # NB equivalent to dropping data; weights are not otherwise renormalized.
-            self.weights[exposure == 0.0] = 0.0
-
-        # TODO HACK
-        if max_rdr is not None:
-            logger.warning(
-                f"Assuming max_rdr={max_rdr}, which removes {100. * np.mean(endog > max_rdr * exposure):.3f} [%]"
-            )
-
-            # NB equivalent to dropping data; weights are not otherwise renormalized.
-            self.weights[endog > max_rdr * exposure] = 0.0
-
-    def nloglikeobs(self, params, *args):
-        params = np.array(params)
-
-        if self.fixed_dispersion:
-            params = np.concatenate([params, np.full(self.num_states, args[0])])
-        elif self.shared_dispersion:
-            params = np.concatenate([params[:-1], np.full(self.num_states, params[-1])])
-        else:
-            assert len(params) == self.num_states * 2
-
-        return nloglikeobs_nb(
-            self.endog,
-            self.exog,
-            self.weights,
-            self.exposure,
-            params,
-            reduce=True,
-        )
-
-    def get_default_params(self, legacy=False):
-        ms, single_dispersion = get_nbinom_start_params(legacy=legacy)
-
-        if self.fixed_dispersion or self.shared_dispersion:
-            disp = [single_dispersion]
-        else:
-            disp = [single_dispersion] * self.num_states
-
-        return np.array(ms[: self.num_states] + disp)
-
-    def get_bounds(self):
-        EPSILON = 1.0e-6
-        bounds = []
-
-        # NB bounds for log-space parameters (can be negative)
-        for _ in range(self.num_states):
-            bounds.append((-10, 10))
-
-        # NB bound for overdispersion parameter (must be positive)
-        if self.fixed_dispersion:
-            pass
-        elif self.shared_dispersion:
-            bounds.append((EPSILON, 1e6))
-        else:
-            for _ in range(self.num_states):
-                bounds.append((EPSILON, 1e6))
-
-        return bounds
-
-    def fit(
-        self,
-        start_params=None,
-        maxiter=10_000,
-        maxfun=5_000,
-        legacy=False,
-        **kwargs,
-    ):
-        if using_default_params := (start_params is None):
-            start_params = self.get_default_params(legacy=legacy)
-
-        start_time = time.time()
-
-        logger.info(
-            f"Weighted_NegativeBinomial_mix (num_states={self.num_states}, endog_shape={self.endog.shape}) initial -ln likelihood={self.nloglikeobs(start_params):.6e} @ start_params:\n{[xx for xx in start_params]}"
-        )
-
-        bounds = self.get_bounds()
-        options = {
-            "maxiter": maxiter,
-            "maxfun": maxfun,
-            "ftol": kwargs.get("ftol", None),
-            "disp": kwargs.get("disp", False),
-        }
-
-        if self.fixed_dispersion:
-            args = (start_params[-1],)
-            start_params = start_params[:-1]
-        else:
-            args = ()
-
-        result = scipy.optimize.minimize(
-            self.nloglikeobs,
-            start_params,
-            method=get_solver(),
-            bounds=bounds,
-            options=options,
-            args=args,
-        )
-
-        optimize_result = OptimizationResult(
-            optimizer=get_solver(),
-            params=result.x,
-            llf=-result.fun,
-            converged=result.success,
-            iterations=result.get("nit", None),
-            fcalls=result.get("nfev", None),
-        )
-
-        end_time = time.time()
-        runtime = end_time - start_time
-
-        flush_perf(
-            self.__class__.__name__,
-            len(self.exog),
-            self.num_states,
-            using_default_params,
-            start_time,
-            end_time,
-            optimize_result,
-        )
-
-        logger.info(
-            f"Weighted_NegativeBinomial_mix done: {runtime:.2f}s with\nendog_shape={self.endog.shape},\n"
-            f"{len(start_params)} params ({'with default start' if using_default_params else 'with custom start'}),\n"
-            f"{optimize_result.mle_retvals.get('iterations', 'N/A')} iter,\n"
-            f"{optimize_result.mle_retvals.get('fcalls', 'N/A')} fcalls,\n"
-            f"optimizer: {optimize_result.mle_settings.get('optimizer', 'Unknown')},\n"
-            f"converged: {optimize_result.mle_retvals.get('converged', 'N/A')},\n"
-            f"llf: {optimize_result.llf:.6e}\n"
-            f"params:\n{[xx for xx in optimize_result.params]}"
-        )
-
-        return optimize_result
-"""
 
 class Weighted_BetaBinom_mix:
     def __init__(
@@ -604,5 +406,4 @@ class Weighted_BetaBinom_mix:
 
 
 # LEGACY
-# Weighted_NegativeBinomial = partial(Weighted_NegativeBinomial_mix)
 Weighted_BetaBinom = partial(Weighted_BetaBinom_mix)

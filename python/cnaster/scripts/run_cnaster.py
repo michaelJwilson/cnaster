@@ -443,7 +443,7 @@ def run_cnaster(config_path, over_rides=None):
 
     # TODO summarize_counts_for_blocks can be adapted to summarize_counts_for_bins,
     #      given new df_gene_snp with "bin_id" and "phase" columns.
-    # 
+    #
     # NB   counters per baf-phasing derived genomic intervals.
     (
         lengths,
@@ -526,7 +526,7 @@ def run_cnaster(config_path, over_rides=None):
         sample_list,
         coords,
         across_slice_adjacency_mat,
-        maxspots_pooling=1, # DEPRECATE config.hmrf.maxspots_pooling,
+        maxspots_pooling=1,  # DEPRECATE config.hmrf.maxspots_pooling,
         unit_xsquared=config.hmrf.unit_xsquared,  # TODO
         unit_ysquared=config.hmrf.unit_ysquared,  # TODO
     )
@@ -738,7 +738,7 @@ def run_cnaster(config_path, over_rides=None):
 
     # NB merge similar clones based on Neyman-Pearson statistic.
 
-    '''
+    """
     if config.hmrf.np_merge:
         _, merged_res = neyman_pearson_similarity(
             X,
@@ -753,8 +753,8 @@ def run_cnaster(config_path, over_rides=None):
         )
     else:
         logger.warning(f"No Neyman-Pearson merging applied to baf-identified clones.")
-    '''
-        
+    """
+
     logger.info(
         f"Inferred {len(np.unique(merged_res['new_assignment']))} clones given baf data after neyman-pearson merge."
     )
@@ -927,12 +927,13 @@ def run_cnaster(config_path, over_rides=None):
     normal_idx = np.where(normal_candidate)[0]
 
     (
-        lengths,
-        single_X,
-        single_base_nb_mean,
-        single_total_bb_RD,
-        log_sitewise_transmat,
         df_gene_snp,
+        (
+            lengths,
+            single_X,
+            single_base_nb_mean,
+            single_total_bb_RD,
+        ),
     ) = normal_baf_bin_filter(
         df_gene_snp,
         single_X,
@@ -944,6 +945,14 @@ def run_cnaster(config_path, over_rides=None):
         config.references.geneticmap_file,
     )
 
+    log_sitewise_transmat = get_sitewise_transmat(
+        segment_key="bin_id",
+        df_gene_snp=df_gene_snp,
+        geneticmap_file=config.references.geneticmap_file,
+        nu=config.phasing.nu,
+        logphase_shift=config.phasing.logphase_shift,
+    )
+
     # NB table of per-bin intervals with set(genes) and set(sites).
     df_bin_info = binned_gene_snp(df_gene_snp)
 
@@ -953,7 +962,7 @@ def run_cnaster(config_path, over_rides=None):
     # TODO likely removes high RDR (-only) states in simulations?
     #
     # NB filter out high-umi differentially expressed genes,
-    #    which may bias RDR estimates.
+    #    which may bias rdr estimates.
     if config.quality.filter_normal_diffexp:
         copy_single_X_rdr, _ = filter_normal_diffexp(
             exp_counts,
@@ -1367,7 +1376,7 @@ def run_cnaster(config_path, over_rides=None):
 
             # TODO HACK BUG?
             adjusted_log_mu = res_combine["new_log_mu"][:, idx]
-            
+
             logger.info(
                 f"For clone {cid}, normalized log mu to sum_bin lambda * np.exp(log_mu) = 1.; yielding new mu=\n{np.exp(adjusted_log_mu)}\ngiven mu=\n{np.exp(res_combine["new_log_mu"][:, idx])}."
             )

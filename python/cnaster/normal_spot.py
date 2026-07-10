@@ -12,7 +12,7 @@ from cnaster.config import get_global_config, start_time
 from cnaster.hmm_emission import Weighted_BetaBinom
 from cnaster.hmm_utils import get_em_solver_params
 from cnaster.logger import get_logger
-from cnaster.recomb import get_sitewise_transmat
+from cnaster.spatio_genomic_counts import SpatioGenomicCounts
 
 logger = get_logger(__name__, start_time=start_time)
 
@@ -1041,57 +1041,5 @@ def normal_baf_bin_filter(
     assert df_gene_snp["bin_id"].nunique(dropna=True) == sum(
         lengths
     ), f"{df_gene_snp['bin_id'].notna().sum()} != {sum(lengths)}"
-    """
-    # TODO constructor for recombination rates and associated trasnfer matrices.
-    #
-    # NB   phase switch probability from genetic distance
-    sorted_chr_pos_first = df_gene_snp.groupby("bin_id").agg(
-        {"CHR": "first", "START": "first"}
-    )
-    sorted_chr_pos_first = list(
-        zip(sorted_chr_pos_first.CHR.values, sorted_chr_pos_first.START.values)
-    )
-    sorted_chr_pos_last = df_gene_snp.groupby("bin_id").agg(
-        {"CHR": "last", "END": "last"}
-    )
-    sorted_chr_pos_last = list(
-        zip(sorted_chr_pos_last.CHR.values, sorted_chr_pos_last.END.values)
-    )
 
-    tmp_sorted_chr_pos = [
-        val for pair in zip(sorted_chr_pos_first, sorted_chr_pos_last) for val in pair
-    ]
-
-    ref_positions_cM = get_reference_recomb_rates(geneticmap_file)
-
-    position_cM = assign_centiMorgans(tmp_sorted_chr_pos, ref_positions_cM)
-
-    phase_switch_prob = compute_numbat_phase_switch_prob(
-        position_cM, tmp_sorted_chr_pos, nu
-    )
-
-    log_sitewise_transmat = np.minimum(
-        np.log(0.5), np.log(phase_switch_prob) - logphase_shift
-    )
-
-    log_sitewise_transmat = log_sitewise_transmat[
-        np.arange(1, len(log_sitewise_transmat), 2)
-    ]
-    """
-
-    log_sitewise_transmat = get_sitewise_transmat(
-        segment_key="bin_id",
-        df_gene_snp=df_gene_snp,
-        geneticmap_file=geneticmap_file,
-        nu=nu,
-        logphase_shift=logphase_shift,
-    )
-
-    return (
-        lengths,
-        single_X,
-        single_base_nb_mean,
-        single_total_bb_RD,
-        log_sitewise_transmat,
-        df_gene_snp,
-    )
+    return df_gene_snp, SpatioGenomicCounts(lengths, single_X, single_base_nb_mean, single_total_bb_RD)

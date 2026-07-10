@@ -258,19 +258,9 @@ def construct_lattice_adjacency(
     unit_ysquared=3,
     coordination_num=8,
 ):
-    # NB called per slice.
-    # coordination_num = summarize_lattice_structure(
-    #     coords, sample_ids=np.zeros(len(coords)), sample_list=[None]
-    # )
-
-    # if coordination_num < min_coordination_num:
-    #     logger.warning(f"Assuming minimum coordination number={min_coordination_num}.")
-    # 
-    #     coordination_num = min_coordination_num
-
     logger.info(
         f"Assigning lattice adjacency matrix with coordination_num={coordination_num}, "
-        f"assuming unit_xsquared,unit_ysquared={unit_xsquared},{unit_ysquared}."
+        f"assuming unit_xsquared, unit_ysquared={unit_xsquared},{unit_ysquared}."
     )
 
     n_spots = coords.shape[0]
@@ -279,21 +269,21 @@ def construct_lattice_adjacency(
     scaled_coords[:, 0] *= np.sqrt(unit_xsquared)
     scaled_coords[:, 1] *= np.sqrt(unit_ysquared)
 
-    logger.info(f"Building KD-tree for efficient nearest neighbor search")
+    logger.info(f"Building kd-tree for efficient nearest neighbor search")
 
     tree = cKDTree(scaled_coords)
 
-    # NB query (k+1) nearest neighbors as includes self.
+    # NB query (k+1) nearest neighbors, as includes self.
     _, indices = tree.query(scaled_coords, k=coordination_num + 1)
 
     indices = indices[:, 1:]
 
     logger.info(f"Constructed nearest neighbor indices via KD-tree")
 
+    logger.warning(f"Assuming identity smooth mat.")
+
     # NB smooth matrix: identity (each spot pools only itself)
     smooth_mat = scipy.sparse.identity(n_spots, dtype=np.int8, format="csr")
-
-    logger.warning(f"Assumed identity smooth mat.")
 
     logger.info(f"Constructing adjacency matrix.")
 
@@ -301,22 +291,28 @@ def construct_lattice_adjacency(
 
     rows = np.repeat(np.arange(n_spots), coordination_num)
     cols = indices.flatten()
+
+    # NB uniform (unit) edge weight, we will apply global spatial_weight in hmrf. 
     data = np.ones(len(rows), dtype=np.float64)
 
     adjacency_mat = csr_matrix((data, (rows, cols)), shape=(n_spots, n_spots))
 
-    # TODO
-    # num_neighbors = np.sum(adjacency_mat > 0, axis=1).A.flatten()
-
     # NB see https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.csr_matrix.getnnz.html
     num_neighbors = adjacency_mat.getnnz(axis=1)
 
-    # NB lattice adjacency: min=2, median=2.0, max=4 neighbors per spot.
-    logger.info(
-        f"Lattice adjacency: min={np.min(num_neighbors)}, "
-        f"median={np.median(num_neighbors):.1f}, "
-        f"max={np.max(num_neighbors)} neighbors per spot"
-    )
+    unique_vals, counts = np.unique(num_neighbors, return_counts=True)
+    fractions = counts / len(num_neighbors)
+
+    sort_idx = np.argsort(fractions)[::-1]
+    
+    fraction_strs = [
+        f"{unique_vals[i]} neighbors\t{fractions[i]:.1%}" 
+        for i in sort_idx
+    ]
+    
+    logger.info(f"Lattice adjacency fractions:\n{'\n'.join(fraction_strs)}")
+
+    exit(0)
 
     return smooth_mat, adjacency_mat
 

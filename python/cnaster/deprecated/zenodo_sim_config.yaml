@@ -1,0 +1,160 @@
+# NB mirrors original @ /n/fs/ragr-data/users/congma/Datasets/CalicoST_simulation/nomixing_calicost_related/numcnas1.2_cnasize1e7_ploidy2_random0/parsed_inputs/
+#
+# WARNING output_dir should match input naming convention in zenodo_sample_sheet.tsv
+#
+# {numcnas6.3_cnasize5e7_ploidy2_random6} 
+paths:
+  sample_sheet : zenodo_sample_sheet.tsv
+  output_dir : /Users/mw9568/Work/ragr/sim/nomixing_cnaster_related/numcnas3.3_cnasize5e7_ploidy2_random4/
+  perf_path : logs/cnaster.perf
+
+# tumorprop_file : /n/fs/scratch/mw9568/cnaster/loh_estimator_tumor_prop.tsv
+# DEPRECATE
+preprocessing:
+  normalidx_file : None
+  tumorprop_file : None
+
+visium:
+  filtered_feature_name : "filtered_feature_bc_matrix"                                                                                                                                                            
+
+annotation:
+  clone_label : None # /Users/mw9568/Work/ragr/sim/simulated_data_related/numcnas1.2_cnasize1e7_ploidy2_random0/truth_clone_labels.tsv
+  true_cnv : None # /Users/mw9568/Work/ragr/sim/simulated_data_related/numcnas1.2_cnasize1e7_ploidy2_random0/truth_acn_profile.tsv
+
+run:
+  cache : False
+  legacy : False # DEPRECATE
+  bafonly : False
+  pause : False
+
+references:
+  geneticmap_file : /Users/mw9568/repos/CalicoST/GRCh38_resources/genetic_map_GRCh38_merged.tab.gz
+  hgtable_file : /Users/mw9568/repos/CalicoST/GRCh38_resources/hgTables_hg38_gencode.txt
+  annotation_file: /Users/mw9568/repos/cnaster/annotation/gencode.v49.basic.annotation.gtf.gz
+  filtergenelist_file : /Users/mw9568/repos/CalicoST/GRCh38_resources/ig_gene_list.txt
+  filterregion_file : /Users/mw9568/repos/CalicoST/GRCh38_resources/HLA_regions.bed
+
+# TODO HACK
+#           phasing_min_snp_umis : 15 ->
+#           min_percent_expressed_spots : 0.005 ->
+#           secondary_min_snp_umi : 300 ->
+#           normal_allele_specific_confidence : (0.05, 0.95) ->
+#           min_normal_count_perbin : 20 ->
+quality:
+  phasing_min_snp_umis : 50
+  spot_min_snp_umis : 50
+  min_percent_expressed_spots : 0.005
+  secondary_min_umi : 0
+  secondary_min_snp_umi : 200
+  secondary_min_normal_umi : 100
+  max_binlength : 5000000
+  local_outlier_filter : True
+  filter_normal_diffexp : True
+  normalize_gene_outliers : False
+  normal_allele_specific_confidence : (0.01, 0.99)
+  min_normal_count_perbin : 100
+
+# TODO HACK npart_phasing : 3 ->
+#           baf_change_threshold : 0.1 ->
+#           min_new_segment_size : 10 ->
+phasing:
+  run : True
+  nu : 1.0
+  logphase_shift : -2.0
+  npart_phasing : 2
+  baf_change_threshold : 0.05
+  min_new_segment_size : 10
+  min_prob : 1.0e-2
+
+# TODO HACK max_iter_outer : 20 ->
+#           spatial_weight : 0.1 -> 1.0 -> 0.65 ...
+#           n_clones : 3 ->
+#           n_clones_rdr : 2 ->
+#           maxspots_pooling 7 ->
+#           unit_xsquared 9 ->
+#           unit_ysquared 3 ->
+#           ari_tolerance 0.99 ->
+#           np_threshold 2.0 -> 
+hmrf:
+  n_clones : 3
+  n_clones_rdr : 2
+  min_spots_per_clone : 100
+  min_avgumi_per_clone : 10
+  maxspots_pooling : 1 # DEPRECATE
+  tumorprop_threshold : 0.5 # DEPRECATE
+  max_iter_outer : 25
+  nodepotential : max # DEPRECATE
+  ari_tolerance : 1.0
+  initialization_method : rectangle # DEPRECATE
+  num_hmrf_initialization_start : 0 # DEPRECATE
+  num_hmrf_initialization_end : 1 # DEPRECATE
+  spatial_weight : 1.0
+  inertia : 0
+  construct_adjacency_method : hexagon # DEPRECATE
+  construct_adjacency_w : 1.0 # DEPRECATE
+  np_merge : False # DEPRECATE
+  fixed_assignment : False
+  unit_xsquared : 1
+  unit_ysquared : 1
+  random_state : 0
+
+# TODO HACK max_iter : 30 ->
+#           solver: nm ->
+#           t: 0.99999 ->
+#           tol: 0.0001 ->
+#           n_states: 7 ->
+#           np_eventminlen : 10 ->
+#           gmm_min_binom_prob : 0.1 ->
+#           gmm_max_binom_prob : 0.9 -> 
+#           compression_decimals (normal baseline): 3 ->
+hmm:
+  solver: "L-BFGS-B"
+  n_states : 7
+  params : smp
+  t : 0.9999999
+  t_phaseing : 0.99999
+  fix_NB_dispersion : False
+  shared_NB_dispersion : True
+  fix_BB_dispersion : False
+  shared_BB_dispersion : True
+  compression_decimals: 0
+  max_iter : 100
+  tol : 0.001
+  max_workers : 2
+  gmm_random_state : 0
+  gmm_maxiter: 30
+  gmm_min_binom_prob: 0.0
+  gmm_max_binom_prob: 1.0
+  np_threshold : 4.0
+  np_eventminlen : 5
+  em_maxiter: 1500
+  em_xtol: 1e-4
+  em_ftol: 1e-4
+  em_xrtol: 1e-4
+  em_disp: 0
+  np_merge_threshold: 0.1
+
+# DEPRECATE
+# NB N sub-set of states will use the first N
+# TODO HACK start_disp : 1.0e-2 ->
+nbinom:
+  run_default : False 
+  start_params: 0.1,0.1,0.1,0.1,0.1,0.1,0.1
+  start_disp: 1.0e-1
+
+# DEPRECATE
+# TODO HACK start_disp: 1 -> 20 -> 1_000.
+betabinom:
+  run_default : False
+  start_params: 0.5,0.5,0.5,0.5,0.5,0.5,0.5
+  start_disp: 1000.
+
+# TODO HACK ploidy : "diploid,triploid,tetraploid" ->
+#           rdr_weight : 0.3 ->
+#           fractional_error : False -> 
+int_copy_num:
+  rdr_weight : 0.5
+  nonbalance_bafdist : 1.0 # DEPRECATE
+  nondiploid_rdrdist : 10.0 # DEPRECATE
+  ploidy : "diploid" # DEPRECATE
+  

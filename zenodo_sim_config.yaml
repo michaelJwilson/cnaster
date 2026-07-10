@@ -18,8 +18,8 @@ visium:
   filtered_feature_name : "filtered_feature_bc_matrix"                                                                                                                                                            
 
 annotation:
-  clone_label : None # /Users/mw9568/Work/ragr/sim/simulated_data_related/numcnas3.3_cnasize5e7_ploidy2_random4/truth_clone_labels.tsv
-  clone_ranges : None # /Users/mw9568/Work/ragr/sim/simulated_data_related/numcnas3.3_cnasize5e7_ploidy2_random4/truth_acn_profile.tsv
+  clone_label : /Users/mw9568/Work/ragr/sim/simulated_data_related/numcnas3.3_cnasize5e7_ploidy2_random4/truth_clone_labels.tsv
+  clone_ranges : /Users/mw9568/Work/ragr/sim/simulated_data_related/numcnas3.3_cnasize5e7_ploidy2_random4/truth_acn_profile.tsv
 
 run:
   cache : False
@@ -47,8 +47,8 @@ quality:
   secondary_min_snp_umi : 200
   secondary_min_normal_umi : 100
   max_binlength : 5000000
-  local_outlier_filter : True
-  filter_normal_diffexp : True
+  local_outlier_filter : False # FINAL
+  filter_normal_diffexp : False # FINAL
   normalize_gene_outliers : False
   normal_allele_specific_confidence : (0.01, 0.99)
   min_normal_count_perbin : 100

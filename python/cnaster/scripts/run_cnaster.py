@@ -11,6 +11,7 @@ from numba import njit
 from cnaster.config import YAMLConfig, set_global_config, start_time
 from cnaster.he import get_he_image
 from cnaster.hmm_nophasing import hmm_nophasing
+from cnaster.sandbox.hmm_nophasing_jax_v2 import hmm_nophasing_jax
 
 from cnaster.hmrf import merge_by_minspots, reindex_clones, run_core_inference
 from cnaster.hmrf_utils import get_clone_assignment, get_clone_indices
@@ -31,6 +32,7 @@ from cnaster.normal_spot import (
     filter_normal_diffexp,
     normal_baf_bin_filter,
 )
+from cnaster.spatio_genomic_counts import SpatioGenomicCounts
 from cnaster.omics import (
     assign_initial_blocks,
     create_bin_ranges,
@@ -52,7 +54,6 @@ from cnaster.spatial import (
     construct_multislice_lattice_adjacency,
 )
 from cnaster.utils import configure_output_dir, pause, write_fig, write_tsv
-from cnaster.sandbox.hmm_nophasing_jax_v2 import hmm_nophasing_jax
 
 # from cnaster.sim import load_tables_to_matrices
 # from cnaster.hmm_phased import hmm_phased
@@ -636,7 +637,7 @@ def run_cnaster(config_path, over_rides=None):
         sample_ids=sample_ids,
         sample_list=sample_list,
         max_iter_outer=config.hmrf.max_iter_outer,
-        hmmclass=hmm_nophasing_jax,  # NB {hmm_nophasing, hmm_phased, hmm_nophasing_jax}
+        hmmclass=hmm_nophasing,  # NB {hmm_nophasing, hmm_phased, hmm_nophasing_jax}
         params="sp",
         t=config.hmm.t,
         random_state=config.hmm.gmm_random_state,

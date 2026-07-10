@@ -32,7 +32,6 @@ from cnaster.normal_spot import (
     filter_normal_diffexp,
     normal_baf_bin_filter,
 )
-from cnaster.spatio_genomic_counts import SpatioGenomicCounts
 from cnaster.omics import (
     assign_initial_blocks,
     create_bin_ranges,

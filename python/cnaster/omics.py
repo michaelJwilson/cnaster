@@ -7,6 +7,7 @@ from cnaster.config import start_time
 from cnaster.logger import get_logger
 from cnaster.recomb import get_sitewise_transmat
 from cnaster.reference import get_reference_genes
+from cnaster.spatio_genomic_counts import SpatioGenomicCounts
 from cnaster.utils import cacher
 
 logger = get_logger(__name__, start_time=start_time)
@@ -486,17 +487,7 @@ def summarize_counts_for_blocks(
 
     assert single_X.ndim == 3
 
-    BlockSummary = namedtuple(
-        "BlockSummary",
-        ["lengths", "single_X", "single_base_nb_mean", "single_total_bb_RD"],
-    )
-
-    return BlockSummary(
-        lengths=lengths,
-        single_X=single_X,
-        single_base_nb_mean=single_base_nb_mean,
-        single_total_bb_RD=single_total_bb_RD,
-    )
+    return SpatioGenomicCounts(lengths, single_X, single_base_nb_mean, single_total_bb_RD)
 
 
 # @cacher("blocked_gene_snp_table.tsv")

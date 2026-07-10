@@ -1,6 +1,4 @@
 import copy
-import logging
-
 import networkx as nx
 import numpy as np
 import scipy

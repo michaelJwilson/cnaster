@@ -28,7 +28,7 @@ from cnaster.io import (
     read_tumor_prop,
 )
 from cnaster.logger import get_logger
-from cnaster.neyman_pearson import neyman_pearson_similarity
+# from cnaster.neyman_pearson import neyman_pearson_similarity
 from cnaster.normal_spot import (
     binned_gene_snp,
     determine_normal_baseline,
@@ -730,7 +730,12 @@ def run_cnaster(config_path, over_rides=None):
 
     pause()
 
+    # NB a shallow copy.
+    merged_res = res.copy()
+
     # NB merge similar clones based on Neyman-Pearson statistic.
+
+    '''
     if config.hmrf.np_merge:
         _, merged_res = neyman_pearson_similarity(
             X,
@@ -745,10 +750,8 @@ def run_cnaster(config_path, over_rides=None):
         )
     else:
         logger.warning(f"No Neyman-Pearson merging applied to baf-identified clones.")
-
-        # NB a shallow copy.
-        merged_res = res.copy()
-
+    '''
+        
     logger.info(
         f"Inferred {len(np.unique(merged_res['new_assignment']))} clones given baf data after neyman-pearson merge."
     )
@@ -1140,6 +1143,10 @@ def run_cnaster(config_path, over_rides=None):
 
     pause()
 
+    # NB a shallow copy.
+    merged_res_combine = res_combine.copy()
+
+    """
     # NB merge similar clones based on Neyman-Pearson statistic.
     if config.hmrf.np_merge:
         _, merged_res_combine = neyman_pearson_similarity(
@@ -1153,13 +1160,7 @@ def run_cnaster(config_path, over_rides=None):
             tumor_prop=tumor_prop,
             hmmclass=hmm_nophasing,
         )
-    else:
-        logger.warning(
-            f"No Neyman-Pearson merging applied to rdr-baf-identified clones."
-        )
-
-        # NB a shallow copy.
-        merged_res_combine = res_combine.copy()
+    """
 
     logger.info(
         f"Inferred {len(np.unique(merged_res_combine['new_assignment']))} clones given rdr-baf data after neyman-pearson merge."

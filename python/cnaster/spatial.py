@@ -331,11 +331,8 @@ def construct_multislice_lattice_adjacency(
     sample_ids,
     sample_list,
     coords,
-    # exp_counts,
     across_slice_adjacency_mat,
-    # construct_adjacency_method,
     maxspots_pooling,
-    # construct_adjacency_w,
     unit_xsquared=9,
     unit_ysquared=3,
 ):

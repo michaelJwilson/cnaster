@@ -8,8 +8,8 @@ from sklearn.cluster import KMeans
 from numba import njit
 
 from cnaster.hmm_emission import Weighted_BetaBinom
-from cnaster.reference import get_reference_recomb_rates
-from cnaster.recomb import assign_centiMorgans, compute_numbat_phase_switch_prob
+# from cnaster.reference import get_reference_recomb_rates
+from cnaster.recomb import get_sitewise_transmat # assign_centiMorgans, compute_numbat_phase_switch_prob
 from cnaster.hmm_utils import get_em_solver_params
 from cnaster.config import get_global_config
 from cnaster.config import start_time
@@ -1069,7 +1069,7 @@ def normal_baf_bin_filter(
     assert df_gene_snp["bin_id"].nunique(dropna=True) == sum(
         lengths
     ), f"{df_gene_snp['bin_id'].notna().sum()} != {sum(lengths)}"
-
+    '''
     # TODO constructor for recombination rates and associated trasnfer matrices.
     #
     # NB   phase switch probability from genetic distance
@@ -1105,6 +1105,15 @@ def normal_baf_bin_filter(
     log_sitewise_transmat = log_sitewise_transmat[
         np.arange(1, len(log_sitewise_transmat), 2)
     ]
+    '''
+
+    log_sitewise_transmat = get_sitewise_transmat(
+        segment_key="bin_id", 
+        df_gene_snp=df_gene_snp, 
+        geneticmap_file=geneticmap_file, 
+        nu=nu, 
+        logphase_shift=logphase_shift
+    )
 
     return (
         lengths,

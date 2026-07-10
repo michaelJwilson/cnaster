@@ -9,6 +9,7 @@ paths:
   perf_path : logs/cnaster.perf
 
 # tumorprop_file : /n/fs/scratch/mw9568/cnaster/loh_estimator_tumor_prop.tsv
+# DEPRECATE
 preprocessing:
   normalidx_file : None
   tumorprop_file : None
@@ -22,7 +23,7 @@ annotation:
 
 run:
   cache : False
-  legacy : False
+  legacy : False # DEPRECATE
   bafonly : False
   pause : False
 
@@ -79,19 +80,19 @@ hmrf:
   n_clones_rdr : 2
   min_spots_per_clone : 100
   min_avgumi_per_clone : 10
-  maxspots_pooling : 1
-  tumorprop_threshold : 0.5
+  maxspots_pooling : 1 # DEPRECATE
+  tumorprop_threshold : 0.5 # DEPRECATE
   max_iter_outer : 25
-  nodepotential : max
+  nodepotential : max # DEPRECATE
   ari_tolerance : 1.0
-  initialization_method : rectangle
-  num_hmrf_initialization_start : 0
-  num_hmrf_initialization_end : 1
+  initialization_method : rectangle # DEPRECATE
+  num_hmrf_initialization_start : 0 # DEPRECATE
+  num_hmrf_initialization_end : 1 # DEPRECATE
   spatial_weight : 1.0
   inertia : 0
-  construct_adjacency_method : hexagon
-  construct_adjacency_w : 1.0
-  np_merge : False
+  construct_adjacency_method : hexagon # DEPRECATE
+  construct_adjacency_w : 1.0 # DEPRECATE
+  np_merge : False # DEPRECATE
   fixed_assignment : False
   unit_xsquared : 1
   unit_ysquared : 1
@@ -133,6 +134,7 @@ hmm:
   em_disp: 0
   np_merge_threshold: 0.1
 
+# DEPRECATE
 # NB N sub-set of states will use the first N
 # TODO HACK start_disp : 1.0e-2 ->
 nbinom:
@@ -140,6 +142,7 @@ nbinom:
   start_params: 0.1,0.1,0.1,0.1,0.1,0.1,0.1
   start_disp: 1.0e-1
 
+# DEPRECATE
 # TODO HACK start_disp: 1 -> 20 -> 1_000.
 betabinom:
   run_default : False
@@ -151,7 +154,7 @@ betabinom:
 #           fractional_error : False -> 
 int_copy_num:
   rdr_weight : 0.5
-  nonbalance_bafdist : 1.0
-  nondiploid_rdrdist : 10.0
-  ploidy : "diploid"
+  nonbalance_bafdist : 1.0 # DEPRECATE
+  nondiploid_rdrdist : 10.0 # DEPRECATE
+  ploidy : "diploid" # DEPRECATE
   

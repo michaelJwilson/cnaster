@@ -352,8 +352,6 @@ def run_cnaster(config_path, over_rides=None):
         bbox_inches="tight",
     )
 
-    exit(0)
-
     if config.phasing.run:
         n_states_phasing = config.hmm.n_states
         log_transmat = get_log_transmat(config.hmm.n_states, config.hmm.t)

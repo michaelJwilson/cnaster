@@ -487,7 +487,9 @@ def summarize_counts_for_blocks(
 
     assert single_X.ndim == 3
 
-    return SpatioGenomicCounts(lengths, single_X, single_base_nb_mean, single_total_bb_RD)
+    return SpatioGenomicCounts(
+        lengths, single_X, single_base_nb_mean, single_total_bb_RD
+    )
 
 
 # @cacher("blocked_gene_snp_table.tsv")
@@ -511,6 +513,27 @@ def assign_initial_blocks(
         "is_interval"=True is a gene, otherwise SNP.
         "gene" contains the name of a gene, or the gene a SNP belongs.
     """
+    if "known_id" in df_gene_snp.columns:
+        logger.warning(
+            "Assuming known genomic segmentation given 'known_id' in df_gene_snp."
+        )
+
+        df_gene_snp["known_id"] = df_gene_snp["known_id"].astype("Int64")
+
+        unique_ids = df_gene_snp["known_id"].dropna().unique()
+        unique_ids = np.sort(unique_ids) # Ensure order is consistent
+        
+        mapping = {old_id: i for i, old_id in enumerate(unique_ids)}
+        
+        df_gene_snp["block_id"] = (
+            df_gene_snp["known_id"]
+            .map(mapping)
+            .fillna(-1)
+            .astype(int)
+        )
+        
+        return df_gene_snp
+
     logger.info(
         f"Creating initial genome segmentation based solely on overlapping genes."
     )
@@ -998,4 +1021,6 @@ def summarize_counts_for_bins(
 
     assert bin_single_X.ndim == 3
 
-    return SpatioGenomicCounts(lengths, bin_single_X, bin_single_base_nb_mean, bin_single_total_bb_RD)
+    return SpatioGenomicCounts(
+        lengths, bin_single_X, bin_single_base_nb_mean, bin_single_total_bb_RD
+    )

@@ -4,6 +4,7 @@ import pandas as pd
 from pathlib import Path
 from cnaster.config import get_global_config, start_time
 from cnaster.logger import get_logger
+from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
 
 logger = get_logger(__name__, start_time=start_time)
 
@@ -30,15 +31,14 @@ def load_clone_labels(single_X=None, config=None):
     if single_X is None:
         return initial_clone_index_baf, None
 
-    known_rdr_normal = np.sum(single_X[:, 0, (clone_id == 0)], axis=1)
-
-    bidx_inconfident = np.where(
-        known_rdr_normal < config.quality.min_normal_count_perbin
-    )[0]
-    known_rdr_normal[bidx_inconfident] = 0
-
-    # NB normalized.
+    known_rdr_normal = np.sum(single_X[:, 0, (clone_id == 0)], axis=-1)
     known_rdr_normal = known_rdr_normal / np.sum(known_rdr_normal)
+
+    # TODO
+    # bidx_inconfident = np.where(
+    #     known_rdr_normal < config.quality.min_normal_count_perbin
+    # )[0]
+    # known_rdr_normal[bidx_inconfident] = 0
 
     spots_coverage = np.sum(single_X[:, 0, :], axis=0)
 
@@ -46,7 +46,15 @@ def load_clone_labels(single_X=None, config=None):
         -1, 1
     ) @ spots_coverage.reshape(1, -1)
 
-    return initial_clone_index_baf, known_single_base_nb_mean
+    _, known_base_nb_mean, _, _ = merge_pseudobulk_by_index_mix(
+        single_X,
+        known_single_base_nb_mean,
+        np.zeros_like(known_single_base_nb_mean),
+        initial_clone_index_baf,
+        None,
+    )
+
+    return initial_clone_index_baf, known_base_nb_mean
 
 
 def load_clone_ranges(filepath: str | Path) -> pd.DataFrame:
@@ -84,7 +92,7 @@ def load_clone_ranges(filepath: str | Path) -> pd.DataFrame:
 
 
 def assign_clone_ranges(
-    df_gene_snp, clone_ranges, key="known_id", collapse=True, max_length=10_000
+    df_gene_snp, clone_ranges, key="known_id", collapse=True, max_length=1_000_000
 ):
     df_snps = df_gene_snp.copy()
     ranges_df = clone_ranges.copy()

@@ -164,10 +164,6 @@ def run_cnaster(config_path, over_rides=None):
         clone_ranges = load_clone_ranges(config.annotation.clone_ranges)
         df_gene_snp = assign_clone_ranges(df_gene_snp, clone_ranges, key="known_id", collapse=False)
 
-    print(df_gene_snp)
-
-    exit(0)
-
     pause()
 
     # NB parse_visium::create_haplotype_block_ranges
@@ -240,8 +236,11 @@ def run_cnaster(config_path, over_rides=None):
     #
     logger.runtime_phase = "phasing"
 
+    # TODO
+    known_clone_assignment = known_nb_baseline = None
+
     if config.annotation.clone_label is not None:
-        known_clone_assignment, known_single_base_nb_mean = load_clone_labels(
+        known_clone_assignment, known_nb_baseline = load_clone_labels(
             single_X, config
         )
         initial_clone_for_phasing = known_clone_assignment.copy()
@@ -272,25 +271,6 @@ def run_cnaster(config_path, over_rides=None):
             max_temp=1.,
         ).pop()
         """
-    assignment = pd.Series(
-        [f"clone {x}" for x in get_clone_assignment(coords, initial_clone_for_phasing)]
-    )
-
-    phasing_clones_fig = plot_clones_spatial(
-        coords,
-        assignment,
-        single_tumor_prop=single_tumor_prop,
-        sample_list=sample_list,
-        sample_ids=sample_ids,
-    )
-
-    # NB plot of the clones assumed for initial phasing.
-    write_fig(
-        f"{plots_dir}/phasing_clones_spatial.pdf",
-        phasing_clones_fig,
-        transparent=True,
-        bbox_inches="tight",
-    )
 
     # TODO
     initial_clone_index_baf = initial_clone_for_phasing
@@ -333,6 +313,26 @@ def run_cnaster(config_path, over_rides=None):
             bbox_inches="tight",
         )
 
+    assignment = pd.Series(
+        [f"clone {x}" for x in get_clone_assignment(coords, initial_clone_for_phasing)]
+    )
+
+    phasing_clones_fig = plot_clones_spatial(
+        coords,
+        assignment,
+        single_tumor_prop=single_tumor_prop,
+        sample_list=sample_list,
+        sample_ids=sample_ids,
+    )
+
+    # NB plot of the clones assumed for initial phasing.
+    write_fig(
+        f"{plots_dir}/prephasing_clones_spatial.pdf",
+        phasing_clones_fig,
+        transparent=True,
+        bbox_inches="tight",
+    )
+
     prephasing_clones_genomic = plot_clones_genomic(
         df_cnv=None,
         lengths=lengths,
@@ -342,6 +342,7 @@ def run_cnaster(config_path, over_rides=None):
         clone_index=initial_clone_for_phasing,
         single_tumor_prop=single_tumor_prop,
         sample_list=sample_list,
+        known_nb_baseline=known_nb_baseline,
     )
 
     write_fig(
@@ -350,6 +351,8 @@ def run_cnaster(config_path, over_rides=None):
         transparent=True,
         bbox_inches="tight",
     )
+
+    exit(0)
 
     if config.phasing.run:
         n_states_phasing = config.hmm.n_states

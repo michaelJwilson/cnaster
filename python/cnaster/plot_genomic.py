@@ -429,6 +429,7 @@ def plot_clones_genomic(
     plot_baf_errors: str = "beta",
     plot_rdr_errors: str = "poisson",
     phased_integer_copies: bool = False,
+    known_nb_baseline=None,
 ):
     """
     Plots aggregated rdr and baf (with error models) and best-fit continuous copy states (mu, p).
@@ -470,7 +471,6 @@ def plot_clones_genomic(
         lengths
     ), "Mismatch in genomic segment defined X and lengths."
 
-    # 2. Data Merging
     X, base_nb_mean, total_bb_RD, tumor_prop = merge_pseudobulk_by_index_mix(
         single_X,
         single_base_nb_mean,
@@ -486,6 +486,9 @@ def plot_clones_genomic(
     assert len(nonempty_clones) == total_bb_RD.shape[1]
     assert np.all(nonempty_clones == np.arange(len(final_clone_ids)))
 
+    if known_nb_baseline is not None:
+        base_nb_mean = known_nb_baseline.copy()
+
     has_rdr = base_nb_mean is not None and np.max(base_nb_mean) > 0
     axes_per_clone = 2 if has_rdr else 1
 
@@ -494,14 +497,12 @@ def plot_clones_genomic(
     )
     x_vals = np.arange(n_obs)
 
-    # 3. Main Plotting Loop
     for s, c in enumerate(nonempty_clones):
         cid = final_clone_ids[c]
         ax_idx = s * axes_per_clone
         ax_rdr = axes[ax_idx] if has_rdr else None
         ax_baf = axes[ax_idx + 1] if has_rdr else axes[ax_idx]
 
-        # --- Color & State Resolution ---
         if df_cnv is not None:
             if phased_integer_copies:
                 allele_1 = df_cnv[f"clone{cid} A"].values

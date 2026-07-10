@@ -2,16 +2,11 @@ import copy
 import time
 
 import numpy as np
-
-# import pandas as pd
 import scipy.special
 from numba import njit, prange
 
-# from pathlib import Path
 from cnaster.icm import (
-    # icm_sweep,
     icm_sweep_deque,
-    # icm_sweep_pqueue,
     unpack_adjacency,
     merge_assignment,
 )
@@ -20,20 +15,10 @@ from cnaster.icm import (
 from cnaster.hmm_initialize import gmm_init, cna_mixture_init
 from cnaster.hmm import pipeline_baum_welch
 
-# from cnaster.hmm_sitewise import hmm_sitewise
 from cnaster.hmm_phased import hmm_phased
 from cnaster.hmrf_utils import cast_csr, clone_stack_obs
-
-# from cnaster.utils import count_calls, get_output_dir, write_fig
-# from cnaster.hmm_initialize import plot_cna_mixture, cna_mixture_init
 from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
 from cnaster.config import get_global_config
-
-# from cnaster.plotting import plot_clones_spatial
-# from cnaster.plot_genomic import plot_clones_genomic
-# from cnaster.deprecated.hmrf import (
-#     aggr_hmrfmix_reassignment_concatenate as dep_aggr_hmrfmix_reassignment_concatenate,
-# )
 from sklearn.metrics import adjusted_rand_score
 from cnaster.config import start_time
 from cnaster.logger import get_logger
@@ -81,33 +66,7 @@ def pool_hmrf_data(
     pooled_base_nb_mean = np.zeros((n_obs, N), dtype=single_base_nb_mean.dtype)
     pooled_total_bb_RD = np.zeros((n_obs, N), dtype=single_total_bb_RD.dtype)
     mean_tumor_prop, weighted_tp = None, None
-    """
-    # TODO HACK BUG  
-    if is_tumor_mixed:
-        n_clones = int(len(pred) / n_obs)
-        
-        assert res_new_log_mu.shape[-1] == n_clones
 
-        mean_tumor_prop = np.zeros(N, dtype=np.float64)
-        
-        weighted_mu = np.zeros((n_obs, n_clones), dtype=np.float64)
-        weighted_tp = np.zeros((n_obs, n_clones, N), dtype=np.float64)
-        
-        for c in range(n_clones):
-            norm = 0.0
-
-            for obs_idx in range(n_obs):
-                # NB modulo phasing.
-                state_idx = pred[c * n_obs + obs_idx] % n_states
-                mu = np.exp(res_new_log_mu[state_idx, c])
-                norm += mu * lambd[obs_idx]
-                
-            for obs_idx in range(n_obs):
-                state_idx = pred[c * n_obs + obs_idx] % n_states
-                mu = np.exp(res_new_log_mu[state_idx, c])
-            
-                weighted_mu[obs_idx, c] = mu / norm
-    """
     for i in range(N):
         start_idx, end_idx = smooth_indptr[i], smooth_indptr[i + 1]
 
@@ -148,32 +107,7 @@ def pool_hmrf_data(
                 pooled_total_bb_RD[obs_idx, i] += single_total_bb_RD[
                     obs_idx, neighbor_idx
                 ]
-        """
-        # TODO HACK BUG we do not currently support tumor proportion.
-        if is_tumor_mixed:
-            # NB calculate the 
-            tumor_prop_sum = 0.0
 
-            for neighbor_idx in valid_neighbors:
-                tumor_prop_sum += single_tumor_prop[neighbor_idx]
-
-            # NB input to compute_emission_probability_nb_betabinom_mix
-            mean_tumor_prop[i] = tumor_prop_sum / valid_count
-
-            if np.sum(pooled_base_nb_mean[:, i]) > 0:
-                for c in range(n_clones):
-                    for obs_idx in range(n_obs):
-                        weighted_tp[obs_idx, c, i] = (
-                            mean_tumor_prop[i] * weighted_mu[obs_idx, c]
-                        ) / (
-                            mean_tumor_prop[i] * weighted_mu[obs_idx, c]
-                            + 1.0
-                            - mean_tumor_prop[i]
-                        )
-            else:
-                for obs_idx in range(n_obs):
-                    weighted_tp[obs_idx, c, i] = mean_tumor_prop[i]
-        """
     return (
         pooled_X,
         pooled_base_nb_mean,
@@ -1195,39 +1129,3 @@ def merge_by_minspots(
         merged_res["log_gamma"] = res["log_gamma"][:, :, rep_clones]
 
     return merging_groups, merged_res
-
-'''
-def pipeline_clone_assignment_nostack(
-    single_X,
-    single_base_nb_mean,
-    single_total_bb_RD,
-    single_tumor_prop,
-    res,
-    pred,
-    smooth_mat,
-    adjacency_mat,
-    prev_assignment,
-    sample_ids,
-    log_persample_weights,
-    spatial_weight,
-    hmmclass=None,
-    return_posterior=False,
-):
-    return pipeline_clone_assignment(
-        single_X=single_X,
-        single_base_nb_mean=single_base_nb_mean,
-        single_total_bb_RD=single_total_bb_RD,
-        res=res,
-        pred=pred,
-        adjacency_mat=adjacency_mat,
-        prev_assignment=prev_assignment,
-        sample_ids=sample_ids,
-        spatial_weight=spatial_weight,
-        smooth_mat=smooth_mat,
-        log_persample_weights=log_persample_weights,
-        single_tumor_prop=single_tumor_prop,
-        hmmclass=hmmclass,
-        return_posterior=return_posterior,
-        merge=True,
-    )
-'''

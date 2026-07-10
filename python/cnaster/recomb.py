@@ -14,7 +14,7 @@ logger = get_logger(__name__, start_time=start_time)
 #     transparent=True,bbox_inches="tight"
 # )
 
-'''
+
 def compute_numbat_phase_switch_prob(
     position_cM, chr_pos_vector, nu=1.0, min_prob=None
 ):
@@ -168,8 +168,8 @@ def get_sitewise_transmat(df_gene_snp, geneticmap_file, nu, logphase_shift):
 
     # NB returns array.
     return log_sitewise_transmat
-'''
 
+'''
 def compute_numbat_phase_switch_prob(
     position_cM, chr_pos_vector, nu=1.0, min_prob=None
 ):
@@ -286,3 +286,4 @@ def get_sitewise_transmat(df_gene_snp, geneticmap_file, nu, logphase_shift):
     log_sitewise_transmat = log_sitewise_transmat[1::2]
 
     return log_sitewise_transmat
+'''

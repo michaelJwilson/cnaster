@@ -12,9 +12,7 @@ from cnaster.config import get_global_config, start_time
 from cnaster.hmm_emission import Weighted_BetaBinom
 from cnaster.hmm_utils import get_em_solver_params
 from cnaster.logger import get_logger
-# from cnaster.reference import get_reference_recomb_rates
-from cnaster.recomb import \
-    get_sitewise_transmat  # assign_centiMorgans, compute_numbat_phase_switch_prob
+from cnaster.recomb import get_sitewise_transmat
 
 logger = get_logger(__name__, start_time=start_time)
 

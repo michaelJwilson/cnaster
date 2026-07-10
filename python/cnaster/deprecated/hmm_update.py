@@ -1,11 +1,7 @@
-import time
 import copy
-import logging
-
 import numpy as np
 import scipy
 import statsmodels as sm
-import concurrent.futures
 from cnaster.hmm_emission import (
     Weighted_BetaBinom,
     # Weighted_BetaBinom_fixdispersion,
@@ -22,7 +18,7 @@ from cnaster.logger import get_logger
 
 logger = get_logger(__name__, start_time=start_time)
 
-
+'''
 def update_transition_sitewise(log_xi, is_diag=False):
     """
     Input
@@ -64,8 +60,8 @@ def update_transition_sitewise(log_xi, is_diag=False):
         np.fill_diagonal(log_transmat, t)
 
     return log_transmat
-
-
+'''
+'''
 def update_transition_nophasing(log_xi, is_diag=False):
     """
     Input
@@ -95,8 +91,8 @@ def update_transition_nophasing(log_xi, is_diag=False):
         log_transmat = np.ones(log_transmat.shape) * rest
         np.fill_diagonal(log_transmat, t)
     return log_transmat
-
-
+'''
+'''
 @njit
 def update_startprob_sitewise(lengths, log_gamma):
     """
@@ -136,8 +132,8 @@ def update_startprob_sitewise(lengths, log_gamma):
     log_startprob -= mylogsumexp(log_startprob)
 
     return log_startprob
-
-
+'''
+'''
 @njit
 def update_startprob_nophasing(lengths, log_gamma):
     """
@@ -168,8 +164,8 @@ def update_startprob_nophasing(lengths, log_gamma):
     # normalize such that startprob sums to 1
     log_startprob -= mylogsumexp(log_startprob)
     return log_startprob
-
-
+'''
+'''
 def update_emission_params_nb_sitewise_uniqvalues(
     unique_values,
     mapping_matrices,
@@ -367,8 +363,8 @@ def update_emission_params_nb_sitewise_uniqvalues(
     new_log_mu[new_log_mu < min_log_rdr] = min_log_rdr
 
     return new_log_mu, new_alphas
-
-
+'''
+'''
 def update_emission_params_nb_nophasing_uniqvalues(
     unique_values,
     mapping_matrices,
@@ -601,8 +597,8 @@ def update_emission_params_nb_nophasing_uniqvalues(
     new_log_mu[new_log_mu < min_log_rdr] = min_log_rdr
 
     return new_log_mu, new_alphas
-
-
+'''
+'''
 def update_emission_params_nb_sitewise_uniqvalues_mix(
     unique_values,
     mapping_matrices,
@@ -817,8 +813,8 @@ def update_emission_params_nb_sitewise_uniqvalues_mix(
     new_log_mu[new_log_mu < min_log_rdr] = min_log_rdr
 
     return new_log_mu, new_alphas
-
-
+'''
+'''
 def update_emission_params_nb_nophasing_uniqvalues_mix(
     unique_values,
     mapping_matrices,
@@ -1027,8 +1023,8 @@ def update_emission_params_nb_nophasing_uniqvalues_mix(
     new_log_mu[new_log_mu > max_log_rdr] = max_log_rdr
     new_log_mu[new_log_mu < min_log_rdr] = min_log_rdr
     return new_log_mu, new_alphas
-
-
+'''
+'''
 def update_emission_params_bb_sitewise_uniqvalues(
     unique_values,
     mapping_matrices,
@@ -1305,7 +1301,7 @@ def update_emission_params_bb_sitewise_uniqvalues(
     new_p_binom[new_p_binom < min_binom_prob] = min_binom_prob
     new_p_binom[new_p_binom > max_binom_prob] = max_binom_prob
     return new_p_binom, new_taus
-
+'''
 
 """
 def update_emission_params_bb_nophasing_uniqvalues(
@@ -1504,7 +1500,7 @@ def update_emission_params_bb_nophasing_uniqvalues(
     return new_p_binom, new_taus
 """
 
-
+'''
 def update_emission_params_bb_sitewise_uniqvalues_mix(
     unique_values,
     mapping_matrices,
@@ -1766,8 +1762,8 @@ def update_emission_params_bb_sitewise_uniqvalues_mix(
     new_p_binom[new_p_binom > max_binom_prob] = max_binom_prob
 
     return new_p_binom, new_taus
-
-
+'''
+'''
 def update_emission_params_bb_nophasing_uniqvalues_mix(
     unique_values,
     mapping_matrices,
@@ -1934,3 +1930,4 @@ def update_emission_params_bb_nophasing_uniqvalues_mix(
     new_p_binom[new_p_binom > max_binom_prob] = max_binom_prob
 
     return new_p_binom, new_taus
+'''

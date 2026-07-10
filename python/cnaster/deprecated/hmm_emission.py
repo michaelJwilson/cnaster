@@ -3,12 +3,11 @@ import warnings
 
 import numpy as np
 import scipy.stats
-import matplotlib.pyplot as plt
 from math import lgamma
 from scipy.special import loggamma
 from functools import partial
 from cnaster.config import get_global_config
-from cnaster.hmm_utils import convert_params_disp, get_solver
+from cnaster.hmm_utils import get_solver
 
 # from cnaster.hmm_mcmc import run_mcmc_numba, plot_mcmc, numba_nloglikeobs_nb, numba_nloglikeobs_bb
 from dataclasses import dataclass, asdict
@@ -161,7 +160,7 @@ def collapse_exog(exog):
 
     return states, switches
 
-
+"""
 def nloglikeobs_nb(
     endog,
     exog,
@@ -185,7 +184,7 @@ def nloglikeobs_nb(
         assert not np.isnan(result), f"{params}: {result}"
 
     return result
-
+"""
 
 def betabinom_logpmf_zp(endog, exposure):
     return loggamma(exposure + 1) - loggamma(endog + 1) - loggamma(exposure - endog + 1)
@@ -283,7 +282,7 @@ def nloglikeobs_bb(
 
     return result
 
-
+"""
 class Weighted_NegativeBinomial_mix:
     def __init__(
         self,
@@ -451,7 +450,7 @@ class Weighted_NegativeBinomial_mix:
         )
 
         return optimize_result
-
+"""
 
 class Weighted_BetaBinom_mix:
     def __init__(
@@ -605,5 +604,5 @@ class Weighted_BetaBinom_mix:
 
 
 # LEGACY
-Weighted_NegativeBinomial = partial(Weighted_NegativeBinomial_mix)
+# Weighted_NegativeBinomial = partial(Weighted_NegativeBinomial_mix)
 Weighted_BetaBinom = partial(Weighted_BetaBinom_mix)

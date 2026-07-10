@@ -886,7 +886,7 @@ def run_cnaster(config_path, over_rides=None):
         f"Found {100. * np.mean(pred[:, :] < config.hmm.n_states)}% of baf-only copy states to have phase 0."
     )
 
-    # DEPRECATE?  baf-only clones are determined with hmm_nophasing.
+    # TODO currently used for normal spot determination.
     # NB contains __model baf profiles__, accounted for baf-derived phase switching.
     merged_baf_profiles = np.array(
         [

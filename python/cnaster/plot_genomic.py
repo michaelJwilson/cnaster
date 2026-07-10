@@ -1,18 +1,23 @@
+from typing import Any, Dict, Optional
+
+import matplotlib.colors as mcolors
 import matplotlib.gridspec as gridspec
+# from cnaster.hmm_nophasing import hmm_nophasing
+import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
-import matplotlib.colors as mcolors
-from matplotlib.lines import Line2D
-from typing import Optional, Dict, Any
-
 from matplotlib.collections import LineCollection
-from cnaster.config import start_time
+from matplotlib.lines import Line2D
+
+from cnaster.config import get_global_config, start_time
+from cnaster.hmm_phased import hmm_phased
 from cnaster.logger import get_logger
-from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
-from cnaster.utils import cast_clone_label, get_intervals
 from cnaster.palette import get_full_palette
+from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
+from cnaster.utils import (cast_clone_label, get_intervals, top_hat_sum,
+                           write_fig)
 
 logger = get_logger(__name__, start_time=start_time)
 
@@ -741,3 +746,189 @@ def plot_clones_genomic(
     fig.tight_layout()
 
     return fig
+
+
+# TODO define width
+def plot_cna_mixture(
+    init_log_mu,
+    init_alphas,
+    init_p_binom,
+    init_taus,
+    X,
+    base_nb_mean,
+    total_bb_RD,
+    width=1,
+    prefix="initial",
+    max_rdr=None,
+):
+    # NB base_nb_mean is zero until post-BAF normal identication; in which case,
+    #    these will be NAN.
+    X_gmm_rdr = np.vstack(
+        [X[:, 0, s] / base_nb_mean[:, s] for s in range(X.shape[2])]
+    ).T
+
+    assert X_gmm_rdr.shape == (len(X[:, 0, 0]), X.shape[2])
+
+    valid = ~np.isnan(X_gmm_rdr) & ~np.isinf(X_gmm_rdr)
+
+    if np.all(~valid):
+        X_gmm_rdr[~valid] = np.random.normal(
+            loc=1.0, scale=0.01, size=np.count_nonzero(~valid)
+        )
+
+    # TODO clipping?
+    X_gmm_baf = np.vstack(
+        [
+            top_hat_sum(X[:, 1, s], width) / top_hat_sum(total_bb_RD[:, s], width)
+            for s in range(X.shape[2])
+        ]
+    ).T
+
+    if init_p_binom is None:
+        init_p_binom, _ = get_betabinom_start_params()
+        init_p_binom = np.tile(np.array(init_p_binom).reshape(-1, 1), (1, X.shape[2]))
+
+    if init_log_mu is None:
+        init_log_mu, _ = get_nbinom_start_params()
+        init_log_mu = np.array(init_log_mu).reshape(-1, 1)
+        init_log_mu = np.tile(init_log_mu, (1, X.shape[2]))
+
+    if init_alphas is None:
+        config = get_global_config()
+        init_alphas = config.nbinom.start_disp * np.ones_like(init_log_mu)
+        init_alphas = np.tile(init_alphas, (1, X.shape[2]))
+
+    if init_taus is None:
+        config = get_global_config()
+        init_taus = config.betabinom.start_disp * np.ones_like(init_p_binom)
+        init_taus = np.tile(init_taus, (1, X.shape[2]))
+
+    init_mu = np.exp(init_log_mu)
+
+    num_clones, num_segments = X.shape[2], X.shape[0]
+
+    # NB S,n = 3,4 ... [0 1 2 0 1 2 0 1 2 0 1 2], i.e. column major.
+    clone_idx = np.tile(np.arange(num_clones), num_segments)
+
+    palette = sns.color_palette(n_colors=num_clones)
+
+    x = X_gmm_baf.ravel()
+    y = X_gmm_rdr.ravel()
+
+    g = sns.JointGrid(x=x, y=y, height=8, ratio=3, space=0.15)
+    valid_mask = np.isfinite(x) & np.isfinite(y)
+
+    lnlike_rdr, lnlike_baf = hmm_phased.compute_emission_probability_nb_betabinom(
+        X, base_nb_mean, init_log_mu, init_alphas, total_bb_RD, init_p_binom, init_taus
+    )
+
+    lnlike = lnlike_baf + lnlike_rdr
+
+    # TODO track finite.
+    lnlike[~np.isfinite(lnlike)] = -np.inf
+
+    # NB emission prob. under (0.0, 0.5)
+    # best_lnlike = lnlike[0,:,:].ravel()
+
+    # NB emission prob. under best state (includes phase flip complement).
+    best_lnlike = np.max(lnlike, axis=0).ravel()
+
+    like_ratio = np.exp(best_lnlike - best_lnlike.max())
+
+    # alpha = 0.2 + (like_ratio - like_ratio.min()) * 0.8 / (1.0 - like_ratio.min())
+    alpha = like_ratio
+
+    for c in range(num_clones):
+        clone_mask = (clone_idx == c) & valid_mask
+
+        if np.any(clone_mask):
+            g.ax_joint.scatter(
+                x[clone_mask],
+                y[clone_mask],
+                s=1,
+                marker=".",
+                alpha=alpha,
+                color=palette[c],
+            )
+
+    g.ax_joint.scatter(
+        init_p_binom, init_mu, marker="*", facecolor="none", edgecolor="k", s=25
+    )
+
+    if max_rdr is not None:
+        g.ax_joint.set_ylim(-1, max_rdr)
+
+    xticks = np.arange(0.0, 1.05, 0.05)
+    g.ax_joint.set_xticks(xticks)
+    g.ax_joint.set_xticklabels(
+        [f"{x:.2f}" if ((1 + ii) % 2) else "" for ii, x in enumerate(xticks)]
+    )
+
+    bins = 50
+
+    validx = np.isfinite(x)
+    validy = np.isfinite(y)
+
+    bins_x = np.arange(-0.01, 1.0, 5.0e-3)
+    bins_y = np.arange(-0.1, 10.0, 0.1)
+
+    centers_x = 0.5 * (bins_x[:-1] + bins_x[1:])
+    width_x = bins_x[1] - bins_x[0]
+
+    centers_y = 0.5 * (bins_y[:-1] + bins_y[1:])
+    height_y = bins_y[1] - bins_y[0]
+
+    legend_patches = []
+
+    for c in range(num_clones):
+        clone_mask = clone_idx == c
+
+        assert np.any(clone_mask)
+
+        counts_x, _ = np.histogram(x[clone_mask], bins=bins_x)
+        counts_y, _ = np.histogram(y[clone_mask], bins=bins_y)
+
+        g.ax_marg_x.bar(
+            centers_x,
+            counts_x,
+            width=width_x,
+            align="center",
+            facecolor="none",
+            edgecolor=palette[c],
+            linewidth=1.0,
+            alpha=1.0,
+        )
+
+        g.ax_marg_y.barh(
+            centers_y,
+            counts_y,
+            height=height_y,
+            align="center",
+            facecolor="none",
+            edgecolor=palette[c],
+            linewidth=1.0,
+            alpha=0.5,
+        )
+
+        legend_patches.append(
+            mpatches.Patch(
+                facecolor="none",
+                edgecolor=palette[c],
+                label=cast_clone_label(f"clone {c}") if num_clones > 1 else "",
+            )
+        )
+
+    g.set_axis_labels("ZHF", "RDR")
+    g.ax_joint.legend(handles=legend_patches, loc="upper left", framealpha=0.0)
+
+    fig = g.fig
+
+    config = get_global_config()
+
+    # {config.hmrf.n_clones_rdr}
+    output_dir = f"{config.paths.output_dir}/clone{config.hmrf.n_clones}_rectangle{config.hmrf.random_state}_w{config.hmrf.spatial_weight:.1f}/"
+    fig_path = f"{output_dir}/plots/{prefix}_rdr_baf.pdf"
+
+    logger.info(f"Writing initial copy state mixture plot to:\n{fig_path}")
+
+    write_fig(fig_path, fig, transparent=True, bbox_inches="tight")

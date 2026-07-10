@@ -709,6 +709,7 @@ def create_bin_ranges(
 ):
     """
     Aggregate haplotype blocks to bins with multiple UMI constraints.
+    Cannot aggregate blocks separated by __refined_lengths__
 
     Parameters
     ----------

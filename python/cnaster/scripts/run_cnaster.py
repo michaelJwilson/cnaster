@@ -26,7 +26,6 @@ from cnaster.io import (
 )
 from cnaster.logger import get_logger
 from cnaster.normal_spot import (
-    binned_gene_snp,
     determine_normal_baseline,
     determine_normal_candidates,
     filter_normal_diffexp,
@@ -36,6 +35,7 @@ from cnaster.omics import (
     assign_initial_blocks,
     create_bin_ranges,
     form_gene_snp_table,
+    binned_gene_snp,
     get_sitewise_transmat,
     summarize_counts_for_bins,
     summarize_counts_for_blocks,
@@ -654,6 +654,8 @@ def run_cnaster(config_path, over_rides=None):
     )
     # TODO
     # res.lock()
+
+    exit(0)
 
     # TODO FINAL HACK?
     # res, _ = reindex_clones(res, posterior=None, single_tumor_prop=None)

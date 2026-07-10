@@ -141,6 +141,9 @@ class hmm_nophasing_jax(hmm_nophasing):
         total_nll = -jnp.sum(jnp.where(is_end, alpha_sums, 0.0))
         return total_nll
 
+    def optimize(self, *args, **kwargs):
+        return self.run_marg_likelihood_nb_bb(*args, **kwargs)
+
     def _run_optimization_pipeline(
         self,
         mode,

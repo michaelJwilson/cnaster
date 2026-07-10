@@ -19,40 +19,6 @@ from cnaster.recomb import \
 logger = get_logger(__name__, start_time=start_time)
 
 
-def binned_gene_snp(df_gene_snp, key="bin_id"):
-    # NB table with contig range + set of genes + snp_ids,
-    #    only for those defined with key bin_id.
-    table_bininfo = (
-        # df_gene_snp[~df_gene_snp.bin_id.isnull()]
-        df_gene_snp[~getattr(df_gene_snp, key).isnull()]
-        .groupby(key)
-        .agg(
-            {
-                "CHR": "first",
-                "START": "first",
-                "END": "last",
-                "gene": set,
-                "snp_id": set,
-            }
-        )
-        .reset_index() # TBC (0, ..., N-1).
-    )
-    # table_bininfo["ARM"] = "."
-    table_bininfo["INCLUDED_GENES"] = [
-        ",".join([x for x in y if not x is None]) for y in table_bininfo.gene.values
-    ]
-    table_bininfo["INCLUDED_SNP_IDS"] = [
-        ",".join([x for x in y if not x is None]) for y in table_bininfo.snp_id.values
-    ]
-    table_bininfo["NORMAL_COUNT"] = np.nan
-    table_bininfo["N_SNPS"] = [
-        len([x for x in y if not x is None]) for y in table_bininfo.snp_id.values
-    ]
-
-    table_bininfo.drop(columns=["gene", "snp_id"], inplace=True)
-    return table_bininfo
-
-
 def determine_normal_candidates(
     config,
     res,

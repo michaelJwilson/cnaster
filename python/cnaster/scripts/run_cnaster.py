@@ -52,7 +52,7 @@ from cnaster.spatial import (
     construct_multislice_lattice_adjacency,
 )
 from cnaster.utils import configure_output_dir, pause, write_fig, write_tsv
-from cnaster.sandbox.hmm_nophasing_jax import hmm_nophasing_jax
+from cnaster.sandbox.hmm_nophasing_jax_v2 import hmm_nophasing_jax
 
 # from cnaster.sim import load_tables_to_matrices
 # from cnaster.hmm_phased import hmm_phased
@@ -654,8 +654,6 @@ def run_cnaster(config_path, over_rides=None):
     )
     # TODO
     # res.lock()
-
-    exit(0)
 
     # TODO FINAL HACK?
     # res, _ = reindex_clones(res, posterior=None, single_tumor_prop=None)

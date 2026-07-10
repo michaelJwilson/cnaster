@@ -233,7 +233,8 @@ def run_cnaster(config_path, over_rides=None):
     logger.runtime_phase = "phasing"
 
     if config.annotation.clone_label is not None:
-        initial_clone_for_phasing, known_single_base_nb_mean = get_clone_label_annotation(config)
+        known_clone_assignment, known_single_base_nb_mean = get_clone_label_annotation(config)
+        initial_clone_for_phasing = known_clone_assignment.copy()
 
     else:
         # NB  rectangular partition across multiple slices, equivalent to parse_visium::perform_partition.
@@ -1044,19 +1045,22 @@ def run_cnaster(config_path, over_rides=None):
     )
 
     # TODO HACK  >>>>>>>>
-    initial_rdr_clone_assignment, onehot_allowed_clones, total_clones = (
-        initialize_rdr_clone_refininement(
-            merged_baf_assignment=merged_baf_assignment,
-            coords=coords,
-            single_total_bb_RD=single_total_bb_RD,
-            n_obs=single_X.shape[0],
-            config=config,
+    if config.annotation.clone_label is not None:
+        global_initial_clone_index = known_clone_assignment
+    else:
+        initial_rdr_clone_assignment, onehot_allowed_clones, total_clones = (
+            initialize_rdr_clone_refininement(
+                merged_baf_assignment=merged_baf_assignment,
+                coords=coords,
+                single_total_bb_RD=single_total_bb_RD,
+                n_obs=single_X.shape[0],
+                config=config,
+            )
         )
-    )
 
-    global_initial_clone_index = [
-        np.where(initial_rdr_clone_assignment == c)[0] for c in range(total_clones)
-    ]
+        global_initial_clone_index = [
+            np.where(initial_rdr_clone_assignment == c)[0] for c in range(total_clones)
+        ]
 
     res_combine = run_core_inference(
         single_X,

@@ -10,33 +10,51 @@ from numba import njit
 
 from cnaster.config import YAMLConfig, set_global_config, start_time
 from cnaster.he import get_he_image
+
 # from cnaster.sim import load_tables_to_matrices
 from cnaster.hmm_nophasing import hmm_nophasing
+
 # from cnaster.hmm_phased import hmm_phased
 from cnaster.hmrf import merge_by_minspots, reindex_clones, run_core_inference
 from cnaster.hmrf_utils import get_clone_assignment, get_clone_indices
 from cnaster.integer_copy import (
     hill_climbing_integer_copynumber_fixdiploid_milp,
-    hill_climbing_integer_copynumber_oneclone)
-from cnaster.io import (construct_df_clone_label, get_sample_list,
-                        load_input_data, read_tumor_prop)
+    hill_climbing_integer_copynumber_oneclone,
+)
+from cnaster.io import (
+    construct_df_clone_label,
+    get_sample_list,
+    load_input_data,
+    read_tumor_prop,
+)
 from cnaster.logger import get_logger
 from cnaster.neyman_pearson import neyman_pearson_similarity
-from cnaster.normal_spot import (binned_gene_snp, determine_normal_baseline,
-                                 determine_normal_candidates,
-                                 filter_normal_diffexp, normal_baf_bin_filter)
-from cnaster.omics import (assign_initial_blocks, create_bin_ranges,
-                           form_gene_snp_table, get_sitewise_transmat,
-                           summarize_counts_for_bins,
-                           summarize_counts_for_blocks)
+from cnaster.normal_spot import (
+    binned_gene_snp,
+    determine_normal_baseline,
+    determine_normal_candidates,
+    filter_normal_diffexp,
+    normal_baf_bin_filter,
+)
+from cnaster.omics import (
+    assign_initial_blocks,
+    create_bin_ranges,
+    form_gene_snp_table,
+    get_sitewise_transmat,
+    summarize_counts_for_bins,
+    summarize_counts_for_blocks,
+)
 from cnaster.phasing import initial_phase_given_partition
 from cnaster.plot_copy_number_profile import plot_copy_number_profile
 from cnaster.plot_genomic import plot_clones_genomic
 from cnaster.plotting import plot_clones_spatial, plot_he
 from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
-from cnaster.spatial import (best_equal_partition, initialize_clones,
-                             initialize_rdr_clone_refininement,
-                             multislice_adjacency)
+from cnaster.spatial import (
+    best_equal_partition,
+    initialize_clones,
+    initialize_rdr_clone_refininement,
+    construct_multislice_lattice_adjacency,
+)
 from cnaster.utils import configure_output_dir, pause, write_fig, write_tsv
 
 # from cnaster.plot_loh_density import plot_loh_density
@@ -500,16 +518,12 @@ def run_cnaster(config_path, over_rides=None):
     # TODO
     # NB smooth pooling matrix & distance based (exponential decay) adjacency.
     #    requires pre-defined single_total_bb_RD, but largely on data loading.
-    adjacency_mat, smooth_mat = multislice_adjacency(
+    adjacency_mat, smooth_mat = construct_multislice_lattice_adjacency(
         sample_ids,
         sample_list,
         coords,
-        single_total_bb_RD,  # NEGLECTED?
-        exp_counts,  # NEGLECTED?
         across_slice_adjacency_mat,
-        construct_adjacency_method=config.hmrf.construct_adjacency_method,
         maxspots_pooling=config.hmrf.maxspots_pooling,
-        construct_adjacency_w=config.hmrf.construct_adjacency_w,
         unit_xsquared=config.hmrf.unit_xsquared,  # TODO
         unit_ysquared=config.hmrf.unit_ysquared,  # TODO
     )

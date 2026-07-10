@@ -13,6 +13,29 @@ from cnaster.logger import get_logger
 logger = get_logger(__name__, start_time=start_time)
 
 
+def log_sparse_matrix_stats(matrix, name):
+    # NB see https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.csr_matrix.getnnz.html
+    num_neighbors = matrix.getnnz(axis=1)
+
+    unique_vals, counts = np.unique(num_neighbors, return_counts=True)
+    fractions = counts / len(num_neighbors)
+    sort_idx = np.argsort(fractions)[::-1]
+
+    fraction_strs = [
+        f"{unique_vals[i]} neighbors\t{fractions[i]:.1%}" for i in sort_idx
+    ]
+
+    if matrix.nnz > 0:
+        median_weight = np.median(matrix.data)
+    else:
+        median_weight = 0.0
+
+    logger.info(
+        f"{name} | Median edge weight: {median_weight:.2f} | "
+        f"Neighbor fractions:\n{'\n'.join(fraction_strs)}"
+    )
+
+
 # TODO respect alignment.
 def rectangle_partition(
     coords, x_part, y_part, single_tumor_prop=None, threshold=0.5, random_state=None
@@ -274,7 +297,7 @@ def construct_lattice_adjacency(
     tree = cKDTree(scaled_coords)
 
     # NB query (k+1) nearest neighbors, as includes self.
-    _, indices = tree.query(scaled_coords, k=coordination_num + 1)
+    _, indices = tree.query(scaled_coords, k=1 + coordination_num)
 
     indices = indices[:, 1:]
 
@@ -292,27 +315,13 @@ def construct_lattice_adjacency(
     rows = np.repeat(np.arange(n_spots), coordination_num)
     cols = indices.flatten()
 
-    # NB uniform (unit) edge weight, we will apply global spatial_weight in hmrf. 
+    # NB uniform (unit) edge weight, we will apply global spatial_weight in hmrf.
     data = np.ones(len(rows), dtype=np.float64)
 
     adjacency_mat = csr_matrix((data, (rows, cols)), shape=(n_spots, n_spots))
 
-    # NB see https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.csr_matrix.getnnz.html
-    num_neighbors = adjacency_mat.getnnz(axis=1)
-
-    unique_vals, counts = np.unique(num_neighbors, return_counts=True)
-    fractions = counts / len(num_neighbors)
-
-    sort_idx = np.argsort(fractions)[::-1]
-    
-    fraction_strs = [
-        f"{unique_vals[i]} neighbors\t{fractions[i]:.1%}" 
-        for i in sort_idx
-    ]
-    
-    logger.info(f"Lattice adjacency fractions:\n{'\n'.join(fraction_strs)}")
-
-    exit(0)
+    log_sparse_matrix_stats(smooth_mat, "smooth_mat")
+    log_sparse_matrix_stats(adjacency_mat, "adjacency_mat")
 
     return smooth_mat, adjacency_mat
 

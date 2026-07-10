@@ -104,7 +104,8 @@ def determine_normal_candidates(
                 res["new_assignment"] == id_nearnormal_clone
             )
 
-            if config.run.legacy and (
+            # DEPRECATE config.run_legacy.
+            if False and (
                 np.sum(single_X_rdr[:, (normal_candidate == True)])
                 > 200 * single_X.shape[0]  # MAGIC
             ):

@@ -339,13 +339,13 @@ def run_cnaster(config_path, over_rides=None):
 
     if config.phasing.run:
         # TODO DEPRECATE legacy?
-        if config.run.legacy:
-            logger.warning("Assuming (magic) five baf states for phasing.")
-            n_states_phasing = 5
-        else:
-            n_states_phasing = config.hmm.n_states
+        # if config.run.legacy:
+        #     logger.warning("Assuming (magic) five baf states for phasing.")
+        #     n_states_phasing = 5
+        # else:
+        n_states_phasing = config.hmm.n_states
 
-        # TODO HACK
+        # TODO HACK get ...
         transmat = (
             np.ones((config.hmm.n_states, config.hmm.n_states))
             * (1.0 - config.hmm.t)
@@ -521,7 +521,7 @@ def run_cnaster(config_path, over_rides=None):
         sample_list,
         coords,
         across_slice_adjacency_mat,
-        maxspots_pooling=config.hmrf.maxspots_pooling,
+        maxspots_pooling=1, # DEPRECATE config.hmrf.maxspots_pooling,
         unit_xsquared=config.hmrf.unit_xsquared,  # TODO
         unit_ysquared=config.hmrf.unit_ysquared,  # TODO
     )
@@ -1342,17 +1342,20 @@ def run_cnaster(config_path, over_rides=None):
             idx = s if res_combine["new_log_mu"].shape[1] > 1 else 0
 
             # TODO no correction for impacy of cnas on library size?
-            adjusted_log_mu = (
-                np.log(
-                    np.exp(res_combine["new_log_mu"][:, idx])
-                    / np.sum(
-                        lambd * np.exp(res_combine["new_log_mu"][this_pred_cnv, idx])
-                    )
-                )
-                if config.run.legacy
-                else res_combine["new_log_mu"][:, idx]
-            )  # TODO HACK BUG?
+            # adjusted_log_mu = (
+            #     np.log(
+            #         np.exp(res_combine["new_log_mu"][:, idx])
+            #         / np.sum(
+            #             lambd * np.exp(res_combine["new_log_mu"][this_pred_cnv, idx])
+            #         )
+            #     )
+            #     if config.run.legacy
+            #     else res_combine["new_log_mu"][:, idx]
+            # )  # TODO HACK BUG?
 
+            # TODO HACK BUG?
+            adjusted_log_mu = res_combine["new_log_mu"][:, idx]
+            
             logger.info(
                 f"For clone {cid}, normalized log mu to sum_bin lambda * np.exp(log_mu) = 1.; yielding new mu=\n{np.exp(adjusted_log_mu)}\ngiven mu=\n{np.exp(res_combine["new_log_mu"][:, idx])}."
             )

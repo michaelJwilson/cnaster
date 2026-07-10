@@ -118,8 +118,8 @@ class YAMLConfig:
             logger.warning(f"Assuming no baf-based phasing")
         if int(self.hmrf.n_clones_rdr) == 1:
             logger.warning(f"Assuming no rdr-based clone identification")
-        if not self.hmrf.np_merge:
-            logger.warning(f"Excluding Neyman-Pearson model testing")
+        # if not self.hmrf.np_merge:
+        #     logger.warning(f"Excluding Neyman-Pearson model testing")
         if self.hmrf.fixed_assignment:
             logger.warning(f"Assuming fixed assignment")
 

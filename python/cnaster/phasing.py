@@ -329,6 +329,7 @@ def initial_phase_given_partition(
 
     end_time = time.time()
 
+    # NB total number of blocks is conserved, but redistributed between "contigs".
     logger.info(
         f"Solved for {len(refined_lengths)} phase-refined lengths () given {len(lengths)} input lengths with sum={sum(lengths)} in {(end_time - start_time):.2f} seconds."
     )

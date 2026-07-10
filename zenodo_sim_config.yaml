@@ -23,7 +23,6 @@ annotation:
 
 run:
   cache : False
-  legacy : False # DEPRECATE
   bafonly : False
   pause : False
 
@@ -80,19 +79,11 @@ hmrf:
   n_clones_rdr : 2
   min_spots_per_clone : 100
   min_avgumi_per_clone : 10
-  maxspots_pooling : 1 # DEPRECATE
   tumorprop_threshold : 0.5 # DEPRECATE
   max_iter_outer : 25
-  nodepotential : max # DEPRECATE
   ari_tolerance : 1.0
-  initialization_method : rectangle # DEPRECATE
-  num_hmrf_initialization_start : 0 # DEPRECATE
-  num_hmrf_initialization_end : 1 # DEPRECATE
   spatial_weight : 1.0
   inertia : 0
-  construct_adjacency_method : hexagon # DEPRECATE
-  construct_adjacency_w : 1.0 # DEPRECATE
-  np_merge : False # DEPRECATE
   fixed_assignment : False
   unit_xsquared : 1
   unit_ysquared : 1
@@ -120,34 +111,25 @@ hmm:
   compression_decimals: 0
   max_iter : 100
   tol : 0.001
-  max_workers : 2
   gmm_random_state : 0
   gmm_maxiter: 30
   gmm_min_binom_prob: 0.0
   gmm_max_binom_prob: 1.0
-  np_threshold : 4.0
-  np_eventminlen : 5
+  # np_threshold : 4.0
+  # np_eventminlen : 5
   em_maxiter: 1500
   em_xtol: 1e-4
   em_ftol: 1e-4
   em_xrtol: 1e-4
   em_disp: 0
-  np_merge_threshold: 0.1
-
-# DEPRECATE
-# NB N sub-set of states will use the first N
-# TODO HACK start_disp : 1.0e-2 ->
-nbinom:
-  run_default : False 
-  start_params: 0.1,0.1,0.1,0.1,0.1,0.1,0.1
-  start_disp: 1.0e-1
+  # np_merge_threshold: 0.1
 
 # DEPRECATE
 # TODO HACK start_disp: 1 -> 20 -> 1_000.
 betabinom:
-  run_default : False
-  start_params: 0.5,0.5,0.5,0.5,0.5,0.5,0.5
-  start_disp: 1000.
+   run_default : False
+   start_params: 0.5,0.5,0.5,0.5,0.5,0.5,0.5
+   start_disp: 1000.
 
 # TODO HACK ploidy : "diploid,triploid,tetraploid" ->
 #           rdr_weight : 0.3 ->

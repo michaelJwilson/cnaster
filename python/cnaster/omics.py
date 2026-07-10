@@ -274,8 +274,6 @@ def binned_gene_snp(df_gene_snp, key="bin_id"):
         f"Finalizing genomic segment annotation for {table_bininfo.shape[0]} bins, given initial {len(df_gene_snp.gene.unique())} genes ({table_bininfo.shape[0] / len(df_gene_snp.gene.unique()):.2f} sampling)."
     )
 
-    exit(0)
-
     return table_bininfo
 
 

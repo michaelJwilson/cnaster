@@ -1,5 +1,3 @@
-import logging
-
 import numpy as np
 import pandas as pd
 from collections import namedtuple
@@ -8,6 +6,7 @@ from cnaster.reference import get_reference_genes, get_reference_recomb_rates
 from cnaster.utils import cacher
 from cnaster.config import start_time
 from cnaster.logger import get_logger
+from cnaster.recomb import get_sitewise_transmat
 
 logger = get_logger(__name__, start_time=start_time)
 
@@ -688,7 +687,7 @@ def summarize_counts_for_blocks(
         single_total_bb_RD=single_total_bb_RD,
     )
 
-
+'''
 def get_sitewise_transmat(df_gene_snp, geneticmap_file, nu, logphase_shift):
     """
     Phase switch probability from recombination rate / genetic distance [cM].
@@ -746,7 +745,7 @@ def get_sitewise_transmat(df_gene_snp, geneticmap_file, nu, logphase_shift):
 
     # NB returns array.
     return log_sitewise_transmat
-
+'''
 
 def greedy_binning_nobreak_legacy(
     block_lengths, block_umi, secondary_min_umi, max_binlength

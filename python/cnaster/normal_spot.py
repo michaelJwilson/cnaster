@@ -87,7 +87,11 @@ def determine_normal_candidates(
         )
 
         # NB measure the standard deviation of log-transformed, smoothed transcript counts for each spot.
-        vec_stds = np.std(np.log1p(single_X_rdr @ smooth_mat), axis=0)
+        if smooth_mat is not None:
+            vec_stds = np.std(np.log1p(single_X_rdr @ smooth_mat), axis=0)
+        else:
+            vec_stds = np.std(np.log1p(single_X_rdr), axis=0)
+
         prior_stdthreshold = np.inf
 
         while True:

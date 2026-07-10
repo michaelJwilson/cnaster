@@ -16,7 +16,7 @@ from cnaster.hmm_nophasing import hmm_nophasing
 # from cnaster.hmm_phased import hmm_phased
 from cnaster.hmrf import (  # hmrf_reassignment_posterior,; hmrfmix_reassignment_posterior,
     # aggr_hmrf_reassignment,
-    hmrfmix_concatenate_pipeline,
+    run_core_inference,
     merge_by_minspots,
     reindex_clones,
     # aggr_hmrfmix_reassignment,
@@ -681,7 +681,7 @@ def run_cnaster(config_path, over_rides=None):
 
     # TODO utilize <BLOCK COUNTS> data structure instead of single_X, etc.
     # TODO baf_res
-    res = hmrfmix_concatenate_pipeline(
+    res = run_core_inference(
         single_X,
         lengths,
         single_base_nb_mean,
@@ -1123,7 +1123,7 @@ def run_cnaster(config_path, over_rides=None):
         np.where(initial_rdr_clone_assignment == c)[0] for c in range(total_clones)
     ]
 
-    res_combine = hmrfmix_concatenate_pipeline(
+    res_combine = run_core_inference(
         single_X,
         lengths,
         single_base_nb_mean,
@@ -1134,7 +1134,7 @@ def run_cnaster(config_path, over_rides=None):
         prefix=None,
         coords=coords,
         log_sitewise_transmat=log_sitewise_transmat,
-        smooth_mat=smooth_mat,
+        smooth_mat=smooth_mat, # TODO HACK FINAL
         adjacency_mat=adjacency_mat,
         sample_ids=sample_ids,
         sample_list=sample_list,

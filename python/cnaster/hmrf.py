@@ -59,7 +59,7 @@ def validate_clone_ids(assignments):
 
     return True
 
-
+# TODO
 @njit(cache=True)
 def pool_hmrf_data(
     single_X,
@@ -182,7 +182,7 @@ def pool_hmrf_data(
         weighted_tp,
     )
 
-
+# TODO 
 @njit(parallel=True, cache=True)
 def compute_single_llf(
     N,
@@ -253,7 +253,7 @@ def compute_single_llf(
 
 
 # NB aggregate by smooth mat. with tumor/normal mix, spot reassignment, concatenated by clone?
-def aggr_hmrfmix_reassignment_concatenate(
+def pipeline_clone_assignment(
     single_X,
     single_base_nb_mean,
     single_total_bb_RD,
@@ -613,7 +613,7 @@ def validation_summary(
 
 
 # @count_calls
-def hmrfmix_concatenate_pipeline(
+def run_core_inference(
     single_X,
     lengths,
     single_base_nb_mean,
@@ -878,7 +878,7 @@ def hmrfmix_concatenate_pipeline(
         pred = np.argmax(res["log_gamma"], axis=0)
 
         # NB TODO 'max' clone assignment.
-        new_assignment, _, total_llf = aggr_hmrfmix_reassignment_concatenate(
+        new_assignment, _, total_llf = pipeline_clone_assignment(
             single_X,
             single_base_nb_mean,
             single_total_bb_RD,
@@ -1212,7 +1212,7 @@ def reindex_clones(res_combine, posterior=None, single_tumor_prop=None):
 
     return new_res_combine, new_posterior
 
-
+# TODO FINAL
 def merge_by_minspots(
     assignment,
     res,
@@ -1539,8 +1539,7 @@ def aggr_hmrf_reassignment(
         return new_assignment, single_llf, total_llf
 '''
 
-
-def aggr_hmrfmix_reassignment(
+def pipeline_clone_assignment_nostack(
     single_X,
     single_base_nb_mean,
     single_total_bb_RD,
@@ -1556,17 +1555,7 @@ def aggr_hmrfmix_reassignment(
     hmmclass=None,
     return_posterior=False,
 ):
-    """
-    DEPRECATED: This function is slow and unvectorized.
-    It has been re-routed to the highly optimized `aggr_hmrfmix_reassignment_concatenate`.
-    """
-    logger.warning(
-        "`aggr_hmrfmix_reassignment` is deprecated and will be removed in a future release. "
-        "Rerouting seamlessly to `aggr_hmrfmix_reassignment_concatenate`."
-    )
-
-    # Explicitly map the old positional arguments to the new kwargs
-    return aggr_hmrfmix_reassignment_concatenate(
+    return pipeline_clone_assignment(
         single_X=single_X,
         single_base_nb_mean=single_base_nb_mean,
         single_total_bb_RD=single_total_bb_RD,
@@ -1584,7 +1573,7 @@ def aggr_hmrfmix_reassignment(
         merge=True,
     )
 
-
+'''
 # DEPRECATE?
 def hmrf_reassignment_posterior(
     single_X,
@@ -1686,3 +1675,4 @@ def hmrf_reassignment_posterior(
         return new_assignment, single_llf, total_llf, posterior
     else:
         return new_assignment, single_llf, total_llf
+'''

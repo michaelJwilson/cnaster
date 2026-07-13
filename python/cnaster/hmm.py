@@ -11,7 +11,7 @@ from cnaster.cna_hmrf_result import (
 from cnaster.config import start_time
 from cnaster.hmm_initialize import gmm_init
 from cnaster.hmm_phased import hmm_phased
-from cnaster.hmm_nophasing import compute_logmu_shift
+from cnaster.hmm_nophasing import compute_logmu_shifts
 from cnaster.logger import get_logger
 
 logger = get_logger(__name__, start_time=start_time)
@@ -120,8 +120,8 @@ def pipeline_baum_welch(
         max_iter=max_iter,
         tol=tol,
         propagate_errors=propagate_errors,
-        lambd=normal_lambda,  # TODO FINAL
-        sample_length=clone_lengths,  # TODO FINAL
+        normal_lambda=normal_lambda,  # TODO FINAL
+        clone_lengths=clone_lengths,  # TODO FINAL
         log_gamma=None,  # TODO FINAL
     )
 

@@ -99,8 +99,8 @@ class hmm_phased(hmm_nophasing):
             nbEncoder, bbEncoder, log_mu, alphas, p_binom, taus, clone_stack=clone_stack
         )
 
-    @staticmethod
     def compute_emission_probability_nb_betabinom_coded(
+        self,
         nbEncoder,
         bbEncoder,
         log_mu,
@@ -110,6 +110,8 @@ class hmm_phased(hmm_nophasing):
         clone_stack=True,
         scratch_rdr=None,
         scratch_baf=None,
+        normal_log_lambda=None, # TODO FINAL
+        clone_lengths=None, # TODO FINAL
     ):
         n_states, n_spots = log_mu.shape
 

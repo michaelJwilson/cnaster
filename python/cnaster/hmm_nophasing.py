@@ -234,8 +234,8 @@ class hmm_nophasing:
         return log_emit_rdr, log_emit_baf
     """
 
-    @staticmethod
     def compute_emission_probability_nb_betabinom_coded(
+        self,
         nbEncoder,
         bbEncoder,
         log_mu,
@@ -271,10 +271,12 @@ class hmm_nophasing:
             )
 
             for i in range(n_states):
-                # TODO get_state_posteriors is log_gamma (monotonic).
-                # assert normal_log_lambda is not None and clone_lengths is not None
-                # copy_states = get_copy_states(self.get_state_posteriors(), includes_phased=False)
-                # logmu_shift = compute_logmu_shifts(log_mu, copy_states, normal_log_lambda, clone_lengths)
+                if normal_log_lambda is not None:
+                    log_gamma = self.get_state_posteriors()
+                    copy_states = self.get_copy_states(log_gamma, includes_phased=False)
+
+                    # NB clone concatenated
+                    logmu_shifts = compute_logmu_shifts(log_mu, copy_states, normal_log_lambda, clone_lengths)
 
                 # TODO fold in logmu_shifts; assumed concatenated (repeated) along the genomic axis.
                 _nb_logpmf_1d(
@@ -790,12 +792,12 @@ class hmm_nophasing:
         base_nb_mean,
         total_bb_RD,
         log_sitewise_transmat=None,
-        # tumor_prop=None,
+        tumor_prop=None, # TODO
         fix_NB_dispersion=False,
         shared_NB_dispersion=False,
         fix_BB_dispersion=False,
         shared_BB_dispersion=False,
-        # is_diag=False,
+        is_diag=False, # TODO
         init_log_mu=None,
         init_p_binom=None,
         init_alphas=None,
@@ -807,7 +809,9 @@ class hmm_nophasing:
         propagate_errors=False,
         optimizer="BFGS",
         clone_lengths=None,
-        **kwargs,
+        normal_lambda=None,
+        log_gamma=None, # TODO
+        # **kwargs,
     ):
         _, n_comp, n_spots = X.shape
         assert (
@@ -823,10 +827,15 @@ class hmm_nophasing:
                 base_nb_mean[est_rdr > max_rdr] = 0.0
 
         optimize_nb = np.any(base_nb_mean > 0)
+        normal_log_lambda = None
+        
         if "m" in self.params:
             assert (
                 optimize_nb
             ), "Cannot optimize negative binomial if normal baseline is not defined."
+
+            normal_log_lambda = np.log(normal_lambda) if normal_lambda is not None else None
+            assert clone_lengths is not None
 
         nbEncoder = CountEncoder(X[:, 0, :], base_nb_mean)
         bbEncoder = CountEncoder(X[:, 1, :], total_bb_RD)
@@ -842,10 +851,10 @@ class hmm_nophasing:
             )
         )
 
-        kwargs_str = pprint.pformat(kwargs, indent=2) if kwargs else "{}"
+        # kwargs_str = pprint.pformat(kwargs, indent=2) if kwargs else "{}"
         logger.info(
             f"--- hmm initialized ({mode.upper()}) ---\n"
-            f"kwargs:\n{kwargs_str}\n"
+            # f"kwargs:\n{kwargs_str}\n"
             f"log_mu:\n{np.array2string(log_mu, precision=4, suppress_small=True)}\n"
             f"p_binom:\n{np.array2string(p_binom, precision=4, suppress_small=True)}\n"
             f"alphas:\n{np.array2string(alphas, precision=4, suppress_small=True)}\n"
@@ -924,6 +933,8 @@ class hmm_nophasing:
                         this_taus,
                         scratch_rdr=scratch_rdr,
                         scratch_baf=scratch_baf,
+                        normal_log_lambda=normal_log_lambda,
+                        clone_lengths=clone_lengths,
                     )
                 )
                 self.log_emissions = (log_emission_rdr + log_emission_baf)[
@@ -994,7 +1005,9 @@ class hmm_nophasing:
             "ftol": 1e-6,
             "gtol": 1e-5,
             "disp": False,
-        } | kwargs.get("options", {})
+        }
+
+        # options = options | kwargs.get("options", {})
 
         bounds = self.get_bounds(
             n_states,

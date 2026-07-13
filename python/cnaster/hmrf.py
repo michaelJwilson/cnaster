@@ -101,7 +101,7 @@ def pool_spatio_genomic_counts(
 
 
 @njit(parallel=True, cache=True)
-def compute_loglike_spot_clone_assignment(
+def compute_loglike_spot_assignment(
     n_spots,
     num_valid_nb_spotwise,
     num_valid_bb_spotwise,
@@ -265,7 +265,7 @@ def pipeline_clone_assignment(
 
     # NB computes the log likelihood for each spot, for all clones, given the "pooling" strategy,
     #    no longer IID and erroneously weights rdr and baf according to number of non-zero segments.
-    loglike_spot_clone_assignment = compute_loglike_spot_clone_assignment(
+    loglike_spot_clone_assignment = compute_loglike_spot_assignment(
         N,
         num_valid_nb_spotwise,
         num_valid_bb_spotwise,
@@ -369,9 +369,6 @@ def pipeline_clone_assignment(
 
     # NB loglike_spot_clone_assignment was the log likelihood of each spot given that its label is each clone, i.e. unary Potts term;
     #    sum this assuming iid given new assignment.
-    #
-    # log_likelihood = np.sum(loglike_spot_clone_assignment[np.arange(N), new_assignment])
-
     log_likelihood = np.sum(
         np.take_along_axis(
             loglike_spot_clone_assignment, new_assignment.astype(int)[:, None], axis=1

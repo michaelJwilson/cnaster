@@ -45,7 +45,6 @@ def betabinom_logpmf_numba(k, n, alpha, beta, parameter_terms_only=True):
 
 @njit(nogil=True, cache=True, error_model="numpy")
 def _nb_logpmf_1d(obs, exposure, mu, alpha, out):
-    # out = np.zeros_like(obs, dtype=np.float64)
     r = 1.0 / max(alpha, 1.0e-10)
 
     for i in range(len(obs)):
@@ -59,19 +58,14 @@ def _nb_logpmf_1d(obs, exposure, mu, alpha, out):
         p = 1.0 / (1.0 + alpha * lambda_i)
         out[i] = nbinom_logpmf_numba(k, r, p)
 
-    # return out
-
 
 @njit(nogil=True, cache=True, error_model="numpy")
 def _bb_logpmf_1d(obs, total, p_binom, tau, out, EPS=1e-10):
-    # out = np.zeros_like(obs, dtype=np.float64)
     alpha = max(p_binom * tau, EPS)
     beta = max((1.0 - p_binom) * tau, EPS)
 
     for i in range(len(obs)):
         out[i] = betabinom_logpmf_numba(obs[i], total[i], alpha, beta)
-
-    # return out
 
 
 @njit(nogil=True, cache=True, parallel=True, error_model="numpy")
@@ -86,9 +80,6 @@ def _dense_nb_logpmf(X_nb, base_nb_mean, log_mu, alphas):
         alpha_val = alphas[i, 0]
 
         for s in range(n_spots):
-            # out[i, :, s] = _nb_logpmf_1d(
-            #     X_nb[:, s], base_nb_mean[:, s], mu_val, alpha_val
-            # )
             _nb_logpmf_1d(
                 X_nb[:, s], base_nb_mean[:, s], mu_val, alpha_val, out[i, :, s]
             )
@@ -139,6 +130,36 @@ def get_log_transmat(n_states, t):
         log_transmat = np.zeros((1, 1))
 
     return log_transmat
+
+def compute_logmu_shift(n_states, log_mu, log_gamma, normal_lambda, clone_lengths):
+    # NB per-clone shift in log_mu due to (clone) library normalization, used to
+    #    debias inferred mus.
+    num_clones, log_normal_lambda = len(clone_lengths), np.log(normal_lambda)
+    logmu_shift = []
+
+    for c in range(num_clones):
+        copy_states = (
+            np.argmax(
+                log_gamma[
+                    :,
+                    np.sum(clone_lengths[:c]) : np.sum(
+                        clone_lengths[: (c + 1)]
+                    ),
+                ],
+                axis=0,
+            )
+            % n_states
+        )
+
+        logmu_shift.append(
+            scipy.special.logsumexp(
+                log_mu[copy_states, :]
+                + log_normal_lambda.reshape(-1, 1),
+                axis=0,
+            )
+        )
+
+    return np.vstack(logmu_shift)
 
 
 class hmm_nophasing:
@@ -735,22 +756,23 @@ class hmm_nophasing:
         base_nb_mean,
         total_bb_RD,
         log_sitewise_transmat=None,
-        tumor_prop=None,
+        # tumor_prop=None,
         fix_NB_dispersion=False,
         shared_NB_dispersion=False,
         fix_BB_dispersion=False,
         shared_BB_dispersion=False,
-        is_diag=False,
+        # is_diag=False,
         init_log_mu=None,
         init_p_binom=None,
         init_alphas=None,
         init_taus=None,
-        max_iter=1000,
+        max_iter=1_000,
         max_rdr=5.0,
         tol=1e-4,
         use_logit=True,
         propagate_errors=False,
         optimizer="BFGS",
+        clone_lengths=None,
         **kwargs,
     ):
         _, n_comp, n_spots = X.shape

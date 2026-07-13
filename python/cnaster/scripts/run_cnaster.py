@@ -665,7 +665,7 @@ def run_cnaster(config_path, over_rides=None):
     )
 
     # NB new pseduo-bulk given new assignment of spots to clones.
-    X, base_nb_mean, total_bb_RD, tumor_prop = merge_pseudobulk_by_index_mix(
+    X, base_nb_mean, _, tumor_prop = merge_pseudobulk_by_index_mix(
         single_X,
         single_base_nb_mean,
         single_total_bb_RD,

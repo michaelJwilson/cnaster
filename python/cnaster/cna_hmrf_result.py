@@ -45,6 +45,7 @@ class HMMParams(LockableMixin):
     new_taus: np.ndarray
     new_log_startprob: np.ndarray
     new_log_transmat: np.ndarray
+    new_log_mu_shift: np.ndarray | None = None
 
 
 @dataclass

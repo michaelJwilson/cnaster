@@ -6,6 +6,7 @@ from cnaster.cna_hmrf_result import (CloneAssignment, CnaHMRFResult,
 from cnaster.config import start_time
 from cnaster.hmm_initialize import gmm_init
 from cnaster.hmm_phased import hmm_phased
+from cnaster.hmm_nophasing import compute_logmu_shift
 from cnaster.logger import get_logger
 
 logger = get_logger(__name__, start_time=start_time)
@@ -144,61 +145,13 @@ def pipeline_baum_welch(
     logger.info("Computing emission prob. given best-fit parameters.")
 
     (
-        log_emission_rdr,  # NB emission prob. for RDR.
-        log_emission_baf,  # NB emission prob. for BAF.
+        log_emission_rdr,
+        log_emission_baf,
     ) = hmmclass.compute_emission_probability_nb_betabinom(
         X, base_nb_mean, new_log_mu, new_alphas, total_bb_RD, new_p_binom, new_taus
     )
-    """
-    # NB re-normalize logmu according to the inferred copy number states, denominator is
-    #    the total expected read count.
-    if ("m" in params) and ("sample_length" in kwargs):
-        logger.warning(
-            f"Applying logmu_shift to renormalized total expect read count according to current CNA profile."
-        )
-        logmu_shift = []
 
-        # NB presumably one per contig.
-        for c in range(len(kwargs["sample_length"])):
-            this_pred_cnv = (
-                np.argmax(
-                    log_gamma[
-                        :,
-                        np.sum(kwargs["sample_length"][:c]) : np.sum(
-                            kwargs["sample_length"][: (c + 1)]
-                        ),
-                    ],
-                    axis=0,
-                )
-                % n_states
-            )
-
-            logmu_shift.append(
-                scipy.special.logsumexp(
-                    new_log_mu[this_pred_cnv, :]
-                    + np.log(kwargs["lambd"]).reshape(-1, 1),
-                    axis=0,
-                )
-            )
-
-        logmu_shift = np.vstack(logmu_shift)
-
-        (
-            log_emission_rdr,
-            log_emission_baf,
-        ) = hmmclass.compute_emission_probability_nb_betabinom_mix(
-            X,
-            base_nb_mean,
-            new_log_mu,
-            new_alphas,
-            total_bb_RD,
-            new_p_binom,
-            new_taus,
-            tumor_prop,
-            logmu_shift=logmu_shift,
-            sample_length=kwargs["sample_length"],
-        )
-        """
+    # logmu_shift = compute_logmu_shift(n_states, new_log_mu, log_gamma, normal_lambda, clone_lengths)
 
     # NB assumed independent.
     log_emission = log_emission_rdr + log_emission_baf
@@ -252,6 +205,7 @@ def pipeline_baum_welch(
     return CnaHMRFResult(
         params=HMMParams(
             new_log_mu=new_log_mu,
+            # new_log_mu_shift=logmu_shift,
             new_alphas=new_alphas,
             new_p_binom=new_p_binom,
             new_taus=new_taus,

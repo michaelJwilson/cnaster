@@ -162,7 +162,9 @@ def run_cnaster(config_path, over_rides=None):
 
     if config.annotation.clone_ranges is not None:
         clone_ranges = load_clone_ranges(config.annotation.clone_ranges)
-        df_gene_snp = assign_clone_ranges(df_gene_snp, clone_ranges, key="known_id", collapse=False)
+        df_gene_snp = assign_clone_ranges(
+            df_gene_snp, clone_ranges, key="known_id", collapse=False
+        )
 
     pause()
 
@@ -240,9 +242,7 @@ def run_cnaster(config_path, over_rides=None):
     known_clone_assignment = known_nb_baseline = None
 
     if config.annotation.clone_label is not None:
-        known_clone_assignment, known_nb_baseline = load_clone_labels(
-            single_X, config
-        )
+        known_clone_assignment, known_nb_baseline = load_clone_labels(single_X, config)
         initial_clone_for_phasing = known_clone_assignment.copy()
 
     else:

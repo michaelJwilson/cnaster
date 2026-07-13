@@ -9,6 +9,7 @@ from sklearn.metrics import adjusted_rand_score
 
 from cnaster.config import get_global_config, start_time
 from cnaster.hmm import pipeline_baum_welch
+
 # from cnaster.wolff import wolff_sweep
 from cnaster.hmm_initialize import cna_mixture_init, gmm_init
 from cnaster.hmm_phased import hmm_phased
@@ -56,7 +57,7 @@ def pool_spatio_genomic_counts(
         # NB vaild neighbors have finite tumor proportion if is_tumor_mixed.
         valid_neighbors = []
 
-        # TODO tumor prop. is not currently supported. 
+        # TODO tumor prop. is not currently supported.
         for k in range(start_idx, end_idx):
             col = smooth_indices[k]
 
@@ -67,7 +68,7 @@ def pool_spatio_genomic_counts(
                 valid_neighbors.append(col)
 
         num_valid_neighbors = len(valid_neighbors)
-        
+
         # NB assigned zero to pooled_X, pooled_base_nb_mean, pooled_total_bb_RD
         #    if no valid neighbors.
         if num_valid_neighbors == 0:
@@ -117,7 +118,7 @@ def compute_loglike_spot_clone_assignment(
 ):
     """
     Calculates the (log) emission likelihood for each spot, for all clones.
-    Optionally, applies a relative weighting to the rdr and baf likelihoods, 
+    Optionally, applies a relative weighting to the rdr and baf likelihoods,
     based on the number of valid segments for each emission type.
     """
     # NB compute the log likelihood for each spot, for all clones.
@@ -146,7 +147,9 @@ def compute_loglike_spot_clone_assignment(
 
             # NB both normal and baf signals available.
             if pooled_num_valid_nb_spotwise > 0 and pooled_num_valid_bb_spotwise > 0:
-                rel_valid_emision_weight[i] = pooled_num_valid_bb_spotwise / pooled_num_valid_nb_spotwise
+                rel_valid_emision_weight[i] = (
+                    pooled_num_valid_bb_spotwise / pooled_num_valid_nb_spotwise
+                )
 
     # NB Numba evaluates .ndim at compile_time. This creates a zero-cost branch.
     is_1d_pred = pred.ndim == 1
@@ -156,12 +159,14 @@ def compute_loglike_spot_clone_assignment(
             spot_log_like_rdr, spot_log_like_baf = 0.0, 0.0
 
             for o in range(n_obs):
-                copy_state = pred[c * n_obs + o]if is_1d_pred else pred[o, c]
+                copy_state = pred[c * n_obs + o] if is_1d_pred else pred[o, c]
 
                 spot_log_like_rdr += log_emission_rdr[copy_state, o, spot]
                 spot_log_like_baf += log_emission_baf[copy_state, o, spot]
 
-            loglike_spot_clone_assignment[spot, c] = rel_valid_emision_weight[spot] * spot_log_like_rdr + spot_log_like_baf
+            loglike_spot_clone_assignment[spot, c] = (
+                rel_valid_emision_weight[spot] * spot_log_like_rdr + spot_log_like_baf
+            )
 
     return loglike_spot_clone_assignment
 
@@ -364,19 +369,19 @@ def pipeline_clone_assignment(
 
     # NB loglike_spot_clone_assignment was the log likelihood of each spot given that its label is each clone, i.e. unary Potts term;
     #    sum this assuming iid given new assignment.
-    # 
+    #
     # log_likelihood = np.sum(loglike_spot_clone_assignment[np.arange(N), new_assignment])
 
-    log_likelihood = np.sum(np.take_along_axis(
-         loglike_spot_clone_assignment, 
-         new_assignment.astype(int)[:, None], 
-         axis=1
-    ))
+    log_likelihood = np.sum(
+        np.take_along_axis(
+            loglike_spot_clone_assignment, new_assignment.astype(int)[:, None], axis=1
+        )
+    )
 
     # NB add the pairwise cost for this assignment, according to the (weighted) number of neighbors with the same assignment.
     #    does __not__account for any edge weighting, i.e. assumes all edges are equal.
-    # 
-    # 
+    #
+    #
     # TODO double counts edges.
     # for i in range(N):
     #     log_likelihood += np.sum(
@@ -394,7 +399,9 @@ def pipeline_clone_assignment(
     select_adj_rows = adj_rows[unique_edges_mask]
     select_adj_cols = adj_cols[unique_edges_mask]
 
-    num_aligned = np.sum(new_assignment[select_adj_rows] == new_assignment[select_adj_cols])
+    num_aligned = np.sum(
+        new_assignment[select_adj_rows] == new_assignment[select_adj_cols]
+    )
 
     log_likelihood += spatial_weight * num_aligned
 
@@ -458,7 +465,7 @@ def run_core_inference(
     tmp_map_index = {unique_sample_ids[i]: i for i in range(len(unique_sample_ids))}
     sample_ids = np.array([tmp_map_index[x] for x in sample_ids])
 
-    has_normal_lambda = np.count_nonzero(single_base_nb_mean > 0.)
+    has_normal_lambda = np.count_nonzero(single_base_nb_mean > 0.0)
     normal_lambda = None
 
     # NB baseline expression by summing over all clones; should be zero for BAF only.
@@ -592,7 +599,7 @@ def run_core_inference(
             tol=tol,
             normal_lambda=normal_lambda,
             clone_lengths=clone_lengths,
-            init_log_gamma = None # res.get("log_gamma", None)
+            init_log_gamma=None,  # res.get("log_gamma", None)
         )
 
         # NB MAP copy state, irrespective of phasing. contrast to "pred_cnv".
@@ -772,7 +779,7 @@ def run_core_inference(
         tol=tol,
         normal_lambda=normal_lambda,
         clone_lengths=clone_lengths,
-        init_log_gamma = None, # res.get("log_gamma", None)
+        init_log_gamma=None,  # res.get("log_gamma", None)
         propagate_errors=propagate_hmm_param_errors,
     )
 

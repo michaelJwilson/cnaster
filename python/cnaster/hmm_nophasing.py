@@ -131,6 +131,7 @@ def get_log_transmat(n_states, t):
 
     return log_transmat
 
+
 def compute_logmu_shift(n_states, log_mu, log_gamma, normal_lambda, clone_lengths):
     # NB per-clone shift in log_mu due to (clone) library normalization, used to
     #    debias inferred mus.
@@ -142,9 +143,7 @@ def compute_logmu_shift(n_states, log_mu, log_gamma, normal_lambda, clone_length
             np.argmax(
                 log_gamma[
                     :,
-                    np.sum(clone_lengths[:c]) : np.sum(
-                        clone_lengths[: (c + 1)]
-                    ),
+                    np.sum(clone_lengths[:c]) : np.sum(clone_lengths[: (c + 1)]),
                 ],
                 axis=0,
             )
@@ -153,8 +152,7 @@ def compute_logmu_shift(n_states, log_mu, log_gamma, normal_lambda, clone_length
 
         logmu_shift.append(
             scipy.special.logsumexp(
-                log_mu[copy_states, :]
-                + log_normal_lambda.reshape(-1, 1),
+                log_mu[copy_states, :] + log_normal_lambda.reshape(-1, 1),
                 axis=0,
             )
         )

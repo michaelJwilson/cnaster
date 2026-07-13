@@ -1,8 +1,13 @@
 import numpy as np
 import scipy.special
 
-from cnaster.cna_hmrf_result import (CloneAssignment, CnaHMRFResult,
-                                     HMMParamErrors, HMMParams, HMMProfile)
+from cnaster.cna_hmrf_result import (
+    CloneAssignment,
+    CnaHMRFResult,
+    HMMParamErrors,
+    HMMParams,
+    HMMProfile,
+)
 from cnaster.config import start_time
 from cnaster.hmm_initialize import gmm_init
 from cnaster.hmm_phased import hmm_phased
@@ -115,9 +120,9 @@ def pipeline_baum_welch(
         max_iter=max_iter,
         tol=tol,
         propagate_errors=propagate_errors,
-        lambd=normal_lambda, # TODO FINAL
-        sample_length=clone_lengths, # TODO FINAL
-        log_gamma=None, # TODO FINAL
+        lambd=normal_lambda,  # TODO FINAL
+        sample_length=clone_lengths,  # TODO FINAL
+        log_gamma=None,  # TODO FINAL
     )
 
     # TODO

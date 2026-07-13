@@ -521,17 +521,14 @@ def assign_initial_blocks(
         df_gene_snp["known_id"] = df_gene_snp["known_id"].astype("Int64")
 
         unique_ids = df_gene_snp["known_id"].dropna().unique()
-        unique_ids = np.sort(unique_ids) # Ensure order is consistent
-        
+        unique_ids = np.sort(unique_ids)  # Ensure order is consistent
+
         mapping = {old_id: i for i, old_id in enumerate(unique_ids)}
-        
+
         df_gene_snp["block_id"] = (
-            df_gene_snp["known_id"]
-            .map(mapping)
-            .fillna(-1)
-            .astype(int)
+            df_gene_snp["known_id"].map(mapping).fillna(-1).astype(int)
         )
-        
+
         return df_gene_snp
 
     logger.info(

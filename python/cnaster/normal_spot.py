@@ -1042,4 +1042,6 @@ def normal_baf_bin_filter(
         lengths
     ), f"{df_gene_snp['bin_id'].notna().sum()} != {sum(lengths)}"
 
-    return df_gene_snp, SpatioGenomicCounts(lengths, single_X, single_base_nb_mean, single_total_bb_RD)
+    return df_gene_snp, SpatioGenomicCounts(
+        lengths, single_X, single_base_nb_mean, single_total_bb_RD
+    )

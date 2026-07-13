@@ -7,7 +7,8 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from pathlib import Path
 
-pd.set_option('display.max_rows', None)
+pd.set_option("display.max_rows", None)
+
 
 def load_validation_stats(stats_dir):
     stats_path = Path(stats_dir)
@@ -15,7 +16,7 @@ def load_validation_stats(stats_dir):
     for ypath in stats_path.glob("validation_stats_*.yaml"):
         with open(ypath, "r") as f:
             data = yaml.safe_load(f)
-        
+
         row = {
             "sample_id": data.get("sample_id"),
             "initialization": data.get("initialization"),
@@ -40,7 +41,9 @@ def load_validation_stats(stats_dir):
 
     for c in ["numcnas", "cnasize", "ploidy"]:
         extracted[c] = pd.to_numeric(extracted[c], errors="coerce")
-    extracted["random"] = pd.to_numeric(extracted["random"], downcast="integer", errors="coerce")
+    extracted["random"] = pd.to_numeric(
+        extracted["random"], downcast="integer", errors="coerce"
+    )
 
     # Group label including ploidy (remove only random)
     group = df["sample_id"].astype(str).str.replace(r"_random\d+$", "", regex=True)
@@ -64,6 +67,7 @@ def plot_metrics(df, method, output_dir=None):
             return float(x)
         except Exception:
             return np.nan
+
     order_df = (
         df[["group", "numcnas", "cnasize"]]
         .dropna()
@@ -83,11 +87,11 @@ def plot_metrics(df, method, output_dir=None):
             return str(x)
         if x > 0:
             exp = int(np.round(np.log10(x)))
-            if np.isclose(x, 10 ** exp, rtol=1e-8, atol=0):
+            if np.isclose(x, 10**exp, rtol=1e-8, atol=0):
                 return f"1e{exp}"
         s = np.format_float_scientific(x, precision=0, exp_digits=1)
         return s.replace("+0", "").replace("+", "")
-    
+
     label_map = {
         r.group: f"({str(r.numcnas).replace('.',',')}, {_compact_size(r.cnasize)})"
         for r in order_df.itertuples(index=False)
@@ -137,16 +141,16 @@ def plot_metrics(df, method, output_dir=None):
         ax = axes[r, c]
         used_axes.add((r, c))
         data_m = df_melt[df_melt["metric"] == metric]
-        
+
         # Filter to only groups that have at least one non-NaN value for this metric
         data_m_valid = data_m.dropna(subset=["value"])
         present_groups = [g for g in group_order if g in set(data_m_valid["group"])]
-        
+
         # If no data at all, skip this panel
         if not present_groups:
             ax.set_visible(False)
             continue
-        
+
         sns.boxplot(
             data=data_m_valid,
             x="group",
@@ -176,9 +180,9 @@ def plot_metrics(df, method, output_dir=None):
         )
         ax.grid(False)
         ax.set_ylabel(metric_labels.get(metric, metric))
-        
+
         ax.set_ylim(-0.05, 1.05)
-        
+
         # Bottom row: axis label + tick labels; other rows: hide tick labels
         if r == nrows - 1:
             ax.set_xlabel(r"CNA realization type")
@@ -203,27 +207,31 @@ def plot_metrics(df, method, output_dir=None):
     out_path = Path(".") / f"{method}_validation.pdf"
     fig.savefig(out_path, bbox_inches="tight", dpi=300)
 
+
 def main():
     method = "calicost"
     # method = "cnaster"
-    
+
     stats_dir = f"/Users/mw9568/Work/ragr/sim/stats/{method}"
     df = load_validation_stats(stats_dir)
-    
+
     plot_metrics(df, method, output_dir=stats_dir)
 
     df_rank = df.copy()
-    df_rank["__loglike__"] = pd.to_numeric(df_rank["loglike"], errors="coerce").fillna(-np.inf)
+    df_rank["__loglike__"] = pd.to_numeric(df_rank["loglike"], errors="coerce").fillna(
+        -np.inf
+    )
     idx = df_rank.groupby("sample_id")["__loglike__"].idxmax()
     df_best = df_rank.loc[idx].drop(columns=["__loglike__"]).reset_index(drop=True)
-    
+
     df_best = df_best.sort_values(["cna_recovery_rate"], ascending=[True])
-    
+
     # Drop columns before printing
     cols_to_drop = ["numcnas", "cnasize", "ploidy", "random", "group"]
-    df_print = df_best.drop(columns=cols_to_drop, errors='ignore')
-    
+    df_print = df_best.drop(columns=cols_to_drop, errors="ignore")
+
     print(df_print)
+
 
 if __name__ == "__main__":
     main()

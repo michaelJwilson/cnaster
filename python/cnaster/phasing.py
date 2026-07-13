@@ -4,10 +4,12 @@ import numpy as np
 
 from cnaster.config import get_global_config, start_time
 from cnaster.hmm_initialize import cna_mixture_init, gmm_init
+
 # from collections import namedtuple
 # from cnaster.utils import cacher
 # from cnaster.hmm import pipeline_baum_welch, hmm_sitewise
 from cnaster.hmm_phased import hmm_phased
+
 # from cnaster.hmm_nophasing import hmm_nophasing
 from cnaster.hmrf_utils import clone_stack_obs
 from cnaster.logger import get_logger

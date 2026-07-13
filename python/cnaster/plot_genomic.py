@@ -2,6 +2,7 @@ from typing import Any, Dict, Optional
 
 import matplotlib.colors as mcolors
 import matplotlib.gridspec as gridspec
+
 # from cnaster.hmm_nophasing import hmm_nophasing
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
@@ -16,8 +17,7 @@ from cnaster.hmm_phased import hmm_phased
 from cnaster.logger import get_logger
 from cnaster.palette import get_full_palette
 from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
-from cnaster.utils import (cast_clone_label, get_intervals, top_hat_sum,
-                           write_fig)
+from cnaster.utils import cast_clone_label, get_intervals, top_hat_sum, write_fig
 
 logger = get_logger(__name__, start_time=start_time)
 

@@ -1,6 +1,7 @@
 import copy
 
 import numpy as np
+
 # from cnaster.config import get_global_config
 from scipy.optimize import Bounds, LinearConstraint, milp
 from scipy.sparse import lil_matrix

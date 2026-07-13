@@ -1,4 +1,5 @@
 import heapq
+
 # from cnaster.wolff import build_wolff_cluster
 from collections import deque
 
@@ -11,8 +12,6 @@ from cnaster.hmrf_utils import hmrf_perf_entry
 from cnaster.logger import get_logger
 
 # from dataclasses import dataclass, asdict, field
-
-
 
 
 logger = get_logger(__name__, start_time=start_time)

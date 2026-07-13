@@ -458,18 +458,22 @@ def run_core_inference(
     tmp_map_index = {unique_sample_ids[i]: i for i in range(len(unique_sample_ids))}
     sample_ids = np.array([tmp_map_index[x] for x in sample_ids])
 
-    has_normal_baseline = np.count_nonzero(single_base_nb_mean) > 0
-    normal_baseline = None
+    has_normal_lambda = np.count_nonzero(single_base_nb_mean > 0.)
+    normal_lambda = None
 
     # NB baseline expression by summing over all clones; should be zero for BAF only.
-    if not has_normal_baseline:
+    if not has_normal_lambda:
         logger.warning(
             f"Found ill-defined normal baseline; corresponds to baf only run."
         )
     else:
+        # NB expect the normal baseline, scaled by the total number of transcripts per spot.
         with np.errstate(divide="ignore", invalid="ignore"):
-            normal_baseline = np.sum(single_base_nb_mean, axis=1)
-            normal_baseline /= np.sum(normal_baseline)
+            # TBC sum over all spots, lamba x total sample transcripts.
+            normal_lambda = np.sum(single_base_nb_mean, axis=1)
+
+            # NB lambda.
+            normal_lambda /= np.sum(single_base_nb_mean)
 
     # NB aggregation to pseudobulk based on current clone assignment of spots.
     X, base_nb_mean, total_bb_RD, tumor_prop = merge_pseudobulk_by_index_mix(
@@ -586,7 +590,7 @@ def run_core_inference(
             init_taus=last_taus,
             max_iter=max_iter,
             tol=tol,
-            normal_baseline=normal_baseline,
+            normal_lambda=normal_lambda,
             clone_lengths=clone_lengths,
             init_log_gamma = None # res.get("log_gamma", None)
         )
@@ -766,7 +770,7 @@ def run_core_inference(
         init_taus=last_taus,
         max_iter=max_iter,
         tol=tol,
-        normal_baseline=normal_baseline,
+        normal_lambda=normal_lambda,
         clone_lengths=clone_lengths,
         init_log_gamma = None, # res.get("log_gamma", None)
         propagate_errors=propagate_hmm_param_errors,

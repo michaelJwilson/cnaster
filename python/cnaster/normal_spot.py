@@ -156,7 +156,7 @@ def determine_normal_baseline(single_X_rdr, normal_candidate, config=None):
     # NB avoid ill-defined distributions if normal has 0 count in that bin.
     single_X_rdr[bidx_inconfident, :] = 0
 
-    # NB replicate and normalize rdr_normal to the per-spot total transcripts, T_n.
+    # NB replicate and normalize rdr_normal to the per-spot total transcripts, T_n, after zero'ing.
     spots_coverage = np.sum(single_X_rdr, axis=0)
 
     single_base_nb_mean = rdr_normal.reshape(-1, 1) @ spots_coverage.reshape(1, -1)

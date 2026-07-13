@@ -56,7 +56,7 @@ def pipeline_baum_welch(
     propagate_errors=False,
     max_iter=100,
     tol=1e-4,
-    normal_baseline=None,
+    normal_lambda=None,
     clone_lengths=None,
     init_log_gamma=None,
 ):
@@ -114,7 +114,7 @@ def pipeline_baum_welch(
         max_iter=max_iter,
         tol=tol,
         propagate_errors=propagate_errors,
-        lambd=normal_baseline, # TODO FINAL
+        lambd=normal_lambda, # TODO FINAL
         sample_length=clone_lengths, # TODO FINAL
         log_gamma=None, # TODO FINAL
     )

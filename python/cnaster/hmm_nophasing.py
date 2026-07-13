@@ -99,9 +99,6 @@ def _dense_bb_logpmf(X_bb, total_bb_RD, p_binom, taus, EPS=1e-10):
         tau_val = taus[i, 0]
 
         for s in range(n_spots):
-            # out[i, :, s] = _bb_logpmf_1d(
-            #     X_bb[:, s], total_bb_RD[:, s], p_val, tau_val, EPS
-            # )
             _bb_logpmf_1d(
                 X_bb[:, s], total_bb_RD[:, s], p_val, tau_val, out[i, :, s], EPS
             )
@@ -132,33 +129,54 @@ def get_log_transmat(n_states, t):
     return log_transmat
 
 
-def compute_logmu_shift(n_states, log_mu, log_gamma, normal_lambda, clone_lengths):
+@njit(nogil=True, cache=True, parallel=False, error_model="numpy")
+def compute_logmu_shifts(log_mus, copy_states, normal_log_lambda, clone_lengths):
     # NB per-clone shift in log_mu due to (clone) library normalization, used to
-    #    debias inferred mus.
-    num_clones, log_normal_lambda = len(clone_lengths), np.log(normal_lambda)
-    logmu_shift = []
+    #    debias inferred mus; assumes clones concatenate along the genomic axis.
+    """
+    return scipy.special.logsumexp(
+        log_mu[clone_copy_states, :] + normal_log_lambda.reshape(-1, 1),
+        axis=0,
+    )
+    """
+    n_clones = len(clone_lengths)
+    n_segments = len(copy_states)
+    
+    logmu_shifts = np.empty(n_segments, dtype=np.float64)
+    
+    start_idx = 0
+    
+    for c in range(n_clones):
+        clone_len = clone_lengths[c]
+        
+        max_val = -np.inf
 
-    for c in range(num_clones):
-        copy_states = (
-            np.argmax(
-                log_gamma[
-                    :,
-                    np.sum(clone_lengths[:c]) : np.sum(clone_lengths[: (c + 1)]),
-                ],
-                axis=0,
-            )
-            % n_states
-        )
+        for i in range(clone_len):
+            idx = start_idx + i
+            state = copy_states[idx]
+            val = log_mus[state] + normal_log_lambda[idx]
+            
+            if val > max_val:
+                max_val = val
 
-        logmu_shift.append(
-            scipy.special.logsumexp(
-                log_mu[copy_states, :] + log_normal_lambda.reshape(-1, 1),
-                axis=0,
-            )
-        )
-
-    return np.vstack(logmu_shift)
-
+        if np.isinf(max_val):
+            shift_val = max_val
+        else:
+            sum_exp = 0.0
+            for i in range(clone_len):
+                idx = start_idx + i
+                state = copy_states[idx]
+                val = log_mus[state] + normal_log_lambda[idx]
+                
+                sum_exp += np.exp(val - max_val)
+                
+            shift_val = max_val + np.log(sum_exp)
+            
+        logmu_shifts[start_idx : start_idx + clone_len] = shift_val
+            
+        start_idx += clone_len
+        
+    return logmu_shifts
 
 class hmm_nophasing:
     def __init__(self, params="stmp", t=1 - 1e-4):
@@ -235,6 +253,7 @@ class hmm_nophasing:
 
         log_emit_rdr_list, log_emit_baf_list = [], []
 
+        # NB typically, n_spot is unity as clones are concatenataed along the genomic axis.
         for s in range(n_spots):
             nb_endog = nbEncoder.get_unique_obs(s)
             nb_exposure = nbEncoder.get_unique_total(s)
@@ -250,6 +269,10 @@ class hmm_nophasing:
             )
 
             for i in range(n_states):
+                #  
+                # logmu_shift = compute_logmu_shifts(log_mu, copy_states, normal_log_lambda, clone_lengths)
+
+                # TODO fold in logmu_shifts; assumed concatenated (repeated) along the genomic axis.
                 _nb_logpmf_1d(
                     nb_endog,
                     nb_exposure,
@@ -272,10 +295,10 @@ class hmm_nophasing:
             # NB concatenate clones along the genomic axis (n_states, total_obs) -> (n_states, total_obs, 1)
             log_emit_rdr = np.concatenate(
                 log_emit_rdr_list, axis=1
-            )  # [:, :, np.newaxis]
+            )
             log_emit_baf = np.concatenate(
                 log_emit_baf_list, axis=1
-            )  # [:, :, np.newaxis]
+            )
         else:
             # NB (n_states, n_obs, n_spots)
             log_emit_rdr = np.stack(log_emit_rdr_list, axis=2)
@@ -417,6 +440,15 @@ class hmm_nophasing:
         log_gamma -= scipy.special.logsumexp(log_gamma, axis=0)
 
         return log_gamma
+    
+    @staticmethod
+    def get_copy_states(log_gamma, includes_phased=False):
+        n_states = log_gamma.shape[0]
+
+        if includes_phased:
+            return np.argmax(log_gamma, axis=0) % (n_states // 2)
+        else:
+            return np.argmax(log_gamma, axis=0)
 
     # TODO define self.n_states
     def get_initial_params(

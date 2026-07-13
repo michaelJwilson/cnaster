@@ -630,8 +630,8 @@ def run_cnaster(config_path, over_rides=None):
         initial_clone_index_baf,
         config.hmm.n_states,
         log_sitewise_transmat,
-        prefix="bafonly",
-        coords=coords,
+        # prefix="bafonly",
+        # coords=coords,
         smooth_mat=smooth_mat,  # TODO HACK FINAL
         adjacency_mat=adjacency_mat,
         sample_ids=sample_ids,
@@ -1081,8 +1081,8 @@ def run_cnaster(config_path, over_rides=None):
         single_tumor_prop if single_tumor_prop is not None else None,
         global_initial_clone_index,
         n_states=config.hmm.n_states,
-        prefix=None,
-        coords=coords,
+        # prefix=None,
+        # coords=coords,
         log_sitewise_transmat=log_sitewise_transmat,
         smooth_mat=smooth_mat,  # TODO HACK FINAL
         adjacency_mat=adjacency_mat,

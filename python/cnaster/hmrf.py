@@ -3,6 +3,7 @@ import time
 
 import numpy as np
 import scipy.special
+import scipy.sparse as sparse
 from numba import njit, prange
 from sklearn.metrics import adjusted_rand_score
 
@@ -11,10 +12,11 @@ from cnaster.hmm import pipeline_baum_welch
 # from cnaster.wolff import wolff_sweep
 from cnaster.hmm_initialize import cna_mixture_init, gmm_init
 from cnaster.hmm_phased import hmm_phased
-from cnaster.hmrf_utils import cast_csr, clone_stack_obs, validate_clone_ids
+from cnaster.hmrf_utils import cast_csr, clone_stack_obs
 from cnaster.icm import icm_sweep_deque, merge_assignment, unpack_adjacency
 from cnaster.logger import get_logger
 from cnaster.pseudobulk import merge_pseudobulk_by_index_mix
+from cnaster.hmm_nophasing import get_log_transmat
 
 logger = get_logger(__name__, start_time=start_time)
 
@@ -25,9 +27,8 @@ def logsumexp(x):
     return x_max + np.log(np.sum(np.exp(x - x_max)))
 
 
-# TODO
-@njit(cache=True)
-def pool_hmrf_data(
+@njit(parallel=False, cache=True, fastmath=False, error_model="numpy")
+def pool_spatio_genomic_counts(
     single_X,
     single_base_nb_mean,
     single_total_bb_RD,
@@ -35,25 +36,27 @@ def pool_hmrf_data(
     smooth_indptr,
     single_tumor_prop=None,
     is_tumor_mixed=False,
-    res_new_log_mu=None,
-    pred=None,
-    n_states=None,
-    lambd=None,
 ):
+    """
+    Aggregate X, nb_baseline and bb_read_depth by smooth mat. to downsize for hmrf inference.
+    """
     # NB no logger comments in jit compiled.
     n_obs, n_comp, N = single_X.shape
 
     pooled_X = np.zeros((n_obs, n_comp, N), dtype=single_X.dtype)
     pooled_base_nb_mean = np.zeros((n_obs, N), dtype=single_base_nb_mean.dtype)
     pooled_total_bb_RD = np.zeros((n_obs, N), dtype=single_total_bb_RD.dtype)
+
     mean_tumor_prop, weighted_tp = None, None
 
-    for i in range(N):
+    # NB valid neighbors for this spot.
+    for i in prange(N):
         start_idx, end_idx = smooth_indptr[i], smooth_indptr[i + 1]
 
         # NB vaild neighbors have finite tumor proportion if is_tumor_mixed.
         valid_neighbors = []
 
+        # TODO tumor prop. is not currently supported. 
         for k in range(start_idx, end_idx):
             col = smooth_indices[k]
 
@@ -63,16 +66,14 @@ def pool_hmrf_data(
             else:
                 valid_neighbors.append(col)
 
-        valid_count = len(valid_neighbors)
-
-        # TODO CHECK prior behavior?
-        #
+        num_valid_neighbors = len(valid_neighbors)
+        
         # NB assigned zero to pooled_X, pooled_base_nb_mean, pooled_total_bb_RD
         #    if no valid neighbors.
-        if valid_count == 0:
+        if num_valid_neighbors == 0:
             continue
 
-        # NB for all segments, and spots, we pool (sum) the X, base_nb_mean, and total_bb_RD
+        # NB for all segments, and spots, we aggregate the X, base_nb_mean, and total_bb_RD
         #    of all valid neighbors.
         #
         #    valid as updated the counts and the baseline will be accounted for in the likelihood (TBC).
@@ -98,16 +99,15 @@ def pool_hmrf_data(
     )
 
 
-# TODO
 @njit(parallel=True, cache=True)
-def compute_single_llf(
-    N,
-    nz_nb_base,
-    nz_bb_total,
+def compute_loglike_spot_clone_assignment(
+    n_spots,
+    num_valid_nb_spotwise,
+    num_valid_bb_spotwise,
     single_tumor_prop,
     is_tumor_mixed,
-    tmp_log_emission_rdr,
-    tmp_log_emission_baf,
+    log_emission_rdr,
+    log_emission_baf,
     pred,
     n_obs,
     n_clones,
@@ -115,20 +115,23 @@ def compute_single_llf(
     smooth_indptr=None,
     non_zero_weight=True,  # NB if False, rdr out-weighs the baf signal, which has many zero read_depth segments.
 ):
+    """
+    Calculates the (log) emission likelihood for each spot, for all clones.
+    Optionally, applies a relative weighting to the rdr and baf likelihoods, 
+    based on the number of valid segments for each emission type.
+    """
     # NB compute the log likelihood for each spot, for all clones.
-    single_llf = np.zeros((N, n_clones))
-    ratio_nonzeros = np.ones(N, dtype=np.float64)
+    loglike_spot_clone_assignment = np.zeros((n_spots, n_clones))
+    rel_valid_emision_weight = np.ones(n_spots, dtype=np.float64)
 
     if non_zero_weight and smooth_indices is not None and smooth_indptr is not None:
-        for i in prange(N):
+        for i in prange(n_spots):
             start_idx, end_idx = smooth_indptr[i], smooth_indptr[i + 1]
 
             # NB calculate the nb and bb baseline for this spot.
-            sum_nb_base = 0.0
-            sum_bb_total = 0.0
+            pooled_num_valid_nb_spotwise, pooled_num_valid_bb_spotwise = 0.0, 0.0
 
-            # NB loop over pooled neighbors of spot i,
-            #    skipping those with nan tumor proportion.
+            # NB loop over pooled neighbors of spot i, skipping those with nan tumor proportion.
             for k in range(start_idx, end_idx):
                 neighbor = smooth_indices[k]
 
@@ -136,36 +139,31 @@ def compute_single_llf(
                     if np.isnan(single_tumor_prop[neighbor]):
                         continue
 
-                # NB nz_nb_base, nz_bb_total contain the number of non-zero genomic segments;
-                #    pools this across spots.
-                sum_nb_base += nz_nb_base[neighbor]
-                sum_bb_total += nz_bb_total[neighbor]
+                # NB num_valid_nb_spotwise, num_valid_bb_spotwise contain the number of valid genomic segments for the given emission type;
+                #    pooled for this across spots.
+                pooled_num_valid_nb_spotwise += num_valid_nb_spotwise[neighbor]
+                pooled_num_valid_bb_spotwise += num_valid_bb_spotwise[neighbor]
 
             # NB both normal and baf signals available.
-            if sum_nb_base > 0 and sum_bb_total > 0:
-                ratio_nonzeros[i] = sum_bb_total / sum_nb_base
+            if pooled_num_valid_nb_spotwise > 0 and pooled_num_valid_bb_spotwise > 0:
+                rel_valid_emision_weight[i] = pooled_num_valid_bb_spotwise / pooled_num_valid_nb_spotwise
 
-    # NB Numba evaluates .ndim at compile-time. This creates a zero-cost branch.
+    # NB Numba evaluates .ndim at compile_time. This creates a zero-cost branch.
     is_1d_pred = pred.ndim == 1
 
-    for i in prange(N):
+    for spot in prange(n_spots):
         for c in range(n_clones):
-            term_rdr = 0.0
-            term_baf = 0.0
+            spot_log_like_rdr, spot_log_like_baf = 0.0, 0.0
 
             for o in range(n_obs):
-                # NB Route the indexing dynamically based on array shape
-                if is_1d_pred:
-                    copy_state = pred[c * n_obs + o]
-                else:
-                    copy_state = pred[o, c]
+                copy_state = pred[c * n_obs + o]if is_1d_pred else pred[o, c]
 
-                term_rdr += tmp_log_emission_rdr[copy_state, o, i]
-                term_baf += tmp_log_emission_baf[copy_state, o, i]
+                spot_log_like_rdr += log_emission_rdr[copy_state, o, spot]
+                spot_log_like_baf += log_emission_baf[copy_state, o, spot]
 
-            single_llf[i, c] = ratio_nonzeros[i] * term_rdr + term_baf
+            loglike_spot_clone_assignment[spot, c] = rel_valid_emision_weight[spot] * spot_log_like_rdr + spot_log_like_baf
 
-    return single_llf
+    return loglike_spot_clone_assignment
 
 
 # NB aggregate by smooth mat. with tumor/normal mix, spot reassignment, concatenated by clone?
@@ -183,7 +181,6 @@ def pipeline_clone_assignment(
     log_persample_weights=None,
     single_tumor_prop=None,
     hmmclass=None,
-    return_posterior=False,
     merge=False,
 ):
     # NB n_obs is the number of genomic segments, N is the number of spots.
@@ -205,11 +202,11 @@ def pipeline_clone_assignment(
     is_tumor_mixed = single_tumor_prop is not None
 
     # NB compute lambda, i.e. normalized baseline expression, for mixture model
-    lambd = (
-        np.sum(single_base_nb_mean, axis=1) / np.sum(single_base_nb_mean)
-        if is_tumor_mixed
-        else None  # TODO BUG?
-    )
+    # lambd = (
+    #     np.sum(single_base_nb_mean, axis=1) / np.sum(single_base_nb_mean)
+    #     if is_tumor_mixed
+    #     else None  # TODO BUG?
+    # )
 
     logger.info(
         f"Solving (pooled) emission likelihood for X.shape={single_X.shape}, n_states={n_states} and {n_clones} clones with {hmmclass.__name__}, is_tumor_mixed={is_tumor_mixed} and merge={merge}."
@@ -219,8 +216,8 @@ def pipeline_clone_assignment(
 
     if smooth_mat is not None:
         # NB   pool (sum) data according to smooth (adjacency) matrix, for X, nb_baseline, bb read depth and mean tumor proportion:
-        pooled_X, pooled_base_nb_mean, pooled_total_bb_RD, _, weighted_tp = (
-            pool_hmrf_data(
+        pooled_X, pooled_base_nb_mean, pooled_total_bb_RD, _, _ = (
+            pool_spatio_genomic_counts(
                 single_X,
                 single_base_nb_mean,
                 single_total_bb_RD,
@@ -228,15 +225,11 @@ def pipeline_clone_assignment(
                 smooth_mat.indptr,
                 single_tumor_prop,
                 is_tumor_mixed,
-                res["new_log_mu"] if is_tumor_mixed else None,
-                pred if is_tumor_mixed else None,
-                n_states if is_tumor_mixed else None,
-                lambd,
             )
         )
     else:
         # TODO copies necessary?
-        pooled_X, pooled_base_nb_mean, pooled_total_bb_RD, _, weighted_tp = (
+        pooled_X, pooled_base_nb_mean, pooled_total_bb_RD, _, _ = (
             single_X.copy(),
             single_base_nb_mean.copy(),
             single_total_bb_RD.copy(),
@@ -245,92 +238,32 @@ def pipeline_clone_assignment(
         )
 
     # NB emission shape: (n_states, n_obs, n_spots)
-    if is_tumor_mixed:
-        (
-            tmp_log_emission_rdr,
-            tmp_log_emission_baf,
-        ) = hmmclass.compute_emission_probability_nb_betabinom_mix(
-            pooled_X,
-            pooled_base_nb_mean,
-            res["new_log_mu"],
-            res["new_alphas"],
-            pooled_total_bb_RD,
-            res["new_p_binom"],
-            res["new_taus"],
-            np.ones((n_obs, 1))
-            * np.mean(single_tumor_prop[idx]),  # TODO BUG  idx is not defined (!)
-            weighted_tp.reshape(-1, 1),  # NB cast (n_obs,) to (n_obs, 1).
-        )
-    else:
-        (
-            tmp_log_emission_rdr,
-            tmp_log_emission_baf,
-        ) = hmmclass.compute_emission_probability_nb_betabinom(
-            pooled_X,
-            pooled_base_nb_mean,
-            res["new_log_mu"],
-            res["new_alphas"],
-            pooled_total_bb_RD,
-            res["new_p_binom"],
-            res["new_taus"],
-        )
+    (
+        tmp_log_emission_rdr,
+        tmp_log_emission_baf,
+    ) = hmmclass.compute_emission_probability_nb_betabinom(
+        pooled_X,
+        pooled_base_nb_mean,
+        res["new_log_mu"],
+        res["new_alphas"],
+        pooled_total_bb_RD,
+        res["new_p_binom"],
+        res["new_taus"],
+    )
 
-    """
-    # NB log likelihood of each spot given that its label is each clone, i.e. unary Potts term.
-    single_llf = np.zeros((N, n_clones))
-
-    # TODO numba
-    for i in range(N):
-        # NB spot i pooled with 'neighbor' spots in idx.
-        idx = smooth_mat[i, :].nonzero()[1]
-
-        if use_mixture:
-            # NB filter out NaN tumor proportions
-            idx = idx[~np.isnan(single_tumor_prop[idx])]
-
-        # TODO pooled_X treated as a bool
-        # NB pooled neighbors have at least one normal umi, and at least one snp-covering umi (all segments)
-        if (
-            np.sum(single_base_nb_mean[:, idx] > 0) > 0
-            and np.sum(single_total_bb_RD[:, idx] > 0) > 0
-        ):
-            # NB aggregating over all segments in these neighbors, ratio of normal umis to snp-covering umis
-            #    for pooled neighbors of spot i.
-            ratio_nonzeros = (
-                1.0
-                * np.sum(single_total_bb_RD[:, idx] > 0)
-                / np.sum(single_base_nb_mean[:, idx] > 0)
-            )
-
-            for c in range(n_clones):
-                # NB MAP copy state for this clone (concatenated).
-                this_pred = pred[(c * n_obs) : ((c + 1) * n_obs)]
-
-                # NB log likelihood for this spot, given copy number
-                #    profile of this clone; assumes IID along the genome.
-                single_llf[i, c] = ratio_nonzeros * np.sum(
-                    tmp_log_emission_rdr[this_pred, np.arange(n_obs), i]
-                ) + np.sum(tmp_log_emission_baf[this_pred, np.arange(n_obs), i])
-        else:
-            for c in range(n_clones):
-                this_pred = pred[(c * n_obs) : ((c + 1) * n_obs)]
-
-                single_llf[i, c] = np.sum(
-                    tmp_log_emission_rdr[this_pred, np.arange(n_obs), i]
-                ) + np.sum(tmp_log_emission_baf[this_pred, np.arange(n_obs), i])
-    """
     _tumor_prop = single_tumor_prop if single_tumor_prop is not None else np.empty(0)
 
-    # NB number of non-zero genomic segments for nb_baseline and bb_read depth, for all spots.
-    nz_nb_base = (single_base_nb_mean > 0).sum(axis=0)
-    nz_bb_total = (single_total_bb_RD > 0).sum(axis=0)
+    # NB For all spots, the number of valid genomic segments for a given emission type,
+    #    as per nb_baseline and bb_read depth.
+    num_valid_nb_spotwise = (single_base_nb_mean > 0).sum(axis=0)
+    num_valid_bb_spotwise = (single_total_bb_RD > 0).sum(axis=0)
 
     # NB computes the log likelihood for each spot, for all clones, given the "pooling" strategy,
     #    no longer IID and erroneously weights rdr and baf according to number of non-zero segments.
-    single_llf = compute_single_llf(
+    loglike_spot_clone_assignment = compute_loglike_spot_clone_assignment(
         N,
-        nz_nb_base,
-        nz_bb_total,
+        num_valid_nb_spotwise,
+        num_valid_bb_spotwise,
         _tumor_prop,
         is_tumor_mixed,
         tmp_log_emission_rdr,
@@ -347,9 +280,6 @@ def pipeline_clone_assignment(
     adj_list = cast_csr(adjacency_mat)
     adj_spots, adj_neighbors, adj_weights = unpack_adjacency(adj_list)
 
-    # NB Posterior probabilities if return_posterior=True.
-    posterior = np.zeros((N, n_clones))
-
     if get_global_config().hmrf.fixed_assignment:
         logger.warning(f"Assuming a fixed clone assignment")
     else:
@@ -358,7 +288,7 @@ def pipeline_clone_assignment(
         # NB updates new_assignment and posterior in place given log emission likelihood.
         """
         niter, new_cost = icm_sweep_deque(
-            single_llf,
+            loglike_spot_clone_assignment,
             adj_spots,
             adj_neighbors,
             adj_weights,
@@ -371,13 +301,13 @@ def pipeline_clone_assignment(
         )
         """
         niter, new_cost = icm_sweep_deque(
-            single_llf=single_llf,
+            single_llf=loglike_spot_clone_assignment,
             adj_indptr=adjacency_mat.indptr,
             adj_indices=adjacency_mat.indices,
             adj_weights=adjacency_mat.data,
             new_assignment=new_assignment,
             spatial_weight=spatial_weight,
-            posterior=posterior,
+            posterior=None,
             onehot_allowed_clones=None,
             # tol=0.1,  # MAGIC TODO
             log_persample_weights=log_persample_weights,
@@ -389,7 +319,7 @@ def pipeline_clone_assignment(
         while merge:
             # NB merge_assignment returns the original cost, the best new cost after merging this clone pair, and the clone pair.
             new_cost, best_merge_cost, best_merge_pair = merge_assignment(
-                single_llf,
+                loglike_spot_clone_assignment,
                 adj_spots,
                 adj_neighbors,
                 adj_weights,
@@ -430,36 +360,47 @@ def pipeline_clone_assignment(
             f"Found new clone assignment with new cost {new_cost:.6e} in {niter} iterations ({time.time() - start_time:.2f}s with clone breakdown=\n{[f'{xx:.3f}' for xx in cnts / cnts.sum()]})."
         )
 
-    logger.info(f"Computing total ln likelihood.")
+    logger.info(f"Computing ln likelihood for hmrf.")
 
-    # NB single_llf was the log likelihood of each spot given that its label is each clone, i.e. unary Potts term;
+    # NB loglike_spot_clone_assignment was the log likelihood of each spot given that its label is each clone, i.e. unary Potts term;
     #    sum this assuming iid given new assignment.
-    total_llf = np.sum(single_llf[np.arange(N), new_assignment])
+    # 
+    # log_likelihood = np.sum(loglike_spot_clone_assignment[np.arange(N), new_assignment])
+
+    log_likelihood = np.sum(np.take_along_axis(
+         loglike_spot_clone_assignment, 
+         new_assignment.astype(int)[:, None], 
+         axis=1
+    ))
 
     # NB add the pairwise cost for this assignment, according to the (weighted) number of neighbors with the same assignment.
-    for i in range(N):
-        total_llf += np.sum(
-            spatial_weight
-            * np.sum(
-                new_assignment[adjacency_mat[i, :].nonzero()[1]] == new_assignment[i]
-            )
-        )
-
-    """
-    # TODO HACK?  pred of HMM requires an clone ordering definition?
+    #    does __not__account for any edge weighting, i.e. assumes all edges are equal.
     # 
-    # NB reindex new_assignment to contiguous clone ids.
-    unique_ids = np.unique(new_assignment)
-    id_map = {old: new for new, old in enumerate(unique_ids)}
-    new_assignment = np.array([id_map[x] for x in new_assignment])
-    """
-    if return_posterior:
-        return new_assignment, single_llf, total_llf, posterior
-    else:
-        return new_assignment, single_llf, total_llf
+    # 
+    # TODO double counts edges.
+    # for i in range(N):
+    #     log_likelihood += np.sum(
+    #         spatial_weight
+    #         * np.sum(
+    #             new_assignment[adjacency_mat[i, :].nonzero()[1]] == new_assignment[i]
+    #         )
+    #     )
+
+    adj_rows, adj_cols = adjacency_mat.nonzero()
+
+    # NB mask to prevent double counting (upper triangle)
+    unique_edges_mask = adj_rows < adj_cols
+
+    select_adj_rows = adj_rows[unique_edges_mask]
+    select_adj_cols = adj_cols[unique_edges_mask]
+
+    num_aligned = np.sum(new_assignment[select_adj_rows] == new_assignment[select_adj_cols])
+
+    log_likelihood += spatial_weight * num_aligned
+
+    return new_assignment, loglike_spot_clone_assignment, log_likelihood
 
 
-# @count_calls
 def run_core_inference(
     single_X,
     lengths,
@@ -469,8 +410,8 @@ def run_core_inference(
     initial_clone_index,
     n_states,
     log_sitewise_transmat,
-    prefix="clones",
-    coords=None,
+    # prefix="clones",
+    # coords=None,
     smooth_mat=None,
     adjacency_mat=None,
     sample_ids=None,
@@ -497,7 +438,6 @@ def run_core_inference(
     # unit_ysquared=3,
     spatial_weight=1.0 / 6.0,
     tumorprop_threshold=0.5,
-    plot_progress=False,
     propagate_hmm_param_errors=False,
     deconcatenate_clones=False,
 ):
@@ -518,20 +458,18 @@ def run_core_inference(
     tmp_map_index = {unique_sample_ids[i]: i for i in range(len(unique_sample_ids))}
     sample_ids = np.array([tmp_map_index[x] for x in sample_ids])
 
-    norm = np.sum(single_base_nb_mean)
-
-    # DEPRECATE
-    assert np.isscalar(norm)
+    has_normal_baseline = np.count_nonzero(single_base_nb_mean) > 0
+    normal_baseline = None
 
     # NB baseline expression by summing over all clones; should be zero for BAF only.
-    if norm == 0.0:
+    if not has_normal_baseline:
         logger.warning(
-            f"Found nb_mean=0 across all spots,segments; corresponds to BAF only run."
+            f"Found ill-defined normal baseline; corresponds to baf only run."
         )
-
-    # NB normalized baseline expression;
-    with np.errstate(divide="ignore", invalid="ignore"):
-        lambd = np.sum(single_base_nb_mean, axis=1) / norm
+    else:
+        with np.errstate(divide="ignore", invalid="ignore"):
+            normal_baseline = np.sum(single_base_nb_mean, axis=1)
+            normal_baseline /= np.sum(normal_baseline)
 
     # NB aggregation to pseudobulk based on current clone assignment of spots.
     X, base_nb_mean, total_bb_RD, tumor_prop = merge_pseudobulk_by_index_mix(
@@ -561,10 +499,7 @@ def run_core_inference(
     merge = False
 
     if (init_log_mu is None) or (init_p_binom is None):
-        # TODO HACK
-        transmat = np.ones((n_states, n_states)) * (1.0 - t) / (n_states - 1)
-        np.fill_diagonal(transmat, t)
-        log_transmat = np.log(transmat)
+        log_transmat = get_log_transmat(n_states, t)
 
         new_init_log_mu, new_init_p_binom, _, _ = hmm_initializer(
             n_states,
@@ -580,20 +515,7 @@ def run_core_inference(
             only_minor=False,  # NB with no phasing, we need states > 0.5;
         )
 
-        new_init_alphas = init_alphas
-        new_init_taus = init_taus
-
-        """
-        new_init_log_mu, new_init_alphas, new_init_p_binom, new_init_taus = (
-            cna_mixture_init(
-                n_states,
-                clone_stack_X,
-                clone_stack_base_nb_mean,
-                clone_stack_total_bb_RD,
-                width=10,
-            )
-        )
-        """
+        new_init_alphas, new_init_taus = init_alphas, init_taus
 
         if init_log_mu is None:
             init_log_mu = new_init_log_mu
@@ -607,11 +529,7 @@ def run_core_inference(
             f"Solved for hmm initialized parameters:\n{init_log_mu}\n{init_p_binom}"
         )
 
-        # logger.info(
-        #     f"Plotting initial copy state mixture for instance {hmrfmix_concatenate_pipeline.call_count-1} with X.shape={X.shape}."
-        # )
-
-        n_states = init_p_binom.shape[0]
+        # n_states = init_p_binom.shape[0]
 
     last_log_mu = init_log_mu if "m" in params else None
     last_p_binom = init_p_binom if "p" in params else None
@@ -635,22 +553,15 @@ def run_core_inference(
     res = {}
     r = 0
 
+    # NB [num_segments, num_segments ..., num_segments] of length num_clones.
+    clone_lengths = X.shape[0] * np.ones(X.shape[2], dtype=int)
+
     # NB convoluted loop logic to achieve merge on last iteration.
     while r <= max_iter_outer:
         logger.info(
             f"----****  Solving iteration {r}/{max_iter_outer} of copy number state fitting & clone assignment (HMM + HMRF) ****----"
         )
 
-        # NB [num_segments, num_segments ..., num_segments] of length num_clones.
-        sample_length = X.shape[0] * np.ones(X.shape[2], dtype=int)
-        remain_kwargs = {"sample_length": sample_length, "lambd": lambd}
-
-        """
-        # TODO HACK BUG?
-        # NB utilize last state posterior. 
-        if "log_gamma" in res:
-            remain_kwargs["log_gamma"] = res["log_gamma"]
-        """
         res = pipeline_baum_welch(
             None,
             clone_stack_X,
@@ -675,7 +586,9 @@ def run_core_inference(
             init_taus=last_taus,
             max_iter=max_iter,
             tol=tol,
-            **remain_kwargs,
+            normal_baseline=normal_baseline,
+            clone_lengths=clone_lengths,
+            init_log_gamma = None # res.get("log_gamma", None)
         )
 
         # NB MAP copy state, irrespective of phasing. contrast to "pred_cnv".
@@ -853,8 +766,10 @@ def run_core_inference(
         init_taus=last_taus,
         max_iter=max_iter,
         tol=tol,
+        normal_baseline=normal_baseline,
+        clone_lengths=clone_lengths,
+        init_log_gamma = None, # res.get("log_gamma", None)
         propagate_errors=propagate_hmm_param_errors,
-        **remain_kwargs,
     )
 
     # TODO llf should also technically be updated.

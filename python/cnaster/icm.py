@@ -910,15 +910,14 @@ def icm_sweep_deque(
                         q_next.append(neighbor)
                         in_queue[neighbor] = True
 
-            # Inlined Posterior Update
-            sum_exp = 0.0
-            for c in range(n_clones):
-                val = np.exp(assignment_cost[c] - max_cost)
-                posterior[i, c] = val
-                sum_exp += val
+            # sum_exp = 0.0
+            # for c in range(n_clones):
+            #     val = np.exp(assignment_cost[c] - max_cost)
+            #     posterior[i, c] = val
+            #     sum_exp += val
 
-            for c in range(n_clones):
-                posterior[i, c] /= sum_exp
+            # for c in range(n_clones):
+            #     posterior[i, c] /= sum_exp
 
         sweep_edit_rate = edits / n_spots
         logger.info(

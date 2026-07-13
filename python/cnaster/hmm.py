@@ -12,7 +12,7 @@ logger = get_logger(__name__, start_time=start_time)
 
 
 # TODO
-def compute_posterior_obs(
+def compute_copy_state_posterior(
     log_alpha,
     log_beta,
 ):
@@ -56,19 +56,18 @@ def pipeline_baum_welch(
     propagate_errors=False,
     max_iter=100,
     tol=1e-4,
-    **kwargs,
+    normal_baseline=None,
+    clone_lengths=None,
+    init_log_gamma=None,
 ):
     logger.info(
         f"Solving HMM for X={X.shape} with {hmmclass.__name__} instance and parameters={params}; t={t}."
     )
 
-    # NB this may be num_clones, or one clone for phasing.
-    # n_spots = X.shape[2]
-
+    # NB initialize emission parameters (for hmm) prior to baum welch, if not provided.
     if ((init_log_mu is None) and ("m" in params)) or (
         (init_p_binom is None) and ("p" in params)
     ):
-        # NB emission parameters are initialized prior to HMM.
         tmp_log_mu, tmp_p_binom = gmm_init(
             n_states,
             X,
@@ -80,14 +79,13 @@ def pipeline_baum_welch(
             only_minor=only_minor,
         )
 
-        # TODO sort print
         if (init_log_mu is None) and ("m" in params):
             init_log_mu = tmp_log_mu
-            logger.info(f"Initialized log_mu with GMM:\n{init_log_mu}")
+            logger.info(f"Initialized log_mu with gmm:\n{init_log_mu}")
 
         if (init_p_binom is None) and ("p" in params):
             init_p_binom = tmp_p_binom
-            logger.info(f"Initialized p_binom with GMM:\n{init_p_binom}")
+            logger.info(f"Initialized p_binom with gmm:\n{init_p_binom}")
     else:
         if "m" in params:
             logger.info(f"Assumed initial log_mu:\n{init_log_mu}")
@@ -95,11 +93,6 @@ def pipeline_baum_welch(
             logger.info(f"Assumed initial p_binom:\n{init_p_binom}")
 
     hmm_model = hmmclass(params=params, t=t)
-
-    # TODO HACK "log_gamma" utilizes last determined posterior for speed.
-    remain_kwargs = {k: v for k, v in kwargs.items() if k in ["lambd", "sample_length"]}
-
-    logger.info(f"Assuming kwargs={remain_kwargs.keys()}")
 
     res = hmm_model.optimize(
         X,
@@ -121,7 +114,9 @@ def pipeline_baum_welch(
         max_iter=max_iter,
         tol=tol,
         propagate_errors=propagate_errors,
-        **remain_kwargs,
+        lambd=normal_baseline, # TODO FINAL
+        sample_length=clone_lengths, # TODO FINAL
+        log_gamma=None, # TODO FINAL
     )
 
     # TODO
@@ -148,76 +143,62 @@ def pipeline_baum_welch(
     logger.info("\n".join(to_log))
     logger.info("Computing emission prob. given best-fit parameters.")
 
-    if tumor_prop is None:
-        (
-            log_emission_rdr,  # NB emission prob. for RDR.
-            log_emission_baf,  # NB emission prob. for BAF.
-        ) = hmmclass.compute_emission_probability_nb_betabinom(
-            X, base_nb_mean, new_log_mu, new_alphas, total_bb_RD, new_p_binom, new_taus
+    (
+        log_emission_rdr,  # NB emission prob. for RDR.
+        log_emission_baf,  # NB emission prob. for BAF.
+    ) = hmmclass.compute_emission_probability_nb_betabinom(
+        X, base_nb_mean, new_log_mu, new_alphas, total_bb_RD, new_p_binom, new_taus
+    )
+    """
+    # NB re-normalize logmu according to the inferred copy number states, denominator is
+    #    the total expected read count.
+    if ("m" in params) and ("sample_length" in kwargs):
+        logger.warning(
+            f"Applying logmu_shift to renormalized total expect read count according to current CNA profile."
         )
-    else:
-        # NB re-normalize logmu according to the inferred copy number states, denominator is
-        #    the total expected read count.
-        if ("m" in params) and ("sample_length" in kwargs):
-            logger.warning(
-                f"Applying logmu_shift to renormalized total expect read count according to current CNA profile."
-            )
-            logmu_shift = []
+        logmu_shift = []
 
-            # NB presumably one per contig.
-            for c in range(len(kwargs["sample_length"])):
-                this_pred_cnv = (
-                    np.argmax(
-                        log_gamma[
-                            :,
-                            np.sum(kwargs["sample_length"][:c]) : np.sum(
-                                kwargs["sample_length"][: (c + 1)]
-                            ),
-                        ],
-                        axis=0,
-                    )
-                    % n_states
+        # NB presumably one per contig.
+        for c in range(len(kwargs["sample_length"])):
+            this_pred_cnv = (
+                np.argmax(
+                    log_gamma[
+                        :,
+                        np.sum(kwargs["sample_length"][:c]) : np.sum(
+                            kwargs["sample_length"][: (c + 1)]
+                        ),
+                    ],
+                    axis=0,
                 )
+                % n_states
+            )
 
-                logmu_shift.append(
-                    scipy.special.logsumexp(
-                        new_log_mu[this_pred_cnv, :]
-                        + np.log(kwargs["lambd"]).reshape(-1, 1),
-                        axis=0,
-                    )
+            logmu_shift.append(
+                scipy.special.logsumexp(
+                    new_log_mu[this_pred_cnv, :]
+                    + np.log(kwargs["lambd"]).reshape(-1, 1),
+                    axis=0,
                 )
-
-            logmu_shift = np.vstack(logmu_shift)
-
-            (
-                log_emission_rdr,
-                log_emission_baf,
-            ) = hmmclass.compute_emission_probability_nb_betabinom_mix(
-                X,
-                base_nb_mean,
-                new_log_mu,
-                new_alphas,
-                total_bb_RD,
-                new_p_binom,
-                new_taus,
-                tumor_prop,
-                logmu_shift=logmu_shift,
-                sample_length=kwargs["sample_length"],
             )
-        else:
-            (
-                log_emission_rdr,
-                log_emission_baf,
-            ) = hmmclass.compute_emission_probability_nb_betabinom_mix(
-                X,
-                base_nb_mean,
-                new_log_mu,
-                new_alphas,
-                total_bb_RD,
-                new_p_binom,
-                new_taus,
-                tumor_prop,
-            )
+
+        logmu_shift = np.vstack(logmu_shift)
+
+        (
+            log_emission_rdr,
+            log_emission_baf,
+        ) = hmmclass.compute_emission_probability_nb_betabinom_mix(
+            X,
+            base_nb_mean,
+            new_log_mu,
+            new_alphas,
+            total_bb_RD,
+            new_p_binom,
+            new_taus,
+            tumor_prop,
+            logmu_shift=logmu_shift,
+            sample_length=kwargs["sample_length"],
+        )
+        """
 
     # NB assumed independent.
     log_emission = log_emission_rdr + log_emission_baf
@@ -242,7 +223,7 @@ def pipeline_baum_welch(
     )
 
     # NB compute state posterior.
-    log_gamma = compute_posterior_obs(log_alpha, log_beta)
+    log_gamma = compute_copy_state_posterior(log_alpha, log_beta)
 
     # NB pred > n_states indicates a phase switch.
     pred = np.argmax(log_gamma, axis=0)

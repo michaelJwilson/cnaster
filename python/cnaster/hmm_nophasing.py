@@ -245,6 +245,8 @@ class hmm_nophasing:
         clone_stack=True,
         scratch_rdr=None,
         scratch_baf=None,
+        normal_log_lambda=None,
+        clone_lengths=None,
     ):
         n_states = log_mu.shape[0]
         n_spots = nbEncoder.n_spots
@@ -269,7 +271,9 @@ class hmm_nophasing:
             )
 
             for i in range(n_states):
-                #  
+                # TODO get_state_posteriors is log_gamma (monotonic).
+                # assert normal_log_lambda is not None and clone_lengths is not None
+                # copy_states = get_copy_states(self.get_state_posteriors(), includes_phased=False)
                 # logmu_shift = compute_logmu_shifts(log_mu, copy_states, normal_log_lambda, clone_lengths)
 
                 # TODO fold in logmu_shifts; assumed concatenated (repeated) along the genomic axis.

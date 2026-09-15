@@ -11,7 +11,7 @@ from numba import njit
 from cnaster.config import YAMLConfig, set_global_config, start_time
 from cnaster.he import get_he_image
 from cnaster.hmm_nophasing import hmm_nophasing, get_log_transmat
-from cnaster.sandbox.hmm_nophasing_jax_v2 import hmm_nophasing_jax
+# from cnaster.sandbox.hmm_nophasing_jax_v2 import hmm_nophasing_jax
 
 from cnaster.hmrf import merge_by_minspots, reindex_clones, run_core_inference
 from cnaster.hmrf_utils import get_clone_assignment, get_clone_indices
@@ -134,6 +134,8 @@ def run_cnaster(config_path, over_rides=None):
         min_snp_umis=config.quality.spot_min_snp_umis,
         min_percent_expressed_spots=config.quality.min_percent_expressed_spots,
     )
+
+    exit()
 
     pause()
 

@@ -3,7 +3,6 @@ import time
 
 import numpy as np
 import scipy.special
-import scipy.sparse as sparse
 from numba import njit, prange
 from sklearn.metrics import adjusted_rand_score
 

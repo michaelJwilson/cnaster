@@ -1109,8 +1109,6 @@ def run_cnaster(config_path, over_rides=None):
 
     logger.info(f"Solved for res_combine=\n{res_combine}")
 
-    exit(0)
-
     X, base_nb_mean, _, tumor_prop = merge_pseudobulk_by_index_mix(
         single_X,
         single_base_nb_mean,

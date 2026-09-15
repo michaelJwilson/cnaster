@@ -272,11 +272,13 @@ class hmm_nophasing:
 
             for i in range(n_states):
                 if normal_log_lambda is not None:
-                    log_gamma = self.get_state_posteriors()
-                    copy_states = self.get_copy_states(log_gamma, includes_phased=False)
+                    # log_gamma = self.get_state_posteriors()
+                    # copy_states = self.get_copy_states(log_gamma, includes_phased=False)
 
                     # NB clone concatenated
-                    logmu_shifts = compute_logmu_shifts(log_mu, copy_states, normal_log_lambda, clone_lengths)
+                    # logmu_shifts = compute_logmu_shifts(log_mu, copy_states, normal_log_lambda, clone_lengths)
+                    logger.warning("logmu_shifts are not currently supported.")
+                    
 
                 # TODO fold in logmu_shifts; assumed concatenated (repeated) along the genomic axis.
                 _nb_logpmf_1d(

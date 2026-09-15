@@ -6,11 +6,11 @@ authors = [{ name = "M. J. Wilson", email = "mjwilson@princeton.edu" }]
 requires-python = ">=3.12.2"
 readme = "README.md"
 dependencies = [
-    "numpy>=1.26.0,<2",
+    "numpy>=1.26.0",
     "matplotlib",
     "scipy",
     "scikit-learn",
-    "pandas>=2.0.0",
+    "pandas>=2.0.0,<3",
     "scanpy>=1.9.0",
     "anndata>=0.8.0",
     "numba>=0.61.0",
@@ -21,10 +21,15 @@ dependencies = [
     "pyranges",
     "hmmlearn",
     "pysam",
-    "jax-metal==0.1.1",
 ]
 
 [project.optional-dependencies]
++jax = [
++    "jax>=0.4.34",
++]
++metal = [
++    "jax-metal==0.1.1; sys_platform == 'darwin' and platform_machine == 'arm64'",
++]
 dev = [
     "pytest>=8.3.5,<9",
     "ruff>=0.9.9,<0.10",

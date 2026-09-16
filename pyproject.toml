@@ -64,9 +64,18 @@ create_allele_matrices = "cnaster.scripts.create_allele_matrices:main"
 
 [tool.hatch.build.targets.sdist]
 include = ["python/cnaster"]
+exclude = [
+  "python/cnaster/deprecated",
+  "python/cnaster/sandbox",
+]
 
 [tool.hatch.build.targets.wheel]
 include = ["python/cnaster"]
+exclude = [
+  "python/cnaster/deprecated",
+  "python/cnaster/sandbox",
+]
+
 
 [tool.hatch.build.targets.wheel.sources]
 "python/cnaster" = "cnaster"

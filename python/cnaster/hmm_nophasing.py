@@ -16,6 +16,9 @@ logger = get_logger(__name__, start_time=start_time)
 
 @njit(nogil=True, cache=True, inline="always", fastmath=False, error_model="numpy")
 def nbinom_logpmf_numba(k, r, p, parameter_terms_only=False):
+    """
+    A single nb trial
+    """
     if p <= 0.0 or p >= 1.0 or r <= 0.0 or k < 0:
         return 0.0
 
@@ -28,6 +31,9 @@ def nbinom_logpmf_numba(k, r, p, parameter_terms_only=False):
 
 @njit(nogil=True, cache=True, inline="always", error_model="numpy")
 def _nb_logpmf_1d(obs, exposure, mu, alpha, out):
+    """
+    nb trials along the genome / obs axis for a single realization.
+    """
     r = 1.0 / max(alpha, 1.0e-10)
 
     for i in range(len(obs)):
@@ -43,6 +49,9 @@ def _nb_logpmf_1d(obs, exposure, mu, alpha, out):
 
 @njit(nogil=True, cache=True, inline="always", parallel=True, error_model="numpy")
 def _dense_nb_logpmf(X_nb, base_nb_mean, log_mu, alphas):
+    """
+    nb trials for all states, spots and obs.
+    """
     n_states = log_mu.shape[0]
     n_obs, n_spots = X_nb.shape
 
@@ -128,8 +137,10 @@ def get_log_transmat(n_states, t):
 
 @njit(nogil=True, cache=True, parallel=False, error_model="numpy")
 def compute_logmu_shifts(log_mus, copy_states, normal_log_lambda, num_segments_clones):
-    # NB per-clone shift in log_mu due to (clone) library normalization, used to
-    #    debias inferred mus; assumes clones concatenate along the genomic axis.
+    # NB per-clone shift in log_mu due to (clone) library normalization, 
+    #    \sum_g \lambda_g \mu_g,
+    #    used to debias inferred mus; 
+    #    assumes clones concatenate along the genomic axis.
     n_clones = len(num_segments_clones)
 
     logmu_shifts = np.empty(n_clones, dtype=np.float64)
@@ -159,9 +170,10 @@ def compute_logmu_shifts(log_mus, copy_states, normal_log_lambda, num_segments_c
                 sum_exp += np.exp(val - max_val)
                 
             shift_val = max_val + np.log(sum_exp)
-            
+
+        # TODO numba_logsumexp
         logmu_shifts[c] = shift_val
-            
+
         start_idx += clone_len
         
     return logmu_shifts
@@ -206,6 +218,7 @@ class hmm_nophasing:
         num_segments_clones=None,
         copy_states=None,
     ):
+        # TODO log_mu should not be independent across clones.
         n_states = log_mu.shape[0]
         n_spots = nbEncoder.n_spots
 
@@ -251,16 +264,16 @@ class hmm_nophasing:
             log_emit_rdr_list.append(nbEncoder.decode_array(log_emit_rdr_uniq, s))
             log_emit_baf_list.append(bbEncoder.decode_array(log_emit_baf_uniq, s))
 
+        # NB concatenate clones along the genomic axis (n_states, total_obs) -> (n_states, total_obs, 1)
         if clone_stack:
-            # NB concatenate clones along the genomic axis (n_states, total_obs) -> (n_states, total_obs, 1)
             log_emit_rdr = np.concatenate(
                 log_emit_rdr_list, axis=1
             )
             log_emit_baf = np.concatenate(
                 log_emit_baf_list, axis=1
             )
+        # NB (n_states, n_obs, n_spots)
         else:
-            # NB (n_states, n_obs, n_spots)
             log_emit_rdr = np.stack(log_emit_rdr_list, axis=2)
             log_emit_baf = np.stack(log_emit_baf_list, axis=2)
 
@@ -446,15 +459,6 @@ class hmm_nophasing:
         # NB initialize start probability and emission probability
         log_startprob = np.log(np.ones(n_states) / n_states)
 
-        """
-        # TODO define self.trans_mat on class instance
-        if n_states > 1:
-            transmat = np.ones((n_states, n_states)) * (1.0 - self.t) / (n_states - 1)
-            np.fill_diagonal(transmat, self.t)
-            log_transmat = np.log(transmat)
-        else:
-            log_transmat = np.zeros((1, 1))
-        """
         log_transmat = get_log_transmat(n_states, self.t)
 
         return log_mu, p_binom, alphas, taus, log_startprob, log_transmat
@@ -663,18 +667,20 @@ class hmm_nophasing:
         tol=1e-4,
         use_logit=True,
         optimizer="BFGS",
-        clone_lengths=None,
+        num_segments_clones=None,
         normal_lambda=None,
         log_gamma=None, # TODO
         # **kwargs,
     ):
-        _, n_comp, n_spots = X.shape
+        # TODO support only X.shape[-1] == 1, i.e. concatenated clones along the genomic axis.
+        _, _, n_spots = X.shape
         assert (
-            n_spots == 1
+            X.shape[-1] == 1
         ), "Currently expects multiple clone to be concatenated along the genomic axis."
-        assert n_comp == 2
-
+        
         base_nb_mean = base_nb_mean.copy()
+
+        # TODO ignore obs where obs rdr exceeds max_rdr.
         if max_rdr is not None:
             with np.errstate(divide="ignore", invalid="ignore"):
                 est_rdr = X[:, 0, :] / base_nb_mean
@@ -691,8 +697,7 @@ class hmm_nophasing:
 
             normal_log_lambda = np.log(normal_lambda) if normal_lambda is not None else None
 
-            assert clone_lengths is not None
-
+        # TODO better encoding for counts
         nbEncoder = CountEncoder(X[:, 0, :], base_nb_mean)
         bbEncoder = CountEncoder(X[:, 1, :], total_bb_RD)
 
@@ -730,6 +735,7 @@ class hmm_nophasing:
             use_logit=use_logit,
         )
 
+        # UGH support only one spot
         scratch_rdr = [
             np.zeros((n_states, len(nbEncoder.get_unique_obs(s))))
             for s in range(n_spots)
@@ -779,6 +785,8 @@ class hmm_nophasing:
                         use_logit=use_logit,
                     )
                 )
+
+                # TODO logmu_shifts
                 log_emission_rdr, log_emission_baf = (
                     self.compute_emission_probability_nb_betabinom_coded(
                         nbEncoder,
@@ -790,7 +798,7 @@ class hmm_nophasing:
                         scratch_rdr=scratch_rdr,
                         scratch_baf=scratch_baf,
                         normal_log_lambda=normal_log_lambda,
-                        clone_lengths=clone_lengths,
+                        num_segments_clones=num_segments_clones,
                     )
                 )
                 self.log_emissions = (log_emission_rdr + log_emission_baf)[
@@ -836,6 +844,7 @@ class hmm_nophasing:
                         this_taus,
                         scratch_rdr=scratch_rdr,
                         scratch_baf=scratch_baf,
+                        num_segments_clones=num_segments_clones,
                     )
                 )
                 log_emissions = (log_emission_rdr + log_emission_baf)[:, :, np.newaxis]
@@ -862,20 +871,6 @@ class hmm_nophasing:
             "gtol": 1e-5,
             "disp": False,
         }
-
-        # options = options | kwargs.get("options", {})
-
-        """
-        bounds = self.get_bounds(
-            n_states,
-            optimize_nb=optimize_nb,
-            fix_NB_dispersion=fix_NB_dispersion,
-            shared_NB_dispersion=shared_NB_dispersion,
-            fix_BB_dispersion=fix_BB_dispersion,
-            shared_BB_dispersion=shared_BB_dispersion,
-            use_logit=use_logit,
-        )
-        """
 
         start_time_opt = time.time()
         logger.info(

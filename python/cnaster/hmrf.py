@@ -561,7 +561,7 @@ def run_core_inference(
     r = 0
 
     # NB [num_segments, num_segments ..., num_segments] of length num_clones.
-    clone_lengths = X.shape[0] * np.ones(X.shape[2], dtype=int)
+    num_segments_clones = X.shape[0] * np.ones(X.shape[2], dtype=int)
 
     # NB convoluted loop logic to achieve merge on last iteration.
     while r <= max_iter_outer:
@@ -594,7 +594,7 @@ def run_core_inference(
             max_iter=max_iter,
             tol=tol,
             normal_lambda=normal_lambda,
-            clone_lengths=clone_lengths,
+            clone_lengths=num_segments_clones,
             init_log_gamma=None,  # res.get("log_gamma", None)
         )
 
@@ -774,7 +774,7 @@ def run_core_inference(
         max_iter=max_iter,
         tol=tol,
         normal_lambda=normal_lambda,
-        clone_lengths=clone_lengths,
+        clone_lengths=num_segments_clones,
         init_log_gamma=None,  # res.get("log_gamma", None)
         propagate_errors=propagate_hmm_param_errors,
     )

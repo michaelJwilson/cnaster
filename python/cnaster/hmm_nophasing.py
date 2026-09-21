@@ -1,4 +1,3 @@
-import pprint
 import time
 from math import exp, lgamma, log
 
@@ -16,13 +15,13 @@ logger = get_logger(__name__, start_time=start_time)
 
 
 @njit(nogil=True, cache=True, inline="always", fastmath=False, error_model="numpy")
-def nbinom_logpmf_numba(k, r, p, parameter_terms_only=True):
+def nbinom_logpmf_numba(k, r, p, parameter_terms_only=False):
     if p <= 0.0 or p >= 1.0 or r <= 0.0 or k < 0:
         return 0.0
 
     log_coeff = lgamma(k + r) - lgamma(r)
 
-    if parameter_terms_only:
+    if not parameter_terms_only:
         log_coeff -= lgamma(k + 1)
 
     return log_coeff + r * log(p) + k * log(1.0 - p)

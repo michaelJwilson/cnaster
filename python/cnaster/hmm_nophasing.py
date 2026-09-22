@@ -16,9 +16,7 @@ logger = get_logger(__name__, start_time=start_time)
 
 @njit(nogil=True, cache=True, inline="always", fastmath=False, error_model="numpy")
 def nbinom_logpmf_numba(k, r, p, parameter_terms_only=False):
-    """
-    A single nb trial
-    """
+    # A single nb trial
     if p <= 0.0 or p >= 1.0 or r <= 0.0 or k < 0:
         return 0.0
 
@@ -31,9 +29,7 @@ def nbinom_logpmf_numba(k, r, p, parameter_terms_only=False):
 
 @njit(nogil=True, cache=True, inline="always", error_model="numpy")
 def _nb_logpmf_1d(obs, exposure, mu, alpha, out):
-    """
-    nb trials along the genome / obs axis for a single realization.
-    """
+    # nb trials along the genome / obs axis for a single realization.
     r = 1.0 / max(alpha, 1.0e-10)
 
     for i in range(len(obs)):
@@ -49,9 +45,7 @@ def _nb_logpmf_1d(obs, exposure, mu, alpha, out):
 
 @njit(nogil=True, cache=True, inline="always", parallel=True, error_model="numpy")
 def _dense_nb_logpmf(X_nb, base_nb_mean, log_mu, alphas):
-    """
-    nb trials for all states, spots and obs.
-    """
+    # nb trials for all states, spots and obs.
     n_states = log_mu.shape[0]
     n_obs, n_spots = X_nb.shape
 
@@ -137,7 +131,7 @@ def get_log_transmat(n_states, t):
 
 @njit(nogil=True, cache=True, parallel=False, error_model="numpy")
 def compute_logmu_shifts(log_mus, copy_states, normal_log_lambda, num_segments_clones):
-    # NB per-clone shift in log_mu due to (clone) library normalization, 
+    # NB per-clone shift in log_mu due to clone-library normalization, i.e. T_n biased by CNA.
     #    \sum_g \lambda_g \mu_g,
     #    used to debias inferred mus; 
     #    assumes clones concatenate along the genomic axis.

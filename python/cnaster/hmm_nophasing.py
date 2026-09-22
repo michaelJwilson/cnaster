@@ -6,7 +6,7 @@ import scipy.optimize
 import scipy.special
 from numba import njit, prange
 from scipy.optimize import OptimizeResult
-
+from typing import Any
 from cnaster.config import start_time
 from cnaster.count_encoder import CountEncoder
 from cnaster.logger import get_logger
@@ -198,6 +198,79 @@ class hmm_nophasing:
 
     def compute_emission_probability_nb_betabinom_coded(
         self,
+        nbEncoder: Any,
+        bbEncoder: Any,
+        log_mu: np.ndarray,
+        alphas: np.ndarray,
+        p_binom: np.ndarray,
+        taus: np.ndarray,
+        clone_stack: bool = True,
+        scratch_rdr: Any = None,
+        scratch_baf: Any = None,
+        normal_log_lambda: Any = None,
+        num_segments_clones: Any = None,
+        copy_states: Any = None,
+        clone_lengths: Any = None,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        del normal_log_lambda, num_segments_clones, copy_states, clone_lengths
+
+        if nbEncoder.n_spots != 1 or bbEncoder.n_spots != 1:
+            msg = (
+                f"expected one column, got {nbEncoder.n_spots} and "
+                f"{bbEncoder.n_spots}. `optimize_params` asserts "
+                '"Currently expects multiple clone to be concatenated along '
+                'the genomic axis"; this body relies on that rather than '
+                "looping, so it refuses where upstream would read the first "
+                "column and drop the rest (#259 stage 2)."
+            )
+            raise ValueError(msg)
+
+        n_states = log_mu.shape[0]
+
+        nb_endog = nbEncoder.get_unique_obs(0)
+        nb_exposure = nbEncoder.get_unique_total(0)
+
+        bb_endog = bbEncoder.get_unique_obs(0)
+        bb_exposure = bbEncoder.get_unique_total(0)
+
+        rdr_uniq = (
+            scratch_rdr[0] if scratch_rdr else np.zeros((n_states, len(nb_endog)))
+        )
+        baf_uniq = (
+            scratch_baf[0] if scratch_baf else np.zeros((n_states, len(bb_endog)))
+        )
+
+        for state in range(n_states):
+            _nb_logpmf_1d(
+                nb_endog,
+                nb_exposure,
+                exp(log_mu[state, 0]),
+                alphas[state, 0],
+                rdr_uniq[state, :],
+            )
+            _bb_logpmf_1d(
+                bb_endog,
+                bb_exposure,
+                p_binom[state, 0],
+                taus[state, 0],
+                baf_uniq[state, :],
+            )
+
+        # NB `decode_array` is a matmul, so each of these is already a fresh
+        #    array. Upstream copies it again through `np.concatenate` of a
+        #    one-element list; the values are the same either way.
+        log_emit_rdr = nbEncoder.decode_array(rdr_uniq, 0)
+        log_emit_baf = bbEncoder.decode_array(baf_uniq, 0)
+
+        if clone_stack:
+            return log_emit_rdr, log_emit_baf
+
+        # NB `np.stack([a], axis=2)`, written as what it is.
+        return log_emit_rdr[:, :, None], log_emit_baf[:, :, None]
+
+    """
+    def compute_emission_probability_nb_betabinom_coded(
+        self,
         nbEncoder,
         bbEncoder,
         log_mu,
@@ -271,7 +344,7 @@ class hmm_nophasing:
             log_emit_baf = np.stack(log_emit_baf_list, axis=2)
 
         return log_emit_rdr, log_emit_baf
-
+    """
     @staticmethod
     @njit
     def forward_lattice(

@@ -6,12 +6,20 @@ import scipy.optimize
 import scipy.special
 from numba import njit, prange
 from scipy.optimize import OptimizeResult
-from typing import Any
+from typing import Any, NamedTuple
 from cnaster.config import start_time
 from cnaster.count_encoder import CountEncoder
 from cnaster.logger import get_logger
 
 logger = get_logger(__name__, start_time=start_time)
+
+class CnaHmmParams(NamedTuple):
+    """The five arrays `unpack_params` returns, in its own order."""
+    log_startprob: np.ndarray
+    log_mu: np.ndarray
+    p_binom: np.ndarray
+    alphas: np.ndarray
+    taus: np.ndarray
 
 
 @njit(nogil=True, cache=True, inline="always", fastmath=False, error_model="numpy")
@@ -1157,9 +1165,10 @@ class hmm_nophasing:
             out: np.ndarray = (rdr + baf)[:, :, np.newaxis]
             return out
 
-        def unpack(params: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        def unpack(params: np.ndarray) -> CnaHmmParams:
             """The optimization vector, as named parameters."""
-            return self.unpack_params(
+            return CnaHmmParams(
+                *self.unpack_params(
                         params,
                         n_states,
                         log_startprob,
@@ -1173,7 +1182,8 @@ class hmm_nophasing:
                         fix_BB_dispersion=fix_BB_dispersion,
                         shared_BB_dispersion=shared_BB_dispersion,
                         use_logit=use_logit,
-                    )
+                )
+            )
 
         callback: Any
 

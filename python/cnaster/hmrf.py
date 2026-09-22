@@ -856,10 +856,6 @@ def reindex_clones(res_combine, posterior=None, single_tumor_prop=None):
 
     new_res_combine["new_assignment"] = palette[assignments]
 
-    for key in ["new_log_mu", "new_alphas", "new_p_binom", "new_taus"]:
-        if res_combine[key].shape[1] > 1:
-            new_res_combine[key] = res_combine[key][:, reidx]
-
     if is_concatenated:
         concat_idx = np.concatenate(
             [np.arange(c * n_obs, c * n_obs + n_obs) for c in reidx]

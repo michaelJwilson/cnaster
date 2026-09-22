@@ -594,7 +594,7 @@ def run_core_inference(
             max_iter=max_iter,
             tol=tol,
             normal_lambda=normal_lambda,
-            clone_lengths=num_segments_clones,
+            num_segments_clones=num_segments_clones,
             init_log_gamma=None,  # res.get("log_gamma", None)
         )
 
@@ -774,9 +774,8 @@ def run_core_inference(
         max_iter=max_iter,
         tol=tol,
         normal_lambda=normal_lambda,
-        clone_lengths=num_segments_clones,
+        num_segments_clones=num_segments_clones,
         init_log_gamma=None,  # res.get("log_gamma", None)
-        propagate_errors=propagate_hmm_param_errors,
     )
 
     # TODO llf should also technically be updated.

@@ -59,11 +59,10 @@ def pipeline_baum_welch(
     init_alphas=None,
     init_taus=None,
     is_diag=True,
-    propagate_errors=False,
     max_iter=100,
     tol=1e-4,
     normal_lambda=None,
-    clone_lengths=None,
+    num_segments_clones=None,
     init_log_gamma=None,
 ):
     logger.info(
@@ -119,9 +118,8 @@ def pipeline_baum_welch(
         init_taus=init_taus,
         max_iter=max_iter,
         tol=tol,
-        propagate_errors=propagate_errors,
         normal_lambda=normal_lambda,  # TODO FINAL
-        clone_lengths=clone_lengths,  # TODO FINAL
+        num_segments_clones=num_segments_clones,  # TODO FINAL
         log_gamma=None,  # TODO FINAL
     )
 
@@ -193,19 +191,6 @@ def pipeline_baum_welch(
         f"Solved HMM with LLF={llf:.6e} for new_log_mu.shape={new_log_mu.shape} given X.shape={X.shape}"
     )
 
-    param_errors = (
-        HMMParamErrors(
-            new_log_mu_err=res["new_log_mu_err"],
-            new_alphas_err=res["new_alphas_err"],
-            new_p_binom_err=res["new_p_binom_err"],
-            new_taus_err=res["new_taus_err"],
-            new_log_startprob_err=None,  # TODO
-            new_log_transmat_err=None,  # TODO
-        )
-        if propagate_errors
-        else None
-    )
-
     # NB pred (when clones concatenated along an axis) assumes a clone (order) definition.
     return CnaHMRFResult(
         params=HMMParams(
@@ -217,7 +202,7 @@ def pipeline_baum_welch(
             new_log_startprob=new_log_startprob,
             new_log_transmat=new_log_transmat,
         ),
-        param_errors=param_errors,
+        param_errors=None,
         profile=HMMProfile(
             log_gamma=log_gamma,
             pred_cnv=pred_cnv,

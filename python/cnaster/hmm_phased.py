@@ -111,7 +111,7 @@ class hmm_phased(hmm_nophasing):
         scratch_rdr=None,
         scratch_baf=None,
         normal_log_lambda=None, # TODO FINAL
-        clone_lengths=None, # TODO FINAL
+        num_segments_clones=None, # TODO FINAL
     ):
         n_states, n_spots = log_mu.shape
 

@@ -132,8 +132,7 @@ def get_log_transmat(n_states, t):
 @njit(nogil=True, cache=True, parallel=False, error_model="numpy")
 def compute_logmu_shifts(log_mus, copy_states, normal_log_lambda, num_segments_clones):
     # NB per-clone shift in log_mu due to clone-library normalization, i.e. T_n biased by CNA.
-    #    \sum_g \lambda_g \mu_g,
-    #    used to debias inferred mus; 
+    #    logmu_shift=-(log\sum_g \lambda_g \mu_g)
     #    assumes clones concatenate along the genomic axis.
     n_clones = len(num_segments_clones)
 
@@ -236,8 +235,8 @@ class hmm_nophasing:
             )
 
             for i in range(n_states):
-                if normal_log_lambda is not None:
-                    logmu_shifts = compute_logmu_shifts(log_mu, copy_states, normal_log_lambda, num_segments_clones)
+                # if normal_log_lambda is not None:
+                #     logmu_shifts = compute_logmu_shifts(log_mu, copy_states, normal_log_lambda, num_segments_clones)
 
                 # TODO fold in logmu_shifts; assumed concatenated (repeated) along the genomic axis.
                 _nb_logpmf_1d(

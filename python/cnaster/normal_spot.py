@@ -901,7 +901,8 @@ def filter_normal_diffexp(
     total_counts, retained_counts = 0, 0
 
     for b, genestr in enumerate(df_bininfo.INCLUDED_GENES.values):
-        bin_genes = set(genestr.split(" "))
+        # NB must match omics.py:261, binned_gene_snp definition of separator
+        bin_genes = set(genestr.split(","))
         involved_genes = bin_genes - filtered_out_set
 
         total_counts += np.sum(

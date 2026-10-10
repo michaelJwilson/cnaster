@@ -48,6 +48,9 @@ def get_he_image(spaceranger_dir, res="hires", pos=None, num_labels=4):
     #    "tissue_hires_scalef": 0.071874365,
     #    "regist_target_img_scalef": 0.071874365
     # }
+
+    logger.info(f"Reading h&e: {spaceranger_dir}/spatial/tissue_{res}_image.png")
+    
     sf_path = Path(f"{spaceranger_dir}/spatial/scalefactors_json.json")
     img_path = Path(f"{spaceranger_dir}/spatial/tissue_{res}_image.png")
 

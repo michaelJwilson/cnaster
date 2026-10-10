@@ -243,6 +243,19 @@ def get_spatial_positions(spaceranger_dir, filter_in_tissue=True):
             .with_columns(pl.col("cell_id").alias("barcode"))
         )
         """
+        lf = pl.scan_parquet(f"{spaceranger_dir}/spatial/tissue_positions.parquet")
+
+        total_rows = lf.select(pl.len()).collect().item()
+        
+        logger.info(f"Found {total_rows} total rows in tissue_positions.parquet before filtering.")
+
+        df_this_pos = (
+            lf
+            .rename({"pxl_row_in_fullres": "y", "pxl_col_in_fullres": "x"})
+            .filter(pl.col("in_tissue") == True)
+            .collect()
+        )
+        """
         # TODO invert y.
         df_this_pos = (
             pl.scan_parquet(f"{spaceranger_dir}/spatial/tissue_positions.parquet")
@@ -250,7 +263,7 @@ def get_spatial_positions(spaceranger_dir, filter_in_tissue=True):
             .filter(pl.col("in_tissue") == True)
             .collect()
         )
-
+        """
         logger.info(
             f"Read {spaceranger_dir}/spatial/tissue_positions.parquet:\n{df_this_pos}"
         )
@@ -511,10 +524,15 @@ def load_input_data(
     unique_snp_ids = np.load(f"{snp_dir}/unique_snp_ids.npy", allow_pickle=True)
     unique_snp_ids = map_unique_snps_enum(unique_snp_ids)
 
+
+    logger.info(f"Read unique_snp_ids: {snp_dir}/unique_snp_ids.npy")
+    
     # NB read (phased) counts for H0/H1 for (spots, snps).
     cell_snp_Aallele = sp.load_npz(f"{snp_dir}/cell_snp_Aallele.npz")
     cell_snp_Ballele = sp.load_npz(f"{snp_dir}/cell_snp_Ballele.npz")
 
+    logger.info(f"Read cell_snp_Aallele: {snp_dir}/cell_snp_Aallele.npz")
+    
     # TODO HACK JOHN
     # cell_snp_Aallele = cell_snp_Aallele.T
     # cell_snp_Ballele = cell_snp_Ballele.T

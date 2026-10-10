@@ -28,7 +28,7 @@ run:
   cache : False
   legacy : False
   bafonly : False
-  pause : True
+  pause : False
 
 references:
   geneticmap_file : /u/mw9568/research/data/references/genetic_map_GRCh38_merged.tab.gz
